@@ -89,11 +89,18 @@ jobs:
             echo "::error::Release snapshot parent $actual_upstream does not match upstream commit $EXPECTED_UPSTREAM_COMMIT"
             exit 1
           }
-          published=$(npm view "@deepseek-ai/dsh@$EXPECTED_VERSION" version)
-          test "$published" = "$EXPECTED_VERSION" || {
-            echo "::error::npm does not publish @deepseek-ai/dsh@$EXPECTED_VERSION"
+          upstream_subject=$(git show -s --format=%s "$EXPECTED_UPSTREAM_COMMIT")
+          test "$upstream_subject" = "release(dsh): $EXPECTED_VERSION" || {
+            echo "::error::Upstream commit subject $upstream_subject does not declare $EXPECTED_VERSION"
             exit 1
           }
+          # npm validation is temporarily disabled while GitHub release commits
+          # are the release authority.
+          # published=$(npm view "@deepseek-ai/dsh@$EXPECTED_VERSION" version)
+          # test "$published" = "$EXPECTED_VERSION" || {
+          #   echo "::error::npm does not publish @deepseek-ai/dsh@$EXPECTED_VERSION"
+          #   exit 1
+          # }
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
@@ -145,8 +152,6 @@ jobs:
           Desktop installers for DeepSeek Harness ${VERSION}.
 
           Upstream source: https://github.com/deepseek-ai/deepseek-harness/commit/${UPSTREAM_COMMIT}
-
-          npm release: https://www.npmjs.com/package/@deepseek-ai/dsh/v/${VERSION}
 
           These CI artifacts are unsigned. Verify the downloaded file with \`SHA256SUMS.txt\` before installation.
           EOF

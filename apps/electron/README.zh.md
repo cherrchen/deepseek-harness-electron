@@ -25,7 +25,7 @@ pnpm --filter @deepseek-ai/dsh-electron build
 
 包配置在 Windows 上生成 NSIS 安装程序，在 macOS 上生成 DMG 和 ZIP 产物，在 Linux 上生成 AppImage 和 DEB 产物。CI 构建未签名产物，因此仓库无需配置签名凭据；需要分发可信二进制文件的维护者可以提供 `electron-builder` 支持的平台签名环境。
 
-应用版本跟随 [`apps/cli/package.json`](../cli/package.json)。[`sync-upstream.yml`](../../.github/workflows/sync-upstream.yml) 在每次合并上游后更新版本。只有 npm 发布相同版本的 `@deepseek-ai/dsh` 后，`release(dsh): <version>` 提交才会成为桌面 release；工作流将 Electron 覆盖层应用到该上游提交，防止后续未发布改动进入安装包。[`desktop-release.yml`](../../.github/workflows/desktop-release.yml) 在发布构件前校验生成的 tag。
+应用版本跟随 [`apps/cli/package.json`](../cli/package.json)。[`sync-upstream.yml`](../../.github/workflows/sync-upstream.yml) 在每次合并上游后更新版本。提交主题严格匹配 `release(dsh): <version>` 且 CLI manifest 声明相同版本时，该提交会成为桌面 release；手动分派可以指定早于桌面基线的匹配历史版本。工作流将 Electron 覆盖层应用到该上游提交，防止后续未发布改动进入安装包。[`desktop-release.yml`](../../.github/workflows/desktop-release.yml) 在发布构件前校验生成的 tag。
 
 ## 运行时与安全
 

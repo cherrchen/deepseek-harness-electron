@@ -5,6 +5,11 @@ on:
     - cron: '17 2 * * *'
     - cron: '47 * * * *'
   workflow_dispatch:
+    inputs:
+      release_version:
+        description: Release commit version to publish, including history before the desktop baseline
+        required: false
+        type: string
 
 concurrency:
   group: sync-deepseek-ai-deepseek-harness
@@ -82,10 +87,11 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: gh workflow run desktop-ci.yml --ref main
 
-      - name: Prepare npm-backed desktop release snapshots
+      - name: Prepare GitHub-validated desktop release snapshots
         id: releases
         env:
           GH_TOKEN: ${{ github.token }}
+          REQUESTED_VERSION: ${{ inputs.release_version }}
         run: |
           first_desktop_commit=$(git log --reverse --format=%H -- apps/electron | head -n 1)
           if [ -z "$first_desktop_commit" ]; then
@@ -98,15 +104,27 @@ jobs:
             exit 1
           fi
 
-          npm_versions="$RUNNER_TEMP/dsh-npm-versions.json"
-          npm view @deepseek-ai/dsh versions --json > "$npm_versions"
-          jq -e 'type == "array"' "$npm_versions" >/dev/null
+          # npm release validation is temporarily disabled. The exact upstream
+          # commit subject and its CLI manifest are the release authority.
+          # npm_versions="$RUNNER_TEMP/dsh-npm-versions.json"
+          # npm view @deepseek-ai/dsh versions --json > "$npm_versions"
+          # jq -e 'type == "array"' "$npm_versions" >/dev/null
 
           release_commits="$RUNNER_TEMP/dsh-release-commits.tsv"
-          git log --reverse --format='%H%x09%s' "$release_baseline..upstream/master" > "$release_commits"
-          registry_version=$(npm view @deepseek-ai/dsh version)
-          if ! awk -F '\t' -v subject="release(dsh): $registry_version" '$2 == subject { found = 1 } END { exit !found }' "$release_commits"; then
-            echo "::notice::npm publishes @deepseek-ai/dsh@$registry_version, but upstream/master has no matching release commit after the desktop baseline."
+          if [ -n "$REQUESTED_VERSION" ]; then
+            if [[ ! "$REQUESTED_VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z]+([.-][0-9A-Za-z]+)*)?$ ]]; then
+              echo "::error::Requested release version $REQUESTED_VERSION is not valid semver."
+              exit 1
+            fi
+            git log --reverse --format='%H%x09%s' upstream/master \
+              | awk -F '\t' -v subject="release(dsh): $REQUESTED_VERSION" '$2 == subject' \
+              > "$release_commits"
+            if [ "$(wc -l < "$release_commits" | tr -d ' ')" != "1" ]; then
+              echo "::error::Expected exactly one upstream release(dsh): $REQUESTED_VERSION commit."
+              exit 1
+            fi
+          else
+            git log --reverse --format='%H%x09%s' "$release_baseline..upstream/master" > "$release_commits"
           fi
           overlay_patch="$RUNNER_TEMP/electron-overlay.patch"
           git diff --binary upstream/master HEAD -- . ':(exclude)pnpm-lock.yaml' > "$overlay_patch"
@@ -123,10 +141,11 @@ jobs:
               echo "::error::Release commit $upstream_commit declares $release_version but its CLI manifest declares $manifest_version."
               exit 1
             fi
-            if ! jq -e --arg version "$release_version" 'index($version) != null' "$npm_versions" >/dev/null; then
-              echo "::notice::Waiting for @deepseek-ai/dsh@$release_version to appear on npm."
-              continue
-            fi
+            # npm validation is temporarily disabled.
+            # if ! jq -e --arg version "$release_version" 'index($version) != null' "$npm_versions" >/dev/null; then
+            #   echo "::notice::Waiting for @deepseek-ai/dsh@$release_version to appear on npm."
+            #   continue
+            # fi
 
             desktop_tag="electron-dsh-v${release_version}"
             if ! git ls-remote --exit-code --tags origin "refs/tags/$desktop_tag" >/dev/null 2>&1; then

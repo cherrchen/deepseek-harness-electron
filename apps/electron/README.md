@@ -25,7 +25,7 @@ pnpm --filter @deepseek-ai/dsh-electron build
 
 The package configuration emits an NSIS installer on Windows, DMG and ZIP artifacts on macOS, and AppImage and DEB artifacts on Linux. CI builds unsigned artifacts because repository signing credentials are not required; operators who distribute trusted binaries can provide the platform signing environment supported by `electron-builder`.
 
-The application version mirrors [`apps/cli/package.json`](../cli/package.json). [`sync-upstream.yml`](../../.github/workflows/sync-upstream.yml) updates it after each upstream merge. A `release(dsh): <version>` commit becomes a desktop release only after npm publishes the same `@deepseek-ai/dsh` version; the workflow applies the Electron overlay to that exact upstream commit so later unreleased changes cannot enter the installers. [`desktop-release.yml`](../../.github/workflows/desktop-release.yml) validates the resulting tag before publishing artifacts.
+The application version mirrors [`apps/cli/package.json`](../cli/package.json). [`sync-upstream.yml`](../../.github/workflows/sync-upstream.yml) updates it after each upstream merge. An exact `release(dsh): <version>` commit whose CLI manifest declares the same version becomes a desktop release; a manual dispatch may name a matching historical version from before the desktop baseline. The workflow applies the Electron overlay to that exact upstream commit so later unreleased changes cannot enter the installers. [`desktop-release.yml`](../../.github/workflows/desktop-release.yml) validates the resulting tag before publishing artifacts.
 
 ## Runtime and security
 
