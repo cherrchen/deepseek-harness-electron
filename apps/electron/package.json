@@ -131,14 +131,22 @@
       "lib/**/*",
       "package.json"
     ],
+    "extraResources": [
+      {
+        "from": "build/LICENSE.lobe-icons",
+        "to": "LICENSE.lobe-icons"
+      }
+    ],
     "mac": {
       "category": "public.app-category.developer-tools",
+      "icon": "build/icon.png",
       "target": [
         "dmg",
         "zip"
       ]
     },
     "win": {
+      "icon": "build/icon.png",
       "target": [
         "nsis"
       ]
@@ -146,6 +154,7 @@
     "linux": {
       "category": "Development",
       "executableName": "deepseek-harness",
+      "icon": "build/icons",
       "maintainer": "cherrchen <cherrchen@users.noreply.github.com>",
       "target": [
         "AppImage",
