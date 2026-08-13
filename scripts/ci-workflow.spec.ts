@@ -208,6 +208,66 @@ describe('CI workflow', () => {
   })
 })
 
+describe('Desktop synchronization and release workflows', () => {
+  it('publishes only npm-backed release commits from exact upstream snapshots', () => {
+    const sync = loadWorkflow('.github/workflows/sync-upstream.yml')
+    const syncJob = workflowJob(sync, 'sync')
+    const release = loadWorkflow('.github/workflows/desktop-release.yml')
+    const dispatch = workflowEvent(release, 'workflow_dispatch')
+    if (!Array.isArray(syncJob.steps) || !isRecord(dispatch.inputs)) {
+      throw new TypeError('Desktop workflows must define sync steps and release inputs')
+    }
+
+    const steps = syncJob.steps.filter(isRecord)
+    const prepare = steps.find(step => step.name === 'Prepare npm-backed desktop release snapshots')
+    const publish = steps.find(step => step.name === 'Publish matching desktop releases')
+    if (typeof prepare?.run !== 'string' || typeof publish?.run !== 'string') {
+      throw new TypeError('Desktop sync must prepare and publish release snapshots')
+    }
+
+    expect(prepare.run).not.toContain('repos/deepseek-ai/deepseek-harness/releases')
+    expect(prepare.run).toContain('release\\(dsh\\):')
+    expect(prepare.run).toContain('npm view @deepseek-ai/dsh versions --json')
+    expect(prepare.run).toContain('${upstream_commit}:apps/cli/package.json')
+    expect(prepare.run).toContain("git diff --binary upstream/master HEAD -- . ':(exclude)pnpm-lock.yaml'")
+    expect(prepare.run).toContain('git worktree add --detach "$snapshot_dir" "$upstream_commit"')
+    expect(prepare.run).toContain('electron-dsh-v${release_version}')
+    expect(prepare.run).toContain('gh run list --workflow desktop-release.yml')
+    expect(publish.run).toContain('-f upstream_commit="$upstream_commit"')
+    expect(dispatch.inputs).toHaveProperty('upstream_commit')
+    expect(dispatch.inputs).not.toHaveProperty('upstream_tag')
+  })
+
+  it('links each desktop release to its upstream commit and npm version', () => {
+    const release = loadWorkflow('.github/workflows/desktop-release.yml')
+    const packageJob = workflowJob(release, 'package')
+    const publish = workflowJob(release, 'publish')
+    if (!Array.isArray(packageJob.steps) || !Array.isArray(publish.steps)) {
+      throw new TypeError('Desktop release package and publish jobs must define steps')
+    }
+    const checkout = packageJob.steps.filter(isRecord).find(step => step.uses === 'actions/checkout@v6')
+    const validate = packageJob.steps.filter(isRecord).find(step => step.name === 'Validate release version')
+    const notes = publish.steps.filter(isRecord).find(step => step.name === 'Write checksums and release notes')
+    const create = publish.steps.filter(isRecord).find(step => step.name === 'Create release and upload installers')
+    if (typeof validate?.run !== 'string' || typeof notes?.run !== 'string' || typeof create?.run !== 'string') {
+      throw new TypeError('Desktop release must validate source, write notes, and create a release')
+    }
+
+    expect(checkout).toMatchObject({ with: { 'fetch-depth': 2 } })
+    expect(validate).toMatchObject({
+      env: { EXPECTED_UPSTREAM_COMMIT: '${{ inputs.upstream_commit }}' },
+    })
+    expect(validate.run).toContain('actual_upstream=$(git rev-parse HEAD^)')
+    expect(validate.run).toContain('npm view "@deepseek-ai/dsh@$EXPECTED_VERSION" version')
+    expect(notes).toMatchObject({
+      env: { UPSTREAM_COMMIT: '${{ inputs.upstream_commit }}' },
+    })
+    expect(notes.run).toContain('deepseek-ai/deepseek-harness/commit/${UPSTREAM_COMMIT}')
+    expect(notes.run).toContain('npmjs.com/package/@deepseek-ai/dsh/v/${VERSION}')
+    expect(create.run).toContain('gh release view "$RELEASE_TAG"')
+  })
+})
+
 describe('E2B e2e workflow', () => {
   it('is manual-only and fails loud before running the focused live suite', () => {
     const workflow = loadWorkflow('.github/workflows/e2b-e2e.yml')

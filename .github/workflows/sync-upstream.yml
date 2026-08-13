@@ -82,35 +82,99 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: gh workflow run desktop-ci.yml --ref main
 
-      - name: Mirror matching upstream releases
+      - name: Prepare npm-backed desktop release snapshots
+        id: releases
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          current_version=$(node -p "require('./apps/electron/package.json').version")
-          gh api repos/deepseek-ai/deepseek-harness/releases --paginate \
-            --jq '.[] | select(.draft == false) | [.tag_name, .prerelease] | @tsv' \
-            > "$RUNNER_TEMP/upstream-releases.tsv"
-          while IFS=$'\t' read -r upstream_tag prerelease; do
-            [ -n "$upstream_tag" ] || continue
-            desktop_tag="electron-${upstream_tag}"
-            if git ls-remote --exit-code --tags origin "refs/tags/$desktop_tag" >/dev/null 2>&1; then
+          first_desktop_commit=$(git log --reverse --format=%H -- apps/electron | head -n 1)
+          if [ -z "$first_desktop_commit" ]; then
+            echo "::error::Cannot locate the first desktop overlay commit."
+            exit 1
+          fi
+          release_baseline=$(git rev-parse "${first_desktop_commit}^")
+          if ! git merge-base --is-ancestor "$release_baseline" upstream/master; then
+            echo "::error::Desktop release baseline is not an ancestor of upstream/master."
+            exit 1
+          fi
+
+          npm_versions="$RUNNER_TEMP/dsh-npm-versions.json"
+          npm view @deepseek-ai/dsh versions --json > "$npm_versions"
+          jq -e 'type == "array"' "$npm_versions" >/dev/null
+
+          release_commits="$RUNNER_TEMP/dsh-release-commits.tsv"
+          git log --reverse --format='%H%x09%s' "$release_baseline..upstream/master" > "$release_commits"
+          registry_version=$(npm view @deepseek-ai/dsh version)
+          if ! awk -F '\t' -v subject="release(dsh): $registry_version" '$2 == subject { found = 1 } END { exit !found }' "$release_commits"; then
+            echo "::notice::npm publishes @deepseek-ai/dsh@$registry_version, but upstream/master has no matching release commit after the desktop baseline."
+          fi
+          overlay_patch="$RUNNER_TEMP/electron-overlay.patch"
+          git diff --binary upstream/master HEAD -- . ':(exclude)pnpm-lock.yaml' > "$overlay_patch"
+          dispatches="$RUNNER_TEMP/desktop-release-dispatches.tsv"
+          : > "$dispatches"
+
+          while IFS=$'\t' read -r upstream_commit subject; do
+            if [[ ! "$subject" =~ ^release\(dsh\):\ ([0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z]+([.-][0-9A-Za-z]+)*)?)$ ]]; then
               continue
             fi
-            if ! git rev-parse --verify --quiet "refs/tags/${upstream_tag}^{commit}" >/dev/null; then
+            release_version="${BASH_REMATCH[1]}"
+            manifest_version=$(git show "${upstream_commit}:apps/cli/package.json" | jq -er '.version')
+            if [ "$manifest_version" != "$release_version" ]; then
+              echo "::error::Release commit $upstream_commit declares $release_version but its CLI manifest declares $manifest_version."
+              exit 1
+            fi
+            if ! jq -e --arg version "$release_version" 'index($version) != null' "$npm_versions" >/dev/null; then
+              echo "::notice::Waiting for @deepseek-ai/dsh@$release_version to appear on npm."
               continue
             fi
-            if ! git merge-base --is-ancestor "refs/tags/${upstream_tag}^{commit}" HEAD; then
+
+            desktop_tag="electron-dsh-v${release_version}"
+            if ! git ls-remote --exit-code --tags origin "refs/tags/$desktop_tag" >/dev/null 2>&1; then
+              snapshot_root=$(mktemp -d "$RUNNER_TEMP/dsh-electron-${release_version}.XXXXXX")
+              snapshot_dir="$snapshot_root/tree"
+              git worktree add --detach "$snapshot_dir" "$upstream_commit"
+              git -C "$snapshot_dir" apply --index --3way "$overlay_patch"
+              node "$snapshot_dir/apps/electron/scripts/sync-version.mjs"
+              pnpm --dir "$snapshot_dir" install --lockfile-only --no-frozen-lockfile --ignore-scripts
+              git -C "$snapshot_dir" add --all
+              git -C "$snapshot_dir" commit \
+                -m "release(electron): $release_version" \
+                -m "Upstream-Commit: $upstream_commit"
+              snapshot_commit=$(git -C "$snapshot_dir" rev-parse HEAD)
+              git tag -a "$desktop_tag" \
+                -m "Desktop release $release_version from upstream $upstream_commit" \
+                "$snapshot_commit"
+              git worktree remove "$snapshot_dir"
+              git push origin "refs/tags/$desktop_tag"
+            fi
+
+            if gh release view "$desktop_tag" >/dev/null 2>&1; then
               continue
             fi
-            release_version=$(git show "${upstream_tag}:apps/cli/package.json" | jq -er '.version')
-            if [ "$release_version" != "$current_version" ]; then
+            if gh run list --workflow desktop-release.yml --limit 100 \
+              --json displayTitle,status \
+              --jq ".[] | select(.displayTitle == \"Desktop release $desktop_tag\" and .status != \"completed\")" \
+              | grep -q .; then
+              echo "::notice::Desktop release $desktop_tag is already queued or running."
               continue
             fi
-            git tag -a "$desktop_tag" -m "Desktop release for upstream $upstream_tag" HEAD
-            git push origin "$desktop_tag"
+            prerelease=false
+            if [[ "$release_version" == *-* ]]; then prerelease=true; fi
+            printf '%s\t%s\t%s\t%s\n' \
+              "$desktop_tag" "$upstream_commit" "$release_version" "$prerelease" >> "$dispatches"
+          done < "$release_commits"
+
+          echo "dispatches=$dispatches" >> "$GITHUB_OUTPUT"
+
+      - name: Publish matching desktop releases
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          while IFS=$'\t' read -r desktop_tag upstream_commit release_version prerelease; do
+            [ -n "$desktop_tag" ] || continue
             gh workflow run desktop-release.yml --ref main \
               -f tag="$desktop_tag" \
-              -f upstream_tag="$upstream_tag" \
+              -f upstream_commit="$upstream_commit" \
               -f version="$release_version" \
               -f prerelease="$prerelease"
-          done < "$RUNNER_TEMP/upstream-releases.tsv"
+          done < "${{ steps.releases.outputs.dispatches }}"
