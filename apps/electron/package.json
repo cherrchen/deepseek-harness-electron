@@ -3,6 +3,7 @@
   "description": "Electron desktop shell for DeepSeek Harness",
   "version": "0.1.0-rc.5",
   "private": true,
+  "homepage": "https://github.com/cherrchen/deepseek-harness-electron",
   "type": "module",
   "main": "lib/main.js",
   "license": "MIT",
@@ -145,6 +146,7 @@
     "linux": {
       "category": "Development",
       "executableName": "deepseek-harness",
+      "maintainer": "cherrchen <cherrchen@users.noreply.github.com>",
       "target": [
         "AppImage",
         "deb"
