@@ -144,6 +144,7 @@
     },
     "linux": {
       "category": "Development",
+      "executableName": "deepseek-harness",
       "target": [
         "AppImage",
         "deb"
