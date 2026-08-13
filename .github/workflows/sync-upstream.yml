@@ -82,7 +82,7 @@ jobs:
           git push origin HEAD:main
           echo "changed=true" >> "$GITHUB_OUTPUT"
 
-      - name: Run cross-platform desktop CI
+      - name: Run desktop CI
         if: steps.push.outputs.changed == 'true'
         env:
           GH_TOKEN: ${{ github.token }}
