@@ -102,7 +102,7 @@ jobs:
       - name: Build installer
         run: pnpm --filter @deepseek-ai/dsh-electron exec electron-builder ${{ matrix.args }} --publish never
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: deepseek-harness-${{ matrix.artifact }}
           path: ${{ matrix.files }}
