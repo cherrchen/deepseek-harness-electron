@@ -209,6 +209,33 @@ describe('CI workflow', () => {
 })
 
 describe('Desktop synchronization and release workflows', () => {
+  it('keeps routine desktop CI lightweight and packages releases on native x64 and ARM64 runners', () => {
+    const ci = loadWorkflow('.github/workflows/desktop-ci.yml')
+    const release = loadWorkflow('.github/workflows/desktop-release.yml')
+    if (!isRecord(ci.jobs) || !isRecord(release.jobs)) {
+      throw new TypeError('Desktop workflows must define jobs')
+    }
+
+    expect(ci.jobs).not.toHaveProperty('package')
+    const ciSteps = Object.values(ci.jobs).flatMap(job => (
+      isRecord(job) && Array.isArray(job.steps) ? job.steps.filter(isRecord) : []
+    ))
+    expect(ciSteps.find(step => step.name === 'Build installer')).toBeUndefined()
+
+    const packageJob = workflowJob(release, 'package')
+    if (!isRecord(packageJob.strategy) || !isRecord(packageJob.strategy.matrix) || !Array.isArray(packageJob.strategy.matrix.include)) {
+      throw new TypeError('Desktop release package job must define an include matrix')
+    }
+    expect(packageJob.strategy.matrix.include).toEqual([
+      expect.objectContaining({ name: 'Windows x64', runner: 'windows-latest', args: '--win nsis --x64', artifact: 'windows-x64' }),
+      expect.objectContaining({ name: 'Windows ARM64', runner: 'windows-11-arm', args: '--win nsis --arm64', artifact: 'windows-arm64' }),
+      expect.objectContaining({ name: 'macOS x64', runner: 'macos-15-intel', args: '--mac dmg zip --x64', artifact: 'macos-x64' }),
+      expect.objectContaining({ name: 'macOS ARM64', runner: 'macos-15', args: '--mac dmg zip --arm64', artifact: 'macos-arm64' }),
+      expect.objectContaining({ name: 'Linux x64', runner: 'ubuntu-latest', args: '--linux AppImage deb --x64', artifact: 'linux-x64' }),
+      expect.objectContaining({ name: 'Linux ARM64', runner: 'ubuntu-24.04-arm', args: '--linux AppImage deb --arm64', artifact: 'linux-arm64' }),
+    ])
+  })
+
   it('publishes GitHub-validated release commits from exact upstream snapshots', () => {
     const sync = loadWorkflow('.github/workflows/sync-upstream.yml')
     expect(sync.env).toMatchObject({ GH_REPO: '${{ github.repository }}' })

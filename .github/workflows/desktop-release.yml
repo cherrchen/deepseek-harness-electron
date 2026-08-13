@@ -40,25 +40,44 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - name: Windows
+          - name: Windows x64
             runner: windows-latest
             args: --win nsis --x64
-            artifact: windows
-            files: dist/electron/*.exe
-          - name: macOS
-            runner: macos-14
+            artifact: windows-x64
+            files: dist/electron/*-x64.exe
+          - name: Windows ARM64
+            runner: windows-11-arm
+            args: --win nsis --arm64
+            artifact: windows-arm64
+            files: dist/electron/*-arm64.exe
+          - name: macOS x64
+            runner: macos-15-intel
             args: --mac dmg zip --x64
-            artifact: macos
+            artifact: macos-x64
             files: |
-              dist/electron/*.dmg
-              dist/electron/*.zip
-          - name: Linux
+              dist/electron/*-x64.dmg
+              dist/electron/*-x64.zip
+          - name: macOS ARM64
+            runner: macos-15
+            args: --mac dmg zip --arm64
+            artifact: macos-arm64
+            files: |
+              dist/electron/*-arm64.dmg
+              dist/electron/*-arm64.zip
+          - name: Linux x64
             runner: ubuntu-latest
             args: --linux AppImage deb --x64
-            artifact: linux
+            artifact: linux-x64
             files: |
-              dist/electron/*.AppImage
-              dist/electron/*.deb
+              dist/electron/*-x64.AppImage
+              dist/electron/*-x64.deb
+          - name: Linux ARM64
+            runner: ubuntu-24.04-arm
+            args: --linux AppImage deb --arm64
+            artifact: linux-arm64
+            files: |
+              dist/electron/*-arm64.AppImage
+              dist/electron/*-arm64.deb
     runs-on: ${{ matrix.runner }}
     steps:
       - uses: actions/checkout@v6
