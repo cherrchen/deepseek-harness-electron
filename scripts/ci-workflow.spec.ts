@@ -235,6 +235,7 @@ describe('Desktop synchronization and release workflows', () => {
     expect(prepare.run).toContain('git worktree add --detach "$snapshot_dir" "$upstream_commit"')
     expect(prepare.run).toContain('electron-dsh-v${release_version}')
     expect(prepare.run).toContain('gh run list --workflow desktop-release.yml')
+    expect(publish.run).toContain('gh workflow run desktop-release.yml --repo "$GITHUB_REPOSITORY"')
     expect(publish.run).toContain('-f upstream_commit="$upstream_commit"')
     expect(dispatch.inputs).toHaveProperty('upstream_commit')
     expect(dispatch.inputs).not.toHaveProperty('upstream_tag')

@@ -191,7 +191,7 @@ jobs:
         run: |
           while IFS=$'\t' read -r desktop_tag upstream_commit release_version prerelease; do
             [ -n "$desktop_tag" ] || continue
-            gh workflow run desktop-release.yml --ref main \
+            gh workflow run desktop-release.yml --repo "$GITHUB_REPOSITORY" --ref main \
               -f tag="$desktop_tag" \
               -f upstream_commit="$upstream_commit" \
               -f version="$release_version" \
