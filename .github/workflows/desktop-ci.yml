@@ -1,0 +1,110 @@
+name: Desktop CI
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/desktop-*.yml'
+      - 'apps/electron/**'
+      - 'apps/cli/**'
+      - 'apps/web/**'
+      - 'packages/**'
+      - 'vendor/**'
+      - 'package.json'
+      - 'pnpm-lock.yaml'
+      - 'pnpm-workspace.yaml'
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: desktop-ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+env:
+  DSH_TELEMETRY_DISABLED: '1'
+  CSC_IDENTITY_AUTO_DISCOVERY: 'false'
+
+jobs:
+  validate:
+    name: Test and compile
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 24
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Test Electron runtime
+        run: pnpm --filter @deepseek-ai/dsh-electron test
+
+      - name: Build upstream application
+        run: pnpm run build
+
+      - name: Compile Electron main process
+        run: pnpm --filter @deepseek-ai/dsh-electron build
+
+  package:
+    name: Package ${{ matrix.name }}
+    needs: validate
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: Windows
+            runner: windows-latest
+            args: --win nsis --x64
+            artifact: windows
+            files: dist/electron/*.exe
+          - name: macOS
+            runner: macos-14
+            args: --mac dmg zip --x64
+            artifact: macos
+            files: |
+              dist/electron/*.dmg
+              dist/electron/*.zip
+          - name: Linux
+            runner: ubuntu-latest
+            args: --linux AppImage deb --x64
+            artifact: linux
+            files: |
+              dist/electron/*.AppImage
+              dist/electron/*.deb
+    runs-on: ${{ matrix.runner }}
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 24
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build upstream application
+        run: pnpm run build
+
+      - name: Compile Electron main process
+        run: pnpm --filter @deepseek-ai/dsh-electron build
+
+      - name: Build installer
+        run: pnpm --filter @deepseek-ai/dsh-electron exec electron-builder ${{ matrix.args }} --publish never
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: deepseek-harness-${{ matrix.artifact }}
+          path: ${{ matrix.files }}
+          if-no-files-found: error
+          retention-days: 7

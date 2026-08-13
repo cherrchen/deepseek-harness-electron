@@ -1,0 +1,116 @@
+name: Sync upstream
+
+on:
+  schedule:
+    - cron: '17 2 * * *'
+    - cron: '47 * * * *'
+  workflow_dispatch:
+
+concurrency:
+  group: sync-deepseek-ai-deepseek-harness
+  cancel-in-progress: false
+
+permissions:
+  actions: write
+  contents: write
+
+env:
+  DSH_TELEMETRY_DISABLED: '1'
+
+jobs:
+  sync:
+    name: Merge, verify, and publish upstream changes
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 24
+          cache: pnpm
+
+      - name: Fetch upstream branch and tags
+        run: |
+          git remote add upstream https://github.com/deepseek-ai/deepseek-harness.git
+          git fetch upstream master --tags --prune
+
+      - name: Merge upstream without overwriting the desktop overlay
+        run: |
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          if ! git merge --no-edit upstream/master; then
+            git merge --abort
+            echo "::error::Upstream merge has conflicts. The desktop overlay was left unchanged."
+            exit 1
+          fi
+          node apps/electron/scripts/sync-version.mjs
+          pnpm install --lockfile-only --no-frozen-lockfile
+          if ! git diff --quiet -- apps/electron/package.json pnpm-lock.yaml; then
+            git add apps/electron/package.json pnpm-lock.yaml
+            git commit -m "chore: follow upstream version"
+          fi
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Verify synchronized desktop overlay
+        run: |
+          pnpm --filter @deepseek-ai/dsh-electron test
+          pnpm run build
+          pnpm --filter @deepseek-ai/dsh-electron build
+
+      - name: Push verified merge
+        id: push
+        env:
+          BEFORE: ${{ github.sha }}
+        run: |
+          after=$(git rev-parse HEAD)
+          if [ "$after" = "$BEFORE" ]; then
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          git push origin HEAD:main
+          echo "changed=true" >> "$GITHUB_OUTPUT"
+
+      - name: Run cross-platform desktop CI
+        if: steps.push.outputs.changed == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh workflow run desktop-ci.yml --ref main
+
+      - name: Mirror matching upstream releases
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          current_version=$(node -p "require('./apps/electron/package.json').version")
+          gh api repos/deepseek-ai/deepseek-harness/releases --paginate \
+            --jq '.[] | select(.draft == false) | [.tag_name, .prerelease] | @tsv' \
+            > "$RUNNER_TEMP/upstream-releases.tsv"
+          while IFS=$'\t' read -r upstream_tag prerelease; do
+            [ -n "$upstream_tag" ] || continue
+            desktop_tag="electron-${upstream_tag}"
+            if git ls-remote --exit-code --tags origin "refs/tags/$desktop_tag" >/dev/null 2>&1; then
+              continue
+            fi
+            if ! git rev-parse --verify --quiet "refs/tags/${upstream_tag}^{commit}" >/dev/null; then
+              continue
+            fi
+            if ! git merge-base --is-ancestor "refs/tags/${upstream_tag}^{commit}" HEAD; then
+              continue
+            fi
+            release_version=$(git show "${upstream_tag}:apps/cli/package.json" | jq -er '.version')
+            if [ "$release_version" != "$current_version" ]; then
+              continue
+            fi
+            git tag -a "$desktop_tag" -m "Desktop release for upstream $upstream_tag" HEAD
+            git push origin "$desktop_tag"
+            gh workflow run desktop-release.yml --ref main \
+              -f tag="$desktop_tag" \
+              -f upstream_tag="$upstream_tag" \
+              -f version="$release_version" \
+              -f prerelease="$prerelease"
+          done < "$RUNNER_TEMP/upstream-releases.tsv"

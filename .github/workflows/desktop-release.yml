@@ -1,0 +1,152 @@
+name: Desktop release
+
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Downstream tag created by the upstream sync workflow
+        required: true
+        type: string
+      upstream_tag:
+        description: Source DeepSeek Harness release tag
+        required: true
+        type: string
+      version:
+        description: Version copied from the upstream CLI package
+        required: true
+        type: string
+      prerelease:
+        description: Publish as a prerelease
+        required: true
+        default: false
+        type: boolean
+
+concurrency:
+  group: desktop-release-${{ inputs.tag }}
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+
+env:
+  DSH_TELEMETRY_DISABLED: '1'
+  CSC_IDENTITY_AUTO_DISCOVERY: 'false'
+
+jobs:
+  package:
+    name: Package ${{ matrix.name }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: Windows
+            runner: windows-latest
+            args: --win nsis --x64
+            artifact: windows
+            files: dist/electron/*.exe
+          - name: macOS
+            runner: macos-14
+            args: --mac dmg zip --x64
+            artifact: macos
+            files: |
+              dist/electron/*.dmg
+              dist/electron/*.zip
+          - name: Linux
+            runner: ubuntu-latest
+            args: --linux AppImage deb --x64
+            artifact: linux
+            files: |
+              dist/electron/*.AppImage
+              dist/electron/*.deb
+    runs-on: ${{ matrix.runner }}
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: ${{ inputs.tag }}
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 24
+          cache: pnpm
+
+      - name: Validate release version
+        shell: bash
+        env:
+          EXPECTED_VERSION: ${{ inputs.version }}
+        run: |
+          actual=$(node -p "require('./apps/electron/package.json').version")
+          test "$actual" = "$EXPECTED_VERSION" || {
+            echo "::error::Electron version $actual does not match upstream version $EXPECTED_VERSION"
+            exit 1
+          }
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Test Electron runtime
+        run: pnpm --filter @deepseek-ai/dsh-electron test
+
+      - name: Build upstream application
+        run: pnpm run build
+
+      - name: Compile Electron main process
+        run: pnpm --filter @deepseek-ai/dsh-electron build
+
+      - name: Build installer
+        run: pnpm --filter @deepseek-ai/dsh-electron exec electron-builder ${{ matrix.args }} --publish never
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: deepseek-harness-${{ matrix.artifact }}
+          path: ${{ matrix.files }}
+          if-no-files-found: error
+          retention-days: 7
+
+  publish:
+    name: Publish GitHub release
+    needs: package
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: ${{ inputs.tag }}
+
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: deepseek-harness-*
+          path: dist/release
+          merge-multiple: true
+
+      - name: Write checksums and release notes
+        env:
+          VERSION: ${{ inputs.version }}
+          UPSTREAM_TAG: ${{ inputs.upstream_tag }}
+          REPOSITORY: ${{ github.repository }}
+        run: |
+          cd dist/release
+          sha256sum * > SHA256SUMS.txt
+          cd ../..
+          cat > "$RUNNER_TEMP/release-notes.md" <<EOF
+          Desktop installers for DeepSeek Harness ${VERSION}.
+
+          Upstream release: https://github.com/deepseek-ai/deepseek-harness/releases/tag/${UPSTREAM_TAG}
+
+          These CI artifacts are unsigned. Verify the downloaded file with \`SHA256SUMS.txt\` before installation.
+          EOF
+
+      - name: Create release and upload installers
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ inputs.tag }}
+          VERSION: ${{ inputs.version }}
+          PRERELEASE: ${{ inputs.prerelease }}
+        run: |
+          prerelease_flag=()
+          if [ "$PRERELEASE" = "true" ]; then prerelease_flag+=(--prerelease); fi
+          gh release create "$RELEASE_TAG" dist/release/* \
+            --verify-tag \
+            --title "DeepSeek Harness Desktop ${VERSION}" \
+            --notes-file "$RUNNER_TEMP/release-notes.md" \
+            "${prerelease_flag[@]}"
