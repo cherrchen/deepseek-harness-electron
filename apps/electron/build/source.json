@@ -5,5 +5,7 @@
   "source": "https://raw.githubusercontent.com/lobehub/lobe-icons/refs/heads/master/packages/static-avatar/avatars/deepseek.webp",
   "sourceSha256": "feab4ae1c0d5e9cf4c2f30a69f3c8f048832817c6bd61b0ceb725c97ea60be39",
   "derivative": "Rounded-square desktop icon derived from the source avatar with OpenAI built-in image editing.",
-  "finalSha256": "4c95134561f3d24d7af0f18245d533d859c81aab6e7dc3b578d82ca8438dbeab"
+  "finalSha256": "4c95134561f3d24d7af0f18245d533d859c81aab6e7dc3b578d82ca8438dbeab",
+  "macOSIconSha256": "8089111a84b9488a518959bfd64b7573be9361cb1d6d9b04bd6cd839f814c6e5",
+  "macOSVisibleBounds": "880px within a 1024px canvas"
 }
