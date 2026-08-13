@@ -3,7 +3,7 @@ import { harnessArguments, parseHarnessReadyUrl, resolveDshBin } from '../src/ru
 
 describe('Electron Harness runtime', () => {
   it('resolves the dsh executable below the application root', () => {
-    expect(resolveDshBin('/app/root')).toBe(
+    expect(resolveDshBin('/app/root').replaceAll('\\', '/')).toBe(
       '/app/root/node_modules/@deepseek-ai/dsh/lib/bin.js',
     )
   })
