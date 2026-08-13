@@ -211,6 +211,7 @@ describe('CI workflow', () => {
 describe('Desktop synchronization and release workflows', () => {
   it('publishes GitHub-validated release commits from exact upstream snapshots', () => {
     const sync = loadWorkflow('.github/workflows/sync-upstream.yml')
+    expect(sync.env).toMatchObject({ GH_REPO: '${{ github.repository }}' })
     const syncJob = workflowJob(sync, 'sync')
     const release = loadWorkflow('.github/workflows/desktop-release.yml')
     const dispatch = workflowEvent(release, 'workflow_dispatch')

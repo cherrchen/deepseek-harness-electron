@@ -21,6 +21,7 @@ permissions:
 
 env:
   DSH_TELEMETRY_DISABLED: '1'
+  GH_REPO: ${{ github.repository }}
 
 jobs:
   sync:
