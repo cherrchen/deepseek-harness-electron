@@ -69,15 +69,15 @@ jobs:
             args: --linux AppImage deb --x64
             artifact: linux-x64
             files: |
-              dist/electron/*-x64.AppImage
-              dist/electron/*-x64.deb
+              dist/electron/*.AppImage
+              dist/electron/*.deb
           - name: Linux ARM64
             runner: ubuntu-24.04-arm
             args: --linux AppImage deb --arm64
             artifact: linux-arm64
             files: |
-              dist/electron/*-arm64.AppImage
-              dist/electron/*-arm64.deb
+              dist/electron/*.AppImage
+              dist/electron/*.deb
     runs-on: ${{ matrix.runner }}
     steps:
       - uses: actions/checkout@v6

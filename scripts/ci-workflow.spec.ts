@@ -231,8 +231,20 @@ describe('Desktop synchronization and release workflows', () => {
       expect.objectContaining({ name: 'Windows ARM64', runner: 'windows-11-arm', args: '--win nsis --arm64', artifact: 'windows-arm64' }),
       expect.objectContaining({ name: 'macOS x64', runner: 'macos-15-intel', args: '--mac dmg zip --x64', artifact: 'macos-x64' }),
       expect.objectContaining({ name: 'macOS ARM64', runner: 'macos-15', args: '--mac dmg zip --arm64', artifact: 'macos-arm64' }),
-      expect.objectContaining({ name: 'Linux x64', runner: 'ubuntu-latest', args: '--linux AppImage deb --x64', artifact: 'linux-x64' }),
-      expect.objectContaining({ name: 'Linux ARM64', runner: 'ubuntu-24.04-arm', args: '--linux AppImage deb --arm64', artifact: 'linux-arm64' }),
+      expect.objectContaining({
+        name: 'Linux x64',
+        runner: 'ubuntu-latest',
+        args: '--linux AppImage deb --x64',
+        artifact: 'linux-x64',
+        files: 'dist/electron/*.AppImage\ndist/electron/*.deb\n',
+      }),
+      expect.objectContaining({
+        name: 'Linux ARM64',
+        runner: 'ubuntu-24.04-arm',
+        args: '--linux AppImage deb --arm64',
+        artifact: 'linux-arm64',
+        files: 'dist/electron/*.AppImage\ndist/electron/*.deb\n',
+      }),
     ])
   })
 
