@@ -3,6 +3,7 @@
 import { readdir, readFile, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
+import { synchronizeDependencies } from './sync-version-dependencies.mjs'
 
 const electronManifestPath = fileURLToPath(new URL('../package.json', import.meta.url))
 const upstreamManifestPath = fileURLToPath(new URL('../../cli/package.json', import.meta.url))
@@ -58,10 +59,15 @@ function collectWorkspacePeers(manifests) {
 }
 
 const manifests = await discoverManifests(repositoryRoot)
-const dependencies = Object.fromEntries([
+const workspaceDependencies = [
   '@deepseek-ai/dsh',
   ...collectWorkspacePeers(manifests),
-].sort().map(name => [name, 'workspace:^']))
+].sort()
+const dependencies = synchronizeDependencies(
+  electronManifest.dependencies,
+  workspaceDependencies,
+  new Set(manifests.keys()),
+)
 const changed = electronManifest.version !== upstreamManifest.version
   || JSON.stringify(electronManifest.dependencies) !== JSON.stringify(dependencies)
 
