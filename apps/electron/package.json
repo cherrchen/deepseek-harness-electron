@@ -4,6 +4,10 @@
   "version": "0.1.0-rc.5",
   "private": true,
   "homepage": "https://github.com/cherrchen/deepseek-harness-electron",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/cherrchen/deepseek-harness-electron.git"
+  },
   "type": "module",
   "main": "lib/main.js",
   "license": "MIT",
@@ -11,7 +15,7 @@
     "build": "tsc -p tsconfig.json",
     "package": "electron-builder --publish never",
     "start": "pnpm run build && electron .",
-    "test": "vitest run --root ../.. apps/electron/tests/runtime.spec.ts"
+    "test": "vitest run --root ../.. apps/electron/tests"
   },
   "dependencies": {
     "@deepseek-ai/cordis": "workspace:^",
@@ -110,7 +114,8 @@
     "@deepseek-ai/dsh-user-questions": "workspace:^",
     "@deepseek-ai/dsh-web": "workspace:^",
     "@deepseek-ai/dsh-workflow": "workspace:^",
-    "@deepseek-ai/schemastery": "workspace:^"
+    "@deepseek-ai/schemastery": "workspace:^",
+    "electron-updater": "^6.8.9"
   },
   "devDependencies": {
     "@types/node": "^22.20.0",
@@ -129,8 +134,17 @@
     },
     "files": [
       "lib/**/*",
+      "build/icon.png",
+      "build/icon-mac.png",
       "package.json"
     ],
+    "publish": {
+      "provider": "github",
+      "owner": "cherrchen",
+      "repo": "deepseek-harness-electron",
+      "releaseType": "release"
+    },
+    "electronUpdaterCompatibility": ">=2.16",
     "extraResources": [
       {
         "from": "build/LICENSE.lobe-icons",
