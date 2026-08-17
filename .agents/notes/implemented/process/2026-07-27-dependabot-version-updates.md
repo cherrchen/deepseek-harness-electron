@@ -18,6 +18,8 @@ Repository settings enable dependency vulnerability alerts and Dependabot securi
 
 The pnpm entry keeps the unified workspace on its pinned pnpm 11 instead of introducing an automation-only downgrade. The current Dependabot updater installs the version requested by the root `packageManager` and reads the root lockfile format `9.0`; the provider-run update job remains the integration check.
 
+Downstream repositories may replace this repository-wide policy when upstream synchronization owns most dependency changes. The desktop repository uses the narrower [Electron-only Dependabot policy](2026-08-14-electron-only-dependabot.md).
+
 ## Alternatives considered
 
 - **Immediate version updates.** Rejected because they remove the requested release-age quarantine and make the project an early consumer of every upstream release.

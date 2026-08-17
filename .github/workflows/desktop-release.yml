@@ -1,0 +1,219 @@
+name: Desktop release
+run-name: Desktop release ${{ inputs.tag }}
+
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Downstream tag created by the upstream sync workflow
+        required: true
+        type: string
+      upstream_commit:
+        description: Source DeepSeek Harness release commit
+        required: true
+        type: string
+      version:
+        description: Version copied from the upstream CLI package
+        required: true
+        type: string
+      prerelease:
+        description: Publish as a prerelease
+        required: true
+        default: false
+        type: boolean
+
+concurrency:
+  group: desktop-release-${{ inputs.tag }}
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+
+env:
+  DSH_TELEMETRY_DISABLED: '1'
+  CSC_IDENTITY_AUTO_DISCOVERY: 'false'
+
+jobs:
+  package:
+    name: Package ${{ matrix.name }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: Windows x64
+            runner: windows-latest
+            args: --win nsis --x64
+            artifact: windows-x64
+            files: |
+              dist/electron/*-x64.exe
+              dist/electron/*-x64.exe.blockmap
+              dist/electron/latest.yml
+          - name: Windows ARM64
+            runner: windows-11-arm
+            args: --win nsis --arm64
+            artifact: windows-arm64
+            files: |
+              dist/electron/*-arm64.exe
+              dist/electron/*-arm64.exe.blockmap
+              dist/electron/latest.yml
+          - name: macOS x64
+            runner: macos-15-intel
+            args: --mac dmg zip --x64
+            artifact: macos-x64
+            files: |
+              dist/electron/*-x64.dmg
+              dist/electron/*-x64.zip
+              dist/electron/*-x64.zip.blockmap
+              dist/electron/latest-mac.yml
+          - name: macOS ARM64
+            runner: macos-15
+            args: --mac dmg zip --arm64
+            artifact: macos-arm64
+            files: |
+              dist/electron/*-arm64.dmg
+              dist/electron/*-arm64.zip
+              dist/electron/*-arm64.zip.blockmap
+              dist/electron/latest-mac.yml
+          - name: Linux x64
+            runner: ubuntu-latest
+            args: --linux AppImage deb --x64
+            artifact: linux-x64
+            files: |
+              dist/electron/*.AppImage
+              dist/electron/*.deb
+              dist/electron/latest-linux*.yml
+          - name: Linux ARM64
+            runner: ubuntu-24.04-arm
+            args: --linux AppImage deb --arm64
+            artifact: linux-arm64
+            files: |
+              dist/electron/*.AppImage
+              dist/electron/*.deb
+              dist/electron/latest-linux*.yml
+    runs-on: ${{ matrix.runner }}
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: ${{ inputs.tag }}
+          fetch-depth: 2
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 24
+          cache: pnpm
+
+      - name: Validate release version
+        shell: bash
+        env:
+          EXPECTED_VERSION: ${{ inputs.version }}
+          EXPECTED_UPSTREAM_COMMIT: ${{ inputs.upstream_commit }}
+        run: |
+          actual=$(node -p "require('./apps/electron/package.json').version")
+          test "$actual" = "$EXPECTED_VERSION" || {
+            echo "::error::Electron version $actual does not match upstream version $EXPECTED_VERSION"
+            exit 1
+          }
+          actual_upstream=$(git rev-parse HEAD^)
+          test "$actual_upstream" = "$EXPECTED_UPSTREAM_COMMIT" || {
+            echo "::error::Release snapshot parent $actual_upstream does not match upstream commit $EXPECTED_UPSTREAM_COMMIT"
+            exit 1
+          }
+          upstream_subject=$(git show -s --format=%s "$EXPECTED_UPSTREAM_COMMIT")
+          test "$upstream_subject" = "release(dsh): $EXPECTED_VERSION" || {
+            echo "::error::Upstream commit subject $upstream_subject does not declare $EXPECTED_VERSION"
+            exit 1
+          }
+          # npm validation is temporarily disabled while GitHub release commits
+          # are the release authority.
+          # published=$(npm view "@deepseek-ai/dsh@$EXPECTED_VERSION" version)
+          # test "$published" = "$EXPECTED_VERSION" || {
+          #   echo "::error::npm does not publish @deepseek-ai/dsh@$EXPECTED_VERSION"
+          #   exit 1
+          # }
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Test Electron runtime
+        run: pnpm --filter @deepseek-ai/dsh-electron test
+
+      - name: Build upstream application
+        run: pnpm run build
+
+      - name: Compile Electron main process
+        run: pnpm --filter @deepseek-ai/dsh-electron build
+
+      - name: Build installer
+        run: pnpm --filter @deepseek-ai/dsh-electron exec electron-builder ${{ matrix.args }} --publish never
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: deepseek-harness-${{ matrix.artifact }}
+          path: ${{ matrix.files }}
+          if-no-files-found: error
+          retention-days: 7
+
+  publish:
+    name: Publish GitHub release
+    needs: package
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: ${{ inputs.tag }}
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 24
+          cache: pnpm
+
+      - name: Install release metadata dependencies
+        run: pnpm install --frozen-lockfile --ignore-scripts
+
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: deepseek-harness-*
+          path: dist/release-artifacts
+
+      - name: Merge update metadata
+        run: node apps/electron/scripts/merge-update-metadata.mjs dist/release-artifacts dist/release
+
+      - name: Write checksums and release notes
+        env:
+          VERSION: ${{ inputs.version }}
+          UPSTREAM_COMMIT: ${{ inputs.upstream_commit }}
+          REPOSITORY: ${{ github.repository }}
+        run: |
+          cd dist/release
+          sha256sum * > SHA256SUMS.txt
+          cd ../..
+          cat > "$RUNNER_TEMP/release-notes.md" <<EOF
+          Desktop installers for DeepSeek Harness ${VERSION}.
+
+          Upstream source: https://github.com/deepseek-ai/deepseek-harness/commit/${UPSTREAM_COMMIT}
+
+          These CI artifacts are unsigned. Verify the downloaded file with \`SHA256SUMS.txt\` before installation.
+          EOF
+
+      - name: Create release and upload installers
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ inputs.tag }}
+          VERSION: ${{ inputs.version }}
+          PRERELEASE: ${{ inputs.prerelease }}
+        run: |
+          if gh release view "$RELEASE_TAG" >/dev/null 2>&1; then
+            echo "Release $RELEASE_TAG already exists."
+            exit 0
+          fi
+          prerelease_flag=()
+          if [ "$PRERELEASE" = "true" ]; then prerelease_flag+=(--prerelease); fi
+          gh release create "$RELEASE_TAG" dist/release/* \
+            --verify-tag \
+            --title "DeepSeek Harness Desktop ${VERSION}" \
+            --notes-file "$RUNNER_TEMP/release-notes.md" \
+            "${prerelease_flag[@]}"
