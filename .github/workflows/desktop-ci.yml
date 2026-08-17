@@ -1,0 +1,91 @@
+name: Desktop CI
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/desktop-*.yml'
+      - 'apps/electron/**'
+      - 'apps/cli/**'
+      - 'apps/web/**'
+      - 'packages/**'
+      - 'vendor/**'
+      - 'package.json'
+      - 'pnpm-lock.yaml'
+      - 'pnpm-workspace.yaml'
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: desktop-ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+env:
+  DSH_TELEMETRY_DISABLED: '1'
+  CSC_IDENTITY_AUTO_DISCOVERY: 'false'
+
+jobs:
+  dependabot:
+    name: Electron dependency check
+    if: github.event_name == 'pull_request' && github.event.pull_request.user.login == 'dependabot[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Verify Electron-only changes
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+        run: |
+          git diff --name-only "$BASE_SHA"...HEAD | while IFS= read -r path; do
+            case "$path" in
+              apps/electron/package.json|pnpm-lock.yaml) ;;
+              *) echo "::error file=$path::Dependabot may only update the Electron manifest and lockfile."; exit 1 ;;
+            esac
+          done
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 24
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Test Electron runtime
+        run: pnpm --filter @deepseek-ai/dsh-electron test
+
+      - name: Compile Electron main process
+        run: pnpm --filter @deepseek-ai/dsh-electron build
+
+  validate:
+    name: Test and compile
+    if: github.event_name != 'pull_request' || github.event.pull_request.user.login != 'dependabot[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 24
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Test Electron runtime
+        run: pnpm --filter @deepseek-ai/dsh-electron test
+
+      - name: Build upstream application
+        run: pnpm run build
+
+      - name: Compile Electron main process
+        run: pnpm --filter @deepseek-ai/dsh-electron build

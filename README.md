@@ -1,57 +1,58 @@
-# DeepSeek Harness
+# DeepSeek Harness Desktop
 
 English | [中文](README.zh.md)
 
-DeepSeek Harness (`dsh`) is an open-source agent harness developed by [DeepSeek AI](https://deepseek.com).
+DeepSeek Harness Desktop packages [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness) as a native desktop application for macOS, Windows, and Linux. It keeps the upstream Web application, agent runtime, profiles, and workspace workflow while providing an operating-system window and desktop installers.
 
-It uses an architecture where **everything is a plugin**, and is powered by [Cordis](https://github.com/cordiverse/cordis), whose design is described in [_A Programming Paradigm for Spatiotemporal Composability_](https://github.com/cordiverse/paper).
+## Status
 
-## Developer preview
+This project and its upstream runtime are in developer preview. Releases may introduce compatibility-breaking changes.
 
-DeepSeek Harness is currently in _developer preview_ and is iterating rapidly. **THERE WILL BE COMPATIBILITY-BREAKING CHANGES.**
+## Install
 
-## Run
+Download the installer for your platform from the [latest release](https://github.com/cherrchen/deepseek-harness-electron/releases/latest):
 
-### Run from `npm`
+- macOS: DMG or ZIP for Apple Silicon and Intel Macs
+- Windows: NSIS installer for x64 and ARM64
+- Linux: AppImage or DEB package for x64 and ARM64
 
-Install `Node.js`, then run:
+Open the installed application and complete the provider setup in the Harness UI before starting an agent session.
 
-```sh
-npx @deepseek-ai/dsh web
-```
+<a id="run"></a>
 
-The command starts the Web UI, served at `http://127.0.0.1:3080` by default. See [Web UI guide](docs/user/guide/index.md).
+## Run from source
 
-### Run from source
-
-To run from a repository checkout:
+Install a supported Node.js version (`^22.19.0` or `>=24`) and pnpm, then build the Harness runtime and start Electron:
 
 ```sh
-git clone https://github.com/deepseek-ai/deepseek-harness.git
-cd deepseek-harness
+git clone https://github.com/cherrchen/deepseek-harness-electron.git
+cd deepseek-harness-electron
 pnpm install
 pnpm run build
-pnpm dsh web
+pnpm --filter @deepseek-ai/dsh-electron start
 ```
 
-## Community and support
+## Runtime and data
 
-- Feel free to submit feedback or bug reports through [GitHub Discussions](https://github.com/deepseek-ai/deepseek-harness/discussions).
-- Add the [`dsh-plugin`](https://github.com/topics/dsh-plugin) topic to your plugin repository for discoverability.
-- Join <a href="https://discord.gg/Ycq5dCaS4">DeepSeek Harness Discord community</a>.
+Electron starts DeepSeek Harness on a random `127.0.0.1` port and opens its ready URL in a sandboxed window. The renderer has no Node.js integration, uses context isolation and Chromium sandboxing, and opens requested HTTP and HTTPS links in the system browser.
 
-## Contributing
-
-See [CONTRIBUTING.md](CONTRIBUTING.md).
+Harness profiles and state live in the platform-specific application-data directory. Agent shell commands start in the current user's home directory; select another workspace from the Harness UI when needed.
 
 ## Development
 
-Start with the [development guide](docs/development.md) and [architecture documentation](docs/architecture.md).
+Run the desktop application's focused checks with:
 
-For agents, follow [AGENTS.md](AGENTS.md).
+```sh
+pnpm --filter @deepseek-ai/dsh-electron test
+pnpm --filter @deepseek-ai/dsh-electron build
+```
+
+See the [desktop application guide](apps/electron/README.md), [development guide](docs/development.md), and [architecture documentation](docs/architecture.md) for repository details.
+
+## Contributing
+
+See [CONTRIBUTING.md](CONTRIBUTING.md). This fork follows upstream DeepSeek Harness development while maintaining its desktop packaging.
 
 ## License
 
-[MIT](LICENSE)
-
-Third-party dependencies and their licenses are disclosed in [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
+[MIT](LICENSE). Third-party dependency notices are in [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
