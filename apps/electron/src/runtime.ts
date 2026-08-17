@@ -4,6 +4,15 @@ import { join } from 'node:path'
 export const HARNESS_START_TIMEOUT_MS = 60_000
 
 /**
+ * Resolve the shared Harness home below the operating-system user home.
+ * @param userHome - Home directory reported by Electron.
+ * @returns Cross-platform path used as `DSH_HOME` by the supervised CLI.
+ */
+export function resolveHarnessHome(userHome: string): string {
+  return join(userHome, '.dsh')
+}
+
+/**
  * Resolve the packaged dsh executable module below Electron's application root.
  * @param appPath - Electron application root, including an app.asar path in production.
  * @returns Absolute path accepted by Electron's Node-compatible child mode.

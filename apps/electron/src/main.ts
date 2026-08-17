@@ -4,7 +4,6 @@
  */
 
 import { spawn, type ChildProcessByStdio } from 'node:child_process'
-import { join } from 'node:path'
 import type { Readable } from 'node:stream'
 import {
   app,
@@ -12,6 +11,7 @@ import {
   dialog,
   Menu,
   nativeImage,
+  nativeTheme,
   session,
   shell,
   Tray,
@@ -20,19 +20,21 @@ import {
 import { showAboutWindow } from './about.ts'
 import {
   allowsClipboardWrite,
-  allowsPrereleaseUpdates,
-  APPLICATION_NAME,
   contextMenuTemplate,
   DESKTOP_CHROME_CSS,
   desktopChromeScript,
   desktopWindowChrome,
 } from './desktop.ts'
+import { readDesktopManifest, resolveUpdateRepository } from './manifest.ts'
+import { loadUpdateChannel, saveUpdateChannel, type UpdateChannel } from './preferences.ts'
 import {
   HARNESS_START_TIMEOUT_MS,
   harnessArguments,
   parseHarnessReadyUrl,
   resolveDshBin,
+  resolveHarnessHome,
 } from './runtime.ts'
+import { trayIconPath, trayIconSize } from './tray.ts'
 import { createUpdater, type UpdaterController } from './updater.ts'
 
 type HarnessProcess = ChildProcessByStdio<null, Readable, Readable>
@@ -51,7 +53,7 @@ async function startHarness(): Promise<{ child: HarnessProcess; url: string }> {
     cwd: app.getPath('home'),
     env: {
       ...process.env,
-      DSH_HOME: join(app.getPath('userData'), 'dsh-home'),
+      DSH_HOME: resolveHarnessHome(app.getPath('home')),
       ELECTRON_RUN_AS_NODE: '1',
     },
     stdio: ['ignore', 'pipe', 'pipe'],
@@ -141,7 +143,7 @@ async function createWindow(url: string): Promise<BrowserWindow> {
 
   await window.loadURL(url)
   await window.webContents.insertCSS(DESKTOP_CHROME_CSS)
-  await window.webContents.executeJavaScript(desktopChromeScript(APPLICATION_NAME), true)
+  await window.webContents.executeJavaScript(desktopChromeScript(app.name), true)
   window.show()
   return window
 }
@@ -185,16 +187,16 @@ async function prepareToInstall(): Promise<void> {
 
 function installDesktopMenus(): void {
   const checkForUpdates = (): void => { void updater?.check(true) }
-  const installOrCheck: MenuItemConstructorOptions = updater?.updateDownloaded === true
-    ? { label: 'Restart to Install Update', click: () => { void updater?.installDownloaded() } }
-    : { label: 'Check for Updates…', click: checkForUpdates }
+  const installOrCheck = updateMenuItem(checkForUpdates)
+  const updateChannel = updateChannelMenu()
   const showAbout = (): void => { void showAboutWindow(mainWindow) }
   const appMenu: MenuItemConstructorOptions[] = process.platform === 'darwin'
     ? [{
-      label: APPLICATION_NAME,
+      label: app.name,
       submenu: [
-        { label: `About ${APPLICATION_NAME}`, click: showAbout },
+        { label: `About ${app.name}`, click: showAbout },
         installOrCheck,
+        updateChannel,
         { type: 'separator' },
         { role: 'services' },
         { type: 'separator' },
@@ -202,15 +204,16 @@ function installDesktopMenus(): void {
         { role: 'hideOthers' },
         { role: 'unhide' },
         { type: 'separator' },
-        { label: `Quit ${APPLICATION_NAME}`, accelerator: 'CommandOrControl+Q', click: requestQuit },
+        { label: `Quit ${app.name}`, accelerator: 'CommandOrControl+Q', click: requestQuit },
       ],
     }]
     : [{
       label: 'File',
       submenu: [
-        { label: 'Show DeepSeek Harness', click: showMainWindow },
+        { label: `Show ${app.name}`, click: showMainWindow },
         installOrCheck,
-        { label: `About ${APPLICATION_NAME}`, click: showAbout },
+        updateChannel,
+        { label: `About ${app.name}`, click: showAbout },
         { type: 'separator' },
         { label: 'Quit', accelerator: 'CommandOrControl+Q', click: requestQuit },
       ],
@@ -222,22 +225,66 @@ function installDesktopMenus(): void {
   ]))
 
   if (tray === undefined) {
-    const iconFile = process.platform === 'darwin' ? 'icon-mac.png' : 'icon.png'
-    const source = nativeImage.createFromPath(join(app.getAppPath(), 'build', iconFile))
-    const size = process.platform === 'darwin' ? 18 : 24
-    const icon = source.resize({ width: size, height: size })
-    if (process.platform === 'darwin') icon.setTemplateImage(true)
-    tray = new Tray(icon)
-    tray.setToolTip(APPLICATION_NAME)
+    tray = new Tray(createTrayIcon())
+    tray.setToolTip(app.name)
     tray.on('click', showMainWindow)
+    nativeTheme.on('updated', refreshTrayIcon)
   }
   tray.setContextMenu(Menu.buildFromTemplate([
-    { label: 'Show DeepSeek Harness', click: showMainWindow },
+    { label: `Show ${app.name}`, click: showMainWindow },
     installOrCheck,
-    { label: `About ${APPLICATION_NAME}`, click: showAbout },
+    updateChannel,
+    { label: `About ${app.name}`, click: showAbout },
     { type: 'separator' },
     { label: 'Quit', click: requestQuit },
   ]))
+}
+
+function updateMenuItem(checkForUpdates: () => void): MenuItemConstructorOptions {
+  if (updater?.state === 'checking') return { label: 'Checking for Updates…', enabled: false }
+  if (updater?.state === 'downloading') {
+    return {
+      label: updater.progress === undefined
+        ? 'Downloading Update…'
+        : `Downloading Update… ${String(updater.progress)}%`,
+      enabled: false,
+    }
+  }
+  if (updater?.state === 'downloaded') {
+    return { label: 'Restart to Install Update', click: () => { void updater?.installDownloaded() } }
+  }
+  return { label: 'Check for Updates…', click: checkForUpdates }
+}
+
+function updateChannelMenu(): MenuItemConstructorOptions {
+  const enabled = updater?.state !== 'checking'
+    && updater?.state !== 'downloading'
+    && updater?.state !== 'downloaded'
+  const select = (channel: UpdateChannel): void => {
+    updater?.setChannel(channel)
+    void updater?.check(true)
+  }
+  return {
+    label: 'Update Channel',
+    submenu: [
+      { label: 'Pre-Release', type: 'radio', checked: updater?.channel === 'prerelease', enabled, click: () => { select('prerelease') } },
+      { label: 'Stable / Release', type: 'radio', checked: updater?.channel === 'stable', enabled, click: () => { select('stable') } },
+    ],
+  }
+}
+
+function createTrayIcon(): Electron.NativeImage {
+  const source = nativeImage.createFromPath(trayIconPath(app.getAppPath(), process.platform, nativeTheme.shouldUseDarkColors))
+  if (source.isEmpty()) throw new Error('The packaged tray icon could not be loaded.')
+  const size = trayIconSize(process.platform)
+  const icon = source.resize({ width: size, height: size })
+  if (process.platform === 'darwin') icon.setTemplateImage(true)
+  return icon
+}
+
+function refreshTrayIcon(): void {
+  if (tray === undefined || tray.isDestroyed()) return
+  tray.setImage(createTrayIcon())
 }
 
 function safeOrigin(value: string): string {
@@ -271,23 +318,33 @@ if (!primaryInstance) {
     harness.once('exit', (code, signal) => {
       if (quitting) return
       dialog.showErrorBox(
-        'DeepSeek Harness stopped',
+        `${app.name} stopped`,
         `The local Harness process exited (code ${String(code)}, signal ${String(signal)}).`,
       )
       requestQuit()
     })
     await createWindow(started.url)
+    const repository = resolveUpdateRepository(readDesktopManifest(app.getAppPath()))
+    if (repository === undefined) throw new Error('The packaged GitHub update repository is missing.')
     updater = createUpdater({
-      allowPrerelease: allowsPrereleaseUpdates(process.argv),
+      channel: loadUpdateChannel(app.getPath('userData')),
       getWindow: () => mainWindow,
+      onChannelChanged: (channel) => {
+        try {
+          saveUpdateChannel(app.getPath('userData'), channel)
+        } catch (error: unknown) {
+          console.error('Unable to save desktop preferences', error)
+        }
+      },
       onStateChanged: installDesktopMenus,
       prepareToInstall,
+      repository,
     })
     installDesktopMenus()
     void updater.check(false)
   }).catch((error: unknown) => {
     const message = error instanceof Error ? error.message : String(error)
-    dialog.showErrorBox('DeepSeek Harness failed to start', message)
+    dialog.showErrorBox(`${app.name} failed to start`, message)
     requestQuit()
   })
 }

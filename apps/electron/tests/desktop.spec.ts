@@ -1,14 +1,13 @@
 import { describe, expect, it } from 'vitest'
 import {
-  ALLOW_PRERELEASE_ARGUMENT,
   allowsClipboardWrite,
-  allowsPrereleaseUpdates,
   contextMenuTemplate,
   desktopChromeScript,
   desktopWindowChrome,
   resolveProjectUrl,
   TITLE_BAR_HEIGHT,
 } from '../src/desktop.ts'
+import { resolveUpdateRepository } from '../src/manifest.ts'
 
 const editFlags = {
   canUndo: false,
@@ -67,9 +66,18 @@ describe('Electron desktop integration', () => {
     expect(resolveProjectUrl({ repository: 'file:///tmp/project' })).toBeUndefined()
   })
 
-  it('admits pre-release updates only through the documented process argument', () => {
-    expect(allowsPrereleaseUpdates(['electron', '.', ALLOW_PRERELEASE_ARGUMENT])).toBe(true)
-    expect(allowsPrereleaseUpdates(['electron', '.'])).toBe(false)
+  it('reads the updater repository from electron-builder metadata', () => {
+    expect(resolveUpdateRepository({
+      build: { publish: { provider: 'github', owner: 'deepseek-ai', repo: 'harness' } },
+    })).toEqual({ owner: 'deepseek-ai', repo: 'harness' })
+    expect(resolveUpdateRepository({ build: { publish: { provider: 'generic' } } })).toBeUndefined()
+  })
+
+  it('reads the updater repository from metadata preserved in packaged applications', () => {
+    expect(resolveUpdateRepository({
+      repository: { url: 'https://github.com/cherrchen/deepseek-harness-electron.git' },
+    })).toEqual({ owner: 'cherrchen', repo: 'deepseek-harness-electron' })
+    expect(resolveUpdateRepository({ repository: 'https://example.com/owner/repo' })).toBeUndefined()
   })
 
   it('escapes the application name in the titlebar injection script', () => {
