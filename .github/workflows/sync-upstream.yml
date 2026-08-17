@@ -49,10 +49,31 @@ jobs:
           git config user.email 41898282+github-actions[bot]@users.noreply.github.com
           git config merge.ours.driver true
           if ! git merge --no-edit upstream/master; then
-            git merge --abort
-            echo "::error::Upstream merge has conflicts. The desktop overlay was left unchanged."
-            exit 1
+            mapfile -t conflicts < <(git diff --name-only --diff-filter=U)
+
+            echo "Conflict files:"
+            printf ' %s\n' "${conflicts[@]}"
+
+            if [ "${#conflicts[@]}" -eq 1 ] && [ "${conflicts[0]}" = "pnpm-lock.yaml" ]; then
+              echo "::notice::Only pnpm-lock.yaml conflicted; resolving automatically."
+
+              # pnpm-lock.yaml is a generated dependency lockfile.
+              # Temporarily take the upstream version to resolve the Git
+              # conflict. It will be regenerated from the complete merged
+              # workspace below.
+              git checkout --theirs -- pnpm-lock.yaml
+              git add pnpm-lock.yaml
+
+              # Complete the upstream merge.
+              git commit --no-edit
+            else
+              # Real source conflicts should never be resolved automatically.
+              git merge --abort || true
+              echo "::error::Upstream merge has non-lockfile conflicts. Manual resolution is required."
+              exit 1
+            fi
           fi
+
           node apps/electron/scripts/sync-version.mjs
           pnpm install --lockfile-only --no-frozen-lockfile
           if ! git diff --quiet -- apps/electron/package.json pnpm-lock.yaml; then
