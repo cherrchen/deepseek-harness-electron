@@ -1,5 +1,6 @@
 {
   "name": "@deepseek-ai/dsh-electron",
+  "productName": "DeepSeek Harness",
   "description": "Electron desktop shell for DeepSeek Harness",
   "version": "0.1.0-rc.5",
   "private": true,
@@ -126,7 +127,6 @@
   },
   "build": {
     "appId": "ai.deepseek.harness.desktop",
-    "productName": "DeepSeek Harness",
     "asar": false,
     "artifactName": "DeepSeek-Harness-${version}-${os}-${arch}.${ext}",
     "directories": {
@@ -136,6 +136,7 @@
       "lib/**/*",
       "build/icon.png",
       "build/icon-mac.png",
+      "build/tray/*.png",
       "package.json"
     ],
     "publish": {

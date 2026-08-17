@@ -3,21 +3,10 @@ import type {
   ContextMenuParams,
   MenuItemConstructorOptions,
 } from 'electron'
+import type { DesktopManifest } from './manifest.ts'
 
 /** Height reserved above the upstream Web UI for draggable desktop chrome. */
 export const TITLE_BAR_HEIGHT = 40
-
-/** Product name displayed by desktop-owned chrome and windows. */
-export const APPLICATION_NAME = 'DeepSeek Harness'
-
-/** Command-line switch that admits GitHub pre-release versions during update checks. */
-export const ALLOW_PRERELEASE_ARGUMENT = '--allow-prerelease-updates'
-
-/** Minimal package metadata consumed by the desktop about window. */
-export interface DesktopManifest {
-  homepage?: unknown
-  repository?: unknown
-}
 
 /** Window options shared by the main and about windows. */
 export function desktopWindowChrome(platform: NodeJS.Platform): Pick<BrowserWindowConstructorOptions,
@@ -50,11 +39,6 @@ export function allowsClipboardWrite(
   } catch {
     return false
   }
-}
-
-/** Whether the current process admits GitHub pre-release updates. */
-export function allowsPrereleaseUpdates(argv: readonly string[]): boolean {
-  return argv.includes(ALLOW_PRERELEASE_ARGUMENT)
 }
 
 /** Resolve the public project page, preferring package repository metadata. */

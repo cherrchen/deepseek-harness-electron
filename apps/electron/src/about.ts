@@ -1,13 +1,11 @@
 import type { BrowserWindow } from 'electron'
 import { app, BrowserWindow as ElectronBrowserWindow, nativeImage, shell } from 'electron'
-import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import {
-  APPLICATION_NAME,
   desktopWindowChrome,
   resolveProjectUrl,
-  type DesktopManifest,
 } from './desktop.ts'
+import { readDesktopManifest } from './manifest.ts'
 
 let aboutWindow: BrowserWindow | undefined
 
@@ -18,7 +16,7 @@ export async function showAboutWindow(parent: BrowserWindow | undefined): Promis
     aboutWindow.focus()
     return
   }
-  const manifest = readManifest()
+  const manifest = readDesktopManifest(app.getAppPath())
   const projectUrl = resolveProjectUrl(manifest)
   const icon = nativeImage.createFromPath(join(app.getAppPath(), 'build', 'icon.png'))
   aboutWindow = new ElectronBrowserWindow({
@@ -32,7 +30,7 @@ export async function showAboutWindow(parent: BrowserWindow | undefined): Promis
     resizable: false,
     ...(parent === undefined ? {} : { parent }),
     show: false,
-    title: `About ${APPLICATION_NAME}`,
+    title: `About ${app.name}`,
     webPreferences: {
       contextIsolation: true,
       nodeIntegration: false,
@@ -47,7 +45,7 @@ export async function showAboutWindow(parent: BrowserWindow | undefined): Promis
     return { action: 'deny' }
   })
   await window.loadURL(aboutDocument({
-    applicationName: APPLICATION_NAME,
+    applicationName: app.name,
     iconDataUrl: icon.isEmpty() ? undefined : icon.toDataURL(),
     projectUrl,
     version: app.getVersion(),
@@ -88,14 +86,6 @@ a { margin-top: 20px; color: light-dark(#2455e6, #86a3ff); font-size: 13px; text
 a:focus-visible { outline: 2px solid #3964fe; outline-offset: 4px; border-radius: 2px; }
 </style></head><body><div class="titlebar">About</div><main>${icon}<h1>${escapeHtml(options.applicationName)}</h1><div class="version">Version ${escapeHtml(options.version)}</div><div class="rule"></div><p>Desktop application for running DeepSeek Harness with its local Web interface.</p>${project}</main></body></html>`
   return `data:text/html;charset=utf-8,${encodeURIComponent(html)}`
-}
-
-function readManifest(): DesktopManifest {
-  try {
-    return JSON.parse(readFileSync(join(app.getAppPath(), 'package.json'), 'utf8')) as DesktopManifest
-  } catch {
-    return {}
-  }
 }
 
 function escapeHtml(value: string): string {
