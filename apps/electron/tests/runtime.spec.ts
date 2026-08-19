@@ -20,7 +20,7 @@ describe('Electron Harness runtime', () => {
     expect(harnessArguments('/path/to/dsh')).toEqual(
       [
         '--expose-internals',
-        'path/to/dsh',
+        '/path/to/dsh',
         'web',
         '--port',
         '0',
