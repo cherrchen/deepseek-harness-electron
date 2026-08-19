@@ -5,6 +5,8 @@
 
 import { spawn, type ChildProcessByStdio } from 'node:child_process'
 import type { Readable } from 'node:stream'
+import { writeFileSync } from 'node:fs'
+import { join } from 'node:path'
 import {
   app,
   BrowserWindow,
@@ -36,6 +38,7 @@ import {
 } from './runtime.ts'
 import { trayIconPath, trayIconSize } from './tray.ts'
 import { createUpdater, type UpdaterController } from './updater.ts'
+import * as process from 'node:process'
 
 type HarnessProcess = ChildProcessByStdio<null, Readable, Readable>
 
@@ -46,10 +49,43 @@ let updater: UpdaterController | undefined
 let quitting = false
 let stopping = false
 
+const BROWSE_PICKER_PATCH = `# Electron Windows fallback for native directory picker
+- id: directory-picker
+  disabled: true
+
+- insert:
+    - id: directory-picker-browse
+      name: '@deepseek-ai/dsh-host-directory-picker-browse'
+    - id: directory-picker-browse-client
+      name: '@deepseek-ai/dsh-client-ui-directory-picker-browse'
+`
+
+function ensurePickerFallbackPatch(): string | undefined {
+  if (process.platform !== 'win32') {
+    return undefined
+  }
+
+  const patchPath = join(
+    app.getPath('userData'),
+    'picker-browse-fallback.yml',
+  )
+
+  writeFileSync(
+    patchPath,
+    BROWSE_PICKER_PATCH,
+    'utf8',
+  )
+
+  return patchPath
+}
+
 /** Start dsh and resolve only after its complete Web composition is ready. */
 async function startHarness(): Promise<{ child: HarnessProcess; url: string }> {
   const dshBin = resolveDshBin(app.getAppPath())
-  const child = spawn(process.execPath, harnessArguments(dshBin), {
+
+  const pickerPatch = ensurePickerFallbackPatch()
+
+  const child = spawn(process.execPath, harnessArguments(dshBin, pickerPatch), {
     cwd: app.getPath('home'),
     env: {
       ...process.env,
