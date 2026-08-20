@@ -7,11 +7,11 @@ describe('Electron update feed discovery', () => {
   it('lets the prerelease channel receive the newest published prerelease or stable release', async () => {
     const request = vi.fn<typeof fetch>().mockResolvedValue(response([
       { draft: true, prerelease: false, tag_name: 'draft' },
-      { draft: false, prerelease: true, tag_name: 'electron-dsh-v1.2.0-rc.1' },
-      { draft: false, prerelease: false, tag_name: 'electron-dsh-v1.1.0' },
+      { draft: false, prerelease: true, tag_name: 'v1.2.0-rc.1' },
+      { draft: false, prerelease: false, tag_name: 'v1.1.0' },
     ]))
     await expect(resolveUpdateFeed(repository, 'prerelease', request)).resolves.toBe(
-      'https://github.com/owner/desktop/releases/download/electron-dsh-v1.2.0-rc.1',
+      'https://github.com/owner/desktop/releases/download/v1.2.0-rc.1',
     )
     expect(request).toHaveBeenCalledWith(
       'https://api.github.com/repos/owner/desktop/releases?per_page=20',
@@ -23,10 +23,10 @@ describe('Electron update feed discovery', () => {
     const request = vi.fn<typeof fetch>().mockResolvedValue(response({
       draft: false,
       prerelease: false,
-      tag_name: 'electron-dsh-v1.1.0',
+      tag_name: 'v1.1.0',
     }))
     await expect(resolveUpdateFeed(repository, 'stable', request)).resolves.toBe(
-      'https://github.com/owner/desktop/releases/download/electron-dsh-v1.1.0',
+      'https://github.com/owner/desktop/releases/download/v1.1.0',
     )
     expect(request).toHaveBeenCalledWith(
       'https://api.github.com/repos/owner/desktop/releases/latest',

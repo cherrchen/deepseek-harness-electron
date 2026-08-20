@@ -33,7 +33,7 @@ pnpm --filter @deepseek-ai/dsh-electron build
 
 ## 更新
 
-打包构建默认使用 **Pre-Release** 通道，并将用户选择的通道持久化到 Electron 的用户数据目录。应用菜单和托盘菜单可以在两个通道间切换：**Pre-Release** 接收最新发布的 prerelease 或 stable release；**Stable / Release** 使用 GitHub 的最新正式 release，绝不选择 prerelease。通道选择读取 GitHub Release 元数据，而不解释仓库现有的 `electron-dsh-v<version>` tag；metadata 校验、语义版本比较、下载与安装仍由 `electron-updater` 负责。
+打包构建默认使用 **Pre-Release** 通道，并将用户选择的通道持久化到 Electron 的用户数据目录。应用菜单和托盘菜单可以在两个通道间切换：**Pre-Release** 接收最新发布的 prerelease 或 stable release；**Stable / Release** 使用 GitHub 的最新正式 release，绝不选择 prerelease。通道选择读取 GitHub Release 元数据，识别 `v0.1.0-beta.1`、`v0.1.0-rc.3`、`v0.1.0` 等 tag；metadata 校验、语义版本比较、下载与安装仍由 `electron-updater` 负责。
 
 菜单会显示检查状态和下载进度，更新准备完成后提供重启入口。手动检查会报告没有更新或已开始下载。检查失败时，完整错误写入主进程日志，对话框只显示网络与重试指引。
 
@@ -43,7 +43,7 @@ pnpm --filter @deepseek-ai/dsh-electron build
 
 包元数据将产品名声明为 `DeepSeek Harness`，Electron 与 `electron-builder` 会将它用于开发环境界面、应用元数据、安装程序和可执行文件。包配置在 Windows 上生成 NSIS 安装程序，在 macOS 上生成 DMG 和 ZIP 产物，在 Linux 上生成 AppImage 和 DEB 产物。release 工作流使用 GitHub 托管的原生架构 runner，为 x64 和 ARM64 构建每一种格式。CI 构建未签名产物，因此仓库无需配置签名凭据；需要分发可信二进制文件的维护者必须提供 `electron-builder` 支持的平台签名环境。
 
-应用版本跟随 [`apps/cli/package.json`](../cli/package.json)。[`sync-upstream.yml`](../../.github/workflows/sync-upstream.yml) 在每次合并上游后更新版本和生成的 workspace 依赖，同时保留桌面端自有的 registry 依赖。提交主题严格匹配 `release(dsh): <version>` 且 CLI manifest 声明相同版本时，该提交会成为桌面 release；手动分派可以指定早于桌面基线的匹配历史版本。工作流将 Electron 覆盖层应用到该上游提交，防止后续未发布改动进入安装包。[`desktop-release.yml`](../../.github/workflows/desktop-release.yml) 在发布构件前校验生成的 tag。
+桌面 release 在 `develop` 上使用 `v{a.b.c}-beta.{x}`，在 `main` 上使用 `v{a.b.c}-rc.{x}`，稳定版使用 `v{a.b.c}`。[`sync-upstream.yml`](../../.github/workflows/sync-upstream.yml) 将上游合并到 `develop`，同步 workspace 依赖，并发布下一个 Beta tag。[`desktop-promote.yml`](../../.github/workflows/desktop-promote.yml) 在 `main` 上创建与 [`apps/cli/package.json`](../cli/package.json) 一致的 RC 或 Stable tag。发布提交前通过 `pnpm electron:set-version <version>` 设置 Electron manifest 版本。[`desktop-release.yml`](../../.github/workflows/desktop-release.yml) 在发布安装包前校验 tag 所在分支与 package 版本。
 
 ## 运行时与安全
 

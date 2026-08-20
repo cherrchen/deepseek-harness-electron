@@ -1,29 +1,30 @@
 name: Desktop release
-run-name: Desktop release ${{ inputs.tag }}
+run-name: Desktop release ${{ github.event.inputs.tag || github.ref_name }}
 
 on:
+  push:
+    tags:
+      - 'v[0-9]+.[0-9]+.[0-9]+-beta.[0-9]+'
+      - 'v[0-9]+.[0-9]+.[0-9]+-rc.[0-9]+'
+      - 'v[0-9]+.[0-9]+.[0-9]+'
   workflow_dispatch:
     inputs:
       tag:
-        description: Downstream tag created by the upstream sync workflow
-        required: true
-        type: string
-      upstream_commit:
-        description: Source DeepSeek Harness release commit
+        description: Release tag to build (for example v0.1.0-beta.1)
         required: true
         type: string
       version:
-        description: Version copied from the upstream CLI package
+        description: Electron package version without the v prefix
         required: true
         type: string
       prerelease:
-        description: Publish as a prerelease
+        description: Publish as a GitHub Pre-Release
         required: true
-        default: false
+        default: true
         type: boolean
 
 concurrency:
-  group: desktop-release-${{ inputs.tag }}
+  group: desktop-release-${{ github.event.inputs.tag || github.ref_name }}
   cancel-in-progress: false
 
 permissions:
@@ -34,8 +35,62 @@ env:
   CSC_IDENTITY_AUTO_DISCOVERY: 'false'
 
 jobs:
+  validate:
+    name: Validate release tag and branch
+    runs-on: ubuntu-latest
+    outputs:
+      tag: ${{ steps.context.outputs.tag }}
+      version: ${{ steps.context.outputs.version }}
+      prerelease: ${{ steps.context.outputs.prerelease }}
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Resolve release context
+        id: context
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            tag="${{ inputs.tag }}"
+            version="${{ inputs.version }}"
+            prerelease="${{ inputs.prerelease }}"
+          else
+            tag="${GITHUB_REF_NAME}"
+            version="${GITHUB_REF_NAME#v}"
+            prerelease=false
+            if [[ "$tag" == *-beta.* || "$tag" == *-rc.* ]]; then prerelease=true; fi
+          fi
+
+          if [[ ! "$tag" =~ ^v[0-9]+\.[0-9]+\.[0-9]+(-beta\.[0-9]+|-rc\.[0-9]+)?$ ]]; then
+            echo "::error::Tag $tag does not match the supported desktop release format."
+            exit 1
+          fi
+
+          if [[ "$tag" == *-beta.* ]]; then
+            expected_branch=develop
+          else
+            expected_branch=main
+          fi
+
+          git fetch origin "$expected_branch"
+          if ! git merge-base --is-ancestor HEAD "origin/$expected_branch"; then
+            echo "::error::Tag $tag must point to a commit on $expected_branch."
+            exit 1
+          fi
+
+          actual=$(node -p "require('./apps/electron/package.json').version")
+          if [ "$actual" != "$version" ]; then
+            echo "::error::Electron version $actual does not match release version $version"
+            exit 1
+          fi
+
+          echo "tag=$tag" >> "$GITHUB_OUTPUT"
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          echo "prerelease=$prerelease" >> "$GITHUB_OUTPUT"
+
   package:
     name: Package ${{ matrix.name }}
+    needs: validate
     strategy:
       fail-fast: false
       matrix:
@@ -94,8 +149,8 @@ jobs:
     steps:
       - uses: actions/checkout@v6
         with:
-          ref: ${{ inputs.tag }}
-          fetch-depth: 2
+          ref: ${{ needs.validate.outputs.tag }}
+          fetch-depth: 1
 
       - uses: pnpm/action-setup@v4
 
@@ -103,35 +158,6 @@ jobs:
         with:
           node-version: 24
           cache: pnpm
-
-      - name: Validate release version
-        shell: bash
-        env:
-          EXPECTED_VERSION: ${{ inputs.version }}
-          EXPECTED_UPSTREAM_COMMIT: ${{ inputs.upstream_commit }}
-        run: |
-          actual=$(node -p "require('./apps/electron/package.json').version")
-          test "$actual" = "$EXPECTED_VERSION" || {
-            echo "::error::Electron version $actual does not match upstream version $EXPECTED_VERSION"
-            exit 1
-          }
-          actual_upstream=$(git rev-parse HEAD^)
-          test "$actual_upstream" = "$EXPECTED_UPSTREAM_COMMIT" || {
-            echo "::error::Release snapshot parent $actual_upstream does not match upstream commit $EXPECTED_UPSTREAM_COMMIT"
-            exit 1
-          }
-          upstream_subject=$(git show -s --format=%s "$EXPECTED_UPSTREAM_COMMIT")
-          test "$upstream_subject" = "release(dsh): $EXPECTED_VERSION" || {
-            echo "::error::Upstream commit subject $upstream_subject does not declare $EXPECTED_VERSION"
-            exit 1
-          }
-          # npm validation is temporarily disabled while GitHub release commits
-          # are the release authority.
-          # published=$(npm view "@deepseek-ai/dsh@$EXPECTED_VERSION" version)
-          # test "$published" = "$EXPECTED_VERSION" || {
-          #   echo "::error::npm does not publish @deepseek-ai/dsh@$EXPECTED_VERSION"
-          #   exit 1
-          # }
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
@@ -157,12 +183,12 @@ jobs:
 
   publish:
     name: Publish GitHub release
-    needs: package
+    needs: [validate, package]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
         with:
-          ref: ${{ inputs.tag }}
+          ref: ${{ needs.validate.outputs.tag }}
 
       - uses: pnpm/action-setup@v4
 
@@ -184,17 +210,15 @@ jobs:
 
       - name: Write checksums and release notes
         env:
-          VERSION: ${{ inputs.version }}
-          UPSTREAM_COMMIT: ${{ inputs.upstream_commit }}
+          VERSION: ${{ needs.validate.outputs.version }}
+          RELEASE_TAG: ${{ needs.validate.outputs.tag }}
           REPOSITORY: ${{ github.repository }}
         run: |
           cd dist/release
           sha256sum * > SHA256SUMS.txt
           cd ../..
           cat > "$RUNNER_TEMP/release-notes.md" <<EOF
-          Desktop installers for DeepSeek Harness ${VERSION}.
-
-          Upstream source: https://github.com/deepseek-ai/deepseek-harness/commit/${UPSTREAM_COMMIT}
+          Desktop installers for DeepSeek Harness ${VERSION} (${RELEASE_TAG}).
 
           These CI artifacts are unsigned. Verify the downloaded file with \`SHA256SUMS.txt\` before installation.
           EOF
@@ -202,9 +226,9 @@ jobs:
       - name: Create release and upload installers
         env:
           GH_TOKEN: ${{ github.token }}
-          RELEASE_TAG: ${{ inputs.tag }}
-          VERSION: ${{ inputs.version }}
-          PRERELEASE: ${{ inputs.prerelease }}
+          RELEASE_TAG: ${{ needs.validate.outputs.tag }}
+          VERSION: ${{ needs.validate.outputs.version }}
+          PRERELEASE: ${{ needs.validate.outputs.prerelease }}
         run: |
           if gh release view "$RELEASE_TAG" >/dev/null 2>&1; then
             echo "Release $RELEASE_TAG already exists."
