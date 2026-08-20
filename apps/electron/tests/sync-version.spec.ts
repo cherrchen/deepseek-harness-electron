@@ -45,3 +45,10 @@ describe('Electron beta tag planning', () => {
     expect(nextBetaTag('0.1.0-rc.3', [])).toBe('v0.1.0-beta.1')
   })
 })
+
+describe('Electron beta tag planning', () => {
+  it('increments beta.x independently within the upstream base version', () => {
+    expect(nextBetaTag('0.1.0-rc.3', ['v0.1.0-beta.2', 'v0.1.0-beta.5'])).toBe('v0.1.0-beta.6')
+    expect(nextBetaTag('0.1.0-rc.3', [])).toBe('v0.1.0-beta.1')
+  })
+})
