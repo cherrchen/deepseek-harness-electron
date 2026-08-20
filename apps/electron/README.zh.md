@@ -2,7 +2,7 @@
 
 [English](README.md) | 中文
 
-此应用将上游 DeepSeek Harness Web 组合封装为桌面应用。Electron 以 Node 兼容子进程模式启动已构建的 `dsh web` 可执行模块，请求操作系统分配环回端口，并在沙箱窗口中打开它报告的就绪 URL。应用完整复用上游 Web 前端、RPC 传输、插件组合、profile 和 `$DSH_HOME` 存储行为。
+此应用将上游 DeepSeek Harness 封装为原生桌面壳。Electron Main 在环回端口上监督已构建的 `dsh web` 后端以保持兼容，而 `BrowserWindow` 加载本包内基于 `@deepseek-ai/dsh-client-web` 构建的 Electron 自有 Renderer（`dsh-electron://localhost/`）。Host bootstrap、插件 bundle、一元 `/api` 调用与事件流仅通过 Main（类型化 preload IPC 与自定义协议代理）到达受监督进程。profile、会话与 `$DSH_HOME` 存储仍遵循上游 Harness 行为。
 
 ## 开发
 
@@ -14,18 +14,17 @@ pnpm run build
 pnpm --filter @deepseek-ai/dsh-electron start
 ```
 
-使用以下命令运行桌面端聚焦测试并编译主进程：
+`pnpm --filter @deepseek-ai/dsh-electron build` 会编译主进程、preload 桥接与 Renderer（`dist/renderer`）。聚焦桌面测试：
 
 ```sh
 pnpm --filter @deepseek-ai/dsh-electron test
-pnpm --filter @deepseek-ai/dsh-electron build
 ```
 
 ## 桌面集成
 
-主窗口使用隐藏标题栏，并在上游 Web UI 上方保留 40 像素的拖拽区域。macOS 在该区域内保留“交通信号灯”；Windows 和 Linux 使用 Electron Window Controls Overlay 提供原生最小化、最大化和关闭控件。关闭主窗口会隐藏窗口，Harness 进程继续运行。通过托盘菜单可以重新打开窗口，也可以退出应用并停止受监管的子进程。
+主窗口使用隐藏标题栏，并在 Electron Renderer 上方保留 40 像素的拖拽区域。macOS 在该区域内保留“交通信号灯”；Windows 和 Linux 使用 Electron Window Controls Overlay 提供原生最小化、最大化和关闭控件。关闭主窗口会隐藏窗口，Harness 进程继续运行。通过托盘菜单可以重新打开窗口，也可以退出应用并停止受监管的子进程。
 
-原生页面右键菜单根据 Chromium 当前的编辑能力提供剪切、复制、粘贴、全选和刷新；开发构建还提供 DevTools。应用只允许当前环回 Harness 源写入剪贴板，仍拒绝读取剪贴板和所有无关的渲染进程权限。应用菜单和托盘菜单提供桌面端自有的“关于”窗口、更新通道选择和手动更新检查入口。
+原生页面右键菜单根据 Chromium 当前的编辑能力提供剪切、复制、粘贴、全选和刷新；开发构建还提供 DevTools。应用只允许 `dsh-electron://localhost` Renderer 源写入剪贴板，仍拒绝读取剪贴板和所有无关的渲染进程权限。应用菜单和托盘菜单提供桌面端自有的“关于”窗口、更新通道选择和手动更新检查入口。
 
 托盘使用随应用打包的透明 DeepSeek 图形，而不是完整应用图标。Windows 和 Linux 在原生浅色主题下选择黑色图形，在原生深色主题下选择白色图形，并在 Electron 报告主题变化时刷新图标。macOS 使用随应用打包的 Template Image，由操作系统控制菜单栏对比度。
 
@@ -41,12 +40,12 @@ pnpm --filter @deepseek-ai/dsh-electron build
 
 ## 打包
 
-包元数据将产品名声明为 `DeepSeek Harness`，Electron 与 `electron-builder` 会将它用于开发环境界面、应用元数据、安装程序和可执行文件。包配置在 Windows 上生成 NSIS 安装程序，在 macOS 上生成 DMG 和 ZIP 产物，在 Linux 上生成 AppImage 和 DEB 产物。release 工作流使用 GitHub 托管的原生架构 runner，为 x64 和 ARM64 构建每一种格式。CI 构建未签名产物，因此仓库无需配置签名凭据；需要分发可信二进制文件的维护者必须提供 `electron-builder` 支持的平台签名环境。
+包元数据将产品名声明为 `DeepSeek Harness`，供 Electron 与 `electron-builder` 用于开发态界面、应用元数据、安装包与可执行文件。包配置在 Windows 上产出 NSIS 安装包，在 macOS 上产出 DMG 与 ZIP，在 Linux 上产出 AppImage 与 DEB。发布工作流在原生 GitHub-hosted runner 上为 x64 与 ARM64 构建全部格式。CI 构建未签名产物，因为仓库不要求签名凭据；若分发可信二进制，运营方必须提供 `electron-builder` 支持的平台签名环境。
 
-桌面 release 在 `develop` 上使用 `v{a.b.c}-beta.{x}`，在 `main` 上使用 `v{a.b.c}-rc.{x}`，稳定版使用 `v{a.b.c}`。[`sync-upstream.yml`](../../.github/workflows/sync-upstream.yml) 将上游合并到 `develop`，同步 workspace 依赖，并发布下一个 Beta tag。[`desktop-promote.yml`](../../.github/workflows/desktop-promote.yml) 在 `main` 上创建与 [`apps/cli/package.json`](../cli/package.json) 一致的 RC 或 Stable tag。发布提交前通过 `pnpm electron:set-version <version>` 设置 Electron manifest 版本。[`desktop-release.yml`](../../.github/workflows/desktop-release.yml) 在发布安装包前校验 tag 所在分支与 package 版本。
+桌面发布在 `develop` 上使用 `v{a.b.c}-beta.{x}`，在 `main` 上使用 `v{a.b.c}-rc.{x}`，稳定版使用 `v{a.b.c}`。[`sync-upstream.yml`](../../.github/workflows/sync-upstream.yml) 将上游合并进 `develop`，同步 workspace 依赖，并发布下一个 Beta tag。[`desktop-promote.yml`](../../.github/workflows/desktop-promote.yml) 在 `main` 上创建与 [`apps/cli/package.json`](../cli/package.json) 匹配的 RC 或 Stable tag。发布提交前用 `pnpm electron:set-version <version>` 设置 Electron manifest 版本。[`desktop-release.yml`](../../.github/workflows/desktop-release.yml) 在发布安装包前校验 tag 分支与包版本。
 
 ## 运行时与安全
 
-子进程仅监听 `127.0.0.1` 的随机端口。渲染进程不启用 Node.js 集成，使用上下文隔离和 Chromium 沙箱，不获授任何权限，并且不能离开本地 Harness 源进行导航。以新窗口方式请求的 HTTP 和 HTTPS 链接会在系统浏览器中打开。
+受监督的 Harness 进程仅绑定 `127.0.0.1` 上的随机端口，且永远不是 BrowserWindow 的页面源。Renderer 无 Node.js 集成，启用上下文隔离与 Chromium 沙箱，仅接收类型化的 `window.deepseekDesktop` 桥接，且不能离开 `dsh-electron://localhost`。以新窗口请求的 HTTP/HTTPS 链接在系统浏览器中打开。
 
-受监管的子进程将操作系统用户主目录下的 `.dsh` 作为 `$DSH_HOME`，因此 Harness profile、设置、session 和其他状态在 macOS 与 Linux 上使用 `~/.dsh`，在 Windows 上使用 `%USERPROFILE%\.dsh`。Electron 自身的 Chromium 数据、缓存与桌面更新通道偏好仍保存在对应平台的 `userData` 目录。agent（智能体）shell 命令以当前用户的主目录作为初始工作区；用户可以通过 Harness UI 选择其他工作区。
+受监督进程将 `$DSH_HOME` 设为操作系统用户主目录下的 `.dsh`，因此 Harness profile、设置、会话等状态在 macOS/Linux 使用 `~/.dsh`，在 Windows 使用 `%USERPROFILE%\.dsh`。Electron 将 Chromium 数据、缓存与桌面更新偏好保留在其平台专属 `userData` 目录。Agent shell 命令以当前用户主目录为初始工作区；用户可通过 Harness UI 选择其他工作区。

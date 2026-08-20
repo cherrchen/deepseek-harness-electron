@@ -2,7 +2,7 @@
 
 English | [中文](README.zh.md)
 
-This application packages the upstream DeepSeek Harness Web composition as a desktop application. Electron starts the built `dsh web` executable in its Node-compatible child mode, requests an operating-system-assigned loopback port, and opens the reported ready URL in a sandboxed window. The application keeps the upstream Web frontend, RPC transport, plugin composition, profiles, and `$DSH_HOME` storage behavior intact.
+This application packages the upstream DeepSeek Harness as a native desktop shell. Electron Main supervises the built `dsh web` backend on a loopback port for compatibility, while `BrowserWindow` loads an Electron-owned renderer from `dsh-electron://localhost/` built inside this package from `@deepseek-ai/dsh-client-web`. Host bootstrap, plugin bundles, unary `/api` calls, and event streams reach the supervised process only through Main (typed preload IPC and the custom-scheme protocol proxy). Profiles, sessions, and `$DSH_HOME` storage remain the upstream Harness behavior.
 
 ## Development
 
@@ -14,18 +14,17 @@ pnpm run build
 pnpm --filter @deepseek-ai/dsh-electron start
 ```
 
-Run the focused desktop test and compile the main process with:
+`pnpm --filter @deepseek-ai/dsh-electron build` compiles the main process, preload bridge, and renderer (`dist/renderer`). Focused desktop tests:
 
 ```sh
 pnpm --filter @deepseek-ai/dsh-electron test
-pnpm --filter @deepseek-ai/dsh-electron build
 ```
 
 ## Desktop integration
 
-The main window uses a hidden title bar with a 40-pixel drag strip above the upstream Web UI. macOS keeps its traffic lights in that strip; Windows and Linux use Electron's Window Controls Overlay for native minimize, maximize, and close controls. Closing the main window hides it while the Harness process continues running. Use the tray menu to reopen the window or quit the application and stop the supervised process.
+The main window uses a hidden title bar with a 40-pixel drag strip above the Electron renderer. macOS keeps its traffic lights in that strip; Windows and Linux use Electron's Window Controls Overlay for native minimize, maximize, and close controls. Closing the main window hides it while the Harness process continues running. Use the tray menu to reopen the window or quit the application and stop the supervised process.
 
-The native page context menu exposes cut, copy, paste, select all, and reload according to Chromium's current editing capabilities; development builds also expose DevTools. Clipboard writes are allowed only for the current loopback Harness origin, while clipboard reads and all unrelated renderer permissions remain denied. The application menu and tray menu provide the desktop-owned About window, update channel selection, and manual update check.
+The native page context menu exposes cut, copy, paste, select all, and reload according to Chromium's current editing capabilities; development builds also expose DevTools. Clipboard writes are allowed only for the `dsh-electron://localhost` renderer origin, while clipboard reads and all unrelated renderer permissions remain denied. The application menu and tray menu provide the desktop-owned About window, update channel selection, and manual update check.
 
 The tray uses packaged transparent DeepSeek glyphs instead of the full application icon. Windows and Linux select a black glyph for a light native theme and a white glyph for a dark native theme, and refresh it when Electron reports a theme change. macOS uses a packaged Template Image so the operating system controls menu-bar contrast.
 
@@ -47,6 +46,6 @@ Desktop releases use `v{a.b.c}-beta.{x}` on `develop`, `v{a.b.c}-rc.{x}` on `mai
 
 ## Runtime and security
 
-The child process binds only to `127.0.0.1` on a random port. The renderer has no Node.js integration, runs with context isolation and Chromium sandboxing, receives no permission grants, and cannot navigate away from the local Harness origin. HTTP and HTTPS links requested as new windows open in the system browser.
+The supervised Harness process binds only to `127.0.0.1` on a random port and is never the BrowserWindow page origin. The renderer has no Node.js integration, runs with context isolation and Chromium sandboxing, receives the typed `window.deepseekDesktop` bridge only, and cannot navigate away from `dsh-electron://localhost`. HTTP and HTTPS links requested as new windows open in the system browser.
 
 The supervised process receives `$DSH_HOME` as `.dsh` below the operating-system user home, so Harness profiles, settings, sessions, and other state use `~/.dsh` on macOS and Linux or `%USERPROFILE%\.dsh` on Windows. Electron keeps its Chromium data, caches, and desktop update preference in its platform-specific `userData` directory. Agent shell commands use the current user's home directory as their initial workspace; users can select another workspace through the Harness UI.
