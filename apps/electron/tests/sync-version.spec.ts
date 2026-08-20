@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { nextBetaTag } from '../scripts/next-beta-tag-lib.mjs'
-import { synchronizeDependencies } from '../scripts/sync-version-dependencies.mjs'
+import { assertResolvedWorkspaceDependencies, synchronizeDependencies } from '../scripts/sync-version-dependencies.mjs'
 
 describe('Electron dependency synchronization', () => {
   it('replaces workspace dependencies and retains desktop registry dependencies', () => {
@@ -22,6 +22,13 @@ describe('Electron dependency synchronization', () => {
       '@deepseek-ai/dsh-runtime': 'workspace:^',
       'electron-updater': '^6.8.9',
     })
+  })
+
+  it('rejects workspace dependencies that are absent from the workspace', () => {
+    expect(() => assertResolvedWorkspaceDependencies(
+      { '@deepseek-ai/dsh-missing': 'workspace:^' },
+      new Set(['@deepseek-ai/dsh']),
+    )).toThrow('Electron dependency @deepseek-ai/dsh-missing is not present in the workspace')
   })
 })
 

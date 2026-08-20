@@ -55,7 +55,7 @@ jobs:
           fi
 
           node apps/electron/scripts/set-version.mjs "$upstream_version"
-          pnpm install --lockfile-only --no-frozen-lockfile
+          pnpm install --no-frozen-lockfile
           git add apps/electron/package.json pnpm-lock.yaml
           git commit -m "release(electron): ${upstream_version}"
           git tag -a "$release_tag" -m "Desktop release ${upstream_version}"

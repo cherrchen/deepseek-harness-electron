@@ -21,3 +21,15 @@ export function synchronizeDependencies(
       .sort(([left], [right]) => left.localeCompare(right)),
   )
 }
+
+/**
+ * @param {Readonly<Record<string, string>>} dependencies
+ * @param {ReadonlySet<string>} workspaceNames
+ */
+export function assertResolvedWorkspaceDependencies(dependencies, workspaceNames) {
+  for (const [name, specifier] of Object.entries(dependencies)) {
+    if (specifier === 'workspace:^' && !workspaceNames.has(name)) {
+      throw new Error(`Electron dependency ${name} is not present in the workspace`)
+    }
+  }
+}

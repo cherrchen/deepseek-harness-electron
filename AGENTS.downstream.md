@@ -69,7 +69,7 @@ After a verified merge the workflow:
 |---------|----------|
 | `README.md`, `README.zh.md`, `README.i18n.yaml` | **Downstream wins** — `.gitattributes` `merge=ours` |
 | `AGENTS.md` | **Upstream wins** — accept upstream, then run `restore-agents-downstream.mjs` |
-| `pnpm-lock.yaml`, `pnpm-workspace.yaml` | Accept upstream, confirm `apps/electron` remains in the workspace, run `pnpm install --lockfile-only`, commit the regenerated lockfile |
+| `pnpm-lock.yaml`, `pnpm-workspace.yaml` | Accept upstream, confirm `apps/electron` remains in the workspace, run `pnpm install --no-frozen-lockfile`, commit the regenerated lockfile |
 | All other conflicts | Abort — manual resolution required |
 
 The lockfile goal is: upstream dependency state plus downstream `apps/electron` dependency state equals the final lockfile. Do not preserve a stale downstream lockfile to avoid upstream dependency updates.
@@ -140,7 +140,7 @@ Set versions through pnpm scripts — do not hand-edit unless no script exists:
 
 ```sh
 pnpm electron:set-version 0.1.0-beta.3
-pnpm install --lockfile-only --no-frozen-lockfile   # when lockfile must follow
+pnpm install --no-frozen-lockfile   # when lockfile must follow manifest changes
 ```
 
 [`set-version.mjs`](apps/electron/scripts/set-version.mjs) updates the Electron manifest. [`sync-version.mjs`](apps/electron/scripts/sync-version.mjs) synchronizes workspace dependencies from the upstream CLI graph.
