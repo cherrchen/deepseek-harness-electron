@@ -91,7 +91,8 @@ jobs:
           fi
 
           node apps/electron/scripts/sync-version.mjs
-          pnpm install --lockfile-only --no-frozen-lockfile
+          # Resolve the merged workspace graph before committing the lockfile.
+          pnpm install --no-frozen-lockfile
           if ! git diff --quiet -- apps/electron/package.json pnpm-lock.yaml pnpm-workspace.yaml; then
             git add apps/electron/package.json pnpm-lock.yaml pnpm-workspace.yaml
             git commit -m "chore: follow upstream dependency state"
@@ -139,7 +140,7 @@ jobs:
           beta_tag=$(node apps/electron/scripts/next-beta-tag.mjs)
           beta_version="${beta_tag#v}"
           node apps/electron/scripts/set-version.mjs "$beta_version"
-          pnpm install --lockfile-only --no-frozen-lockfile
+          pnpm install --no-frozen-lockfile
           git add apps/electron/package.json pnpm-lock.yaml
           git commit -m "release(electron): $beta_version"
           git tag -a "$beta_tag" -m "Beta desktop release $beta_version"
