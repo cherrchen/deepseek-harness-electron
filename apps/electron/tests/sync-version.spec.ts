@@ -24,6 +24,23 @@ describe('Electron dependency synchronization', () => {
     })
   })
 
+  it('drops leftover workspace specifiers whose packages are absent from the workspace', () => {
+    const dependencies = synchronizeDependencies(
+      {
+        '@deepseek-ai/dsh-client-schema-form': 'workspace:^',
+        '@deepseek-ai/dsh-client-web-react': 'workspace:*',
+        'electron-updater': '^6.8.9',
+      },
+      ['@deepseek-ai/dsh'],
+      new Set(['@deepseek-ai/dsh']),
+    )
+
+    expect(dependencies).toEqual({
+      '@deepseek-ai/dsh': 'workspace:^',
+      'electron-updater': '^6.8.9',
+    })
+  })
+
   it('rejects workspace dependencies that are absent from the workspace', () => {
     expect(() => assertResolvedWorkspaceDependencies(
       { '@deepseek-ai/dsh-missing': 'workspace:^' },
