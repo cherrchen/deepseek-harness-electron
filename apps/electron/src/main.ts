@@ -1,6 +1,7 @@
 /**
- * Electron desktop entry. It supervises the upstream dsh Web application,
- * keeps its loopback renderer sandboxed, and owns desktop-only lifecycle UI.
+ * Electron desktop entry. It supervises the upstream dsh Web backend as a
+ * Main-only compatibility process, loads the Electron-owned renderer over
+ * `dsh-electron://localhost`, and owns desktop-only lifecycle UI.
  */
 
 import { spawn, type ChildProcessByStdio } from 'node:child_process'
@@ -23,12 +24,18 @@ import { showAboutWindow } from './about.ts'
 import {
   allowsClipboardWrite,
   contextMenuTemplate,
-  DESKTOP_CHROME_CSS,
-  desktopChromeScript,
   desktopWindowChrome,
 } from './desktop.ts'
+import { HarnessProxy } from './harness-proxy.ts'
+import { installDesktopIpc } from './ipc.ts'
 import { readDesktopManifest, resolveUpdateRepository } from './manifest.ts'
+import { RENDERER_ENTRY_URL, RENDERER_ORIGIN } from './bridge-types.ts'
 import { loadUpdateChannel, saveUpdateChannel, type UpdateChannel } from './preferences.ts'
+import {
+  installRendererProtocol,
+  registerRendererScheme,
+  resolveRendererRoot,
+} from './protocol.ts'
 import {
   HARNESS_START_TIMEOUT_MS,
   harnessArguments,
@@ -48,6 +55,7 @@ let tray: Tray | undefined
 let updater: UpdaterController | undefined
 let quitting = false
 let stopping = false
+const harnessProxy = new HarnessProxy()
 
 const BROWSE_PICKER_PATCH = `# Electron Windows fallback for native directory picker
 - id: directory-picker
@@ -59,6 +67,8 @@ const BROWSE_PICKER_PATCH = `# Electron Windows fallback for native directory pi
     - id: directory-picker-browse-client
       name: '@deepseek-ai/dsh-client-ui-directory-picker-browse'
 `
+
+registerRendererScheme()
 
 function ensurePickerFallbackPatch(): string | undefined {
   if (process.platform !== 'win32') {
@@ -130,9 +140,10 @@ async function startHarness(): Promise<{ child: HarnessProcess; url: string }> {
   })
 }
 
-/** Open one hardened desktop window for the local Harness origin. */
-async function createWindow(url: string): Promise<BrowserWindow> {
-  const allowedOrigin = new URL(url).origin
+/** Open one hardened desktop window for the Electron-owned renderer. */
+async function createWindow(): Promise<BrowserWindow> {
+  const allowedOrigin = RENDERER_ORIGIN
+  const preload = join(app.getAppPath(), 'lib', 'preload', 'index.cjs')
   const window = new BrowserWindow({
     ...desktopWindowChrome(process.platform),
     width: 1440,
@@ -143,12 +154,16 @@ async function createWindow(url: string): Promise<BrowserWindow> {
     autoHideMenuBar: true,
     backgroundColor: '#f8f9fb',
     webPreferences: {
+      preload,
       contextIsolation: true,
       nodeIntegration: false,
       sandbox: true,
     },
   })
   mainWindow = window
+  window.webContents.on('preload-error', (_event, preloadPath, error) => {
+    console.error(`desktop preload failed (${preloadPath}):`, error)
+  })
   window.on('close', (event) => {
     if (quitting) return
     event.preventDefault()
@@ -161,8 +176,8 @@ async function createWindow(url: string): Promise<BrowserWindow> {
     if (safeOrigin(nextUrl) !== allowedOrigin) event.preventDefault()
   })
   window.webContents.setWindowOpenHandler(({ url: nextUrl }) => {
-    const protocol = safeProtocol(nextUrl)
-    if (protocol === 'https:' || protocol === 'http:') void shell.openExternal(nextUrl)
+    const protocolName = safeProtocol(nextUrl)
+    if (protocolName === 'https:' || protocolName === 'http:') void shell.openExternal(nextUrl)
     return { action: 'deny' }
   })
   window.webContents.on('context-menu', (_event, params) => {
@@ -177,9 +192,7 @@ async function createWindow(url: string): Promise<BrowserWindow> {
       && allowsClipboardWrite(permission, safeOrigin(details.requestingUrl), allowedOrigin))
   })
 
-  await window.loadURL(url)
-  await window.webContents.insertCSS(DESKTOP_CHROME_CSS)
-  await window.webContents.executeJavaScript(desktopChromeScript(app.name), true)
+  await window.loadURL(RENDERER_ENTRY_URL)
   window.show()
   return window
 }
@@ -349,8 +362,12 @@ if (!primaryInstance) {
   app.quit()
 } else {
   void app.whenReady().then(async () => {
+    installRendererProtocol(resolveRendererRoot(app.getAppPath()), harnessProxy)
+    installDesktopIpc(harnessProxy, contents => mainWindow !== undefined && contents === mainWindow.webContents)
+
     const started = await startHarness()
     harness = started.child
+    harnessProxy.setOrigin(started.url)
     harness.once('exit', (code, signal) => {
       if (quitting) return
       dialog.showErrorBox(
@@ -359,7 +376,7 @@ if (!primaryInstance) {
       )
       requestQuit()
     })
-    await createWindow(started.url)
+    await createWindow()
     const repository = resolveUpdateRepository(readDesktopManifest(app.getAppPath()))
     if (repository === undefined) throw new Error('The packaged GitHub update repository is missing.')
     updater = createUpdater({

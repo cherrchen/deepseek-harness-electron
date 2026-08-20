@@ -15,7 +15,7 @@ describe('Electron Harness runtime', () => {
 
   it('enables Node internals for the upstream config watcher', () => {
     expect(harnessArguments('/app/dsh.js')).toEqual([
-      '--expose-internals', '/app/dsh.js', 'web', '--port', '0',
+      '--expose-internals', '/app/dsh.js', 'web', '--port', '0', '--no-open',
     ])
     expect(harnessArguments('/path/to/dsh')).toEqual(
       [
@@ -24,6 +24,7 @@ describe('Electron Harness runtime', () => {
         'web',
         '--port',
         '0',
+        '--no-open',
       ],
     )
     expect(harnessArguments('C:\\app\\dsh\\bin.js', 'C:\\data\\picker.yml')).toEqual(
@@ -35,6 +36,7 @@ describe('Electron Harness runtime', () => {
         'C:\\data\\picker.yml',
         '--port',
         '0',
+        '--no-open',
       ],
     )
   })

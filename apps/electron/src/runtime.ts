@@ -38,7 +38,7 @@ export function harnessArguments(dshBin: string, patchPath?: string): string[] {
     args.push('--patch', patchPath)
   }
 
-  args.push('--port', '0')
+  args.push('--port', '0', '--no-open')
 
   return args
 }
