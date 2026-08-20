@@ -17,6 +17,26 @@ describe('Electron Harness runtime', () => {
     expect(harnessArguments('/app/dsh.js')).toEqual([
       '--expose-internals', '/app/dsh.js', 'web', '--port', '0',
     ])
+    expect(harnessArguments('/path/to/dsh')).toEqual(
+      [
+        '--expose-internals',
+        '/path/to/dsh',
+        'web',
+        '--port',
+        '0',
+      ],
+    )
+    expect(harnessArguments('C:\\app\\dsh\\bin.js', 'C:\\data\\picker.yml')).toEqual(
+      [
+        '--expose-internals',
+        'C:\\app\\dsh\\bin.js',
+        'web',
+        '--patch',
+        'C:\\data\\picker.yml',
+        '--port',
+        '0',
+      ],
+    )
   })
 
   it('parses the upstream readiness line after preceding output', () => {

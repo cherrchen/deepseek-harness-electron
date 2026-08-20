@@ -219,6 +219,10 @@ describe('Desktop synchronization and release workflows', () => {
       throw new TypeError('Desktop workflows must define jobs')
     }
 
+    expect(ci.on).toMatchObject({
+      push: { branches: ['develop', 'main'] },
+      pull_request: { branches: ['develop'] },
+    })
     expect(ci.jobs).not.toHaveProperty('package')
     const ciSteps = Object.values(ci.jobs).flatMap(job => (
       isRecord(job) && Array.isArray(job.steps) ? job.steps.filter(isRecord) : []
@@ -239,78 +243,96 @@ describe('Desktop synchronization and release workflows', () => {
         runner: 'ubuntu-latest',
         args: '--linux AppImage deb --x64',
         artifact: 'linux-x64',
-        files: 'dist/electron/*.AppImage\ndist/electron/*.deb\n',
+        files: 'dist/electron/*.AppImage\ndist/electron/*.deb\ndist/electron/latest-linux*.yml\n',
       }),
       expect.objectContaining({
         name: 'Linux ARM64',
         runner: 'ubuntu-24.04-arm',
         args: '--linux AppImage deb --arm64',
         artifact: 'linux-arm64',
-        files: 'dist/electron/*.AppImage\ndist/electron/*.deb\n',
+        files: 'dist/electron/*.AppImage\ndist/electron/*.deb\ndist/electron/latest-linux*.yml\n',
       }),
     ])
   })
 
-  it('publishes GitHub-validated release commits from exact upstream snapshots', () => {
+  it('merges upstream into develop and publishes Beta tags from the sync workflow', () => {
     const sync = loadWorkflow('.github/workflows/sync-upstream.yml')
     expect(sync.env).toMatchObject({ GH_REPO: '${{ github.repository }}' })
     const syncJob = workflowJob(sync, 'sync')
-    const release = loadWorkflow('.github/workflows/desktop-release.yml')
-    const dispatch = workflowEvent(release, 'workflow_dispatch')
-    if (!Array.isArray(syncJob.steps) || !isRecord(dispatch.inputs)) {
-      throw new TypeError('Desktop workflows must define sync steps and release inputs')
+    if (!Array.isArray(syncJob.steps)) {
+      throw new TypeError('Desktop sync must define steps')
     }
 
     const steps = syncJob.steps.filter(isRecord)
-    const prepare = steps.find(step => step.name === 'Prepare GitHub-validated desktop release snapshots')
-    const publish = steps.find(step => step.name === 'Publish matching desktop releases')
-    if (typeof prepare?.run !== 'string' || typeof publish?.run !== 'string') {
-      throw new TypeError('Desktop sync must prepare and publish release snapshots')
+    const checkout = steps.find(step => step.uses === 'actions/checkout@v6')
+    const merge = steps.find(step => step.name === 'Merge upstream with downstream conflict policy')
+    const push = steps.find(step => step.name === 'Push verified merge to develop')
+    const beta = steps.find(step => step.name === 'Publish Beta release')
+    if (typeof merge?.run !== 'string' || typeof push?.run !== 'string' || typeof beta?.run !== 'string') {
+      throw new TypeError('Desktop sync must merge, push to develop, and publish Beta releases')
     }
 
-    expect(prepare.run).not.toContain('repos/deepseek-ai/deepseek-harness/releases')
-    expect(prepare.run).toContain('release\\(dsh\\):')
-    expect(prepare.run).toContain('# npm view @deepseek-ai/dsh versions --json')
-    expect(prepare.run).toContain('release(dsh): $REQUESTED_VERSION')
-    expect(prepare.run).toContain('git log --reverse --format=\'%H%x09%s\' upstream/master')
-    expect(prepare.run).toContain('${upstream_commit}:apps/cli/package.json')
-    expect(prepare.run).toContain("git diff --binary upstream/master HEAD -- . ':(exclude)pnpm-lock.yaml'")
-    expect(prepare.run).toContain('git worktree add --detach "$snapshot_dir" "$upstream_commit"')
-    expect(prepare.run).toContain('electron-dsh-v${release_version}')
-    expect(prepare.run).toContain('gh run list --workflow desktop-release.yml')
-    expect(publish.run).toContain('gh workflow run desktop-release.yml --repo "$GITHUB_REPOSITORY"')
-    expect(publish.run).toContain('-f upstream_commit="$upstream_commit"')
-    expect(dispatch.inputs).toHaveProperty('upstream_commit')
-    expect(dispatch.inputs).not.toHaveProperty('upstream_tag')
+    expect(checkout).toMatchObject({ with: { ref: 'develop' } })
+    expect(merge.run).toContain('git merge --no-edit upstream/master')
+    expect(merge.run).toContain('README.md|README.zh.md|README.i18n.yaml')
+    expect(merge.run).toContain('git checkout --theirs -- "$file"')
+    expect(merge.run).toContain('AGENTS.md')
+    expect(merge.run).toContain('pnpm-lock.yaml|pnpm-workspace.yaml')
+    expect(merge.run).toContain('restore-agents-downstream.mjs')
+    expect(merge.run).toContain('sync-version.mjs')
+    expect(merge.run).toContain('apps/electron')
+    expect(push.run).toContain('git push origin HEAD:develop')
+    expect(push.run).not.toContain('HEAD:main')
+    expect(beta.run).toContain('next-beta-tag.mjs')
+    expect(beta.run).toContain('set-version.mjs')
+    expect(beta.run).toContain('git tag -a "$beta_tag"')
   })
 
-  it('links each desktop release to its validated upstream commit', () => {
-    const release = loadWorkflow('.github/workflows/desktop-release.yml')
-    const packageJob = workflowJob(release, 'package')
-    const publish = workflowJob(release, 'publish')
-    if (!Array.isArray(packageJob.steps) || !Array.isArray(publish.steps)) {
-      throw new TypeError('Desktop release package and publish jobs must define steps')
+  it('promotes main to RC or Stable tags that match the upstream CLI version', () => {
+    const promote = loadWorkflow('.github/workflows/desktop-promote.yml')
+    const promoteJob = workflowJob(promote, 'promote')
+    if (!Array.isArray(promoteJob.steps)) {
+      throw new TypeError('Desktop promote must define steps')
     }
-    const checkout = packageJob.steps.filter(isRecord).find(step => step.uses === 'actions/checkout@v6')
-    const validate = packageJob.steps.filter(isRecord).find(step => step.name === 'Validate release version')
-    const notes = publish.steps.filter(isRecord).find(step => step.name === 'Write checksums and release notes')
-    const create = publish.steps.filter(isRecord).find(step => step.name === 'Create release and upload installers')
-    if (typeof validate?.run !== 'string' || typeof notes?.run !== 'string' || typeof create?.run !== 'string') {
-      throw new TypeError('Desktop release must validate source, write notes, and create a release')
+    const release = promoteJob.steps.filter(isRecord).find(step => step.name === 'Align Electron version with upstream and publish tag')
+    if (typeof release?.run !== 'string') {
+      throw new TypeError('Desktop promote must align Electron version with upstream')
     }
 
-    expect(checkout).toMatchObject({ with: { 'fetch-depth': 2 } })
-    expect(validate).toMatchObject({
-      env: { EXPECTED_UPSTREAM_COMMIT: '${{ inputs.upstream_commit }}' },
+    expect(promote.on).toMatchObject({ push: { branches: ['main'] } })
+    expect(release.run).toContain("require('./apps/cli/package.json').version")
+    expect(release.run).toContain('release_tag="v${upstream_version}"')
+    expect(release.run).toContain('set-version.mjs')
+    expect(release.run).toContain('git push origin HEAD:main')
+  })
+
+  it('validates release tags against the correct branch before packaging installers', () => {
+    const release = loadWorkflow('.github/workflows/desktop-release.yml')
+    const validate = workflowJob(release, 'validate')
+    const publish = workflowJob(release, 'publish')
+    if (!Array.isArray(validate.steps) || !Array.isArray(publish.steps)) {
+      throw new TypeError('Desktop release must validate tags and publish installers')
+    }
+    const context = validate.steps.filter(isRecord).find(step => step.name === 'Resolve release context')
+    const notes = publish.steps.filter(isRecord).find(step => step.name === 'Write checksums and release notes')
+    const create = publish.steps.filter(isRecord).find(step => step.name === 'Create release and upload installers')
+    if (typeof context?.run !== 'string' || typeof create?.run !== 'string') {
+      throw new TypeError('Desktop release must resolve context and create a release')
+    }
+
+    expect(release.on).toMatchObject({
+      push: {
+        tags: [
+          'v[0-9]+.[0-9]+.[0-9]+-beta.[0-9]+',
+          'v[0-9]+.[0-9]+.[0-9]+-rc.[0-9]+',
+          'v[0-9]+.[0-9]+.[0-9]+',
+        ],
+      },
     })
-    expect(validate.run).toContain('actual_upstream=$(git rev-parse HEAD^)')
-    expect(validate.run).toContain('upstream_subject=$(git show -s --format=%s "$EXPECTED_UPSTREAM_COMMIT")')
-    expect(validate.run).toContain('# published=$(npm view "@deepseek-ai/dsh@$EXPECTED_VERSION" version)')
-    expect(notes).toMatchObject({
-      env: { UPSTREAM_COMMIT: '${{ inputs.upstream_commit }}' },
-    })
-    expect(notes.run).toContain('deepseek-ai/deepseek-harness/commit/${UPSTREAM_COMMIT}')
-    expect(notes.run).not.toContain('npmjs.com/package/@deepseek-ai/dsh/v/${VERSION}')
+    expect(context.run).toContain('expected_branch=develop')
+    expect(context.run).toContain('expected_branch=main')
+    expect(context.run).toContain("require('./apps/electron/package.json').version")
+    expect(notes?.run).not.toContain('deepseek-ai/deepseek-harness/commit')
     expect(create.run).toContain('gh release view "$RELEASE_TAG"')
   })
 })

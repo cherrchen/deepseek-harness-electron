@@ -24,10 +24,23 @@ export function resolveDshBin(appPath: string): string {
 /**
  * Build the Node-compatible child arguments required by upstream config HMR.
  * @param dshBin - Absolute path to the packaged dsh executable module.
+ * @param patchPath - overlay patch path before Web launch.
  * @returns Electron child-mode arguments for a random-port Web launch.
  */
-export function harnessArguments(dshBin: string): string[] {
-  return ['--expose-internals', dshBin, 'web', '--port', '0']
+export function harnessArguments(dshBin: string, patchPath?: string): string[] {
+  const args = [
+    '--expose-internals',
+    dshBin,
+    'web',
+  ]
+
+  if (patchPath !== undefined) {
+    args.push('--patch', patchPath)
+  }
+
+  args.push('--port', '0')
+
+  return args
 }
 
 /**

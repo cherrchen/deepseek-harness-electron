@@ -14,6 +14,10 @@ README.md merge=ours
 README.zh.md merge=ours
 README.i18n.yaml merge=ours
 
+# Upstream-owned agent instructions. Accept upstream changes during sync and
+# restore @AGENTS.downstream.md afterward.
+AGENTS.md merge=theirs
+
 # Pairing records are generated from the three confirmed owner-blob pairs.
 # The worktree-local installer registers the fail-closed driver command.
 *.i18n.yaml merge=dsh-translation-pairing
