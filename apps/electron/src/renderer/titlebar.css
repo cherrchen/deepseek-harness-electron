@@ -1,0 +1,35 @@
+/**
+ * Desktop drag strip above the Electron-owned renderer UI.
+ */
+
+#dsh-electron-titlebar {
+  position: fixed;
+  inset: 0 0 auto;
+  z-index: 2147483647;
+  height: 40px;
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding-left: env(titlebar-area-x, 0px);
+  padding-right: calc(100% - env(titlebar-area-x, 0px) - env(titlebar-area-width, 100%));
+  border-bottom: 1px solid var(--dsw-alias-border-l1, rgb(20 32 54 / 8%));
+  background: color-mix(in srgb, var(--dsw-alias-bg-base, #f8f9fb) 92%, transparent);
+  color: var(--dsw-alias-label-tertiary, #747c8c);
+  font: 500 12px/1 var(--dsw-font-family, system-ui, sans-serif);
+  letter-spacing: 0.02em;
+  user-select: none;
+  -webkit-app-region: drag;
+  backdrop-filter: blur(18px) saturate(1.15);
+}
+
+#root {
+  box-sizing: border-box;
+  padding-top: 40px;
+}
+
+@media (prefers-reduced-transparency: reduce) {
+  #dsh-electron-titlebar {
+    backdrop-filter: none;
+  }
+}

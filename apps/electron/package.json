@@ -13,9 +13,12 @@
   "main": "lib/main.js",
   "license": "MIT",
   "scripts": {
-    "build": "tsc -p tsconfig.json",
+    "build:main": "tsc -p tsconfig.json",
+    "build:preload": "node ./scripts/build-preload.mjs",
+    "build:renderer": "vite build",
+    "build": "pnpm run build:main && pnpm run build:preload && pnpm run build:renderer",
     "package": "electron-builder --publish never",
-    "start": "pnpm run build && electron .",
+    "start": "pnpm run build && env -u ELECTRON_RUN_AS_NODE electron .",
     "test": "vitest run --root ../.. apps/electron/tests"
   },
   "dependencies": {
@@ -51,6 +54,7 @@
     "@deepseek-ai/dsh-client-ui-theme": "workspace:^",
     "@deepseek-ai/dsh-client-ui-tool": "workspace:^",
     "@deepseek-ai/dsh-client-ui-workspace": "workspace:^",
+    "@deepseek-ai/dsh-client-web": "workspace:^",
     "@deepseek-ai/dsh-code-runtime": "workspace:^",
     "@deepseek-ai/dsh-command-feedback": "workspace:^",
     "@deepseek-ai/dsh-commands": "workspace:^",
@@ -120,9 +124,15 @@
   },
   "devDependencies": {
     "@types/node": "^22.20.0",
+    "@types/react": "~18.3.1",
+    "@types/react-dom": "~18.3.0",
+    "@vitejs/plugin-react": "^4.0.0",
     "electron": "43.4.0",
     "electron-builder": "26.15.3",
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0",
     "typescript": "^6.0.3",
+    "vite": "^6.0.0",
     "vitest": "^4.1.8"
   },
   "build": {
@@ -134,6 +144,7 @@
     },
     "files": [
       "lib/**/*",
+      "dist/renderer/**/*",
       "build/icon.png",
       "build/icon-mac.png",
       "build/tray/*.png",
