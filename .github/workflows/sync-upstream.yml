@@ -4,11 +4,6 @@ on:
   schedule:
     - cron: '17 */6 * * *'
   workflow_dispatch:
-    inputs:
-      release_version:
-        description: Release commit version to publish, including history before the desktop baseline
-        required: false
-        type: string
 
 concurrency:
   group: sync-deepseek-ai-deepseek-harness
@@ -24,11 +19,12 @@ env:
 
 jobs:
   sync:
-    name: Merge, verify, and publish upstream changes
+    name: Merge upstream into develop and publish Beta
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
         with:
+          ref: develop
           fetch-depth: 0
           token: ${{ secrets.UPSTREAM_SYNC_TOKEN }}
 
@@ -43,8 +39,9 @@ jobs:
         run: |
           git remote add upstream https://github.com/deepseek-ai/deepseek-harness.git
           git fetch upstream master --tags --prune
+          git fetch origin develop --tags
 
-      - name: Merge upstream without overwriting the desktop overlay
+      - name: Merge upstream with downstream conflict policy
         run: |
           git config user.name github-actions[bot]
           git config user.email 41898282+github-actions[bot]@users.noreply.github.com
@@ -55,31 +52,54 @@ jobs:
             echo "Conflict files:"
             printf ' %s\n' "${conflicts[@]}"
 
-            if [ "${#conflicts[@]}" -eq 1 ] && [ "${conflicts[0]}" = "pnpm-lock.yaml" ]; then
-              echo "::notice::Only pnpm-lock.yaml conflicted; resolving automatically."
+            for file in "${conflicts[@]}"; do
+              case "$file" in
+                README.md|README.zh.md|README.i18n.yaml)
+                  git checkout --ours -- "$file"
+                  git add "$file"
+                  ;;
+                AGENTS.md)
+                  git checkout --theirs -- "$file"
+                  git add "$file"
+                  ;;
+                pnpm-lock.yaml|pnpm-workspace.yaml)
+                  git checkout --theirs -- "$file"
+                  git add "$file"
+                  ;;
+                *)
+                  git merge --abort || true
+                  echo "::error::Upstream merge has unresolved conflicts in $file. Manual resolution is required."
+                  exit 1
+                  ;;
+              esac
+            done
 
-              # pnpm-lock.yaml is a generated dependency lockfile.
-              # Temporarily take the upstream version to resolve the Git
-              # conflict. It will be regenerated from the complete merged
-              # workspace below.
-              git checkout --theirs -- pnpm-lock.yaml
-              git add pnpm-lock.yaml
-
-              # Complete the upstream merge.
+            if ! git diff --cached --quiet || [ -n "$(git diff --name-only --diff-filter=U)" ]; then
+              if [ -n "$(git diff --name-only --diff-filter=U)" ]; then
+                git merge --abort || true
+                echo "::error::Upstream merge still has unresolved conflicts after automatic resolution."
+                exit 1
+              fi
               git commit --no-edit
-            else
-              # Real source conflicts should never be resolved automatically.
-              git merge --abort || true
-              echo "::error::Upstream merge has non-lockfile conflicts. Manual resolution is required."
-              exit 1
             fi
+          fi
+
+          node apps/electron/scripts/restore-agents-downstream.mjs
+          if ! git diff --quiet -- AGENTS.md; then
+            git add AGENTS.md
+            git commit -m "chore: restore AGENTS.downstream.md reference"
           fi
 
           node apps/electron/scripts/sync-version.mjs
           pnpm install --lockfile-only --no-frozen-lockfile
-          if ! git diff --quiet -- apps/electron/package.json pnpm-lock.yaml; then
-            git add apps/electron/package.json pnpm-lock.yaml
-            git commit -m "chore: follow upstream version"
+          if ! git diff --quiet -- apps/electron/package.json pnpm-lock.yaml pnpm-workspace.yaml; then
+            git add apps/electron/package.json pnpm-lock.yaml pnpm-workspace.yaml
+            git commit -m "chore: follow upstream dependency state"
+          fi
+
+          if ! grep -q 'apps/\*' pnpm-workspace.yaml && ! grep -q 'apps/electron' pnpm-workspace.yaml; then
+            echo "::error::pnpm workspace no longer includes apps/electron after upstream merge."
+            exit 1
           fi
 
       - name: Install dependencies
@@ -91,7 +111,7 @@ jobs:
           pnpm run build
           pnpm --filter @deepseek-ai/dsh-electron build
 
-      - name: Push verified merge
+      - name: Push verified merge to develop
         id: push
         env:
           BEFORE: ${{ github.sha }}
@@ -101,122 +121,39 @@ jobs:
             echo "changed=false" >> "$GITHUB_OUTPUT"
             exit 0
           fi
-          git push origin HEAD:main
+          git push origin HEAD:develop
           echo "changed=true" >> "$GITHUB_OUTPUT"
 
       - name: Run desktop CI
         if: steps.push.outputs.changed == 'true'
         env:
           GH_TOKEN: ${{ github.token }}
-        run: gh workflow run desktop-ci.yml --ref main
+        run: gh workflow run desktop-ci.yml --ref develop
 
-      - name: Prepare GitHub-validated desktop release snapshots
-        id: releases
-        env:
-          GH_TOKEN: ${{ github.token }}
-          REQUESTED_VERSION: ${{ inputs.release_version }}
-        run: |
-          first_desktop_commit=$(git log --reverse --format=%H -- apps/electron | head -n 1)
-          if [ -z "$first_desktop_commit" ]; then
-            echo "::error::Cannot locate the first desktop overlay commit."
-            exit 1
-          fi
-          release_baseline=$(git rev-parse "${first_desktop_commit}^")
-          if ! git merge-base --is-ancestor "$release_baseline" upstream/master; then
-            echo "::error::Desktop release baseline is not an ancestor of upstream/master."
-            exit 1
-          fi
-
-          # npm release validation is temporarily disabled. The exact upstream
-          # commit subject and its CLI manifest are the release authority.
-          # npm_versions="$RUNNER_TEMP/dsh-npm-versions.json"
-          # npm view @deepseek-ai/dsh versions --json > "$npm_versions"
-          # jq -e 'type == "array"' "$npm_versions" >/dev/null
-
-          release_commits="$RUNNER_TEMP/dsh-release-commits.tsv"
-          if [ -n "$REQUESTED_VERSION" ]; then
-            if [[ ! "$REQUESTED_VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z]+([.-][0-9A-Za-z]+)*)?$ ]]; then
-              echo "::error::Requested release version $REQUESTED_VERSION is not valid semver."
-              exit 1
-            fi
-            git log --reverse --format='%H%x09%s' upstream/master \
-              | awk -F '\t' -v subject="release(dsh): $REQUESTED_VERSION" '$2 == subject' \
-              > "$release_commits"
-            if [ "$(wc -l < "$release_commits" | tr -d ' ')" != "1" ]; then
-              echo "::error::Expected exactly one upstream release(dsh): $REQUESTED_VERSION commit."
-              exit 1
-            fi
-          else
-            git log --reverse --format='%H%x09%s' "$release_baseline..upstream/master" > "$release_commits"
-          fi
-          overlay_patch="$RUNNER_TEMP/electron-overlay.patch"
-          git diff --binary upstream/master HEAD -- . ':(exclude)pnpm-lock.yaml' > "$overlay_patch"
-          dispatches="$RUNNER_TEMP/desktop-release-dispatches.tsv"
-          : > "$dispatches"
-
-          while IFS=$'\t' read -r upstream_commit subject; do
-            if [[ ! "$subject" =~ ^release\(dsh\):\ ([0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z]+([.-][0-9A-Za-z]+)*)?)$ ]]; then
-              continue
-            fi
-            release_version="${BASH_REMATCH[1]}"
-            manifest_version=$(git show "${upstream_commit}:apps/cli/package.json" | jq -er '.version')
-            if [ "$manifest_version" != "$release_version" ]; then
-              echo "::error::Release commit $upstream_commit declares $release_version but its CLI manifest declares $manifest_version."
-              exit 1
-            fi
-            # npm validation is temporarily disabled.
-            # if ! jq -e --arg version "$release_version" 'index($version) != null' "$npm_versions" >/dev/null; then
-            #   echo "::notice::Waiting for @deepseek-ai/dsh@$release_version to appear on npm."
-            #   continue
-            # fi
-
-            desktop_tag="electron-dsh-v${release_version}"
-            if ! git ls-remote --exit-code --tags origin "refs/tags/$desktop_tag" >/dev/null 2>&1; then
-              snapshot_root=$(mktemp -d "$RUNNER_TEMP/dsh-electron-${release_version}.XXXXXX")
-              snapshot_dir="$snapshot_root/tree"
-              git worktree add --detach "$snapshot_dir" "$upstream_commit"
-              git -C "$snapshot_dir" apply --index --3way "$overlay_patch"
-              node "$snapshot_dir/apps/electron/scripts/sync-version.mjs"
-              pnpm --dir "$snapshot_dir" install --lockfile-only --no-frozen-lockfile --ignore-scripts
-              git -C "$snapshot_dir" add --all
-              git -C "$snapshot_dir" commit \
-                -m "release(electron): $release_version" \
-                -m "Upstream-Commit: $upstream_commit"
-              snapshot_commit=$(git -C "$snapshot_dir" rev-parse HEAD)
-              git tag -a "$desktop_tag" \
-                -m "Desktop release $release_version from upstream $upstream_commit" \
-                "$snapshot_commit"
-              git worktree remove "$snapshot_dir"
-              git push origin "refs/tags/$desktop_tag"
-            fi
-
-            if gh release view "$desktop_tag" >/dev/null 2>&1; then
-              continue
-            fi
-            if gh run list --workflow desktop-release.yml --limit 100 \
-              --json displayTitle,status \
-              --jq ".[] | select(.displayTitle == \"Desktop release $desktop_tag\" and .status != \"completed\")" \
-              | grep -q .; then
-              echo "::notice::Desktop release $desktop_tag is already queued or running."
-              continue
-            fi
-            prerelease=false
-            if [[ "$release_version" == *-* ]]; then prerelease=true; fi
-            printf '%s\t%s\t%s\t%s\n' \
-              "$desktop_tag" "$upstream_commit" "$release_version" "$prerelease" >> "$dispatches"
-          done < "$release_commits"
-
-          echo "dispatches=$dispatches" >> "$GITHUB_OUTPUT"
-
-      - name: Publish matching desktop releases
+      - name: Publish Beta release
+        if: steps.push.outputs.changed == 'true'
+        id: beta
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          while IFS=$'\t' read -r desktop_tag upstream_commit release_version prerelease; do
-            [ -n "$desktop_tag" ] || continue
-            gh workflow run desktop-release.yml --repo "$GITHUB_REPOSITORY" --ref main \
-              -f tag="$desktop_tag" \
-              -f upstream_commit="$upstream_commit" \
-              -f version="$release_version" \
-              -f prerelease="$prerelease"
-          done < "${{ steps.releases.outputs.dispatches }}"
+          beta_tag=$(node apps/electron/scripts/next-beta-tag.mjs)
+          beta_version="${beta_tag#v}"
+          node apps/electron/scripts/set-version.mjs "$beta_version"
+          pnpm install --lockfile-only --no-frozen-lockfile
+          git add apps/electron/package.json pnpm-lock.yaml
+          git commit -m "release(electron): $beta_version"
+          git tag -a "$beta_tag" -m "Beta desktop release $beta_version"
+          git push origin HEAD:develop
+          git push origin "$beta_tag"
+          echo "tag=$beta_tag" >> "$GITHUB_OUTPUT"
+          echo "version=$beta_version" >> "$GITHUB_OUTPUT"
+
+      - name: Dispatch Beta desktop release build
+        if: steps.beta.outputs.tag != ''
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh workflow run desktop-release.yml --repo "$GITHUB_REPOSITORY" --ref develop \
+            -f tag="${{ steps.beta.outputs.tag }}" \
+            -f version="${{ steps.beta.outputs.version }}" \
+            -f prerelease=true

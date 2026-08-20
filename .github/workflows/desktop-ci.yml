@@ -2,7 +2,7 @@ name: Desktop CI
 
 on:
   push:
-    branches: [main]
+    branches: [develop, main]
     paths:
       - '.github/workflows/desktop-*.yml'
       - 'apps/electron/**'
@@ -14,6 +14,7 @@ on:
       - 'pnpm-lock.yaml'
       - 'pnpm-workspace.yaml'
   pull_request:
+    branches: [develop]
   workflow_dispatch:
 
 concurrency:
