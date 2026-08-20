@@ -41,7 +41,23 @@ jobs:
           git fetch upstream master --tags --prune
           git fetch origin develop --tags
 
+      - name: Detect upstream changes
+        id: upstream
+        run: |
+          if git merge-base --is-ancestor upstream/master HEAD; then
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+            echo "Upstream is already merged into develop."
+          else
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+            echo "Upstream has commits to merge into develop."
+          fi
+
+      - name: Skip sync when upstream is current
+        if: steps.upstream.outputs.changed != 'true'
+        run: echo "Upstream is already merged into develop; skipping merge, commits, and release."
+
       - name: Merge upstream with downstream conflict policy
+        if: steps.upstream.outputs.changed == 'true'
         run: |
           git config user.name github-actions[bot]
           git config user.email 41898282+github-actions[bot]@users.noreply.github.com
@@ -104,15 +120,18 @@ jobs:
           fi
 
       - name: Install dependencies
+        if: steps.upstream.outputs.changed == 'true'
         run: pnpm install --frozen-lockfile
 
       - name: Verify synchronized desktop overlay
+        if: steps.upstream.outputs.changed == 'true'
         run: |
           pnpm --filter @deepseek-ai/dsh-electron test
           pnpm run build
           pnpm --filter @deepseek-ai/dsh-electron build
 
       - name: Push verified merge to develop
+        if: steps.upstream.outputs.changed == 'true'
         id: push
         env:
           BEFORE: ${{ github.sha }}
@@ -126,16 +145,15 @@ jobs:
           echo "changed=true" >> "$GITHUB_OUTPUT"
 
       - name: Run desktop CI
-        if: steps.push.outputs.changed == 'true'
+        if: steps.upstream.outputs.changed == 'true' && steps.push.outputs.changed == 'true'
         env:
           GH_TOKEN: ${{ github.token }}
         run: gh workflow run desktop-ci.yml --ref develop
 
-      - name: Publish Beta release
-        if: steps.push.outputs.changed == 'true'
-        id: beta
-        env:
-          GH_TOKEN: ${{ github.token }}
+      # Beta releases track upstream integration only. desktop-release.yml runs from
+      # the Beta tag push; do not dispatch it here.
+      - name: Publish Beta tag
+        if: steps.upstream.outputs.changed == 'true' && steps.push.outputs.changed == 'true'
         run: |
           beta_tag=$(node apps/electron/scripts/next-beta-tag.mjs)
           beta_version="${beta_tag#v}"
@@ -146,15 +164,3 @@ jobs:
           git tag -a "$beta_tag" -m "Beta desktop release $beta_version"
           git push origin HEAD:develop
           git push origin "$beta_tag"
-          echo "tag=$beta_tag" >> "$GITHUB_OUTPUT"
-          echo "version=$beta_version" >> "$GITHUB_OUTPUT"
-
-      - name: Dispatch Beta desktop release build
-        if: steps.beta.outputs.tag != ''
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          gh workflow run desktop-release.yml --repo "$GITHUB_REPOSITORY" --ref develop \
-            -f tag="${{ steps.beta.outputs.tag }}" \
-            -f version="${{ steps.beta.outputs.version }}" \
-            -f prerelease=true
