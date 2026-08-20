@@ -15,8 +15,9 @@
   "scripts": {
     "build:main": "tsc -p tsconfig.json",
     "build:preload": "node ./scripts/build-preload.mjs",
+    "build:directory-picker": "node ./scripts/build-directory-picker-plugin.mjs",
     "build:renderer": "vite build",
-    "build": "pnpm run build:main && pnpm run build:preload && pnpm run build:renderer",
+    "build": "pnpm run build:directory-picker && pnpm run build:main && pnpm run build:preload && pnpm run build:renderer",
     "package": "electron-builder --publish never",
     "start": "pnpm run build && env -u ELECTRON_RUN_AS_NODE electron .",
     "test": "vitest run --root ../.. apps/electron/tests"
@@ -145,6 +146,7 @@
     "files": [
       "lib/**/*",
       "dist/renderer/**/*",
+      "runtime/**/*",
       "build/icon.png",
       "build/icon-mac.png",
       "build/tray/*.png",

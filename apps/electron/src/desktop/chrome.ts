@@ -3,7 +3,7 @@ import type {
   ContextMenuParams,
   MenuItemConstructorOptions,
 } from 'electron'
-import type { DesktopManifest } from './manifest.ts'
+import type { DesktopManifest } from '../manifest.ts'
 
 /** Height reserved above the upstream Web UI for draggable desktop chrome. */
 export const TITLE_BAR_HEIGHT = 40

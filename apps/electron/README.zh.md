@@ -24,7 +24,9 @@ pnpm --filter @deepseek-ai/dsh-electron test
 
 主窗口使用隐藏标题栏，并在 Electron Renderer 上方保留 40 像素的拖拽区域。macOS 在该区域内保留“交通信号灯”；Windows 和 Linux 使用 Electron Window Controls Overlay 提供原生最小化、最大化和关闭控件。关闭主窗口会隐藏窗口，Harness 进程继续运行。通过托盘菜单可以重新打开窗口，也可以退出应用并停止受监管的子进程。
 
-原生页面右键菜单根据 Chromium 当前的编辑能力提供剪切、复制、粘贴、全选和刷新；开发构建还提供 DevTools。应用只允许 `dsh-electron://localhost` Renderer 源写入剪贴板，仍拒绝读取剪贴板和所有无关的渲染进程权限。应用菜单和托盘菜单提供桌面端自有的“关于”窗口、更新通道选择和手动更新检查入口。
+操作系统桌面能力（目录选择、剪贴板文本、shell 打开/显示、系统通知、updater 动作、原生主题与窗口控制）由 Electron Main 拥有，并仅通过类型化的 `window.deepseekDesktop` preload 桥暴露。受监督 Host 接收 `apps/electron/runtime` 下的 cordis overlay：禁用 Host `directory-picker-auto`，保留 browse Host 后端以便 `directoryPicker` 仍能注入 apiproxy，并挂载 Electron 本地 directory-flow client 插件（不挂载 browse client），因此 Windows 不再使用 Koffi native picker worker。上游 UI 的剪贴板写入在存在上游注入 seam 之前，经 Renderer 侧窄 shim 转到 Main。以新窗口打开的外部 URL 必须使用 `https:`、`http:` 或 `mailto:`。
+
+原生页面右键菜单根据 Chromium 当前的编辑能力提供剪切、复制、粘贴、全选和刷新；开发构建还提供 DevTools。应用菜单和托盘菜单提供桌面端自有的“关于”窗口、更新通道选择和手动更新检查入口。
 
 托盘使用随应用打包的透明 DeepSeek 图形，而不是完整应用图标。Windows 和 Linux 在原生浅色主题下选择黑色图形，在原生深色主题下选择白色图形，并在 Electron 报告主题变化时刷新图标。macOS 使用随应用打包的 Template Image，由操作系统控制菜单栏对比度。
 

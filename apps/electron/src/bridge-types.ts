@@ -3,6 +3,16 @@
  * Channel names are closed; the renderer never receives a generic invoke API.
  */
 
+import type {
+  DesktopNotificationOptions,
+  DesktopNotificationResult,
+  PickDirectoryOptions,
+  PickDirectoryResult,
+  ThemeState,
+  WindowState,
+  DesktopUpdaterSnapshot,
+} from './desktop/index.ts'
+
 /** Privileged custom scheme that owns the packaged renderer origin. */
 export const RENDERER_SCHEME = 'dsh-electron'
 
@@ -19,6 +29,24 @@ export const DesktopIpcChannel = {
   openStream: 'deepseek-desktop:host:openStream',
   getVersion: 'deepseek-desktop:app:getVersion',
   getPlatform: 'deepseek-desktop:app:getPlatform',
+  pickDirectory: 'deepseek-desktop:dialog:pickDirectory',
+  clipboardReadText: 'deepseek-desktop:clipboard:readText',
+  clipboardWriteText: 'deepseek-desktop:clipboard:writeText',
+  shellOpenExternal: 'deepseek-desktop:shell:openExternal',
+  shellOpenPath: 'deepseek-desktop:shell:openPath',
+  shellShowItemInFolder: 'deepseek-desktop:shell:showItemInFolder',
+  notificationShow: 'deepseek-desktop:notification:show',
+  updaterCheck: 'deepseek-desktop:updater:check',
+  updaterDownload: 'deepseek-desktop:updater:download',
+  updaterInstall: 'deepseek-desktop:updater:install',
+  updaterGetState: 'deepseek-desktop:updater:getState',
+  updaterSubscribe: 'deepseek-desktop:updater:subscribe',
+  themeGetState: 'deepseek-desktop:theme:getState',
+  themeSubscribe: 'deepseek-desktop:theme:subscribe',
+  windowMinimize: 'deepseek-desktop:window:minimize',
+  windowMaximize: 'deepseek-desktop:window:maximize',
+  windowClose: 'deepseek-desktop:window:close',
+  windowGetState: 'deepseek-desktop:window:getState',
 } as const
 
 /** Host boot payload extracted from the supervised dsh web index HTML. */
@@ -61,6 +89,9 @@ export type HostStreamPortMessage =
   | { type: 'error'; message: string }
   | { type: 'abort' }
 
+/** Unsubscribe handle returned by bridge subscriptions. */
+export type DesktopUnsubscribe = () => void
+
 /** Renderer-facing desktop bridge installed as `window.deepseekDesktop`. */
 export interface DeepseekDesktopBridge {
   host: {
@@ -80,6 +111,66 @@ export interface DeepseekDesktopBridge {
     /** Electron `process.platform`. */
     getPlatform(): Promise<string>
   }
+  dialog: {
+    /** Open the OS directory chooser owned by Electron Main. */
+    pickDirectory(options?: PickDirectoryOptions): Promise<PickDirectoryResult | null>
+  }
+  clipboard: {
+    /** Read text from the system clipboard. */
+    readText(): Promise<string>
+    /** Write text to the system clipboard. */
+    writeText(text: string): Promise<void>
+  }
+  shell: {
+    /** Open an allowlisted URL with the OS default handler. */
+    openExternal(url: string): Promise<void>
+    /** Open a local path with the OS default application. */
+    openPath(path: string): Promise<void>
+    /** Reveal a local path in the OS file manager. */
+    showItemInFolder(path: string): Promise<void>
+  }
+  notification: {
+    /** Show an OS notification; click handling stays in Main. */
+    show(options: DesktopNotificationOptions): Promise<DesktopNotificationResult>
+  }
+  updater: {
+    /** Request an update check. */
+    check(): Promise<void>
+    /** Request download of an available update (no-op when auto-download owns it). */
+    download(): Promise<void>
+    /** Request install of a downloaded update (`quitAndInstall` stays in Main). */
+    install(): Promise<void>
+    /** Read the current updater snapshot. */
+    getState(): Promise<DesktopUpdaterSnapshot>
+    /** Subscribe to updater snapshot changes. */
+    subscribe(callback: (state: DesktopUpdaterSnapshot) => void): DesktopUnsubscribe
+  }
+  theme: {
+    /** Read the current native theme snapshot. */
+    getState(): Promise<ThemeState>
+    /** Subscribe to native theme changes. */
+    subscribe(callback: (state: ThemeState) => void): DesktopUnsubscribe
+  }
+  window: {
+    /** Minimize the main window. */
+    minimize(): Promise<void>
+    /** Toggle maximize on the main window. */
+    maximize(): Promise<void>
+    /** Close (hide-to-tray) the main window. */
+    close(): Promise<void>
+    /** Read the current window snapshot. */
+    getState(): Promise<WindowState>
+  }
+}
+
+export type {
+  DesktopNotificationOptions,
+  DesktopNotificationResult,
+  PickDirectoryOptions,
+  PickDirectoryResult,
+  ThemeState,
+  WindowState,
+  DesktopUpdaterSnapshot,
 }
 
 declare global {

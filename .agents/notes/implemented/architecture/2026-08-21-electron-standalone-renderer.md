@@ -14,7 +14,7 @@ The desktop shell previously loaded the supervised `dsh web` readiness URL (`htt
 
 The renderer hostname stays `localhost` so upstream client loopback gates (`isLoopbackHostname`) continue to treat the desktop page as local without changing `packages/`. Security stays `sandbox: true`, `contextIsolation: true`, `nodeIntegration: false`, with `window.deepseekDesktop` as the only bridge (no generic `invoke`).
 
-This decision updates the window-loading half of [the loopback shell note](2026-08-14-electron-loopback-shell.md): Harness supervision and `$DSH_HOME` remain; BrowserWindow no longer navigates to the Harness HTTP origin.
+This decision updates the window-loading half of [the loopback shell note](2026-08-14-electron-loopback-shell.md): Harness supervision and `$DSH_HOME` remain; BrowserWindow no longer navigates to the Harness HTTP origin. Desktop OS capability ownership (directory picker, clipboard, shell, notifications, updater bridge, theme, window controls) is recorded in [the desktop capability note](2026-08-21-electron-desktop-capability-ownership.md).
 
 ## Alternatives considered
 
@@ -28,4 +28,4 @@ This decision updates the window-loading half of [the loopback shell note](2026-
 
 ## Consequences
 
-Packaged and development Electron builds must emit `dist/renderer` alongside `lib/` and include the renderer artifacts in `electron-builder` files. Runtime still requires a ready Harness process for bootstrap extraction, `/plugins`, and `/api`. Directory picker, clipboard, notification, shell, and updater ownership remain Milestone 2. Windows packaged smoke evidence is expected from desktop CI while macOS packaged smoke is verified locally.
+Packaged and development Electron builds must emit `dist/renderer` alongside `lib/` and include the renderer artifacts in `electron-builder` files. Runtime still requires a ready Harness process for bootstrap extraction, `/plugins`, and `/api`. Windows packaged smoke evidence is expected from desktop CI while macOS packaged smoke is verified locally.

@@ -3,8 +3,9 @@ import { app, BrowserWindow as ElectronBrowserWindow, nativeImage, shell } from 
 import { join } from 'node:path'
 import {
   desktopWindowChrome,
+  isAllowedExternalUrl,
   resolveProjectUrl,
-} from './desktop.ts'
+} from './desktop/index.ts'
 import { readDesktopManifest } from './manifest.ts'
 
 let aboutWindow: BrowserWindow | undefined
@@ -41,7 +42,7 @@ export async function showAboutWindow(parent: BrowserWindow | undefined): Promis
   window.once('closed', () => { aboutWindow = undefined })
   window.once('ready-to-show', () => { window.show() })
   window.webContents.setWindowOpenHandler(({ url }) => {
-    if (url === projectUrl) void shell.openExternal(url)
+    if (url === projectUrl && isAllowedExternalUrl(url)) void shell.openExternal(url)
     return { action: 'deny' }
   })
   await window.loadURL(aboutDocument({

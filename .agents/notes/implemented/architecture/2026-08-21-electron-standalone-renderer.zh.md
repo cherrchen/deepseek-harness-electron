@@ -14,7 +14,7 @@ English | [中文](2026-08-21-electron-standalone-renderer.md)
 
 Renderer 主机名保持 `localhost`，以便上游客户端 loopback 门闸（`isLoopbackHostname`）在不修改 `packages/` 的情况下仍视桌面页为本地。安全配置保持 `sandbox: true`、`contextIsolation: true`、`nodeIntegration: false`，仅暴露 `window.deepseekDesktop`（无通用 `invoke`）。
 
-本决策更新了 [loopback shell 说明](2026-08-14-electron-loopback-shell.md) 中窗口加载的一半：Harness 监督与 `$DSH_HOME` 保留；`BrowserWindow` 不再导航到 Harness HTTP 源。
+本决策更新了 [loopback shell 说明](2026-08-14-electron-loopback-shell.md) 中窗口加载的一半：Harness 监督与 `$DSH_HOME` 保留；`BrowserWindow` 不再导航到 Harness HTTP 源。桌面操作系统能力所有权（目录选择、剪贴板、shell、通知、updater 桥、主题、窗口控制）记录于 [桌面能力说明](2026-08-21-electron-desktop-capability-ownership.md)。
 
 ## Alternatives considered
 
@@ -28,4 +28,4 @@ Renderer 主机名保持 `localhost`，以便上游客户端 loopback 门闸（`
 
 ## Consequences
 
-打包与开发构建都必须在 `lib/` 之外产出 `dist/renderer`，并由 `electron-builder` files 收录。运行时仍需要就绪的 Harness 进程以提取 bootstrap、提供 `/plugins` 与 `/api`。目录选择器、剪贴板、通知、shell、updater 的所有权仍属 Milestone 2。Windows 打包冒烟由 desktop CI 覆盖；macOS 打包冒烟在本地验证。
+打包与开发构建都必须在 `lib/` 之外产出 `dist/renderer`，并由 `electron-builder` files 收录。运行时仍需要就绪的 Harness 进程以提取 bootstrap、提供 `/plugins` 与 `/api`。Windows 打包冒烟由 desktop CI 覆盖；macOS 打包冒烟在本地验证。

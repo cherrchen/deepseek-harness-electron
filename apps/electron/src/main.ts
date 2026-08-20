@@ -1,12 +1,11 @@
 /**
  * Electron desktop entry. It supervises the upstream dsh Web backend as a
  * Main-only compatibility process, loads the Electron-owned renderer over
- * `dsh-electron://localhost`, and owns desktop-only lifecycle UI.
+ * `dsh-electron://localhost`, and owns desktop OS capabilities.
  */
 
 import { spawn, type ChildProcessByStdio } from 'node:child_process'
 import type { Readable } from 'node:stream'
-import { writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import {
   app,
@@ -16,7 +15,6 @@ import {
   nativeImage,
   nativeTheme,
   session,
-  shell,
   Tray,
   type MenuItemConstructorOptions,
 } from 'electron'
@@ -25,8 +23,10 @@ import {
   allowsClipboardWrite,
   contextMenuTemplate,
   desktopWindowChrome,
-} from './desktop.ts'
-import { HarnessProxy } from './harness-proxy.ts'
+  isAllowedExternalUrl,
+} from './desktop/index.ts'
+import { DesktopServices } from './desktop/services.ts'
+import { HttpHarnessTransport } from './harness/transport.ts'
 import { installDesktopIpc } from './ipc.ts'
 import { readDesktopManifest, resolveUpdateRepository } from './manifest.ts'
 import { RENDERER_ENTRY_URL, RENDERER_ORIGIN } from './bridge-types.ts'
@@ -36,6 +36,7 @@ import {
   registerRendererScheme,
   resolveRendererRoot,
 } from './protocol.ts'
+import { resolveHostPatchPath, ensureElectronDirectoryPickerLinked } from './runtime-overlay.ts'
 import {
   HARNESS_START_TIMEOUT_MS,
   harnessArguments,
@@ -55,51 +56,27 @@ let tray: Tray | undefined
 let updater: UpdaterController | undefined
 let quitting = false
 let stopping = false
-const harnessProxy = new HarnessProxy()
-
-const BROWSE_PICKER_PATCH = `# Electron Windows fallback for native directory picker
-- id: directory-picker
-  disabled: true
-
-- insert:
-    - id: directory-picker-browse
-      name: '@deepseek-ai/dsh-host-directory-picker-browse'
-    - id: directory-picker-browse-client
-      name: '@deepseek-ai/dsh-client-ui-directory-picker-browse'
-`
+const transport = new HttpHarnessTransport()
+const desktop = new DesktopServices({
+  getWindow: () => mainWindow,
+  getUpdater: () => updater,
+  showMainWindow,
+})
 
 registerRendererScheme()
-
-function ensurePickerFallbackPatch(): string | undefined {
-  if (process.platform !== 'win32') {
-    return undefined
-  }
-
-  const patchPath = join(
-    app.getPath('userData'),
-    'picker-browse-fallback.yml',
-  )
-
-  writeFileSync(
-    patchPath,
-    BROWSE_PICKER_PATCH,
-    'utf8',
-  )
-
-  return patchPath
-}
 
 /** Start dsh and resolve only after its complete Web composition is ready. */
 async function startHarness(): Promise<{ child: HarnessProcess; url: string }> {
   const dshBin = resolveDshBin(app.getAppPath())
+  const harnessHome = resolveHarnessHome(app.getPath('home'))
+  ensureElectronDirectoryPickerLinked(app.getAppPath(), harnessHome)
+  const hostPatch = resolveHostPatchPath(app.getAppPath(), app.getPath('userData'))
 
-  const pickerPatch = ensurePickerFallbackPatch()
-
-  const child = spawn(process.execPath, harnessArguments(dshBin, pickerPatch), {
+  const child = spawn(process.execPath, harnessArguments(dshBin, hostPatch), {
     cwd: app.getPath('home'),
     env: {
       ...process.env,
-      DSH_HOME: resolveHarnessHome(app.getPath('home')),
+      DSH_HOME: harnessHome,
       ELECTRON_RUN_AS_NODE: '1',
     },
     stdio: ['ignore', 'pipe', 'pipe'],
@@ -176,14 +153,15 @@ async function createWindow(): Promise<BrowserWindow> {
     if (safeOrigin(nextUrl) !== allowedOrigin) event.preventDefault()
   })
   window.webContents.setWindowOpenHandler(({ url: nextUrl }) => {
-    const protocolName = safeProtocol(nextUrl)
-    if (protocolName === 'https:' || protocolName === 'http:') void shell.openExternal(nextUrl)
+    if (isAllowedExternalUrl(nextUrl)) void desktop.openExternal(nextUrl)
     return { action: 'deny' }
   })
   window.webContents.on('context-menu', (_event, params) => {
     Menu.buildFromTemplate(contextMenuTemplate(params, !app.isPackaged)).popup({ window })
   })
 
+  // Clipboard OS access goes through desktop.clipboard; keep a narrow write
+  // allowance until the renderer shim is the only writer in packaged builds.
   session.defaultSession.setPermissionCheckHandler((contents, permission, requestingOrigin) =>
     contents === window.webContents
       && allowsClipboardWrite(permission, requestingOrigin, allowedOrigin))
@@ -229,6 +207,7 @@ function requestQuit(): void {
 async function prepareToInstall(): Promise<void> {
   quitting = true
   stopping = true
+  await transport.stop()
   const child = harness
   harness = undefined
   if (child !== undefined) await stopHarness(child)
@@ -287,6 +266,7 @@ function installDesktopMenus(): void {
     { type: 'separator' },
     { label: 'Quit', click: requestQuit },
   ]))
+  desktop.emitUpdater()
 }
 
 function updateMenuItem(checkForUpdates: () => void): MenuItemConstructorOptions {
@@ -340,10 +320,6 @@ function safeOrigin(value: string): string {
   try { return new URL(value).origin } catch { return '' }
 }
 
-function safeProtocol(value: string): string {
-  try { return new URL(value).protocol } catch { return '' }
-}
-
 app.on('window-all-closed', () => {})
 app.on('activate', showMainWindow)
 app.on('second-instance', showMainWindow)
@@ -354,7 +330,7 @@ app.on('before-quit', (event) => {
   stopping = true
   const child = harness
   harness = undefined
-  void stopHarness(child).finally(() => { app.quit() })
+  void transport.stop().then(() => stopHarness(child)).finally(() => { app.quit() })
 })
 
 const primaryInstance = app.requestSingleInstanceLock()
@@ -362,12 +338,16 @@ if (!primaryInstance) {
   app.quit()
 } else {
   void app.whenReady().then(async () => {
-    installRendererProtocol(resolveRendererRoot(app.getAppPath()), harnessProxy)
-    installDesktopIpc(harnessProxy, contents => mainWindow !== undefined && contents === mainWindow.webContents)
+    installRendererProtocol(resolveRendererRoot(app.getAppPath()), transport.harnessProxy)
+    installDesktopIpc(
+      transport,
+      desktop,
+      contents => mainWindow !== undefined && contents === mainWindow.webContents,
+    )
 
     const started = await startHarness()
     harness = started.child
-    harnessProxy.setOrigin(started.url)
+    await transport.start(started.url)
     harness.once('exit', (code, signal) => {
       if (quitting) return
       dialog.showErrorBox(

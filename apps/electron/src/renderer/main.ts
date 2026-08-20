@@ -5,11 +5,13 @@
 
 import { AppWebEntry } from '@deepseek-ai/dsh-client-web'
 import { installHostBootstrap } from './bootstrap.ts'
+import { installDesktopClipboardShim } from './desktop/clipboard-shim.ts'
 import { installDesktopWebSocket } from './transport/websocket-shim.ts'
 import './titlebar.css'
 
 async function main(): Promise<void> {
   installDesktopWebSocket()
+  installDesktopClipboardShim()
   await installHostBootstrap()
   const el = document.getElementById('root')
   if (el === null) throw new Error('desktop renderer: missing #root')
