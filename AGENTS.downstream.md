@@ -149,7 +149,7 @@ pnpm install --no-frozen-lockfile   # when lockfile must follow manifest changes
 
 | Workflow | Trigger | Role |
 |----------|---------|------|
-| [`sync-upstream.yml`](.github/workflows/sync-upstream.yml) | Schedule, dispatch | Merge upstream → `develop`, Beta tag + release |
+| [`sync-upstream.yml`](.github/workflows/sync-upstream.yml) | Schedule, dispatch | Merge upstream → `develop` when upstream changed; publish Beta tag |
 | [`desktop-ci.yml`](.github/workflows/desktop-ci.yml) | Push/PR to `develop`, push to `main` | Test and compile without packaging |
 | [`desktop-release.yml`](.github/workflows/desktop-release.yml) | Tag push, dispatch | Package and publish installers for all platforms |
 | [`desktop-promote.yml`](.github/workflows/desktop-promote.yml) | Push to `main` | Create RC/Stable tags matching upstream version |
