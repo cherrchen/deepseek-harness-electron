@@ -1,6 +1,9 @@
 /**
  * Replace generated workspace dependencies while retaining desktop-owned registry dependencies.
  *
+ * A leftover `workspace:` specifier whose package is absent from the merged
+ * workspace is dropped. The `workspace:` protocol cannot be fetched from npm.
+ *
  * @param {Readonly<Record<string, string>> | undefined} currentDependencies
  * @param {readonly string[]} generatedWorkspaceDependencies
  * @param {ReadonlySet<string>} workspaceNames
@@ -12,7 +15,7 @@ export function synchronizeDependencies(
   workspaceNames,
 ) {
   const retainedDependencies = Object.entries(currentDependencies ?? {})
-    .filter(([name]) => !workspaceNames.has(name))
+    .filter(([name, specifier]) => !specifier.startsWith('workspace:') && !workspaceNames.has(name))
   const workspaceDependencies = generatedWorkspaceDependencies
     .map(name => [name, 'workspace:^'])
 
