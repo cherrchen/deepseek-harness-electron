@@ -17,13 +17,13 @@ README.zh.md merge=ours
 # restore @AGENTS.downstream.md afterward.
 AGENTS.md merge=theirs
 
-# Upstream-owned agent instructions. Accept upstream changes during sync and
-# restore @AGENTS.downstream.md afterward.
-AGENTS.md merge=theirs
-
-# Upstream-owned agent instructions. Accept upstream changes during sync and
-# restore @AGENTS.downstream.md afterward.
-AGENTS.md merge=theirs
+# Upstream owns the harness workflows and their shared specification. The
+# desktop fork owns only its prefixed workflows, sync workflow, and focused spec.
+.github/workflows/*.yml merge=theirs
+.github/workflows/desktop-*.yml merge=ours
+.github/workflows/sync-upstream.yml merge=ours
+scripts/ci-workflow.spec.ts merge=theirs
+scripts/desktop-workflow.spec.ts merge=ours
 
 # Pairing records are generated from the three confirmed owner-blob pairs.
 # The worktree-local installer registers the fail-closed driver command.

@@ -69,6 +69,8 @@ After a verified merge the workflow:
 |---------|----------|
 | `README.md`, `README.zh.md`, `README.i18n.yaml` | **Downstream wins** — `.gitattributes` `merge=ours` |
 | `AGENTS.md` | **Upstream wins** — accept upstream, then run `restore-agents-downstream.mjs` |
+| Upstream workflows and `scripts/ci-workflow.spec.ts` | **Upstream wins** — `.gitattributes` uses `merge=theirs`; the sync job registers that driver before merging |
+| `.github/workflows/desktop-*.yml`, `.github/workflows/sync-upstream.yml`, `scripts/desktop-workflow.spec.ts` | **Downstream wins** — `.gitattributes` uses `merge=ours` |
 | `pnpm-lock.yaml`, `pnpm-workspace.yaml` | Accept upstream, confirm `apps/electron` remains in the workspace, run `pnpm install --no-frozen-lockfile`, commit the regenerated lockfile |
 | Other `*.i18n.yaml` | Register the `dsh-translation-pairing` merge driver before merge; if a pairing record still conflicts, run `pnpm run resolve-translation-pairing-conflicts` to regenerate it from the merged owners. Abort when an owner Markdown file also conflicts or the resolver rejects the record. |
 | All other conflicts | Abort — manual resolution required |
@@ -93,7 +95,7 @@ Never let upstream sync overwrite:
 - `AGENTS.downstream.md`
 - `apps/electron/**` (except shared lockfile regeneration side effects)
 
-Treat `.github/workflows/desktop-*.yml` and `.github/workflows/sync-upstream.yml` as downstream-owned.
+Treat `.github/workflows/desktop-*.yml`, `.github/workflows/sync-upstream.yml`, and `scripts/desktop-workflow.spec.ts` as downstream-owned. All other `.github/workflows/*.yml` files and `scripts/ci-workflow.spec.ts` are upstream-owned.
 
 ## Electron development constraints
 
@@ -154,7 +156,8 @@ pnpm install --no-frozen-lockfile   # when lockfile must follow manifest changes
 | [`desktop-ci.yml`](.github/workflows/desktop-ci.yml) | Push/PR to `develop`, push to `main` | Test and compile without packaging |
 | [`desktop-release.yml`](.github/workflows/desktop-release.yml) | Tag push, dispatch | Package and publish installers for all platforms |
 | [`desktop-promote.yml`](.github/workflows/desktop-promote.yml) | Push to `main` | Create RC/Stable tags matching upstream version |
-| [`ci.yml`](.github/workflows/ci.yml) | Upstream-style `master` PRs | Full harness CI (unchanged upstream gate) |
+
+All other workflow files are retained from upstream for clean synchronization but are not part of the downstream CI/CD policy.
 
 ## Branch operation restrictions
 
