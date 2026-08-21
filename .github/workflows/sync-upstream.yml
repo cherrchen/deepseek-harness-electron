@@ -10,7 +10,8 @@ concurrency:
   cancel-in-progress: false
 
 permissions:
-  actions: write
+  actions: read
+  checks: read
   contents: write
 
 env:
@@ -119,6 +120,18 @@ jobs:
             exit 1
           fi
 
+      - name: Prepare Beta release commit
+        if: steps.upstream.outputs.changed == 'true'
+        id: beta
+        run: |
+          beta_tag=$(node apps/electron/scripts/next-beta-tag.mjs)
+          beta_version="${beta_tag#v}"
+          node apps/electron/scripts/set-version.mjs "$beta_version"
+          pnpm install --no-frozen-lockfile
+          git add apps/electron/package.json pnpm-lock.yaml
+          git commit -m "release(electron): $beta_version"
+          echo "tag=$beta_tag" >> "$GITHUB_OUTPUT"
+
       - name: Install dependencies
         if: steps.upstream.outputs.changed == 'true'
         run: pnpm install --frozen-lockfile
@@ -130,7 +143,7 @@ jobs:
           pnpm run build
           pnpm --filter @deepseek-ai/dsh-electron build
 
-      - name: Push verified merge to develop
+      - name: Push verified Beta commit to develop
         if: steps.upstream.outputs.changed == 'true'
         id: push
         env:
@@ -143,24 +156,35 @@ jobs:
           fi
           git push origin HEAD:develop
           echo "changed=true" >> "$GITHUB_OUTPUT"
+          echo "sha=$after" >> "$GITHUB_OUTPUT"
 
-      - name: Run desktop CI
+      - name: Wait for Desktop CI
         if: steps.upstream.outputs.changed == 'true' && steps.push.outputs.changed == 'true'
         env:
           GH_TOKEN: ${{ github.token }}
-        run: gh workflow run desktop-ci.yml --ref develop
+          HEAD_SHA: ${{ steps.push.outputs.sha }}
+        run: |
+          run_id=""
+          for attempt in $(seq 1 60); do
+            run_id=$(gh api \
+              "repos/${GH_REPO}/actions/workflows/desktop-ci.yml/runs?event=push&branch=develop&per_page=20" \
+              | jq -r --arg sha "$HEAD_SHA" \
+                '[.workflow_runs[] | select(.head_sha == $sha) | .id] | .[0] // empty')
+            if [ -n "$run_id" ]; then break; fi
+            sleep 5
+          done
+          if [ -z "$run_id" ]; then
+            echo "::error::Desktop CI did not start for develop commit $HEAD_SHA within five minutes."
+            exit 1
+          fi
+          gh run watch "$run_id" --repo "$GH_REPO" --exit-status
 
       # Beta releases track upstream integration only. desktop-release.yml runs from
       # the Beta tag push; do not dispatch it here.
       - name: Publish Beta tag
         if: steps.upstream.outputs.changed == 'true' && steps.push.outputs.changed == 'true'
+        env:
+          BETA_TAG: ${{ steps.beta.outputs.tag }}
         run: |
-          beta_tag=$(node apps/electron/scripts/next-beta-tag.mjs)
-          beta_version="${beta_tag#v}"
-          node apps/electron/scripts/set-version.mjs "$beta_version"
-          pnpm install --no-frozen-lockfile
-          git add apps/electron/package.json pnpm-lock.yaml
-          git commit -m "release(electron): $beta_version"
-          git tag -a "$beta_tag" -m "Beta desktop release $beta_version"
-          git push origin HEAD:develop
-          git push origin "$beta_tag"
+          git tag -a "$BETA_TAG" -m "Beta desktop release ${BETA_TAG#v}"
+          git push origin "refs/tags/$BETA_TAG"
