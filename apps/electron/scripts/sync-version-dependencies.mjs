@@ -1,3 +1,8 @@
+/** Workspace packages imported by desktop entry code outside the CLI production graph. */
+export const DESKTOP_ENTRY_WORKSPACE_DEPENDENCIES = Object.freeze([
+  '@deepseek-ai/dsh-client-web',
+])
+
 /**
  * Replace generated workspace dependencies while retaining desktop-owned registry dependencies.
  *
@@ -7,16 +12,21 @@
  * @param {Readonly<Record<string, string>> | undefined} currentDependencies
  * @param {readonly string[]} generatedWorkspaceDependencies
  * @param {ReadonlySet<string>} workspaceNames
+ * @param {readonly string[]} requiredWorkspaceDependencies
  * @returns {Record<string, string>}
  */
 export function synchronizeDependencies(
   currentDependencies,
   generatedWorkspaceDependencies,
   workspaceNames,
+  requiredWorkspaceDependencies = [],
 ) {
   const retainedDependencies = Object.entries(currentDependencies ?? {})
     .filter(([name, specifier]) => !specifier.startsWith('workspace:') && !workspaceNames.has(name))
-  const workspaceDependencies = generatedWorkspaceDependencies
+  const workspaceDependencies = [...new Set([
+    ...generatedWorkspaceDependencies,
+    ...requiredWorkspaceDependencies,
+  ])]
     .map(name => [name, 'workspace:^'])
 
   return Object.fromEntries(

@@ -103,7 +103,7 @@ Downstream changes may create new Agent Note triplets or update Agent Note tripl
 
 - All desktop release work targets `apps/electron/`
 - Build the upstream runtime before starting Electron locally (`pnpm run build` then `pnpm --filter @deepseek-ai/dsh-electron start`)
-- Desktop-owned registry dependencies (for example `electron-updater`) are retained across upstream dependency sync; workspace dependencies are regenerated from the upstream CLI graph. A leftover `workspace:` specifier whose package is absent after the merge is dropped; it is not retained as a registry dependency ([rationale](.agents/notes/implemented/bug-fix/2026-08-20-drop-stale-electron-workspace-specifiers.md))
+- Desktop-owned registry dependencies (for example `electron-updater`) and declared desktop entry dependencies are retained across upstream dependency sync; other workspace dependencies are regenerated from the upstream CLI graph. A leftover `workspace:` specifier whose package is absent after the merge is dropped; it is not retained as a registry dependency ([rationale](.agents/notes/implemented/bug-fix/2026-08-20-drop-stale-electron-workspace-specifiers.md))
 - Packaged builds use `electron-builder` with NSIS (Windows), DMG/ZIP (macOS), and AppImage/DEB (Linux) on native x64 and ARM64 runners
 - Release artifacts are unsigned unless platform signing credentials are configured
 - The updater reads GitHub Release metadata; tag names follow `v{a.b.c}[-beta.x|-rc.x]` — not the legacy `electron-dsh-v*` format
