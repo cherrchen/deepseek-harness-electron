@@ -14,9 +14,10 @@ pnpm run build
 pnpm --filter @deepseek-ai/dsh-electron start
 ```
 
-`pnpm --filter @deepseek-ai/dsh-electron build` 会编译主进程、preload 桥接与 Renderer（`dist/renderer`）。聚焦桌面测试：
+`pnpm --filter @deepseek-ai/dsh-electron build` 会编译主进程、preload 桥接、directory-picker 插件与 Renderer（`dist/renderer`）。聚焦桌面测试需要这些 Electron 产物（在上方上游 `pnpm run build` 之后）：
 
 ```sh
+pnpm --filter @deepseek-ai/dsh-electron build
 pnpm --filter @deepseek-ai/dsh-electron test
 ```
 

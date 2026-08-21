@@ -14,9 +14,10 @@ pnpm run build
 pnpm --filter @deepseek-ai/dsh-electron start
 ```
 
-`pnpm --filter @deepseek-ai/dsh-electron build` compiles the main process, preload bridge, and renderer (`dist/renderer`). Focused desktop tests:
+`pnpm --filter @deepseek-ai/dsh-electron build` compiles the main process, preload bridge, directory-picker plugin, and renderer (`dist/renderer`). Focused desktop tests expect those Electron artifacts (after the upstream `pnpm run build` above):
 
 ```sh
+pnpm --filter @deepseek-ai/dsh-electron build
 pnpm --filter @deepseek-ai/dsh-electron test
 ```
 

@@ -59,11 +59,14 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
+      - name: Build upstream application
+        run: pnpm run build
+
+      - name: Compile Electron application
+        run: pnpm --filter @deepseek-ai/dsh-electron build
+
       - name: Test Electron runtime
         run: pnpm --filter @deepseek-ai/dsh-electron test
-
-      - name: Compile Electron main process
-        run: pnpm --filter @deepseek-ai/dsh-electron build
 
   validate:
     name: Test and compile
@@ -103,11 +106,11 @@ jobs:
             exit 1
           fi
 
-      - name: Test Electron runtime
-        run: pnpm --filter @deepseek-ai/dsh-electron test
-
       - name: Build upstream application
         run: pnpm run build
 
-      - name: Compile Electron main process
+      - name: Compile Electron application
         run: pnpm --filter @deepseek-ai/dsh-electron build
+
+      - name: Test Electron runtime
+        run: pnpm --filter @deepseek-ai/dsh-electron test

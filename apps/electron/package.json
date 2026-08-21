@@ -20,7 +20,7 @@
     "build": "pnpm run build:directory-picker && pnpm run build:main && pnpm run build:preload && pnpm run build:renderer",
     "package": "electron-builder --publish never",
     "start": "pnpm run build && env -u ELECTRON_RUN_AS_NODE electron .",
-    "test": "vitest run --root ../.. apps/electron/tests"
+    "test": "pnpm run build:directory-picker && vitest run --root ../.. apps/electron/tests"
   },
   "dependencies": {
     "@deepseek-ai/cordis": "workspace:^",
