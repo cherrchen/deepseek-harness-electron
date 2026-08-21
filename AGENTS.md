@@ -37,7 +37,7 @@ packages/    @deepseek-ai/dsh-<pkg> workspaces at packages/<group>/<pkg>/
   session/     durable session data: persistence, projection, titles, telemetry
   identity/    anonymous identity
   settings/    user-settings capability + file provider
-  credentials/ credential-reference capability + env/.env provider
+  credentials/ credential/authorization capabilities + env/.env provider
   acp/         automation-only Agent Client Protocol server
   interaction/ approval/interaction capabilities, permission, commands, ask-user
   boot/        shared app-bin glue
@@ -149,5 +149,3 @@ Docs accompany every code change: update affected README and JSDoc contracts tog
 ## Vendoring policy
 
 `vendor/` packages are pinned source copies (manifest with upstream SHAs in [vendor/README.md](vendor/README.md)). Update via the sync procedure there; re-apply or retire the logged local modifications; rerun `pnpm run test && pnpm run build`.
-
-@AGENTS.downstream.md
