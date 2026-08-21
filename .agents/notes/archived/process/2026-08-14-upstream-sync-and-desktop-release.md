@@ -1,6 +1,7 @@
 # Agent Note: Synchronize upstream before desktop validation and release
 
 Status: implemented
+Archived: 2026-08-21
 
 English | [中文](2026-08-14-upstream-sync-and-desktop-release.zh.md)
 

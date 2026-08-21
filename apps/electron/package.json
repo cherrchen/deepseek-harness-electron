@@ -139,6 +139,9 @@
   "build": {
     "appId": "ai.deepseek.harness.desktop",
     "asar": false,
+    "extraMetadata": {
+      "name": "deepseek-harness-desktop"
+    },
     "artifactName": "DeepSeek-Harness-${version}-${os}-${arch}.${ext}",
     "directories": {
       "output": "../../dist/electron"
@@ -181,7 +184,9 @@
     },
     "nsis": {
       "oneClick": false,
-      "allowToChangeInstallationDirectory": true
+      "allowToChangeInstallationDirectory": true,
+      "useZip": true,
+      "differentialPackage": false
     },
     "linux": {
       "category": "Development",
