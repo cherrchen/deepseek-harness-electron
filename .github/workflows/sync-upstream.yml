@@ -57,12 +57,20 @@ jobs:
         if: steps.upstream.outputs.changed != 'true'
         run: echo "Upstream is already merged into develop; skipping merge, commits, and release."
 
+      # Install without postinstall hooks so the pairing merge driver can run during
+      # git merge without lefthook pre-merge-commit rejecting an otherwise clean result.
+      - name: Install dependencies for pairing merge driver
+        if: steps.upstream.outputs.changed == 'true'
+        run: pnpm install --frozen-lockfile --ignore-scripts
+
       - name: Merge upstream with downstream conflict policy
         if: steps.upstream.outputs.changed == 'true'
         run: |
           git config user.name github-actions[bot]
           git config user.email 41898282+github-actions[bot]@users.noreply.github.com
           git config merge.ours.driver true
+          git config merge.dsh-translation-pairing.name 'DeepSeek Harness bilingual pairing records'
+          git config merge.dsh-translation-pairing.driver 'scripts/merge-translation-pairing-driver.sh %O %A %B %P'
           if ! git merge --no-edit upstream/master; then
             mapfile -t conflicts < <(git diff --name-only --diff-filter=U)
 
@@ -83,6 +91,10 @@ jobs:
                   git checkout --theirs -- "$file"
                   git add "$file"
                   ;;
+                *.i18n.yaml)
+                  # Pairing records are regenerated after the other conflict policies
+                  # via pnpm run resolve-translation-pairing-conflicts.
+                  ;;
                 *)
                   git merge --abort || true
                   echo "::error::Upstream merge has unresolved conflicts in $file. Manual resolution is required."
@@ -90,6 +102,28 @@ jobs:
                   ;;
               esac
             done
+
+            mapfile -t remaining < <(git diff --name-only --diff-filter=U)
+            if [ "${#remaining[@]}" -gt 0 ]; then
+              for file in "${remaining[@]}"; do
+                case "$file" in
+                  *.i18n.yaml) ;;
+                  *)
+                    git merge --abort || true
+                    echo "::error::Upstream merge has unresolved conflicts in $file. Manual resolution is required."
+                    exit 1
+                    ;;
+                esac
+              done
+
+              echo "Regenerating conflicted pairing records:"
+              printf ' %s\n' "${remaining[@]}"
+              if ! pnpm run resolve-translation-pairing-conflicts; then
+                git merge --abort || true
+                echo "::error::Failed to regenerate conflicted .i18n.yaml pairing records. Manual resolution is required."
+                exit 1
+              fi
+            fi
 
             if ! git diff --cached --quiet || [ -n "$(git diff --name-only --diff-filter=U)" ]; then
               if [ -n "$(git diff --name-only --diff-filter=U)" ]; then

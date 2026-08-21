@@ -70,6 +70,7 @@ After a verified merge the workflow:
 | `README.md`, `README.zh.md`, `README.i18n.yaml` | **Downstream wins** — `.gitattributes` `merge=ours` |
 | `AGENTS.md` | **Upstream wins** — accept upstream, then run `restore-agents-downstream.mjs` |
 | `pnpm-lock.yaml`, `pnpm-workspace.yaml` | Accept upstream, confirm `apps/electron` remains in the workspace, run `pnpm install --no-frozen-lockfile`, commit the regenerated lockfile |
+| Other `*.i18n.yaml` | Register the `dsh-translation-pairing` merge driver before merge; if a pairing record still conflicts, run `pnpm run resolve-translation-pairing-conflicts` to regenerate it from the merged owners. Abort when an owner Markdown file also conflicts or the resolver rejects the record. |
 | All other conflicts | Abort — manual resolution required |
 
 The lockfile goal is: upstream dependency state plus downstream `apps/electron` dependency state equals the final lockfile. Do not preserve a stale downstream lockfile to avoid upstream dependency updates.
