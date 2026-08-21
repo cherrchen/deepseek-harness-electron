@@ -97,6 +97,8 @@ Never let upstream sync overwrite:
 
 Treat `.github/workflows/desktop-*.yml`, `.github/workflows/sync-upstream.yml`, and `scripts/desktop-workflow.spec.ts` as downstream-owned. All other `.github/workflows/*.yml` files and `scripts/ci-workflow.spec.ts` are upstream-owned.
 
+Downstream changes may create new Agent Note triplets or update Agent Note triplets originally created by this downstream repository. Never modify an Agent Note Markdown owner or `*.i18n.yaml` sidecar created by upstream; record downstream-specific decisions in a new downstream-owned Agent Note and link to the upstream note from the downstream note when necessary.
+
 ## Electron development constraints
 
 - All desktop release work targets `apps/electron/`
