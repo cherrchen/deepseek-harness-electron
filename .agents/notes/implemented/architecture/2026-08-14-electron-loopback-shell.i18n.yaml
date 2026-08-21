@@ -2,5 +2,5 @@
 # side as of the last confirmed-consistent state. Both languages carry equal authority;
 # after editing either side, bring the other along and re-record with:
 #   pnpm run verify-translation-pairing --write .agents/notes/implemented/architecture/2026-08-14-electron-loopback-shell.md
-2026-08-14-electron-loopback-shell.md: bc5d53f05ba22481ca1795ee145bf44b3434db72
-2026-08-14-electron-loopback-shell.zh.md: bbe42cabf51ce96a47699ebe97417a964f2bf2ed
+2026-08-14-electron-loopback-shell.md: e548f99311f85cb06e2b0685026fa4b017480f1d
+2026-08-14-electron-loopback-shell.zh.md: ae7722fed59f6b26425091816b8587dcf60b39c2

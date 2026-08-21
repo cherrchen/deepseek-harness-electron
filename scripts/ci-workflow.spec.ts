@@ -215,13 +215,17 @@ describe('Desktop synchronization and release workflows', () => {
   it('keeps routine desktop CI lightweight and packages releases on native x64 and ARM64 runners', () => {
     const ci = loadWorkflow('.github/workflows/desktop-ci.yml')
     const release = loadWorkflow('.github/workflows/desktop-release.yml')
+    const electronManifest: unknown = JSON.parse(readFileSync(resolve(root, 'apps/electron/package.json'), 'utf8'))
     if (!isRecord(ci.jobs) || !isRecord(release.jobs)) {
       throw new TypeError('Desktop workflows must define jobs')
+    }
+    if (!isRecord(electronManifest) || !isRecord(electronManifest.build)) {
+      throw new TypeError('Electron manifest must define build configuration')
     }
 
     expect(ci.on).toMatchObject({
       push: { branches: ['develop', 'main'] },
-      pull_request: { branches: ['develop'] },
+      pull_request: { branches: ['develop', 'main'] },
     })
     expect(ci.jobs).not.toHaveProperty('package')
     const ciSteps = Object.values(ci.jobs).flatMap(job => (
@@ -234,8 +238,18 @@ describe('Desktop synchronization and release workflows', () => {
       throw new TypeError('Desktop release package job must define an include matrix')
     }
     expect(packageJob.strategy.matrix.include).toEqual([
-      expect.objectContaining({ name: 'Windows x64', runner: 'windows-latest', args: '--win nsis --x64', artifact: 'windows-x64' }),
-      expect.objectContaining({ name: 'Windows ARM64', runner: 'windows-11-arm', args: '--win nsis --arm64', artifact: 'windows-arm64' }),
+      expect.objectContaining({
+        name: 'Windows x64',
+        runner: 'windows-latest',
+        args: '--win nsis --x64 --config.nsis.oneClick=false --config.nsis.allowToChangeInstallationDirectory=true',
+        artifact: 'windows-x64',
+      }),
+      expect.objectContaining({
+        name: 'Windows ARM64',
+        runner: 'windows-11-arm',
+        args: '--win nsis --arm64 --config.nsis.oneClick=false --config.nsis.allowToChangeInstallationDirectory=true',
+        artifact: 'windows-arm64',
+      }),
       expect.objectContaining({ name: 'macOS x64', runner: 'macos-15-intel', args: '--mac dmg zip --x64', artifact: 'macos-x64' }),
       expect.objectContaining({ name: 'macOS ARM64', runner: 'macos-15', args: '--mac dmg zip --arm64', artifact: 'macos-arm64' }),
       expect.objectContaining({
@@ -253,6 +267,10 @@ describe('Desktop synchronization and release workflows', () => {
         files: 'dist/electron/*.AppImage\ndist/electron/*.deb\ndist/electron/latest-linux*.yml\n',
       }),
     ])
+    expect(electronManifest.build.nsis).toEqual({
+      oneClick: false,
+      allowToChangeInstallationDirectory: true,
+    })
   })
 
   it('merges upstream into develop and publishes Beta tags from the sync workflow', () => {
@@ -266,12 +284,19 @@ describe('Desktop synchronization and release workflows', () => {
     const steps = syncJob.steps.filter(isRecord)
     const checkout = steps.find(step => step.uses === 'actions/checkout@v6')
     const merge = steps.find(step => step.name === 'Merge upstream with downstream conflict policy')
-    const push = steps.find(step => step.name === 'Push verified merge to develop')
-    const beta = steps.find(step => step.name === 'Publish Beta release')
-    if (typeof merge?.run !== 'string' || typeof push?.run !== 'string' || typeof beta?.run !== 'string') {
-      throw new TypeError('Desktop sync must merge, push to develop, and publish Beta releases')
+    const prepareBeta = steps.find(step => step.name === 'Prepare Beta release commit')
+    const push = steps.find(step => step.name === 'Push verified Beta commit to develop')
+    const waitForCi = steps.find(step => step.name === 'Wait for Desktop CI')
+    const beta = steps.find(step => step.name === 'Publish Beta tag')
+    if (typeof merge?.run !== 'string'
+      || typeof prepareBeta?.run !== 'string'
+      || typeof push?.run !== 'string'
+      || typeof waitForCi?.run !== 'string'
+      || typeof beta?.run !== 'string') {
+      throw new TypeError('Desktop sync must prepare and push Beta commits, await CI, and publish Beta tags')
     }
 
+    expect(sync.permissions).toMatchObject({ actions: 'read', checks: 'read', contents: 'write' })
     expect(checkout).toMatchObject({ with: { ref: 'develop' } })
     expect(merge.run).toContain('git merge --no-edit upstream/master')
     expect(merge.run).toContain('README.md|README.zh.md|README.i18n.yaml')
@@ -283,31 +308,60 @@ describe('Desktop synchronization and release workflows', () => {
     expect(merge.run).toContain('pnpm install --no-frozen-lockfile')
     expect(merge.run).not.toMatch(/pnpm install --lockfile-only/)
     expect(merge.run).toContain('apps/electron')
+    expect(prepareBeta.run).toContain('next-beta-tag.mjs')
+    expect(prepareBeta.run).toContain('set-version.mjs')
+    expect(prepareBeta.run).toContain('pnpm install --no-frozen-lockfile')
+    expect(prepareBeta.run).toContain('release(electron)')
     expect(push.run).toContain('git push origin HEAD:develop')
     expect(push.run).not.toContain('HEAD:main')
-    expect(beta.run).toContain('next-beta-tag.mjs')
-    expect(beta.run).toContain('set-version.mjs')
-    expect(beta.run).toContain('pnpm install --no-frozen-lockfile')
-    expect(beta.run).not.toMatch(/pnpm install --lockfile-only/)
-    expect(beta.run).toContain('git tag -a "$beta_tag"')
+    expect(push.run).toContain('sha=$after')
+    expect(waitForCi.run).toContain('actions/workflows/desktop-ci.yml/runs?event=push&branch=develop')
+    expect(waitForCi.run).toContain('select(.head_sha == $sha)')
+    expect(waitForCi.run).toContain('gh run watch "$run_id" --repo "$GH_REPO" --exit-status')
+    expect(waitForCi.run).not.toContain('gh workflow run')
+    expect(beta.run).toContain('git tag -a "$BETA_TAG"')
+    expect(beta.run).toContain('git push origin "refs/tags/$BETA_TAG"')
+    expect(beta.run).not.toContain('git push origin HEAD:develop')
+    expect(steps.indexOf(prepareBeta)).toBeLessThan(steps.indexOf(push))
+    expect(steps.indexOf(push)).toBeLessThan(steps.indexOf(waitForCi))
+    expect(steps.indexOf(waitForCi)).toBeLessThan(steps.indexOf(beta))
+    expect(steps.filter(step => typeof step.run === 'string' && step.run.includes('git push origin HEAD:develop'))).toHaveLength(1)
   })
 
-  it('promotes main to RC or Stable tags that match the upstream CLI version', () => {
+  it('requires promotion PRs to prepare the desktop version before main is tagged', () => {
+    const ci = loadWorkflow('.github/workflows/desktop-ci.yml')
     const promote = loadWorkflow('.github/workflows/desktop-promote.yml')
+    const validateJob = workflowJob(ci, 'validate')
     const promoteJob = workflowJob(promote, 'promote')
-    if (!Array.isArray(promoteJob.steps)) {
-      throw new TypeError('Desktop promote must define steps')
+    if (!Array.isArray(validateJob.steps) || !Array.isArray(promoteJob.steps)) {
+      throw new TypeError('Desktop CI and promote must define steps')
     }
-    const release = promoteJob.steps.filter(isRecord).find(step => step.name === 'Align Electron version with upstream and publish tag')
-    if (typeof release?.run !== 'string') {
-      throw new TypeError('Desktop promote must align Electron version with upstream')
+    const prepare = validateJob.steps.filter(isRecord).find(step => step.name === 'Verify prepared desktop promotion')
+    const release = promoteJob.steps.filter(isRecord).find(step => step.name === 'Validate prepared version and publish tag')
+    const checkout = promoteJob.steps.filter(isRecord).find(step => step.uses === 'actions/checkout@v6')
+    if (typeof prepare?.run !== 'string' || typeof release?.run !== 'string') {
+      throw new TypeError('Desktop CI must verify prepared versions and promote must publish their tags')
     }
 
-    expect(promote.on).toMatchObject({ push: { branches: ['main'] } })
+    expect(prepare.if).toBe("github.event_name == 'pull_request' && github.base_ref == 'main'")
+    expect(prepare.env).toMatchObject({ HEAD_REF: '${{ github.head_ref }}' })
+    expect(prepare.run).toContain('[ "$HEAD_REF" != "develop" ]')
+    expect(prepare.run).toContain('pnpm electron:set-version $cli_version')
+    expect(promote.on).toMatchObject({
+      push: {
+        branches: ['main'],
+        paths: ['apps/electron/package.json'],
+      },
+    })
+    expect(checkout).toMatchObject({ with: { ref: 'main', 'fetch-depth': 0 } })
     expect(release.run).toContain("require('./apps/cli/package.json').version")
-    expect(release.run).toContain('release_tag="v${upstream_version}"')
-    expect(release.run).toContain('set-version.mjs')
-    expect(release.run).toContain('git push origin HEAD:main')
+    expect(release.run).toContain("require('./apps/electron/package.json').version")
+    expect(release.run).toContain('release_tag="v${electron_version}"')
+    expect(release.run).toContain('git push origin "refs/tags/${release_tag}"')
+    expect(release.run).not.toContain('set-version.mjs')
+    expect(release.run).not.toContain('pnpm install')
+    expect(release.run).not.toContain('git commit')
+    expect(release.run).not.toContain('HEAD:main')
   })
 
   it('validates release tags against the correct branch before packaging installers', () => {
