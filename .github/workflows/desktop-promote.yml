@@ -4,13 +4,11 @@ on:
   push:
     branches: [main]
     paths:
-      - 'apps/cli/package.json'
       - 'apps/electron/package.json'
-      - 'pnpm-lock.yaml'
   workflow_dispatch:
 
 concurrency:
-  group: desktop-promote-${{ github.ref }}
+  group: desktop-promote-main
   cancel-in-progress: false
 
 permissions:
@@ -21,39 +19,43 @@ env:
 
 jobs:
   promote:
-    name: Create RC or Stable release tag on main
+    name: Tag prepared RC or Stable version on main
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
         with:
+          ref: main
           fetch-depth: 0
-          token: ${{ secrets.UPSTREAM_SYNC_TOKEN }}
-
-      - uses: pnpm/action-setup@v4
-
-      - uses: actions/setup-node@v6
-        with:
-          node-version: 24
-          cache: pnpm
 
       # desktop-release.yml runs from the release tag push; do not dispatch it here.
-      - name: Align Electron version with upstream and publish tag
+      - name: Validate prepared version and publish tag
         run: |
           git config user.name github-actions[bot]
           git config user.email 41898282+github-actions[bot]@users.noreply.github.com
 
-          upstream_version=$(node -p "require('./apps/cli/package.json').version")
-          release_tag="v${upstream_version}"
+          git fetch origin main --tags
+          if [ "$(git rev-parse HEAD)" != "$(git rev-parse origin/main)" ]; then
+            echo "::error::main advanced after this promotion started; rerun against its latest commit."
+            exit 1
+          fi
+
+          cli_version=$(node -p "require('./apps/cli/package.json').version")
+          electron_version=$(node -p "require('./apps/electron/package.json').version")
+          if [ "$electron_version" != "$cli_version" ]; then
+            echo "::error::Electron version $electron_version does not match CLI version $cli_version. Prepare the version in the develop to main pull request."
+            exit 1
+          fi
+          if [[ ! "$electron_version" =~ ^[0-9]+\.[0-9]+\.[0-9]+(-rc\.[0-9]+)?$ ]]; then
+            echo "::error::Version $electron_version is not an RC or Stable desktop version."
+            exit 1
+          fi
+
+          release_tag="v${electron_version}"
 
           if git ls-remote --exit-code --tags origin "refs/tags/${release_tag}" >/dev/null 2>&1; then
             echo "Release tag ${release_tag} already exists."
             exit 0
           fi
 
-          node apps/electron/scripts/set-version.mjs "$upstream_version"
-          pnpm install --no-frozen-lockfile
-          git add apps/electron/package.json pnpm-lock.yaml
-          git commit -m "release(electron): ${upstream_version}"
-          git tag -a "$release_tag" -m "Desktop release ${upstream_version}"
-          git push origin HEAD:main
-          git push origin "$release_tag"
+          git tag -a "$release_tag" -m "Desktop release ${electron_version}"
+          git push origin "refs/tags/${release_tag}"

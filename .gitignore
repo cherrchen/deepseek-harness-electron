@@ -40,3 +40,5 @@ dist/electron/
 worktrees/
 .agents/worktrees/
 .typert-*/
+apps/electron/dist/
+apps/electron/build/

@@ -97,7 +97,7 @@ jobs:
         include:
           - name: Windows x64
             runner: windows-latest
-            args: --win nsis --x64
+            args: --win nsis --x64 --config.nsis.oneClick=false --config.nsis.allowToChangeInstallationDirectory=true
             artifact: windows-x64
             files: |
               dist/electron/*-x64.exe
@@ -105,7 +105,7 @@ jobs:
               dist/electron/latest.yml
           - name: Windows ARM64
             runner: windows-11-arm
-            args: --win nsis --arm64
+            args: --win nsis --arm64 --config.nsis.oneClick=false --config.nsis.allowToChangeInstallationDirectory=true
             artifact: windows-arm64
             files: |
               dist/electron/*-arm64.exe

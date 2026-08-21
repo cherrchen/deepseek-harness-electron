@@ -166,6 +166,10 @@
         "nsis"
       ]
     },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true
+    },
     "linux": {
       "category": "Development",
       "executableName": "deepseek-harness",
