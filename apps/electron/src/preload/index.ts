@@ -10,6 +10,8 @@ import {
   type DesktopUnsubscribe,
   type DesktopUpdaterSnapshot,
   type HostHttpRequest,
+  type HostStreamHandlers,
+  type HostStreamPortMessage,
   type PickDirectoryOptions,
   type ThemeState,
 } from '../bridge-types.ts'
@@ -28,20 +30,73 @@ function subscribeChannel<T>(channel: string, callback: (value: T) => void): Des
   }
 }
 
+/**
+ * Bridge a Host event stream while keeping the MessagePort in preload.
+ * Returning MessagePort across contextBridge yields a non-functional clone
+ * in the isolated world (`addEventListener` missing), which breaks workspace
+ * and session baselines that wait on stream `onConnected`.
+ * @param path - Host event path.
+ * @param handlers - Renderer callbacks (functions cross contextBridge safely).
+ * @returns disposer that aborts the stream.
+ */
+function openHostStream(
+  path: '/api/events.mux' | '/api/events.host',
+  handlers: HostStreamHandlers,
+): DesktopUnsubscribe {
+  const { port1, port2 } = new MessageChannel()
+  let closed = false
+  const cleanup = (): void => {
+    if (closed) return
+    closed = true
+    port2.removeEventListener('message', onMessage)
+    try {
+      port2.postMessage({ type: 'abort' } satisfies HostStreamPortMessage)
+    } catch {
+      // Port already closed by Main.
+    }
+    try {
+      port2.close()
+    } catch {
+      // Port already closed.
+    }
+  }
+  const onMessage = (event: MessageEvent): void => {
+    const message = event.data as HostStreamPortMessage
+    switch (message.type) {
+      case 'open':
+        handlers.onOpen()
+        break
+      case 'message':
+        handlers.onMessage(message.data)
+        break
+      case 'close':
+        handlers.onClose()
+        cleanup()
+        break
+      case 'error':
+        handlers.onError(message.message)
+        handlers.onClose()
+        cleanup()
+        break
+      case 'abort':
+        break
+      default: {
+        const _exhaustive: never = message
+        void _exhaustive
+      }
+    }
+  }
+  port2.addEventListener('message', onMessage)
+  port2.start()
+  ipcRenderer.postMessage(DesktopIpcChannel.openStream, path, [port1])
+  return cleanup
+}
+
 const bridge: DeepseekDesktopBridge = {
   host: {
     getBootstrap: () => ipcRenderer.invoke(DesktopIpcChannel.getBootstrap),
     request: (init: HostHttpRequest) => ipcRenderer.invoke(DesktopIpcChannel.request, init),
-    openStream: path => new Promise((resolve, reject) => {
-      const { port1, port2 } = new MessageChannel()
-      try {
-        ipcRenderer.postMessage(DesktopIpcChannel.openStream, path, [port1])
-        port2.start()
-        resolve(port2)
-      } catch (error: unknown) {
-        reject(error)
-      }
-    }),
+    openStream: openHostStream,
   },
   app: {
     getVersion: () => ipcRenderer.invoke(DesktopIpcChannel.getVersion),

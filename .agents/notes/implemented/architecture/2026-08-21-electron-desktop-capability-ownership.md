@@ -14,7 +14,7 @@ Every OS desktop capability used by the Electron shell is owned by Electron Main
 
 Clipboard writes that still call `navigator.clipboard` in upstream UI are redirected by a narrow renderer shim under `apps/electron/src/renderer/` until an upstream injection seam exists. Shell external URLs use an allowlist (`https:`, `http:`, `mailto:`). Updater, theme, and window controls are reachable from the bridge while `quitAndInstall` and Host process lifecycle stay in Main. In-app file path opens may still use Host `host.openPath` until an upstream opener seam exists; desktop-owned callers use `desktop.shell.*`.
 
-Main talks to Host through a `HarnessTransport` interface whose first implementation is `HttpHarnessTransport` wrapping the existing loopback proxy. Removing HTTP entirely is deferred; the renderer never learns the Host URL.
+Main talks to Host through a `HarnessTransport` interface whose first implementation is `HttpHarnessTransport` wrapping the existing loopback proxy. Removing HTTP entirely is deferred; the renderer never learns the Host URL. Host event streams (`/api/events.mux`, `/api/events.host`) use a preload-owned MessagePort with callback handlers on the bridge: returning a MessagePort across `contextBridge` yields a non-functional clone in the isolated world, which prevents `onConnected` and leaves workspace/session baselines empty.
 
 Fork surface stays in `apps/electron/**` plus this Agent Note. Do not modify `packages/`, `vendor/`, or `apps/web/` for these capabilities.
 

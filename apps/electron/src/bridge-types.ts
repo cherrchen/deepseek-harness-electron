@@ -89,6 +89,21 @@ export type HostStreamPortMessage =
   | { type: 'error'; message: string }
   | { type: 'abort' }
 
+/**
+ * Renderer callbacks for a Host event stream. The MessagePort stays in preload
+ * (contextBridge cannot return a live MessagePort to the isolated world).
+ */
+export interface HostStreamHandlers {
+  /** Real Host WebSocket reached OPEN. */
+  onOpen(): void
+  /** Text frame from the Host WebSocket. */
+  onMessage(data: string): void
+  /** Stream closed (Host or abort). */
+  onClose(): void
+  /** Bridge or Host error; followed by {@link onClose}. */
+  onError(message: string): void
+}
+
 /** Unsubscribe handle returned by bridge subscriptions. */
 export type DesktopUnsubscribe = () => void
 
@@ -100,10 +115,14 @@ export interface DeepseekDesktopBridge {
     /** Unary Host HTTP request (JSON API paths). */
     request(init: HostHttpRequest): Promise<HostHttpResponse>
     /**
-     * Open a Host event stream. The returned MessagePort receives
-     * {@link HostStreamPortMessage} frames; posting `{ type: 'abort' }` closes it.
+     * Open a Host event stream. Preload owns the MessagePort and fans
+     * {@link HostStreamPortMessage} frames into `handlers`; the returned
+     * disposer aborts the stream.
      */
-    openStream(path: '/api/events.mux' | '/api/events.host'): Promise<MessagePort>
+    openStream(
+      path: '/api/events.mux' | '/api/events.host',
+      handlers: HostStreamHandlers,
+    ): DesktopUnsubscribe
   }
   app: {
     /** Packaged application version. */

@@ -1,10 +1,11 @@
 /**
  * Renderer WebSocket stand-in for Host event streams.
  * Unmodified WebApiClient opens `ws://…/api/events.*`; custom schemes cannot
- * carry native WebSockets, so those paths ride MessagePort → Main → real WS.
+ * carry native WebSockets, so those paths ride preload-owned MessagePort →
+ * Main → real WS (callbacks cross contextBridge; MessagePort does not).
  */
 
-import type { HostStreamPortMessage } from '../../bridge-types.ts'
+import type { DesktopUnsubscribe, HostStreamHandlers } from '../../bridge-types.ts'
 
 const EVENT_PATHS = new Set(['/api/events.mux', '/api/events.host'])
 
@@ -41,7 +42,7 @@ class DesktopWebSocketImpl {
   url: string
   readyState = DESKTOP_WS_CONNECTING
   private readonly listeners = new Map<string, Set<EventListenerOrEventListenerObject>>()
-  private port: MessagePort | undefined
+  private unsubscribe: DesktopUnsubscribe | undefined
 
   constructor(
     url: string,
@@ -61,15 +62,15 @@ class DesktopWebSocketImpl {
       return
     }
     const path = parsed.pathname as '/api/events.mux' | '/api/events.host'
-    void this.open(path, bridge)
+    this.open(path, bridge)
   }
 
   close(): void {
     if (this.readyState === DESKTOP_WS_CLOSING || this.readyState === DESKTOP_WS_CLOSED) return
     this.readyState = DESKTOP_WS_CLOSING
-    this.port?.postMessage({ type: 'abort' } satisfies HostStreamPortMessage)
-    this.port?.close()
-    this.port = undefined
+    const stop = this.unsubscribe
+    this.unsubscribe = undefined
+    stop?.()
     this.readyState = DESKTOP_WS_CLOSED
     this.emit('close', new CloseEvent('close'))
   }
@@ -91,49 +92,41 @@ class DesktopWebSocketImpl {
     }
   }
 
-  private async open(
+  private open(
     path: '/api/events.mux' | '/api/events.host',
     bridge: NonNullable<Window['deepseekDesktop']>,
-  ): Promise<void> {
+  ): void {
+    const handlers: HostStreamHandlers = {
+      onOpen: () => {
+        this.readyState = DESKTOP_WS_OPEN
+        this.emit('open', new Event('open'))
+      },
+      onMessage: (data) => {
+        this.emit('message', new MessageEvent('message', { data }))
+      },
+      onClose: () => {
+        this.unsubscribe = undefined
+        if (this.readyState === DESKTOP_WS_CLOSED) return
+        this.readyState = DESKTOP_WS_CLOSED
+        this.emit('close', new CloseEvent('close'))
+      },
+      onError: () => {
+        this.unsubscribe = undefined
+        this.emit('error', new Event('error'))
+        if (this.readyState === DESKTOP_WS_CLOSED) return
+        this.readyState = DESKTOP_WS_CLOSED
+        this.emit('close', new CloseEvent('close'))
+      },
+    }
     try {
-      const port = await bridge.host.openStream(path)
-      this.port = port
-      port.addEventListener('message', (event) => {
-        const message = event.data as HostStreamPortMessage
-        switch (message.type) {
-          case 'open':
-            this.readyState = DESKTOP_WS_OPEN
-            this.emit('open', new Event('open'))
-            break
-          case 'message':
-            this.emit('message', new MessageEvent('message', { data: message.data }))
-            break
-          case 'close':
-            this.readyState = DESKTOP_WS_CLOSED
-            this.emit('close', new CloseEvent('close'))
-            port.close()
-            this.port = undefined
-            break
-          case 'error':
-            this.emit('error', new Event('error'))
-            this.readyState = DESKTOP_WS_CLOSED
-            this.emit('close', new CloseEvent('close'))
-            port.close()
-            this.port = undefined
-            break
-          case 'abort':
-            break
-          default: {
-            const _exhaustive: never = message
-            void _exhaustive
-          }
-        }
-      })
-      port.start()
+      this.unsubscribe = bridge.host.openStream(path, handlers)
     } catch {
-      this.readyState = DESKTOP_WS_CLOSED
-      this.emit('error', new Event('error'))
-      this.emit('close', new CloseEvent('close'))
+      // Defer so callers can attach listeners after `new WebSocket(...)`.
+      queueMicrotask(() => {
+        this.readyState = DESKTOP_WS_CLOSED
+        this.emit('error', new Event('error'))
+        this.emit('close', new CloseEvent('close'))
+      })
     }
   }
 }

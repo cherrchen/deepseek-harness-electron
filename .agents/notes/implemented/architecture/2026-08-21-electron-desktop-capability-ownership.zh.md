@@ -14,7 +14,7 @@ Electron shell 使用的每项操作系统桌面能力均由 Electron Main 拥�
 
 上游 UI 仍调用 `navigator.clipboard` 且无注入 seam 时，在 `apps/electron/src/renderer/` 放置窄 shim，直到上游提供注入点。Shell 外部 URL 使用允许列表（`https:`、`http:`、`mailto:`）。Updater、主题与窗口控制可通过桥访问，但 `quitAndInstall` 与 Host 进程生命周期仍属于 Main。应用内文件路径打开在上游 opener seam 出现前仍可使用 Host `host.openPath`；桌面自有调用方使用 `desktop.shell.*`。
 
-Main 通过 `HarnessTransport` 接口与 Host 通信；首个实现是包装现有 loopback 代理的 `HttpHarnessTransport`。彻底移除 HTTP 留待后续；渲染进程永远不获知 Host URL。
+Main 通过 `HarnessTransport` 接口与 Host 通信；首个实现是包装现有 loopback 代理的 `HttpHarnessTransport`。彻底移除 HTTP 留待后续；渲染进程永远不获知 Host URL。Host 事件流（`/api/events.mux`、`/api/events.host`）使用 preload 拥有的 MessagePort，经桥上的回调处理器转发：若把 MessagePort 经 `contextBridge` 返回到隔离世界，会得到不可用的克隆，导致 `onConnected` 永不触发、workspace/session 基线为空。
 
 下游分叉面保持在 `apps/electron/**` 与本 Agent Note。不为这些能力修改 `packages/`、`vendor/` 或 `apps/web/`。
 
