@@ -51,7 +51,7 @@ export const DesktopIpcChannel = {
 
 /** Host boot payload extracted from the supervised dsh web index HTML. */
 export interface HostBootstrap {
-  /** Raw `window.__DSH_BOOT__` graph object. */
+  /** Raw `__DSH_BOOT__` graph object from Host index injection. */
   boot: unknown
   /** Classic-script URLs the Host would preload before the shell (same-origin `/plugins/...`). */
   preloadUrls: string[]

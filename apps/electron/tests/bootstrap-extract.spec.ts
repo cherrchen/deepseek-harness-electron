@@ -8,7 +8,7 @@ describe('extractHostBootstrap', () => {
       '<script>window.__ModuleLoader__={}</script>',
       '<script src="/plugins/@deepseek-ai/dsh-client-modules/client.js?rev=abc"></script>',
       '<script src="/plugins/@deepseek-ai/dsh-client-runtime/client.js?rev=def"></script>',
-      '<script>window.__DSH_BOOT__ = {"rev":"g1","entries":[{"id":"@deepseek-ai/dsh-client-modules","url":"/plugins/@deepseek-ai/dsh-client-modules/client.js?rev=abc","rev":"abc"}]};</script>',
+      '<script>globalThis["__DSH_BOOT__"] = {"rev":"g1","entries":[{"id":"@deepseek-ai/dsh-client-modules","url":"/plugins/@deepseek-ai/dsh-client-modules/client.js?rev=abc","rev":"abc"}]}</script>',
       '</head><body></body></html>',
     ].join('')
 
@@ -33,7 +33,7 @@ describe('extractHostBootstrap', () => {
   })
 
   it('rejects Host HTML without plugin preload scripts', () => {
-    const html = '<script>window.__DSH_BOOT__ = {"rev":"x","entries":[]};</script>'
+    const html = '<script>globalThis["__DSH_BOOT__"] = {"rev":"x","entries":[]}</script>'
     expect(() => extractHostBootstrap(html)).toThrow(/preload/)
   })
 })
