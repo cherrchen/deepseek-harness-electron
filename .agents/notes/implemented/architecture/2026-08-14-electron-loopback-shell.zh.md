@@ -14,7 +14,7 @@ Status: implemented
 
 渲染进程启用上下文隔离和 Chromium 沙箱，不启用 Node 集成，也不授予权限。导航限定在就绪 URL 的源内；新开的 HTTP 和 HTTPS 窗口交给系统浏览器。Electron 在自身退出前终止子进程，并通过原生错误对话框报告启动失败或子进程意外退出。
 
-package 顶层的 `productName` 为 Electron 与 `electron-builder` 提供 `DeepSeek Harness`。系统托盘加载随应用打包的透明图形：macOS 接收 Template Image；Windows 与 Linux 根据 `nativeTheme` 选择黑色或白色资源，并在主题变化后刷新。
+package 顶层的 `productName` 为 Electron 与 `electron-builder` 提供 `DeepSeek Harness`。Windows 包使用向导式 NSIS 安装程序，并允许用户选择安装目录；release matrix 为两种 Windows 架构显式传入相同设置。系统托盘加载随应用打包的透明图形：macOS 接收 Template Image；Windows 与 Linux 根据 `nativeTheme` 选择黑色或白色资源，并在主题变化后刷新。
 
 更新器保留仓库现有的 `electron-dsh-v<version>` release tag。它根据 GitHub Release 元数据选择仅含 stable 或同时包含 prerelease 的通道，将 `electron-updater` 指向选定 release 的更新文件，并继续由该依赖负责 metadata 校验、语义版本比较、下载与安装。prerelease 通道是桌面应用的默认值；所选通道作为桌面端自有状态持久化到 Electron `userData` 下。完整失败信息保留在主进程日志，原生对话框只显示简短恢复指引。
 
@@ -30,6 +30,8 @@ package 顶层的 `productName` 为 Electron 与 `electron-builder` 提供 `Deep
 
 **打包单独复制的 Web 应用与服务器。** 副本会偏离上游 workspace 图，使日常上游发版变成人工对账。
 
+**使用 one-click NSIS 安装程序。** 它将安装缩减为一次操作，但会移除常规的安装位置选择步骤。向导式安装程序让用户继续控制安装位置。
+
 **重命名 release tag 以满足更新器的 GitHub feed 解析器。** 这些 tag 是共享 release 自动化的输入，必须保持稳定。Release 元数据可以识别通道，无需引入第二套版本解析器或修改公开 tag 格式。
 
 ## Consequences
@@ -38,4 +40,4 @@ package 顶层的 `productName` 为 Electron 与 `electron-builder` 提供 `Deep
 
 Harness 配置与运行数据遵循 CLI 的 `~/.dsh` 约定，而不是 Electron 的应用数据位置。桌面端偏好与 Chromium 缓存继续同 Harness 状态分离。
 
-发行包包含 Electron 和上游生产依赖闭包，因此比浏览器发行版更大。原生依赖必须兼容 Electron 的 Node ABI，跨平台打包 CI 是发布时验证该兼容性的证据。
+发行包包含 Electron 和上游生产依赖闭包，因此比浏览器发行版更大。Windows 安装程序要求用户完成安装向导，并可安装到用户选择的目录。原生依赖必须兼容 Electron 的 Node ABI，跨平台打包 CI 是发布时验证该兼容性的证据。

@@ -2,7 +2,7 @@
 
 Status: implemented
 
-English
+English | [中文](2026-08-20-develop-main-desktop-release-model.zh.md)
 
 ## Problem
 
@@ -12,8 +12,9 @@ The desktop fork synchronized upstream directly into `main`, published desktop r
 
 Adopt `feature branch → develop → main`:
 
-- [`sync-upstream.yml`](../../../../.github/workflows/sync-upstream.yml) merges `upstream/master` into `develop`, applies downstream conflict policy, regenerates the lockfile, verifies the overlay, and publishes the next `v{a.b.c}-beta.{x}` tag.
-- [`desktop-promote.yml`](../../../../.github/workflows/desktop-promote.yml) runs on `main` and creates `v{a.b.c}-rc.{x}` or `v{a.b.c}` tags that match `apps/cli/package.json`.
+- [`sync-upstream.yml`](../../../../.github/workflows/sync-upstream.yml) merges `upstream/master` into `develop`, applies downstream conflict policy, prepares and pushes the next Beta commit, and publishes its `v{a.b.c}-beta.{x}` tag only after Desktop CI succeeds for that commit.
+- Desktop CI accepts promotion pull requests into `main` only from `develop`, where the Electron manifest version is prepared to match the RC or Stable version in `apps/cli/package.json` and the lockfile records that manifest.
+- [`desktop-promote.yml`](../../../../.github/workflows/desktop-promote.yml) checks the prepared version on the latest `main` commit and creates its `v{a.b.c}-rc.{x}` or `v{a.b.c}` tag without changing a branch.
 - [`desktop-release.yml`](../../../../.github/workflows/desktop-release.yml) packages installers from tag pushes and validates that Beta tags belong to `develop` while RC and Stable tags belong to `main`.
 - [`AGENTS.downstream.md`](../../../../AGENTS.downstream.md) records fork-specific rules; upstream [`AGENTS.md`](../../../../AGENTS.md) ends with `@AGENTS.downstream.md` and is restored after each sync.
 
@@ -31,6 +32,10 @@ Version scripts live under `apps/electron/scripts/`:
 
 **Hand-edit Electron versions before release.** A shared script keeps `apps/electron/package.json` and lockfile regeneration consistent across workflows.
 
+**Create the RC or Stable version commit from the promotion workflow.** A commit written directly to `main` makes the protected release branch diverge from `develop` and requires a back-merge. Preparing the version on `develop` puts the manifest and lockfile under pull-request review before the same content reaches `main`.
+
+**Dispatch Desktop CI separately and continue without its conclusion.** A detached dispatch duplicates the CI run already triggered by the `develop` push and cannot authorize a tag before its result is known. The sync workflow instead identifies the push-triggered run by the final Beta commit SHA and treats its successful conclusion as a tag precondition.
+
 ## Consequences
 
-Upstream integration and Beta releases happen on `develop`; RC and Stable releases require a Squash Merge promotion to `main`. README landing pages stay downstream-owned; `AGENTS.md` follows upstream with a restored downstream reference. Legacy `electron-dsh-v*` tags remain historical artifacts; new releases use `v{a.b.c}[-beta.x|-rc.x]`.
+Upstream integration and Beta releases happen on `develop`; the final Beta commit is pushed once, validated by its push-triggered Desktop CI run, and tagged only after that run succeeds. RC and Stable releases require a Squash Merge promotion to `main`. The promotion pull request carries the Electron version and lockfile update, while the post-merge workflow writes only the release tag. README landing pages stay downstream-owned; `AGENTS.md` follows upstream with a restored downstream reference. Legacy `electron-dsh-v*` tags remain historical artifacts; new releases use `v{a.b.c}[-beta.x|-rc.x]`.
