@@ -69,6 +69,8 @@ jobs:
           git config user.name github-actions[bot]
           git config user.email 41898282+github-actions[bot]@users.noreply.github.com
           git config merge.ours.driver true
+          git config merge.theirs.name 'Upstream-owned files'
+          git config merge.theirs.driver 'cp %B %A'
           git config merge.dsh-translation-pairing.name 'DeepSeek Harness bilingual pairing records'
           git config merge.dsh-translation-pairing.driver 'scripts/merge-translation-pairing-driver.sh %O %A %B %P'
           if ! git merge --no-edit upstream/master; then
@@ -83,7 +85,11 @@ jobs:
                   git checkout --ours -- "$file"
                   git add "$file"
                   ;;
-                AGENTS.md)
+                .github/workflows/desktop-*.yml|.github/workflows/sync-upstream.yml|scripts/desktop-workflow.spec.ts)
+                  git checkout --ours -- "$file"
+                  git add "$file"
+                  ;;
+                AGENTS.md|.github/workflows/*.yml|scripts/ci-workflow.spec.ts)
                   git checkout --theirs -- "$file"
                   git add "$file"
                   ;;

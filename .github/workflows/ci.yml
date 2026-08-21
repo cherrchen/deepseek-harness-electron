@@ -4,9 +4,6 @@ on:
   push:
     branches: [master]
   pull_request:
-    paths-ignore:
-      - 'apps/electron/**'
-      - 'pnpm-lock.yaml'
   workflow_dispatch:
     inputs:
       suite:

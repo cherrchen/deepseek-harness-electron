@@ -9,9 +9,6 @@ name: Release (vendor)
 
 on:
   pull_request:
-    paths-ignore:
-      - 'apps/electron/**'
-      - 'pnpm-lock.yaml'
   push:
     branches: [master]
   workflow_dispatch:
