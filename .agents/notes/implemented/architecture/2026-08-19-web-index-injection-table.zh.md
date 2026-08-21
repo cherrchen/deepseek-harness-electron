@@ -20,7 +20,7 @@ Web 壳的启动 HTML 需要三类注入：client-modules 的引导协议（`__M
 
 - client-modules 与 ui-theme 不再各自正则改 HTML；worker 侧 `readBootPayload` 的 `ctx.get` 手掏（clientModules、settings、theme 常量 loader.load）删除；页面侧 `installModuleLoaderFacade`、`applyBootTheme`、`PARSER_PRELOAD_IDS` 三份重抄退役。
 - 顺序语义：跨订阅方按订阅注册顺序（与旧 tap 顺序一致），单订阅方内按 push 顺序；modules 自己保证 队列→preload→全局 三行有序。
-- `__DSH_BOOT__` 的 served 渲染文本从 `window.__DSH_BOOT__ =` 变为 `globalThis["__DSH_BOOT__"] =`；已核实无已提交快照期望含此文本，无需重录。
+- `__DSH_BOOT__` 的 served 渲染文本从 `window.__DSH_BOOT__ =` 变为 `globalThis["__DSH_BOOT__"] =`；Electron 的 `extractHostBootstrap` 刮取 Host index HTML 时必须匹配该标记；已核实无已提交快照期望含旧文本，无需重录。
 - 新的模型可见/页面可见注入一律走行类型扩展，不再新增 tap 消费者。
 
 ## Alternatives considered

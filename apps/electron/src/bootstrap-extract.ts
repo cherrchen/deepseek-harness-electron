@@ -4,7 +4,8 @@
 
 import type { HostBootstrap } from './bridge-types.ts'
 
-const BOOT_MARKER = 'window.__DSH_BOOT__ = '
+/** Marker rendered by Host `renderIndexInjections` for `kind: 'global'` rows. */
+const BOOT_MARKER = 'globalThis["__DSH_BOOT__"] = '
 const PRELOAD_SCRIPT = /<script\s+src="(\/plugins\/[^"]+)"\s*>\s*<\/script>/g
 
 /**
@@ -15,7 +16,7 @@ const PRELOAD_SCRIPT = /<script\s+src="(\/plugins\/[^"]+)"\s*>\s*<\/script>/g
 export function extractHostBootstrap(html: string): HostBootstrap {
   const bootAt = html.indexOf(BOOT_MARKER)
   if (bootAt === -1) {
-    throw new Error('desktop bootstrap: window.__DSH_BOOT__ assignment missing from Host index HTML')
+    throw new Error('desktop bootstrap: globalThis["__DSH_BOOT__"] assignment missing from Host index HTML')
   }
   const jsonStart = bootAt + BOOT_MARKER.length
   const boot = parseJsonValue(html, jsonStart)
@@ -42,12 +43,12 @@ function parseJsonValue(source: string, start: number): unknown {
   const slice = source.slice(start)
   const end = slice.indexOf('</script>')
   if (end === -1) {
-    throw new Error('desktop bootstrap: could not locate end of window.__DSH_BOOT__ JSON')
+    throw new Error('desktop bootstrap: could not locate end of globalThis["__DSH_BOOT__"] JSON')
   }
   try {
     return JSON.parse(slice.slice(0, end).trim().replace(/;?\s*$/, '')) as unknown
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : String(error)
-    throw new Error(`desktop bootstrap: invalid window.__DSH_BOOT__ JSON (${message})`)
+    throw new Error(`desktop bootstrap: invalid globalThis["__DSH_BOOT__"] JSON (${message})`)
   }
 }
