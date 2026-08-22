@@ -9,6 +9,7 @@ describe('Desktop synchronization and release workflows', () => {
   it('assigns upstream and downstream workflow paths to their repository owners', () => {
     const attributes = readFileSync(resolve(root, '.gitattributes'), 'utf8')
 
+    expect(attributes).toContain('docs/electron/** merge=ours')
     expect(attributes).toContain('.github/workflows/*.yml merge=theirs')
     expect(attributes).toContain('.github/workflows/desktop-*.yml merge=ours')
     expect(attributes).toContain('.github/workflows/sync-upstream.yml merge=ours')
@@ -74,6 +75,8 @@ describe('Desktop synchronization and release workflows', () => {
     expect(electronManifest.build.nsis).toEqual({
       oneClick: false,
       allowToChangeInstallationDirectory: true,
+      useZip: true,
+      differentialPackage: false,
     })
   })
 
@@ -104,7 +107,7 @@ describe('Desktop synchronization and release workflows', () => {
     expect(checkout).toMatchObject({ with: { ref: 'develop' } })
     expect(merge.run).toContain('git merge --no-edit upstream/master')
     expect(merge.run).toContain("git config merge.theirs.driver 'cp %B %A'")
-    expect(merge.run).toContain('README.md|README.zh.md|README.i18n.yaml')
+    expect(merge.run).toContain('README.md|README.zh.md|README.i18n.yaml|docs/electron/*')
     expect(merge.run).toContain('.github/workflows/desktop-*.yml|.github/workflows/sync-upstream.yml|scripts/desktop-workflow.spec.ts')
     expect(merge.run).toContain('AGENTS.md|.github/workflows/*.yml|scripts/ci-workflow.spec.ts')
     expect(merge.run).toContain('git checkout --theirs -- "$file"')

@@ -31,3 +31,6 @@ scripts/desktop-workflow.spec.ts merge=ours
 
 # Override the pairing driver for the repository landing-page record.
 README.i18n.yaml merge=ours
+
+# Downstream-owned desktop documentation under docs/.
+docs/electron/** merge=ours

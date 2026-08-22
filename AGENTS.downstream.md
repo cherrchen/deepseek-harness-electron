@@ -7,6 +7,8 @@ This repository is the **DeepSeek Harness Desktop** downstream fork of [deepseek
 | Area | Owner | Notes |
 |------|-------|-------|
 | `packages/`, `vendor/`, `apps/cli`, `apps/web` | Upstream | Merged from `upstream/master` on `develop` |
+| `docs/**` (except `docs/electron/**`) | Upstream | Core harness documentation spine |
+| `docs/electron/` | Downstream | Desktop architecture and other downstream-owned docs — [architecture](docs/electron/architecture.md) |
 | `apps/electron/` | Downstream | Desktop shell, updater, installers |
 | `README.md`, `README.zh.md`, `README.i18n.yaml` | Downstream | Never overwritten by upstream sync |
 | `AGENTS.md` | Upstream | Sync accepts upstream; restore `@AGENTS.downstream.md` after each sync |
@@ -68,6 +70,7 @@ After a verified merge the workflow:
 | File(s) | Strategy |
 |---------|----------|
 | `README.md`, `README.zh.md`, `README.i18n.yaml` | **Downstream wins** — `.gitattributes` `merge=ours` |
+| `docs/electron/**` | **Downstream wins** — `.gitattributes` `merge=ours` |
 | `AGENTS.md` | **Upstream wins** — accept upstream, then run `restore-agents-downstream.mjs` |
 | Upstream workflows and `scripts/ci-workflow.spec.ts` | **Upstream wins** — `.gitattributes` uses `merge=theirs`; the sync job registers that driver before merging |
 | `.github/workflows/desktop-*.yml`, `.github/workflows/sync-upstream.yml`, `scripts/desktop-workflow.spec.ts` | **Downstream wins** — `.gitattributes` uses `merge=ours` |
@@ -92,12 +95,29 @@ Run `node apps/electron/scripts/restore-agents-downstream.mjs` when the marker i
 Never let upstream sync overwrite:
 
 - `README.md`, `README.zh.md`, `README.i18n.yaml`
+- `docs/electron/**`
 - `AGENTS.downstream.md`
 - `apps/electron/**` (except shared lockfile regeneration side effects)
 
 Treat `.github/workflows/desktop-*.yml`, `.github/workflows/sync-upstream.yml`, and `scripts/desktop-workflow.spec.ts` as downstream-owned. All other `.github/workflows/*.yml` files and `scripts/ci-workflow.spec.ts` are upstream-owned.
 
 Downstream changes may create new Agent Note triplets or update Agent Note triplets originally created by this downstream repository. Never modify an Agent Note Markdown owner or `*.i18n.yaml` sidecar created by upstream; record downstream-specific decisions in a new downstream-owned Agent Note and link to the upstream note from the downstream note when necessary.
+
+## Desktop architecture constraints
+
+Full CURRENT vs TARGET specification, ownership tables, milestones, anti-patterns, and ADRs: [docs/electron/architecture.md](docs/electron/architecture.md) ([中文](docs/electron/architecture.zh.md)). Concise developer entry: [apps/electron/README.md](apps/electron/README.md).
+
+Before architecture-sensitive Desktop work, read that guide, then classify the change as Electron Core, Desktop Capability, Feature Plugin, upstream Harness change, or build/release.
+
+Standing rules (do not duplicate the full architecture doc here):
+
+- Desktop-only changes stay under `apps/electron/**` and `docs/electron/**`. Do not modify `apps/web`, upstream `docs/**` (outside `docs/electron/**`), or upstream `packages/**` for Desktop-only UI unless the change is intentionally upstream-compatible and meant for upstream contribution.
+- Electron remains the stable desktop platform; DSH/Cordis plugins are the extensible product feature layer. Do not make the Electron app itself a Cordis plugin, and do not rebuild a second product frontend in `apps/electron/src/renderer`.
+- Keep Renderer bootstrap thin (`bootstrap.ts` / `renderer/main.ts`). Independent product features belong in downstream DSH/Cordis plugins (see `apps/electron/runtime/plugins/`), not as feature installers in the renderer entry.
+- Plugins MUST NOT import Electron, `ipcRenderer`, or Node. Native OS operations cross the typed `window.deepseekDesktop` capability contract; do not add a generic IPC escape hatch.
+- Prefer existing upstream Cordis/DSH seams before inventing Desktop-specific APIs; only the privileged portion should enter Electron Main.
+- Retain the supervised loopback `dsh web` Host transport unless measured evidence justifies replacement ([architecture §24](docs/electron/architecture.md#24-optional-milestone-4--transport-optimization)).
+- Update CURRENT architecture prose only after behavior ships; update TARGET prose only after an explicit architecture decision.
 
 ## Electron development constraints
 

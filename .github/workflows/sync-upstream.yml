@@ -81,7 +81,7 @@ jobs:
 
             for file in "${conflicts[@]}"; do
               case "$file" in
-                README.md|README.zh.md|README.i18n.yaml)
+                README.md|README.zh.md|README.i18n.yaml|docs/electron/*)
                   git checkout --ours -- "$file"
                   git add "$file"
                   ;;

@@ -4,6 +4,36 @@
 
 此应用将上游 DeepSeek Harness 封装为原生桌面壳。Electron Main 在环回端口上监督已构建的 `dsh web` 后端以保持兼容，而 `BrowserWindow` 加载本包内基于 `@deepseek-ai/dsh-client-web` 构建的 Electron 自有 Renderer（`dsh-electron://localhost/`）。Host bootstrap、插件 bundle、一元 `/api` 调用与事件流仅通过 Main（类型化 preload IPC 与自定义协议代理）到达受监督进程。profile、会话与 `$DSH_HOME` 存储仍遵循上游 Harness 行为。
 
+CURRENT 与 TARGET 架构、所有权规则、里程碑与 ADR 详见 [../../docs/electron/architecture.zh.md](../../docs/electron/architecture.zh.md)。
+
+## 架构（CURRENT）
+
+Desktop 分离三层：
+
+| 层级 | 职责 |
+| ---- | ---- |
+| Electron Runtime | 窗口/托盘/菜单/更新器、OS 特权、安全策略、Host 进程监督、打包 |
+| DeepSeek Harness | Agent、会话、工具、模型、profile、Cordis Host/Client 运行时、持久化 |
+| Feature plugins | 独立的下游产品 UI（新 Desktop 功能的首选落点） |
+
+进程拓扑：
+
+```text
+BrowserWindow (dsh-electron://localhost)
+  └─ Electron-owned Renderer → @deepseek-ai/dsh-client-web
+Electron Main
+  ├─ typed window.deepseekDesktop bridge (no generic IPC)
+  └─ supervised `dsh web` on 127.0.0.1:<random-port>
+```
+
+贡献者约束：
+
+- Desktop 专属改动留在 `apps/electron/**`；不要通过改 `apps/web` 做 Desktop-only UI。
+- 保持 `src/renderer` 为薄 bootstrap/carrier；不要在此长出第二套产品前端。
+- 独立产品功能 SHOULD 落在 `runtime/plugins/` 下的 DSH/Cordis 插件（directory picker 是参考模式）。
+- 插件通过类型化 Desktop Capability Contract 请求原生能力；MUST NOT 直接 import Electron 或 Node。
+- 环回 Host 传输是内部兼容机制，无证据时不要为架构纯粹性替换它。
+
 ## 开发
 
 使用仓库声明的 Node.js 与 pnpm 版本。启动 Electron 前先构建上游运行时：

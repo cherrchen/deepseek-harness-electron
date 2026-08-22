@@ -4,6 +4,36 @@ English | [中文](README.zh.md)
 
 This application packages the upstream DeepSeek Harness as a native desktop shell. Electron Main supervises the built `dsh web` backend on a loopback port for compatibility, while `BrowserWindow` loads an Electron-owned renderer from `dsh-electron://localhost/` built inside this package from `@deepseek-ai/dsh-client-web`. Host bootstrap, plugin bundles, unary `/api` calls, and event streams reach the supervised process only through Main (typed preload IPC and the custom-scheme protocol proxy). Profiles, sessions, and `$DSH_HOME` storage remain the upstream Harness behavior.
 
+Detailed CURRENT vs TARGET architecture, ownership rules, milestones, and ADRs live in [../../docs/electron/architecture.md](../../docs/electron/architecture.md).
+
+## Architecture (CURRENT)
+
+Desktop separates three layers:
+
+| Layer | Owns |
+| ----- | ---- |
+| Electron Runtime | Window/tray/menu/updater, OS privileges, security policy, Host process supervision, packaging |
+| DeepSeek Harness | Agents, sessions, tools, models, profiles, Cordis Host/client runtime, persistence |
+| Feature plugins | Independent downstream product UI (preferred home for new Desktop features) |
+
+Process topology:
+
+```text
+BrowserWindow (dsh-electron://localhost)
+  └─ Electron-owned Renderer → @deepseek-ai/dsh-client-web
+Electron Main
+  ├─ typed window.deepseekDesktop bridge (no generic IPC)
+  └─ supervised `dsh web` on 127.0.0.1:<random-port>
+```
+
+Governing rules for contributors:
+
+- Desktop-only work stays under `apps/electron/**`; do not customize Desktop UI through `apps/web`.
+- Keep `src/renderer` a thin bootstrap/carrier; do not grow a second product frontend there.
+- Independent product features SHOULD be DSH/Cordis plugins under `runtime/plugins/` (directory picker is the reference pattern).
+- Plugins request native behavior through the typed Desktop Capability Contract; they MUST NOT import Electron or Node.
+- Loopback Host transport is an internal compatibility mechanism, not a defect to remove without evidence.
+
 ## Development
 
 Use Node.js and pnpm versions declared by the repository. Build the upstream runtime before starting Electron:
