@@ -9,6 +9,7 @@ describe('Electron tray icon build', () => {
       sourcePath: string
       rasterSizesPx: number[]
       glyphScale: number
+      macTemplate: { basePx: number; glyphScale: number }
     }
 
     expect(source.sourcePath).toBe('assets/tray/deepseek.svg')
