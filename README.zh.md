@@ -18,7 +18,7 @@ DeepSeek Harness Desktop 将 [DeepSeek Harness](https://github.com/deepseek-ai/d
 
 打开已安装的应用，在开始智能体会话前通过 Harness UI 完成提供方设置。
 
-<a id="run"></a>
+<a id="run"></a><a id="run-from-source"></a>
 
 ## 从源码运行
 
@@ -47,11 +47,11 @@ pnpm --filter @deepseek-ai/dsh-electron test
 pnpm --filter @deepseek-ai/dsh-electron build
 ```
 
-有关仓库细节，请参阅[桌面应用指南](apps/electron/README.md)、[开发指南](docs/development.md)和[架构文档](docs/architecture.md)。
+有关仓库细节，请参阅[桌面应用指南](apps/electron/README.zh.md)、[开发指南](docs/development.zh.md)和[架构文档](docs/architecture.zh.md)。
 
 ## 贡献
 
-参阅 [CONTRIBUTING.md](CONTRIBUTING.md)。此 fork 跟随上游 DeepSeek Harness 的开发，同时维护其桌面端打包。
+参阅 [CONTRIBUTING.md](CONTRIBUTING.zh.md)。此 fork 跟随上游 DeepSeek Harness 的开发，同时维护其桌面端打包。
 
 ## 许可证
 

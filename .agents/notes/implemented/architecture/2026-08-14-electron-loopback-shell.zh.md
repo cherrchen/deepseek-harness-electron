@@ -12,7 +12,7 @@ Status: implemented
 
 [`apps/electron`](../../../../apps/electron) 是一个私有 workspace 应用，它通过 Electron 的 Node 兼容子进程模式监管已构建的 `dsh web` 入口。该应用启用上游配置 watcher 所需的 Node 内部模块，请求端口零，并等待上游就绪日志。子进程将 `<用户主目录>/.dsh` 作为 `DSH_HOME`，在每个操作系统上都与 CLI 默认值一致；Electron 则继续使用平台专属的 `userData` 目录存放 Chromium 与桌面端自有状态。子进程的初始工作区是当前用户的主目录。
 
-BrowserWindow 的加载由 [独立 Renderer 说明](2026-08-21-electron-standalone-renderer.md) 拥有：窗口加载 `dsh-electron://localhost/`，Main 代理 Host HTTP/WebSocket 流量。本说明仍拥有 Harness 监督、托盘、更新器与打包策略。
+BrowserWindow 的加载由 [独立 Renderer 说明](2026-08-21-electron-standalone-renderer.zh.md) 拥有：窗口加载 `dsh-electron://localhost/`，Main 代理 Host HTTP/WebSocket 流量。本说明仍拥有 Harness 监督、托盘、更新器与打包策略。
 
 渲染进程启用上下文隔离和 Chromium 沙箱，不启用 Node 集成。新开的 HTTP 和 HTTPS 窗口交给系统浏览器。Electron 在自身退出前终止子进程，并通过原生错误对话框报告启动失败或子进程意外退出。
 

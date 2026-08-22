@@ -3,4 +3,4 @@
 # after editing either side, bring the other along and re-record with:
 #   pnpm run verify-translation-pairing --write .agents/notes/implemented/bug-fix/2026-08-21-upstream-sync-regenerates-pairing-records.md
 2026-08-21-upstream-sync-regenerates-pairing-records.md: 4add91d1424f977d0f1abc38e26ea6e822ce87d4
-2026-08-21-upstream-sync-regenerates-pairing-records.zh.md: 9a499546e20fe2b21f3cfd58da12f977ae78f782
+2026-08-21-upstream-sync-regenerates-pairing-records.zh.md: db313661e4def4d0490c3ea232f5bea6e5873405

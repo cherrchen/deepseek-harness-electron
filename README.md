@@ -18,7 +18,7 @@ Download the installer for your platform from the [latest release](https://githu
 
 Open the installed application and complete the provider setup in the Harness UI before starting an agent session.
 
-<a id="run"></a>
+<a id="run"></a><a id="run-from-source"></a>
 
 ## Run from source
 

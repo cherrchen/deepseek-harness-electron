@@ -10,7 +10,7 @@ Status: implemented
 
 ## Decision
 
-上游合并前，同步工作流以 `--ignore-scripts` 安装依赖并注册配对合并驱动，使 Git 能在不安装 Lefthook 钩子的情况下合成干净的配对记录合并。若合并仍停在未解决的 `*.i18n.yaml`（且没有其他未解决路径），工作流运行 `pnpm run resolve-translation-pairing-conflicts` 并暂存重新生成的记录。落地页文件继续沿用既有的 `merge=ours` 策略。owner Markdown 冲突与解析器拒绝仍会中止同步。面向操作者的表述写在 [`AGENTS.downstream.md`](../../../../AGENTS.downstream.md)；[自动配对合并决策](../process/2026-08-08-automatic-translation-pairing-merges.md) 仍负责驱动算法本身。
+上游合并前，同步工作流以 `--ignore-scripts` 安装依赖并注册配对合并驱动，使 Git 能在不安装 Lefthook 钩子的情况下合成干净的配对记录合并。若合并仍停在未解决的 `*.i18n.yaml`（且没有其他未解决路径），工作流运行 `pnpm run resolve-translation-pairing-conflicts` 并暂存重新生成的记录。落地页文件继续沿用既有的 `merge=ours` 策略。owner Markdown 冲突与解析器拒绝仍会中止同步。面向操作者的表述写在 [`AGENTS.downstream.md`](../../../../AGENTS.downstream.md)；[自动配对合并决策](../process/2026-08-08-automatic-translation-pairing-merges.zh.md) 仍负责驱动算法本身。
 
 ## Alternatives considered
 

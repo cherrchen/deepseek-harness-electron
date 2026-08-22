@@ -14,7 +14,7 @@ English | [中文](2026-08-21-electron-standalone-renderer.md)
 
 Renderer 主机名保持 `localhost`，以便上游客户端 loopback 门闸（`isLoopbackHostname`）在不修改 `packages/` 的情况下仍视桌面页为本地。安全配置保持 `sandbox: true`、`contextIsolation: true`、`nodeIntegration: false`，仅暴露 `window.deepseekDesktop`（无通用 `invoke`）。
 
-本决策更新了 [loopback shell 说明](2026-08-14-electron-loopback-shell.md) 中窗口加载的一半：Harness 监督与 `$DSH_HOME` 保留；`BrowserWindow` 不再导航到 Harness HTTP 源。桌面操作系统能力所有权（目录选择、剪贴板、shell、通知、updater 桥、主题、窗口控制）记录于 [桌面能力说明](2026-08-21-electron-desktop-capability-ownership.md)。
+本决策更新了 [loopback shell 说明](2026-08-14-electron-loopback-shell.zh.md) 中窗口加载的一半：Harness 监督与 `$DSH_HOME` 保留；`BrowserWindow` 不再导航到 Harness HTTP 源。桌面操作系统能力所有权（目录选择、剪贴板、shell、通知、updater 桥、主题、窗口控制）记录于 [桌面能力说明](2026-08-21-electron-desktop-capability-ownership.zh.md)。
 
 ## Alternatives considered
 

@@ -578,7 +578,7 @@ Each capability MUST:
 
 Prefer:
 
-```ts
+```text
 desktop.dialog.pickDirectory()
 desktop.notification.show(...)
 desktop.shell.openExternal(...)
@@ -586,7 +586,7 @@ desktop.shell.openExternal(...)
 
 Do not expose:
 
-```ts
+```text
 desktop.invoke("anything", payload)
 desktop.electron.shell
 desktop.rawIpc
@@ -815,7 +815,7 @@ Do not rebuild a downstream `apps/web` in `apps/electron/src/renderer`.
 
 Do not scatter:
 
-```ts
+```text
 if (isElectron) { ... }
 ```
 
@@ -823,7 +823,7 @@ through upstream packages.
 
 Do not expose:
 
-```ts
+```text
 window.deepseekDesktop.invoke(...)
 ipcRenderer
 ```
