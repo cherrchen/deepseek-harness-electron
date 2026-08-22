@@ -26,6 +26,7 @@ import {
   isAllowedExternalUrl,
 } from './desktop/index.ts'
 import { DesktopServices } from './desktop/services.ts'
+import { stopHarness } from './harness/process.ts'
 import { HttpHarnessTransport } from './harness/transport.ts'
 import { installDesktopIpc } from './ipc.ts'
 import { readDesktopManifest, resolveUpdateRepository } from './manifest.ts'
@@ -89,8 +90,18 @@ async function startHarness(): Promise<{ child: HarnessProcess; url: string }> {
     const timer = setTimeout(() => {
       if (settled) return
       settled = true
-      child.kill()
-      reject(new Error(`DeepSeek Harness did not become ready within ${String(HARNESS_START_TIMEOUT_MS / 1000)} seconds.`))
+      const timeoutError = new Error(
+        `DeepSeek Harness did not become ready within ${String(HARNESS_START_TIMEOUT_MS / 1000)} seconds.`,
+      )
+      void stopHarness(child).then(
+        () => { reject(timeoutError) },
+        (cleanupError: unknown) => {
+          reject(new AggregateError(
+            [timeoutError, cleanupError],
+            `${timeoutError.message} Harness shutdown also failed.`,
+          ))
+        },
+      )
     }, HARNESS_START_TIMEOUT_MS)
 
     const fail = (error: Error): void => {
@@ -174,22 +185,6 @@ async function createWindow(): Promise<BrowserWindow> {
   await window.loadURL(RENDERER_ENTRY_URL)
   window.show()
   return window
-}
-
-/** Stop the supervised process, escalating only after its shutdown window. */
-async function stopHarness(child: HarnessProcess): Promise<void> {
-  if (child.exitCode !== null || child.signalCode !== null) return
-  child.kill('SIGTERM')
-  await new Promise<void>((resolve) => {
-    const timer = setTimeout(() => {
-      child.kill('SIGKILL')
-      resolve()
-    }, 5_000)
-    child.once('exit', () => {
-      clearTimeout(timer)
-      resolve()
-    })
-  })
 }
 
 function showMainWindow(): void {
