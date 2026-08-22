@@ -49,7 +49,7 @@ export class HttpHarnessTransport implements HarnessTransport {
   }
 
   async stop(): Promise<void> {
-    // HTTP carrier holds no sockets beyond per-request fetch / WS bridges.
+    await this.proxy.stop()
   }
 
   getBootstrap(): Promise<HostBootstrap> {
