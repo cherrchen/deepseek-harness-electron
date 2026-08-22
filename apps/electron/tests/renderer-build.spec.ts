@@ -12,12 +12,18 @@ describe('Electron renderer build smoke', () => {
     expect(existsSync(join(rendererDist, 'index.html')), 'run pnpm --filter @deepseek-ai/dsh-electron build:renderer first').toBe(true)
     const html = readFileSync(join(rendererDist, 'index.html'), 'utf8')
     expect(html).toContain('id="root"')
-    expect(html).toContain('dsh-electron-titlebar')
+    expect(html).not.toContain('dsh-electron-titlebar')
     expect(html).toMatch(/assets\/index-[^"]+\.js/)
 
     const assets = join(rendererDist, 'assets')
     expect(existsSync(assets)).toBe(true)
     expect(readdirSync(assets).some(name => name.startsWith('index-') && name.endsWith('.js'))).toBe(true)
+
+    const builtCss = readdirSync(assets).find(name => name.endsWith('.css'))
+    expect(builtCss, 'renderer bundle should emit CSS').toBeTruthy()
+    const css = readFileSync(join(assets, builtCss!), 'utf8')
+    expect(css).toContain('data-dsh-electron-sidebar')
+    expect(css).not.toContain('#dsh-electron-titlebar')
 
     // Criterion C: the Electron renderer artifact must not be copied from apps/web.
     if (existsSync(join(webDist, 'index.html'))) {
