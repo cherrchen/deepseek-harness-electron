@@ -1,10 +1,8 @@
 export {
-  TITLE_BAR_HEIGHT,
+  NATIVE_CONTROL_ROW_HEIGHT,
   allowsClipboardWrite,
   contextMenuTemplate,
-  desktopChromeScript,
   desktopWindowChrome,
-  DESKTOP_CHROME_CSS,
   resolveProjectUrl,
 } from './chrome.ts'
 export {
