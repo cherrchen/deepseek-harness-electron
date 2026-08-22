@@ -36,7 +36,8 @@ import {
   registerRendererScheme,
   resolveRendererRoot,
 } from './protocol.ts'
-import { resolveHostPatchPath, ensureElectronDirectoryPickerLinked } from './runtime-overlay.ts'
+import { resolveHostPatchPath } from './runtime-overlay.ts'
+import { ensureRuntimePluginsLinked } from './runtime-plugins.ts'
 import {
   HARNESS_START_TIMEOUT_MS,
   harnessArguments,
@@ -69,7 +70,7 @@ registerRendererScheme()
 async function startHarness(): Promise<{ child: HarnessProcess; url: string }> {
   const dshBin = resolveDshBin(app.getAppPath())
   const harnessHome = resolveHarnessHome(app.getPath('home'))
-  ensureElectronDirectoryPickerLinked(app.getAppPath(), harnessHome)
+  ensureRuntimePluginsLinked(app.getAppPath(), harnessHome)
   const hostPatch = resolveHostPatchPath(app.getAppPath(), app.getPath('userData'))
 
   const child = spawn(process.execPath, harnessArguments(dshBin, hostPatch), {

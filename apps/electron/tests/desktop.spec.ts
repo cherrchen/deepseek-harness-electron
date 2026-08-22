@@ -17,10 +17,10 @@ import {
   updaterSnapshot,
 } from '../src/desktop/index.ts'
 import {
-  ELECTRON_DIRECTORY_PICKER_PACKAGE,
-  ensureElectronDirectoryPickerLinked,
-  resolveHostPatchPath,
-} from '../src/runtime-overlay.ts'
+  ensureRuntimePluginsLinked,
+  profileModuleLinkPath,
+} from '../src/runtime-plugins.ts'
+import { resolveHostPatchPath } from '../src/runtime-overlay.ts'
 import { HttpHarnessTransport } from '../src/harness/transport.ts'
 
 describe('Electron desktop integration', () => {
@@ -132,24 +132,20 @@ describe('Electron host runtime overlay', () => {
       expect(body).toContain('directory-picker')
       expect(body).toContain('disabled: true')
       expect(body).toContain('@deepseek-ai/dsh-host-directory-picker-browse')
-      expect(body).toContain(ELECTRON_DIRECTORY_PICKER_PACKAGE)
+      expect(body).toContain('@deepseek-ai/dsh-electron-ui-directory-picker')
+      expect(body).toContain('@deepseek-ai/dsh-electron-desktop-capabilities')
       expect(body).not.toContain('directory-picker-browse-client')
     } finally {
       await rm(userData, { recursive: true, force: true })
     }
   })
 
-  it('links the Electron directory-picker into the profile module fallback', async () => {
+  it('links bundled runtime plugins into the profile module fallback', async () => {
     const appPath = join(import.meta.dirname, '..')
     const harnessHome = await mkdtemp(join(tmpdir(), 'dsh-electron-home-'))
     try {
-      ensureElectronDirectoryPickerLinked(appPath, harnessHome)
-      const link = join(
-        harnessHome,
-        'profiles',
-        'node_modules',
-        ...ELECTRON_DIRECTORY_PICKER_PACKAGE.split('/'),
-      )
+      ensureRuntimePluginsLinked(appPath, harnessHome)
+      const link = profileModuleLinkPath(harnessHome, '@deepseek-ai/dsh-electron-ui-directory-picker')
       const { readlink } = await import('node:fs/promises')
       const target = await readlink(link)
       expect(target.replaceAll('\\', '/')).toBe(
