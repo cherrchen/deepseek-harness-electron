@@ -40,10 +40,10 @@ describe('desktop capability provider contract', () => {
         check: async () => { calls.push('updater.check') },
         download: async () => { calls.push('updater.download') },
         install: async () => { calls.push('updater.install') },
-        getState: async () => { calls.push('updater.getState'); return { state: 'idle' as const, channel: 'stable' as const } },
-        subscribe: (callback: (state: { state: 'idle'; channel: 'stable' }) => void) => {
+        getState: async () => { calls.push('updater.getState'); return { state: 'idle' as const } },
+        subscribe: (callback: (state: { state: 'idle' }) => void) => {
           calls.push('updater.subscribe')
-          callback({ state: 'idle', channel: 'stable' })
+          callback({ state: 'idle' })
           return () => { calls.push('updater.unsubscribe') }
         },
       },
@@ -69,6 +69,7 @@ describe('desktop capability provider contract', () => {
       'app', 'clipboard', 'dialog', 'notification', 'shell', 'theme', 'updater', 'window',
     ])
     expect(await desktop.dialog.pickDirectory()).toEqual({ path: '/tmp' })
+    expect(await desktop.updater.getState()).toEqual({ state: 'idle' })
     await desktop.clipboard.writeText('hello')
     desktop.updater.subscribe(() => {})
     expect(calls).toContain('dialog.pickDirectory')
