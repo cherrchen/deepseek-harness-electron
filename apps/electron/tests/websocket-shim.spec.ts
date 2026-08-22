@@ -37,7 +37,7 @@ describe('desktop WebSocket stand-in', () => {
     const opens: Event[] = []
     const messages: MessageEvent[] = []
     socket.addEventListener('open', (event) => { opens.push(event) })
-    socket.addEventListener('message', (event) => { messages.push(event as MessageEvent) })
+    socket.addEventListener('message', (event) => { messages.push(event) })
 
     captured!.onOpen()
     expect(socket.readyState).toBe(DESKTOP_WS_OPEN)

@@ -327,10 +327,10 @@ Unprivileged Renderer / Client Plugins
 里程碑 3 在 `apps/electron/runtime/plugins/` 下建立了通用的 bundled runtime 插件基础设施。
 
 ```text
-runtime/plugins/*          bundled 清单（构建 + 链接）
-runtime/host.patch.yml     显式 Cordis 组合权威
+runtime/plugins/*          bundled inventory (build + link)
+runtime/host.patch.yml     explicit Cordis composition authority
 scripts/build-runtime-plugins.mjs
-src/runtime-plugins.ts     发现、校验、profile 链接
+src/runtime-plugins.ts     discovery, validation, profile linking
 ```
 
 启动前会把每个 bundled 插件链接到 `$DSH_HOME/profiles/node_modules/<package-name>`，再启动受监督 Host。发现决定 Desktop 随包分发什么；`host.patch.yml` 决定 Desktop profile 挂载什么。
@@ -578,7 +578,7 @@ packages/**
 
 优先：
 
-```ts
+```text
 desktop.dialog.pickDirectory()
 desktop.notification.show(...)
 desktop.shell.openExternal(...)
@@ -586,7 +586,7 @@ desktop.shell.openExternal(...)
 
 不要暴露：
 
-```ts
+```text
 desktop.invoke("anything", payload)
 desktop.electron.shell
 desktop.rawIpc
@@ -600,8 +600,8 @@ desktop.rawIpc
 
 ```text
 apps/electron/runtime/plugins/
-├─ desktop-capabilities/          基础设施
-├─ ui-directory-picker-electron/  功能插件
+├─ desktop-capabilities/          infrastructure
+├─ ui-directory-picker-electron/  feature plugin
 └─ <future-feature>/
 ```
 
@@ -815,7 +815,7 @@ maintenance cost exceeding replacement cost
 
 不要散落：
 
-```ts
+```text
 if (isElectron) { ... }
 ```
 
@@ -823,7 +823,7 @@ if (isElectron) { ... }
 
 不要暴露：
 
-```ts
+```text
 window.deepseekDesktop.invoke(...)
 ipcRenderer
 ```

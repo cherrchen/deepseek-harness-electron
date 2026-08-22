@@ -3,4 +3,4 @@
 # after editing either side, bring the other along and re-record with:
 #   pnpm run verify-translation-pairing --write .agents/notes/implemented/architecture/2026-08-21-electron-standalone-renderer.md
 2026-08-21-electron-standalone-renderer.md: d0f34b6338033cbbaf77f40e8555c606dab6f774
-2026-08-21-electron-standalone-renderer.zh.md: be520e5b876a9e34085c65d377a25537d2b16409
+2026-08-21-electron-standalone-renderer.zh.md: cd7ce679bf073bf9d2221c3b7d8f712fece84b3c

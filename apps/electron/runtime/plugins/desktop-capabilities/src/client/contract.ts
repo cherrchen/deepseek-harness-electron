@@ -49,14 +49,25 @@ export interface WindowState {
   isFullScreen: boolean
 }
 
+/** Updater lifecycle values emitted by Electron Main. */
+export type DesktopUpdaterState =
+  | 'idle'
+  | 'checking'
+  | 'available'
+  | 'not-available'
+  | 'downloading'
+  | 'downloaded'
+  | 'installing'
+  | 'error'
+
 /** Updater snapshot from Electron Main. */
 export interface DesktopUpdaterSnapshot {
   /** Current updater lifecycle state. */
-  state: 'idle' | 'checking' | 'available' | 'downloading' | 'downloaded' | 'error'
+  state: DesktopUpdaterState
   /** Download progress percentage when downloading. */
   progress?: number
-  /** Active update channel. */
-  channel: 'stable' | 'prerelease'
+  /** Active update channel when the updater controller is available. */
+  channel?: 'stable' | 'prerelease'
 }
 
 /** Unsubscribe handle returned by desktop capability subscriptions. */

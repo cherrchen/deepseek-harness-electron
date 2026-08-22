@@ -70,13 +70,14 @@ export class DesktopServices {
   }
 
   /** Read system clipboard text. */
-  async readClipboardText(): Promise<string> {
-    return clipboard.readText()
+  readClipboardText(): Promise<string> {
+    return Promise.resolve(clipboard.readText())
   }
 
   /** Write system clipboard text. */
-  async writeClipboardText(text: unknown): Promise<void> {
+  writeClipboardText(text: unknown): Promise<void> {
     clipboard.writeText(requireClipboardText(text))
+    return Promise.resolve()
   }
 
   /** Open an allowlisted URL externally. */
@@ -96,17 +97,18 @@ export class DesktopServices {
   }
 
   /** Reveal a local path in the file manager. */
-  async showItemInFolder(path: unknown): Promise<void> {
+  showItemInFolder(path: unknown): Promise<void> {
     const normalized = typeof path === 'string' ? normalizeShellPath(path) : undefined
     if (normalized === undefined) throw new Error('desktop shell: path is invalid')
     shell.showItemInFolder(normalized)
+    return Promise.resolve()
   }
 
   /** Show an OS notification; click restores the main window. */
-  async showNotification(raw: unknown): Promise<DesktopNotificationResult> {
+  showNotification(raw: unknown): Promise<DesktopNotificationResult> {
     const options = requireNotificationOptions(raw)
     if (!Notification.isSupported()) {
-      return { shown: false, unsupported: true }
+      return Promise.resolve({ shown: false, unsupported: true })
     }
     const notification = new Notification({
       title: options.title,
@@ -116,7 +118,7 @@ export class DesktopServices {
       this.options.showMainWindow()
     })
     notification.show()
-    return { shown: true }
+    return Promise.resolve({ shown: true })
   }
 
   /** Trigger an updater check. */
@@ -126,8 +128,9 @@ export class DesktopServices {
   }
 
   /** Download is owned by electron-updater autoDownload; keep as explicit no-op success. */
-  async updaterDownload(): Promise<void> {
+  updaterDownload(): Promise<void> {
     this.emitUpdater()
+    return Promise.resolve()
   }
 
   /** Install a downloaded update. */
@@ -178,19 +181,22 @@ export class DesktopServices {
     return () => { this.themeListeners.delete(listener) }
   }
 
-  async minimizeWindow(): Promise<void> {
+  minimizeWindow(): Promise<void> {
     this.options.getWindow()?.minimize()
+    return Promise.resolve()
   }
 
-  async maximizeWindow(): Promise<void> {
+  maximizeWindow(): Promise<void> {
     const window = this.options.getWindow()
-    if (window === undefined) return
+    if (window === undefined) return Promise.resolve()
     if (window.isMaximized()) window.unmaximize()
     else window.maximize()
+    return Promise.resolve()
   }
 
-  async closeWindow(): Promise<void> {
+  closeWindow(): Promise<void> {
     this.options.getWindow()?.close()
+    return Promise.resolve()
   }
 
   getWindowState(): WindowState {

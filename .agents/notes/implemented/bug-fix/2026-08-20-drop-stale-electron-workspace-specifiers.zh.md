@@ -10,7 +10,7 @@ Status: implemented
 
 ## Decision
 
-[`synchronizeDependencies`](../../../../apps/electron/scripts/sync-version-dependencies.mjs) 只在当前声明不是 `workspace:` 协议、且名字不是已发现的 workspace 包时保留它。由 CLI 图生成的 peer 集合替换全部 workspace 依赖。`assertResolvedWorkspaceDependencies` 仍会拒绝一份点名缺失 workspace 包的构造结果。面向操作者的表述写在 [`AGENTS.downstream.md`](../../../../AGENTS.downstream.md)；[loopback-shell 决策](../architecture/2026-08-14-electron-loopback-shell.md) 仍负责说明 Electron 为何列出这些 peer。
+[`synchronizeDependencies`](../../../../apps/electron/scripts/sync-version-dependencies.mjs) 只在当前声明不是 `workspace:` 协议、且名字不是已发现的 workspace 包时保留它。由 CLI 图生成的 peer 集合替换全部 workspace 依赖。`assertResolvedWorkspaceDependencies` 仍会拒绝一份点名缺失 workspace 包的构造结果。面向操作者的表述写在 [`AGENTS.downstream.md`](../../../../AGENTS.downstream.md)；[loopback-shell 决策](../architecture/2026-08-14-electron-loopback-shell.zh.md) 仍负责说明 Electron 为何列出这些 peer。
 
 ## Alternatives considered
 

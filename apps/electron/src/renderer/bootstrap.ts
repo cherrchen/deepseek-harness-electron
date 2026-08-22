@@ -6,7 +6,7 @@
 const CLIENT_MODULES_ID = '@deepseek-ai/dsh-client-modules'
 
 type QueueLoader = {
-  mode: 'queue'
+  mode: 'queue' | 'ready'
   pendingQueue: Array<{ id: string; factory: (require: (specifier: string) => unknown) => unknown }>
   load(registration: { id: string; factory: (require: (specifier: string) => unknown) => unknown }): void
   create(options: unknown): unknown
@@ -40,12 +40,11 @@ function installModuleLoaderFacade(): void {
       if (this.mode !== 'queue') {
         throw new Error('client-modules: window.__ModuleLoader__.create called after module-system boot')
       }
-      const index = pendingQueue.findIndex(registration => registration.id === CLIENT_MODULES_ID)
-      const registration = pendingQueue[index]
+      const registration = pendingQueue.find(candidate => candidate.id === CLIENT_MODULES_ID)
       if (registration === undefined) {
         throw new Error(`client-modules: HTML did not preload ${CLIENT_MODULES_ID}/client.js`)
       }
-      pendingQueue.splice(index, 1)
+      pendingQueue.splice(pendingQueue.indexOf(registration), 1)
       const exports = registration.factory((specifier) => {
         throw new Error(
           `client-modules: ${CLIENT_MODULES_ID}/client.js requested external "${specifier}" before the module system existed`,

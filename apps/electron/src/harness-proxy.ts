@@ -9,9 +9,24 @@ import { extractHostBootstrap } from './bootstrap-extract.ts'
 
 const EVENT_PATHS = new Set(['/api/events.mux', '/api/events.host'])
 
+type WebSocketFactory = (url: URL) => WebSocket
+
+interface ActiveStream {
+  stop(): Promise<void>
+}
+
 /** Owns the Harness origin and performs every Main→DSH network call. */
 export class HarnessProxy {
   private origin: string | undefined
+  private readonly createWebSocket: WebSocketFactory
+  private readonly activeStreams = new Set<ActiveStream>()
+
+  /**
+   * @param createWebSocket - Host WebSocket factory; injectable for lifecycle tests.
+   */
+  constructor(createWebSocket: WebSocketFactory = url => new WebSocket(url)) {
+    this.createWebSocket = createWebSocket
+  }
 
   /**
    * Bind the ready loopback origin after harness startup.
@@ -122,25 +137,48 @@ export class HarnessProxy {
     }
     const wsUrl = new URL(path, this.requireOrigin())
     wsUrl.protocol = wsUrl.protocol === 'https:' ? 'wss:' : 'ws:'
-    const socket = new WebSocket(wsUrl)
-    let closed = false
+    const socket = this.createWebSocket(wsUrl)
+    let closing = false
+    let finished = false
+    let resolveDone: (() => void) | undefined
+    const done = new Promise<void>((resolve) => {
+      resolveDone = resolve
+    })
 
-    const shutdown = (): void => {
-      if (closed) return
-      closed = true
-      try {
-        if (socket.readyState === WebSocket.OPEN || socket.readyState === WebSocket.CONNECTING) {
-          socket.close()
-        }
-      } catch {
-        // Socket already gone.
-      }
+    const finish = (): void => {
+      if (finished) return
+      finished = true
+      this.activeStreams.delete(stream)
+      resolveDone?.()
+    }
+
+    const closePort = (): void => {
       try {
         port.close()
       } catch {
-        // Port already gone.
+        // The renderer already closed this MessagePort.
       }
     }
+
+    const shutdown = (): Promise<void> => {
+      if (closing) return done
+      closing = true
+      closePort()
+      try {
+        if (socket.readyState === WebSocket.OPEN || socket.readyState === WebSocket.CONNECTING) {
+          socket.close()
+        } else {
+          finish()
+        }
+      } catch {
+        // A failed close means the WebSocket implementation already released the socket.
+        finish()
+      }
+      return done
+    }
+
+    const stream: ActiveStream = { stop: shutdown }
+    this.activeStreams.add(stream)
 
     socket.addEventListener('open', () => {
       port.postMessage({ type: 'open' } satisfies HostStreamPortMessage)
@@ -156,23 +194,32 @@ export class HarnessProxy {
       port.postMessage({ type: 'message', data: event.data } satisfies HostStreamPortMessage)
     })
     socket.addEventListener('close', () => {
-      if (closed) return
-      port.postMessage({ type: 'close' } satisfies HostStreamPortMessage)
-      shutdown()
+      if (!closing) {
+        port.postMessage({ type: 'close' } satisfies HostStreamPortMessage)
+      }
+      closing = true
+      closePort()
+      finish()
     })
     socket.addEventListener('error', () => {
       port.postMessage({
         type: 'error',
         message: `harness proxy: WebSocket error on ${path}`,
       } satisfies HostStreamPortMessage)
-      shutdown()
+      void shutdown()
     })
 
     port.on('message', (event) => {
       const data = event.data as HostStreamPortMessage
-      if (data?.type === 'abort') shutdown()
+      if (data.type === 'abort') void shutdown()
     })
+    port.on('close', () => { void shutdown() })
     port.start()
+  }
+
+  /** Close every active Host stream and wait for the WebSockets to finish. */
+  async stop(): Promise<void> {
+    await Promise.all([...this.activeStreams].map(stream => stream.stop()))
   }
 
   /**

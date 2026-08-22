@@ -43,12 +43,13 @@ export class HttpHarnessTransport implements HarnessTransport {
   /**
    * @param origin - Validated loopback origin from harness readiness.
    */
-  async start(origin: string): Promise<void> {
+  start(origin: string): Promise<void> {
     this.proxy.setOrigin(origin)
+    return Promise.resolve()
   }
 
   async stop(): Promise<void> {
-    // HTTP carrier holds no sockets beyond per-request fetch / WS bridges.
+    await this.proxy.stop()
   }
 
   getBootstrap(): Promise<HostBootstrap> {
