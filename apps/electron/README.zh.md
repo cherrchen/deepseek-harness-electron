@@ -59,7 +59,7 @@ pnpm --filter @deepseek-ai/dsh-electron test
 
 原生页面右键菜单根据 Chromium 当前的编辑能力提供剪切、复制、粘贴、全选和刷新；开发构建还提供 DevTools。应用菜单和托盘菜单提供桌面端自有的“关于”窗口、更新通道选择和手动更新检查入口。
 
-托盘使用随应用打包的透明 DeepSeek 图形，而不是完整应用图标。Windows 和 Linux 在原生浅色主题下选择黑色图形，在原生深色主题下选择白色图形，并在 Electron 报告主题变化时刷新图标。macOS 使用随应用打包的 Template Image，由操作系统控制菜单栏对比度。
+托盘使用从受版本控制的 `assets/tray/deepseek.svg`（LobeHub lobe-icons，MIT）栅格化的单色 DeepSeek 图形。`pnpm run build:tray` 会在 `build/tray/` 下生成各 DPI 的 PNG；Windows 和 Linux 在原生浅色主题下选择黑色图形、在深色主题下选择白色图形，并按主显示器缩放因子选取最近的打包像素尺寸，在 Electron 报告主题或 display-metrics 变化时刷新。macOS 使用预渲染的 template PNG，由操作系统控制菜单栏对比度。
 
 “关于”窗口从此包的 manifest（元数据清单）读取仓库 URL，显示打包的图标和版本，并在系统浏览器中打开项目链接。其渲染进程在沙箱中运行，Content Security Policy 只允许内嵌样式和图标。
 
