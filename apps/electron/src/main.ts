@@ -4,6 +4,7 @@
  * `dsh-electron://localhost`, and owns desktop OS capabilities.
  */
 
+import { readFileSync } from 'node:fs'
 import { spawn, type ChildProcessByStdio } from 'node:child_process'
 import type { Readable } from 'node:stream'
 import { join } from 'node:path'
@@ -14,6 +15,7 @@ import {
   Menu,
   nativeImage,
   nativeTheme,
+  screen,
   session,
   Tray,
   type MenuItemConstructorOptions,
@@ -46,7 +48,13 @@ import {
   resolveDshBin,
   resolveHarnessHome,
 } from './runtime.ts'
-import { trayIconPath, trayIconSize } from './tray.ts'
+import {
+  trayIconNeedsLogicalLoad,
+  trayIconPath,
+  trayIconPixelSize,
+  trayIconRasterScale,
+  trayIconSize,
+} from './tray.ts'
 import { createUpdater, type UpdaterController } from './updater.ts'
 import * as process from 'node:process'
 
@@ -253,6 +261,7 @@ function installDesktopMenus(): void {
     tray.setToolTip(app.name)
     tray.on('click', showMainWindow)
     nativeTheme.on('updated', refreshTrayIcon)
+    screen.on('display-metrics-changed', refreshTrayIcon)
   }
   tray.setContextMenu(Menu.buildFromTemplate([
     { label: `Show ${app.name}`, click: showMainWindow },
@@ -299,11 +308,36 @@ function updateChannelMenu(): MenuItemConstructorOptions {
 }
 
 function createTrayIcon(): Electron.NativeImage {
-  const source = nativeImage.createFromPath(trayIconPath(app.getAppPath(), process.platform, nativeTheme.shouldUseDarkColors))
-  if (source.isEmpty()) throw new Error('The packaged tray icon could not be loaded.')
-  const size = trayIconSize(process.platform)
-  const icon = source.resize({ width: size, height: size })
-  if (process.platform === 'darwin') icon.setTemplateImage(true)
+  const trayDir = join(app.getAppPath(), 'build', 'tray')
+  if (process.platform === 'darwin') {
+    const icon = nativeImage.createFromPath(join(trayDir, 'deepseekTemplate.png'))
+    if (icon.isEmpty()) throw new Error('The packaged tray icon could not be loaded.')
+    const retina = nativeImage.createFromPath(join(trayDir, 'deepseekTemplate@2x.png'))
+    if (!retina.isEmpty()) {
+      const { width, height } = retina.getSize()
+      icon.addRepresentation({ scaleFactor: 2, width, height, buffer: retina.toPNG() })
+    }
+    icon.setTemplateImage(true)
+    return icon
+  }
+
+  const scaleFactor = screen.getPrimaryDisplay().scaleFactor
+  const dip = trayIconSize(process.platform)
+  const pixel = trayIconPixelSize(dip, scaleFactor)
+  const path = trayIconPath(
+    app.getAppPath(),
+    process.platform,
+    nativeTheme.shouldUseDarkColors,
+    scaleFactor,
+  )
+  const icon = trayIconNeedsLogicalLoad(process.platform, dip, pixel)
+    ? nativeImage.createFromBuffer(readFileSync(path), {
+      width: dip,
+      height: dip,
+      scaleFactor: trayIconRasterScale(dip, pixel),
+    })
+    : nativeImage.createFromPath(path)
+  if (icon.isEmpty()) throw new Error('The packaged tray icon could not be loaded.')
   return icon
 }
 

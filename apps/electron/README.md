@@ -59,7 +59,7 @@ OS desktop capabilities are owned by Electron Main and exposed through the typed
 
 The native page context menu exposes cut, copy, paste, select all, and reload according to Chromium's current editing capabilities; development builds also expose DevTools. The application menu and tray menu provide the desktop-owned About window, update channel selection, and manual update check.
 
-The tray uses packaged transparent DeepSeek glyphs instead of the full application icon. Windows and Linux select a black glyph for a light native theme and a white glyph for a dark native theme, and refresh it when Electron reports a theme change. macOS uses a packaged Template Image so the operating system controls menu-bar contrast.
+The tray uses a monochrome DeepSeek glyph rasterized from the tracked `assets/tray/deepseek.svg` (LobeHub lobe-icons, MIT). `pnpm run build:tray` emits per-DPI PNGs under `build/tray/`; Windows and Linux select a black glyph for a light native theme and a white glyph for a dark native theme at the nearest packaged pixel size for the primary display scale factor, refreshing when Electron reports a theme or display-metrics change. macOS uses pre-rasterized template PNGs so the operating system controls menu-bar contrast.
 
 The About window reads the repository URL from this package manifest, displays the packaged icon and version, and opens the project link in the system browser. Its renderer is sandboxed and its Content Security Policy admits only its embedded styles and icon.
 
