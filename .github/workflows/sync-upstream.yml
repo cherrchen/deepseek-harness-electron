@@ -29,13 +29,6 @@ jobs:
           fetch-depth: 0
           token: ${{ secrets.UPSTREAM_SYNC_TOKEN }}
 
-      - uses: pnpm/action-setup@v4
-
-      - uses: actions/setup-node@v6
-        with:
-          node-version: 24
-          cache: pnpm
-
       - name: Fetch upstream branch and tags
         run: |
           git remote add upstream https://github.com/deepseek-ai/deepseek-harness.git
@@ -56,6 +49,17 @@ jobs:
       - name: Skip sync when upstream is current
         if: steps.upstream.outputs.changed != 'true'
         run: echo "Upstream is already merged into develop; skipping merge, commits, and release."
+
+      - name: Setup pnpm
+        if: steps.upstream.outputs.changed == 'true'
+        uses: pnpm/action-setup@v4
+
+      - name: Setup Node.js
+        if: steps.upstream.outputs.changed == 'true'
+        uses: actions/setup-node@v6
+        with:
+          node-version: 24
+          cache: pnpm
 
       # Install without postinstall hooks so the pairing merge driver can run during
       # git merge without lefthook pre-merge-commit rejecting an otherwise clean result.
@@ -81,7 +85,7 @@ jobs:
 
             for file in "${conflicts[@]}"; do
               case "$file" in
-                README.md|README.zh.md|README.i18n.yaml|docs/electron/*)
+                README.md|README.zh.md|README.i18n.yaml)
                   git checkout --ours -- "$file"
                   git add "$file"
                   ;;
