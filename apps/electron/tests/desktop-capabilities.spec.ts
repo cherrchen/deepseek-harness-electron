@@ -1,10 +1,12 @@
 // @vitest-environment jsdom
+import { Context } from '@deepseek-ai/cordis'
 import { describe, expect, it } from 'vitest'
 import {
   createDesktopCapabilities,
   requireDesktopBridge,
   type DesktopCapabilitiesContract,
 } from '../runtime/plugins/desktop-capabilities/src/client/contract.ts'
+import { DesktopCapabilitiesService } from '../runtime/plugins/desktop-capabilities/src/client/service.ts'
 
 describe('desktop capability provider contract', () => {
   it('fails clearly when the preload bridge is unavailable', () => {
@@ -74,5 +76,14 @@ describe('desktop capability provider contract', () => {
     expect(calls).toContain('updater.subscribe')
     expect(JSON.stringify(desktop)).not.toContain('ipcRenderer')
     expect(JSON.stringify(desktop)).not.toContain('invoke')
+  })
+
+  it('registers ctx.desktop before the preload bridge is available', async () => {
+    delete (globalThis as { window?: { deepseekDesktop?: unknown } }).window?.deepseekDesktop
+    const ctx = new Context()
+    const fiber = ctx.plugin(DesktopCapabilitiesService)
+    await fiber.await()
+    expect(ctx.get('desktop')).toBeDefined()
+    await expect(ctx.get('desktop')!.dialog.pickDirectory()).rejects.toThrow(/window\.deepseekDesktop is unavailable/)
   })
 })

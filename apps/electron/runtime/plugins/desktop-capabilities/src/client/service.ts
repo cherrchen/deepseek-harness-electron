@@ -6,6 +6,57 @@ import type { Context } from '@deepseek-ai/cordis'
 import type { DesktopCapabilitiesContract } from './contract.ts'
 import { createDesktopCapabilities, requireDesktopBridge } from './contract.ts'
 
+/**
+ * Bind capability groups on first use so the Cordis service registers even
+ * when the preload bridge is not yet available during web boot settlement.
+ * @returns Capability groups that resolve the bridge lazily.
+ */
+function createLazyDesktopCapabilities(): DesktopCapabilitiesContract {
+  let cached: DesktopCapabilitiesContract | undefined
+  const resolve = (): DesktopCapabilitiesContract => {
+    cached ??= createDesktopCapabilities(requireDesktopBridge())
+    return cached
+  }
+  return {
+    app: {
+      getVersion: async () => resolve().app.getVersion(),
+      getPlatform: async () => resolve().app.getPlatform(),
+    },
+    dialog: {
+      pickDirectory: async options => resolve().dialog.pickDirectory(options),
+    },
+    clipboard: {
+      readText: async () => resolve().clipboard.readText(),
+      writeText: async text => resolve().clipboard.writeText(text),
+    },
+    shell: {
+      openExternal: async url => resolve().shell.openExternal(url),
+      openPath: async path => resolve().shell.openPath(path),
+      showItemInFolder: async path => resolve().shell.showItemInFolder(path),
+    },
+    notification: {
+      show: async options => resolve().notification.show(options),
+    },
+    updater: {
+      check: async () => resolve().updater.check(),
+      download: async () => resolve().updater.download(),
+      install: async () => resolve().updater.install(),
+      getState: async () => resolve().updater.getState(),
+      subscribe: callback => resolve().updater.subscribe(callback),
+    },
+    theme: {
+      getState: async () => resolve().theme.getState(),
+      subscribe: callback => resolve().theme.subscribe(callback),
+    },
+    window: {
+      minimize: async () => resolve().window.minimize(),
+      maximize: async () => resolve().window.maximize(),
+      close: async () => resolve().window.close(),
+      getState: async () => resolve().window.getState(),
+    },
+  }
+}
+
 /** The `ctx.desktop` capability adapter over the typed preload bridge. */
 export class DesktopCapabilitiesService extends Service implements DesktopCapabilitiesContract {
   readonly app: DesktopCapabilitiesContract['app']
@@ -22,7 +73,7 @@ export class DesktopCapabilitiesService extends Service implements DesktopCapabi
    */
   constructor(ctx: Context) {
     super(ctx, 'desktop')
-    const capabilities = createDesktopCapabilities(requireDesktopBridge())
+    const capabilities = createLazyDesktopCapabilities()
     this.app = capabilities.app
     this.dialog = capabilities.dialog
     this.clipboard = capabilities.clipboard
