@@ -2,13 +2,15 @@
 # Disable auto (native/Koffi). Keep the browse Host backend so `directoryPicker`
 # still exists for apiproxy inject; the Electron client fills directory-flow
 # holes and calls Main's dialog (browse client is not mounted).
-# The Electron client package is linked into `$DSH_HOME/profiles/node_modules`
-# before Host start (see ensureElectronDirectoryPickerLinked).
+# Bundled runtime plugins are linked into `$DSH_HOME/profiles/node_modules`
+# before Host start (see ensureRuntimePluginsLinked).
 - id: directory-picker
   disabled: true
 
 - insert:
     - id: directory-picker-browse
       name: '@deepseek-ai/dsh-host-directory-picker-browse'
-    - id: directory-picker-electron
+    - id: desktop-capabilities
+      name: '@deepseek-ai/dsh-electron-desktop-capabilities'
+    - id: desktop-directory-picker
       name: '@deepseek-ai/dsh-electron-ui-directory-picker'

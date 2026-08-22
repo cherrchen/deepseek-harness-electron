@@ -113,8 +113,8 @@ Standing rules (do not duplicate the full architecture doc here):
 
 - Desktop-only changes stay under `apps/electron/**` and `docs/electron/**`. Do not modify `apps/web`, upstream `docs/**` (outside `docs/electron/**`), or upstream `packages/**` for Desktop-only UI unless the change is intentionally upstream-compatible and meant for upstream contribution.
 - Electron remains the stable desktop platform; DSH/Cordis plugins are the extensible product feature layer. Do not make the Electron app itself a Cordis plugin, and do not rebuild a second product frontend in `apps/electron/src/renderer`.
-- Keep Renderer bootstrap thin (`bootstrap.ts` / `renderer/main.ts`). Independent product features belong in downstream DSH/Cordis plugins (see `apps/electron/runtime/plugins/`), not as feature installers in the renderer entry.
-- Plugins MUST NOT import Electron, `ipcRenderer`, or Node. Native OS operations cross the typed `window.deepseekDesktop` capability contract; do not add a generic IPC escape hatch.
+- Keep Renderer bootstrap thin (`bootstrap.ts` / `renderer/main.ts`). Independent product features belong in downstream DSH/Cordis plugins under `apps/electron/runtime/plugins/`, not as feature installers in the renderer entry. Host composition stays explicit in `runtime/host.patch.yml`.
+- Feature plugins MUST NOT import Electron, `ipcRenderer`, or Node. Native OS operations cross the Desktop Capability Provider (`ctx.desktop`); only renderer infrastructure and the provider may read `window.deepseekDesktop` directly. Do not add a generic IPC escape hatch.
 - Prefer existing upstream Cordis/DSH seams before inventing Desktop-specific APIs; only the privileged portion should enter Electron Main.
 - Retain the supervised loopback `dsh web` Host transport unless measured evidence justifies replacement ([architecture §24](docs/electron/architecture.md#24-optional-milestone-4--transport-optimization)).
 - Update CURRENT architecture prose only after behavior ships; update TARGET prose only after an explicit architecture decision.

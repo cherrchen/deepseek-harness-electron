@@ -15,12 +15,12 @@
   "scripts": {
     "build:main": "tsc -p tsconfig.json",
     "build:preload": "node ./scripts/build-preload.mjs",
-    "build:directory-picker": "node ./scripts/build-directory-picker-plugin.mjs",
+    "build:runtime-plugins": "node ./scripts/build-runtime-plugins.mjs",
     "build:renderer": "vite build",
-    "build": "pnpm run build:directory-picker && pnpm run build:main && pnpm run build:preload && pnpm run build:renderer",
+    "build": "pnpm run build:runtime-plugins && pnpm run build:main && pnpm run build:preload && pnpm run build:renderer",
     "package": "electron-builder --publish never",
     "start": "pnpm run build && env -u ELECTRON_RUN_AS_NODE electron .",
-    "test": "pnpm run build:directory-picker && vitest run --root ../.. apps/electron/tests"
+    "test": "pnpm run build:runtime-plugins && vitest run --root ../.. apps/electron/tests"
   },
   "dependencies": {
     "@deepseek-ai/cordis": "workspace:^",

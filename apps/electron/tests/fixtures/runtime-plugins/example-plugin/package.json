@@ -1,7 +1,7 @@
 {
-  "name": "@deepseek-ai/dsh-electron-ui-directory-picker",
-  "description": "Electron Main directory chooser surface for workspace directory-flow holes",
-  "version": "0.1.0",
+  "name": "@deepseek-ai/dsh-electron-fixture-example",
+  "description": "Test fixture runtime plugin for generic build/link coverage",
+  "version": "0.0.0",
   "private": true,
   "type": "module",
   "main": "lib/index.js",
@@ -14,9 +14,7 @@
     "client": {
       "platform": "web",
       "inject": [
-        "@deepseek-ai/dsh-client-runtime",
-        "@deepseek-ai/dsh-client-ui-workspace",
-        "@deepseek-ai/dsh-electron-desktop-capabilities"
+        "@deepseek-ai/dsh-client-runtime"
       ]
     }
   },

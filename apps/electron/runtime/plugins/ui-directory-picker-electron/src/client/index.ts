@@ -3,10 +3,11 @@
  */
 import type { ClientContext } from '@deepseek-ai/dsh-client-runtime/client'
 import type {} from '@deepseek-ai/dsh-client-ui-workspace/client'
+import type {} from '@deepseek-ai/dsh-electron-desktop-capabilities/client'
 import { ElectronDirectoryFlow, type ElectronFlowInjected } from './flow.ts'
 
 /** Required services for slot registration. */
-export const inject = ['slots']
+export const inject = ['slots', 'desktop']
 
 /**
  * @param ctx - Client root context.
@@ -14,11 +15,7 @@ export const inject = ['slots']
 export function apply(ctx: ClientContext): void {
   const injected = (): ElectronFlowInjected => ({
     pick: async () => {
-      const bridge = globalThis.window?.deepseekDesktop
-      if (bridge === undefined) {
-        throw new Error('desktop directory picker: window.deepseekDesktop is missing')
-      }
-      const result = await bridge.dialog.pickDirectory()
+      const result = await ctx.desktop.dialog.pickDirectory()
       return result?.path ?? null
     },
   })

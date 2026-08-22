@@ -320,31 +320,43 @@ Unprivileged Renderer / Client Plugins
 
 插件 MUST NOT 仅仅因为运行在 Desktop 就获得原始的 Electron 或 Node 访问权。
 
-## 10. 当前运行时 overlay
+## 10. 当前 runtime 插件基础设施
 
 **CURRENT**
 
-目录选择器已为未来架构提供了首个参考实现。
-
-Electron 的 Cordis overlay 用 Electron 本地 client 插件替换默认的目录选择器 UI 集成。
-
-概念上：
+里程碑 3 在 `apps/electron/runtime/plugins/` 下建立了通用的 bundled runtime 插件基础设施。
 
 ```text
-DSH UI Plugin
+runtime/plugins/*          bundled 清单（构建 + 链接）
+runtime/host.patch.yml     显式 Cordis 组合权威
+scripts/build-runtime-plugins.mjs
+src/runtime-plugins.ts     发现、校验、profile 链接
+```
+
+启动前会把每个 bundled 插件链接到 `$DSH_HOME/profiles/node_modules/<package-name>`，再启动受监督 Host。发现决定 Desktop 随包分发什么；`host.patch.yml` 决定 Desktop profile 挂载什么。
+
+Desktop Capability Provider（`@deepseek-ai/dsh-electron-desktop-capabilities`）把 `window.deepseekDesktop` 适配为 feature 插件可用的 `ctx.desktop`。只有 Renderer 基础设施与该 provider 可直接读取全局 bridge。
+
+目录选择器（`@deepseek-ai/dsh-electron-ui-directory-picker`）是首个 feature 插件消费者：填充 workspace directory-flow slot，并调用 `ctx.desktop.dialog.pickDirectory()`。
+
+```text
+Feature Plugin
      │
-     │ native capability request
+     │ ctx.desktop.*
      ▼
-Desktop Capability Contract
+Desktop Capability Provider
+     │
+     ▼
+window.deepseekDesktop
      │
      ▼
 Electron Main
      │
      ▼
-Native directory dialog
+Native OS APIs
 ```
 
-目录选择器是**参考模式**，尚不是完整的通用功能插件框架。
+添加新的 bundled 功能插件只需在 `runtime/plugins/<name>/` 创建目录、在 `host.patch.yml` 挂载并运行通用 builder——无需修改 `renderer/main.ts`、通用 linker 或 builder 本身。
 
 # 第二部分 — 架构原则
 
@@ -582,32 +594,18 @@ desktop.rawIpc
 
 ## 19. 功能插件模型
 
-**TARGET**
+**CURRENT**
 
-一种可能的下游布局是：
+下游 bundled 插件位于：
 
 ```text
-apps/electron/
-├─ src/
-│  ├─ main.ts
-│  ├─ preload/
-│  ├─ renderer/
-│  ├─ desktop/
-│  └─ harness/
-│
-└─ runtime/
-   ├─ host.patch.yml
-   └─ plugins/
-      ├─ ui-directory-picker-electron/
-      ├─ desktop-market/
-      ├─ desktop-terminal/
-      ├─ desktop-git/
-      └─ ...
+apps/electron/runtime/plugins/
+├─ desktop-capabilities/          基础设施
+├─ ui-directory-picker-electron/  功能插件
+└─ <future-feature>/
 ```
 
-具体文件夹 MAY 演进。
-
-架构规则不可动摇：
+架构规则：
 
 * 功能代码仍由下游拥有；
 * 功能集成使用 DSH/Cordis；
@@ -718,36 +716,26 @@ Renderer hardening
 
 ## 23. 里程碑 3 — 插件化功能层
 
-**Status: NEXT**
-
-这取代了此前「里程碑 3 必须消除 localhost/HTTP/WebSocket」的提案。
+**Status: DONE**
 
 目标：
 
 > 建立可复用的模型：下游定制 UI 与独立 Desktop 产品功能以 DSH/Cordis 插件形式存在，同时 Electron 保持为稳定运行时。
 
-里程碑 3 SHOULD 建立：
-
-1. 功能落点决策规则；
-2. 捆绑式 Electron 本地 DSH 插件的可复用约定；
-3. 可重复的插件注册／加载机制；
-4. 消费已批准 Desktop Capabilities 的文档化机制；
-5. 至少一个超出目录选择器的合适参考功能；
-6. 覆盖插件注册与特权边界的测试；
-7. 从 Electron README 与 Agent 说明的链接。
-
-验收标准：
-
-开发者应能添加新的独立 Desktop 功能，而无需：
+已完成内容包括：
 
 ```text
-editing apps/web
-editing upstream core packages
-adding feature startup to renderer/main.ts
-adding generic IPC
-importing Electron from plugin/Renderer code
-duplicating the DSH runtime
+generic runtime plugin builder (build-runtime-plugins.mjs)
+generic bundled plugin discovery and linking (runtime-plugins.ts)
+Desktop Capability Provider (ctx.desktop)
+directory picker migrated to capability service
+host.patch.yml explicit composition
+architecture and regression tests
 ```
+
+验收标准（已满足）：
+
+开发者可在不修改 `apps/web`、上游核心包、`renderer/main.ts`、通用 IPC 或通用基础设施的情况下添加新的独立 Desktop 功能——只需在 `runtime/plugins/` 添加插件并在 `host.patch.yml` 挂载。
 
 ## 24. 可选里程碑 4 — 传输优化
 

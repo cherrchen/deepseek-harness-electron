@@ -1,6 +1,6 @@
 {
-  "name": "@deepseek-ai/dsh-electron-ui-directory-picker",
-  "description": "Electron Main directory chooser surface for workspace directory-flow holes",
+  "name": "@deepseek-ai/dsh-electron-desktop-capabilities",
+  "description": "Desktop capability provider for Electron feature plugins",
   "version": "0.1.0",
   "private": true,
   "type": "module",
@@ -13,10 +13,9 @@
   "dsh": {
     "client": {
       "platform": "web",
+      "immediately": true,
       "inject": [
-        "@deepseek-ai/dsh-client-runtime",
-        "@deepseek-ai/dsh-client-ui-workspace",
-        "@deepseek-ai/dsh-electron-desktop-capabilities"
+        "@deepseek-ai/dsh-client-runtime"
       ]
     }
   },

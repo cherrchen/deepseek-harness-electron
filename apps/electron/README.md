@@ -30,8 +30,8 @@ Governing rules for contributors:
 
 - Desktop-only work stays under `apps/electron/**`; do not customize Desktop UI through `apps/web`.
 - Keep `src/renderer` a thin bootstrap/carrier; do not grow a second product frontend there.
-- Independent product features SHOULD be DSH/Cordis plugins under `runtime/plugins/` (directory picker is the reference pattern).
-- Plugins request native behavior through the typed Desktop Capability Contract; they MUST NOT import Electron or Node.
+- Independent product features SHOULD be DSH/Cordis plugins under `runtime/plugins/`; Host composition stays explicit in `runtime/host.patch.yml`.
+- Feature plugins consume native behavior through the `ctx.desktop` capability service (Desktop Capability Provider), not direct `window.deepseekDesktop` access.
 - Loopback Host transport is an internal compatibility mechanism, not a defect to remove without evidence.
 
 ## Development
@@ -44,7 +44,7 @@ pnpm run build
 pnpm --filter @deepseek-ai/dsh-electron start
 ```
 
-`pnpm --filter @deepseek-ai/dsh-electron build` compiles the main process, preload bridge, directory-picker plugin, and renderer (`dist/renderer`). Focused desktop tests expect those Electron artifacts (after the upstream `pnpm run build` above):
+`pnpm --filter @deepseek-ai/dsh-electron build` compiles the main process, preload bridge, bundled runtime plugins, and renderer (`dist/renderer`). Focused desktop tests expect those Electron artifacts (after the upstream `pnpm run build` above):
 
 ```sh
 pnpm --filter @deepseek-ai/dsh-electron build
@@ -55,7 +55,7 @@ pnpm --filter @deepseek-ai/dsh-electron test
 
 The main window uses a hidden title bar with a 40-pixel drag strip above the Electron renderer. macOS keeps its traffic lights in that strip; Windows and Linux use Electron's Window Controls Overlay for native minimize, maximize, and close controls. Closing the main window hides it while the Harness process continues running. Use the tray menu to reopen the window or quit the application and stop the supervised process.
 
-OS desktop capabilities (directory picker, clipboard text, shell open/reveal, OS notifications, updater actions, native theme, and window controls) are owned by Electron Main and exposed only through the typed `window.deepseekDesktop` preload bridge. The supervised Host receives an `apps/electron/runtime` cordis overlay that disables Host `directory-picker-auto`, keeps the browse Host backend so `directoryPicker` still injects for apiproxy, and mounts an Electron-local directory-flow client plugin (no browse client), so Windows no longer uses the Koffi native picker worker. Upstream UI clipboard writes are redirected through a narrow renderer shim to Main until an upstream injection seam exists. External URLs opened as new windows must use `https:`, `http:`, or `mailto:`.
+OS desktop capabilities are owned by Electron Main and exposed through the typed `window.deepseekDesktop` preload bridge. The Desktop Capability Provider plugin (`runtime/plugins/desktop-capabilities`) adapts that bridge into `ctx.desktop` for feature plugins. The supervised Host receives an `apps/electron/runtime` cordis overlay that disables Host `directory-picker-auto`, keeps the browse Host backend so `directoryPicker` still injects for apiproxy, mounts the capability provider, and mounts an Electron-local directory-flow client plugin (no browse client), so Windows no longer uses the Koffi native picker worker. Bundled runtime plugins are built by `scripts/build-runtime-plugins.mjs` and linked into `$DSH_HOME/profiles/node_modules` at startup. Upstream UI clipboard writes are redirected through a narrow renderer shim to Main until an upstream injection seam exists. External URLs opened as new windows must use `https:`, `http:`, or `mailto:`.
 
 The native page context menu exposes cut, copy, paste, select all, and reload according to Chromium's current editing capabilities; development builds also expose DevTools. The application menu and tray menu provide the desktop-owned About window, update channel selection, and manual update check.
 
