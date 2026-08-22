@@ -17,6 +17,9 @@ export const MARKER_MAIN_HEADER = 'data-dsh-electron-main-header'
 /** Right-aligned header utilities marker for Windows caption collision avoidance. */
 export const MARKER_HEADER_UTILITIES = 'data-dsh-electron-header-utilities'
 
+/** Main center column marker for hero-phase top drag regions. */
+export const MARKER_CENTER = 'data-dsh-electron-center'
+
 /** Drag region marker applied to header chrome backgrounds. */
 export const MARKER_DRAG_REGION = 'data-dsh-electron-drag-region'
 
@@ -26,6 +29,18 @@ export const SIDEBAR_COLLAPSED_WIDTH = 56
 /** Horizontal safe width for macOS traffic lights from the window origin. */
 export const MACOS_TRAFFIC_LIGHT_SAFE_WIDTH = 80
 
+/** Vertical inset under macOS traffic lights before sidebar content starts. */
+export const MACOS_SIDEBAR_TOP_INSET = 28
+
+/** Draggable band height at the top of the sidebar column (matches top inset). */
+export const MACOS_SIDEBAR_DRAG_HEIGHT = MACOS_SIDEBAR_TOP_INSET
+
+/** Draggable band height along the main column top edge (hero / hidden header). */
+export const MACOS_CENTER_DRAG_HEIGHT = 40
+
+/** Width of the sidebar/main seam gradient on macOS. */
+export const MACOS_SIDEBAR_SEAM_WIDTH = 8
+
 /** Supported desktop platforms for integrated chrome layout. */
 export type DesktopPlatform = 'darwin' | 'win32' | 'linux'
 
@@ -33,7 +48,8 @@ export type DesktopPlatform = 'darwin' | 'win32' | 'linux'
 export interface LayoutTargets {
   frame: Element
   sidebar: Element
-  mainHeader: HTMLElement
+  center: Element
+  mainHeader: HTMLElement | null
   headerUtilities: HTMLElement | null
 }
 
@@ -122,12 +138,12 @@ export function resolveLayoutTargets(root: ParentNode): LayoutTargets | null {
   const center = resolveCenterColumn(frame)
   if (sidebar === null || center === null) return null
   const mainHeader = resolveMainHeader(center)
-  if (mainHeader === null) return null
   return {
     frame,
     sidebar,
+    center,
     mainHeader,
-    headerUtilities: resolveHeaderUtilities(mainHeader),
+    headerUtilities: mainHeader === null ? null : resolveHeaderUtilities(mainHeader),
   }
 }
 
@@ -142,11 +158,23 @@ export function attachLayoutMarkers(targets: LayoutTargets): boolean {
     targets.sidebar.setAttribute(MARKER_SIDEBAR, '')
     changed = true
   }
-  if (!targets.mainHeader.hasAttribute(MARKER_MAIN_HEADER)) {
+  if (!targets.sidebar.hasAttribute(MARKER_DRAG_REGION)) {
+    targets.sidebar.setAttribute(MARKER_DRAG_REGION, '')
+    changed = true
+  }
+  if (!targets.center.hasAttribute(MARKER_CENTER)) {
+    targets.center.setAttribute(MARKER_CENTER, '')
+    changed = true
+  }
+  if (!targets.center.hasAttribute(MARKER_DRAG_REGION)) {
+    targets.center.setAttribute(MARKER_DRAG_REGION, '')
+    changed = true
+  }
+  if (targets.mainHeader !== null && !targets.mainHeader.hasAttribute(MARKER_MAIN_HEADER)) {
     targets.mainHeader.setAttribute(MARKER_MAIN_HEADER, '')
     changed = true
   }
-  if (!targets.mainHeader.hasAttribute(MARKER_DRAG_REGION)) {
+  if (targets.mainHeader !== null && !targets.mainHeader.hasAttribute(MARKER_DRAG_REGION)) {
     targets.mainHeader.setAttribute(MARKER_DRAG_REGION, '')
     changed = true
   }
@@ -169,8 +197,11 @@ export function layoutNeedsReconcile(root: ParentNode): boolean {
   const targets = resolveLayoutTargets(root)
   if (targets === null) return true
   if (!targets.sidebar.hasAttribute(MARKER_SIDEBAR)) return true
-  if (!targets.mainHeader.hasAttribute(MARKER_MAIN_HEADER)) return true
-  if (!targets.mainHeader.hasAttribute(MARKER_DRAG_REGION)) return true
+  if (!targets.sidebar.hasAttribute(MARKER_DRAG_REGION)) return true
+  if (!targets.center.hasAttribute(MARKER_CENTER)) return true
+  if (!targets.center.hasAttribute(MARKER_DRAG_REGION)) return true
+  if (targets.mainHeader !== null && !targets.mainHeader.hasAttribute(MARKER_MAIN_HEADER)) return true
+  if (targets.mainHeader !== null && !targets.mainHeader.hasAttribute(MARKER_DRAG_REGION)) return true
   if (
     targets.headerUtilities !== null
     && !targets.headerUtilities.hasAttribute(MARKER_HEADER_UTILITIES)

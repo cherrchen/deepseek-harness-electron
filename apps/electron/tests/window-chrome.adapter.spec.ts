@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest'
 import {
   attachLayoutMarkers,
   layoutNeedsReconcile,
+  MARKER_CENTER,
   MARKER_DRAG_REGION,
   MARKER_HEADER_UTILITIES,
   MARKER_MAIN_HEADER,
@@ -66,8 +67,11 @@ describe('Electron window chrome adapter', () => {
     expect(targets).not.toBeNull()
     expect(attachLayoutMarkers(targets!)).toBe(true)
     expect(targets!.sidebar.hasAttribute(MARKER_SIDEBAR)).toBe(true)
-    expect(targets!.mainHeader.hasAttribute(MARKER_MAIN_HEADER)).toBe(true)
-    expect(targets!.mainHeader.hasAttribute(MARKER_DRAG_REGION)).toBe(true)
+    expect(targets!.sidebar.hasAttribute(MARKER_DRAG_REGION)).toBe(true)
+    expect(targets!.center.hasAttribute(MARKER_CENTER)).toBe(true)
+    expect(targets!.center.hasAttribute(MARKER_DRAG_REGION)).toBe(true)
+    expect(targets!.mainHeader?.hasAttribute(MARKER_MAIN_HEADER)).toBe(true)
+    expect(targets!.mainHeader?.hasAttribute(MARKER_DRAG_REGION)).toBe(true)
     expect(targets!.headerUtilities?.hasAttribute(MARKER_HEADER_UTILITIES)).toBe(true)
     expect(attachLayoutMarkers(targets!)).toBe(false)
     expect(layoutNeedsReconcile(root)).toBe(false)
