@@ -30,8 +30,8 @@ Electron Main
 
 - Desktop 专属改动留在 `apps/electron/**`；不要通过改 `apps/web` 做 Desktop-only UI。
 - 保持 `src/renderer` 为薄 bootstrap/carrier；不要在此长出第二套产品前端。
-- 独立产品功能 SHOULD 落在 `runtime/plugins/` 下的 DSH/Cordis 插件（directory picker 是参考模式）。
-- 插件通过类型化 Desktop Capability Contract 请求原生能力；MUST NOT 直接 import Electron 或 Node。
+- 独立产品功能 SHOULD 落在 `runtime/plugins/` 下的 DSH/Cordis 插件；Host 组合由 `runtime/host.patch.yml` 显式声明。
+- Feature 插件通过 `ctx.desktop` 能力服务（Desktop Capability Provider）消费原生能力，不得直接访问 `window.deepseekDesktop`。
 - 环回 Host 传输是内部兼容机制，无证据时不要为架构纯粹性替换它。
 
 ## 开发
@@ -44,7 +44,7 @@ pnpm run build
 pnpm --filter @deepseek-ai/dsh-electron start
 ```
 
-`pnpm --filter @deepseek-ai/dsh-electron build` 会编译主进程、preload 桥接、directory-picker 插件与 Renderer（`dist/renderer`）。聚焦桌面测试需要这些 Electron 产物（在上方上游 `pnpm run build` 之后）：
+`pnpm --filter @deepseek-ai/dsh-electron build` 会编译主进程、preload 桥接、bundled runtime 插件与 Renderer（`dist/renderer`）。聚焦桌面测试需要这些 Electron 产物（在上方上游 `pnpm run build` 之后）：
 
 ```sh
 pnpm --filter @deepseek-ai/dsh-electron build
@@ -55,7 +55,7 @@ pnpm --filter @deepseek-ai/dsh-electron test
 
 主窗口使用隐藏标题栏，并在 Electron Renderer 上方保留 40 像素的拖拽区域。macOS 在该区域内保留“交通信号灯”；Windows 和 Linux 使用 Electron Window Controls Overlay 提供原生最小化、最大化和关闭控件。关闭主窗口会隐藏窗口，Harness 进程继续运行。通过托盘菜单可以重新打开窗口，也可以退出应用并停止受监管的子进程。
 
-操作系统桌面能力（目录选择、剪贴板文本、shell 打开/显示、系统通知、updater 动作、原生主题与窗口控制）由 Electron Main 拥有，并仅通过类型化的 `window.deepseekDesktop` preload 桥暴露。受监督 Host 接收 `apps/electron/runtime` 下的 cordis overlay：禁用 Host `directory-picker-auto`，保留 browse Host 后端以便 `directoryPicker` 仍能注入 apiproxy，并挂载 Electron 本地 directory-flow client 插件（不挂载 browse client），因此 Windows 不再使用 Koffi native picker worker。上游 UI 的剪贴板写入在存在上游注入 seam 之前，经 Renderer 侧窄 shim 转到 Main。以新窗口打开的外部 URL 必须使用 `https:`、`http:` 或 `mailto:`。
+操作系统桌面能力由 Electron Main 拥有，并通过类型化的 `window.deepseekDesktop` preload 桥暴露。Desktop Capability Provider 插件（`runtime/plugins/desktop-capabilities`）将该桥适配为 feature 插件可用的 `ctx.desktop`。受监督 Host 接收 `apps/electron/runtime` 下的 cordis overlay：禁用 Host `directory-picker-auto`，保留 browse Host 后端以便 `directoryPicker` 仍能注入 apiproxy，挂载 capability provider，并挂载 Electron 本地 directory-flow client 插件（不挂载 browse client），因此 Windows 不再使用 Koffi native picker worker。Bundled runtime 插件由 `scripts/build-runtime-plugins.mjs` 构建，并在启动时链接到 `$DSH_HOME/profiles/node_modules`。上游 UI 的剪贴板写入在存在上游注入 seam 之前，经 Renderer 侧窄 shim 转到 Main。以新窗口打开的外部 URL 必须使用 `https:`、`http:` 或 `mailto:`。
 
 原生页面右键菜单根据 Chromium 当前的编辑能力提供剪切、复制、粘贴、全选和刷新；开发构建还提供 DevTools。应用菜单和托盘菜单提供桌面端自有的“关于”窗口、更新通道选择和手动更新检查入口。
 

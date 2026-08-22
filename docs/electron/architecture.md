@@ -320,31 +320,43 @@ Future plugins MUST preserve this boundary.
 
 A plugin MUST NOT receive raw Electron or Node access simply because it runs in Desktop.
 
-## 10. Current runtime overlay
+## 10. Current runtime plugin infrastructure
 
 **CURRENT**
 
-The directory picker already provides the first reference implementation for the future architecture.
-
-Electron's Cordis overlay replaces the default directory-picker UI integration with an Electron-local client plugin.
-
-Conceptually:
+Milestone 3 established generic bundled runtime plugin infrastructure under `apps/electron/runtime/plugins/`.
 
 ```text
-DSH UI Plugin
+runtime/plugins/*          bundled inventory (build + link)
+runtime/host.patch.yml     explicit Cordis composition authority
+scripts/build-runtime-plugins.mjs
+src/runtime-plugins.ts     discovery, validation, profile linking
+```
+
+Startup links every bundled plugin into `$DSH_HOME/profiles/node_modules/<package-name>` before the supervised Host starts. Discovery determines what Desktop ships; `host.patch.yml` determines what the Desktop profile mounts.
+
+The Desktop Capability Provider (`@deepseek-ai/dsh-electron-desktop-capabilities`) adapts `window.deepseekDesktop` into `ctx.desktop` for feature plugins. Only renderer infrastructure and the provider read the global bridge directly.
+
+The directory picker (`@deepseek-ai/dsh-electron-ui-directory-picker`) is the first feature-plugin consumer: it fills workspace directory-flow slots and calls `ctx.desktop.dialog.pickDirectory()`.
+
+```text
+Feature Plugin
      │
-     │ native capability request
+     │ ctx.desktop.*
      ▼
-Desktop Capability Contract
+Desktop Capability Provider
+     │
+     ▼
+window.deepseekDesktop
      │
      ▼
 Electron Main
      │
      ▼
-Native directory dialog
+Native OS APIs
 ```
 
-The directory picker is a **reference pattern**, not yet a complete generalized feature-plugin framework.
+Adding a new bundled feature plugin requires creating `runtime/plugins/<name>/`, mounting it in `host.patch.yml`, and running the generic builder — not editing `renderer/main.ts`, generic linker code, or the builder itself.
 
 # Part II — Architecture Principles
 
@@ -582,32 +594,18 @@ desktop.rawIpc
 
 ## 19. Feature-plugin model
 
-**TARGET**
+**CURRENT**
 
-A possible downstream layout is:
+Downstream bundled plugins live under:
 
 ```text
-apps/electron/
-├─ src/
-│  ├─ main.ts
-│  ├─ preload/
-│  ├─ renderer/
-│  ├─ desktop/
-│  └─ harness/
-│
-└─ runtime/
-   ├─ host.patch.yml
-   └─ plugins/
-      ├─ ui-directory-picker-electron/
-      ├─ desktop-market/
-      ├─ desktop-terminal/
-      ├─ desktop-git/
-      └─ ...
+apps/electron/runtime/plugins/
+├─ desktop-capabilities/          infrastructure
+├─ ui-directory-picker-electron/  feature plugin
+└─ <future-feature>/
 ```
 
-The exact folders MAY evolve.
-
-The architectural rules may not:
+The architectural rules:
 
 * feature code remains downstream-owned;
 * feature integration uses DSH/Cordis;
@@ -718,36 +716,26 @@ Future Renderer/plugin code MUST NOT bypass this boundary.
 
 ## 23. Milestone 3 — Pluginized Feature Layer
 
-**Status: NEXT**
-
-This supersedes the previous proposal that Milestone 3 must eliminate localhost/HTTP/WebSocket.
+**Status: DONE**
 
 Goal:
 
 > Establish a repeatable model where downstream custom UI and independent Desktop product features live as DSH/Cordis plugins while Electron stays a stable runtime.
 
-Milestone 3 SHOULD establish:
-
-1. a feature-placement decision rule;
-2. a reusable convention for bundled Electron-local DSH plugins;
-3. a repeatable plugin registration/loading mechanism;
-4. a documented mechanism for consuming approved Desktop Capabilities;
-5. at least one appropriate reference feature beyond directory picker;
-6. tests covering plugin registration and privilege boundaries;
-7. links from Electron README and Agent instructions.
-
-Acceptance criterion:
-
-A developer should be able to add a new independent Desktop feature without:
+Completed areas include:
 
 ```text
-editing apps/web
-editing upstream core packages
-adding feature startup to renderer/main.ts
-adding generic IPC
-importing Electron from plugin/Renderer code
-duplicating the DSH runtime
+generic runtime plugin builder (build-runtime-plugins.mjs)
+generic bundled plugin discovery and linking (runtime-plugins.ts)
+Desktop Capability Provider (ctx.desktop)
+directory picker migrated to capability service
+host.patch.yml explicit composition
+architecture and regression tests
 ```
+
+Acceptance criterion (met):
+
+A developer can add a new independent Desktop feature without editing `apps/web`, upstream core packages, `renderer/main.ts`, generic IPC, or generic infrastructure — only by adding a plugin under `runtime/plugins/` and mounting it in `host.patch.yml`.
 
 ## 24. Optional Milestone 4 — Transport Optimization
 
