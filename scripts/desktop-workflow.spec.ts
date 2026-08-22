@@ -37,6 +37,8 @@ describe('Desktop synchronization and release workflows', () => {
       isRecord(job) && Array.isArray(job.steps) ? job.steps.filter(isRecord) : []
     ))
     expect(ciSteps.find(step => step.name === 'Build installer')).toBeUndefined()
+    expect(ciSteps.filter(step => step.name === 'Type-check Electron application')).toHaveLength(2)
+    expect(ciSteps.filter(step => step.name === 'Lint Electron application')).toHaveLength(2)
 
     const packageJob = workflowJob(release, 'package')
     if (!isRecord(packageJob.strategy) || !isRecord(packageJob.strategy.matrix) || !Array.isArray(packageJob.strategy.matrix.include)) {

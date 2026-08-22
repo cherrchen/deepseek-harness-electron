@@ -18,6 +18,7 @@
     "build:runtime-plugins": "node ./scripts/build-runtime-plugins.mjs",
     "build:renderer": "vite build",
     "build": "pnpm run build:runtime-plugins && pnpm run build:main && pnpm run build:preload && pnpm run build:renderer",
+    "typecheck": "tsc -p tsconfig.json --noEmit && tsc -p tsconfig.preload.json && tsc -p tsconfig.renderer.json && tsc -p tsconfig.runtime-host.json && tsc -p tsconfig.runtime-client.json",
     "package": "electron-builder --publish never",
     "start": "pnpm run build && env -u ELECTRON_RUN_AS_NODE electron .",
     "test": "pnpm run build:runtime-plugins && vitest run --root ../.. apps/electron/tests"

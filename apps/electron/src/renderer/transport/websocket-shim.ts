@@ -18,8 +18,8 @@ export const DESKTOP_WS_CLOSED = 3
  * Install a global `WebSocket` that bridges Host event paths through the desktop IPC port.
  */
 export function installDesktopWebSocket(): void {
-  const native = globalThis.WebSocket
-  const bridge = globalThis.window?.deepseekDesktop
+  const native = Reflect.get(globalThis, 'WebSocket') as typeof WebSocket | undefined
+  const bridge = globalThis.window.deepseekDesktop
   if (bridge === undefined) {
     throw new Error('desktop websocket: window.deepseekDesktop is missing')
   }
@@ -31,10 +31,12 @@ export function installDesktopWebSocket(): void {
     return new DesktopWebSocketImpl(String(url), bridge, native)
   } as unknown as typeof WebSocket
 
-  StandIn.CONNECTING = native?.CONNECTING ?? DESKTOP_WS_CONNECTING
-  StandIn.OPEN = native?.OPEN ?? DESKTOP_WS_OPEN
-  StandIn.CLOSING = native?.CLOSING ?? DESKTOP_WS_CLOSING
-  StandIn.CLOSED = native?.CLOSED ?? DESKTOP_WS_CLOSED
+  Object.defineProperties(StandIn, {
+    CONNECTING: { value: native?.CONNECTING ?? DESKTOP_WS_CONNECTING },
+    OPEN: { value: native?.OPEN ?? DESKTOP_WS_OPEN },
+    CLOSING: { value: native?.CLOSING ?? DESKTOP_WS_CLOSING },
+    CLOSED: { value: native?.CLOSED ?? DESKTOP_WS_CLOSED },
+  })
   globalThis.WebSocket = StandIn
 }
 

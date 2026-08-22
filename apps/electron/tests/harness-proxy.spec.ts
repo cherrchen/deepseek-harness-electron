@@ -6,7 +6,7 @@ describe('HarnessProxy', () => {
     const proxy = new HarnessProxy()
     proxy.setOrigin('http://127.0.0.1:43127')
     expect(proxy.requireOrigin()).toBe('http://127.0.0.1:43127')
-    expect(() => proxy.setOrigin('http://example.com:80')).toThrow(/non-loopback/)
+    expect(() => { proxy.setOrigin('http://example.com:80') }).toThrow(/non-loopback/)
   })
 
   it('maps renderer URLs onto the Harness origin', () => {

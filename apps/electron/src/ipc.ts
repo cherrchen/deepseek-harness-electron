@@ -44,12 +44,12 @@ export function installDesktopIpc(
     return await transport.request(init)
   })
 
-  ipcMain.handle(DesktopIpcChannel.getVersion, async (event) => {
+  ipcMain.handle(DesktopIpcChannel.getVersion, (event) => {
     guard(event)
     return app.getVersion()
   })
 
-  ipcMain.handle(DesktopIpcChannel.getPlatform, async (event) => {
+  ipcMain.handle(DesktopIpcChannel.getPlatform, (event) => {
     guard(event)
     return process.platform
   })
@@ -104,12 +104,12 @@ export function installDesktopIpc(
     await desktop.updaterInstall()
   })
 
-  ipcMain.handle(DesktopIpcChannel.updaterGetState, async (event) => {
+  ipcMain.handle(DesktopIpcChannel.updaterGetState, (event) => {
     guard(event)
     return desktop.getUpdaterState()
   })
 
-  ipcMain.handle(DesktopIpcChannel.themeGetState, async (event) => {
+  ipcMain.handle(DesktopIpcChannel.themeGetState, (event) => {
     guard(event)
     return desktop.getThemeState()
   })
@@ -129,7 +129,7 @@ export function installDesktopIpc(
     await desktop.closeWindow()
   })
 
-  ipcMain.handle(DesktopIpcChannel.windowGetState, async (event) => {
+  ipcMain.handle(DesktopIpcChannel.windowGetState, (event) => {
     guard(event)
     return desktop.getWindowState()
   })

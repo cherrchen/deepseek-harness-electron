@@ -22,8 +22,8 @@ describe('Electron release version scripts', () => {
     const setVersionScript = join(root, 'apps/electron/scripts/set-version.mjs')
 
     execFileSync('node', [setVersionScript, 'v0.1.0-beta.2'], { cwd: root, encoding: 'utf8' })
-    const manifest = JSON.parse(await readFile(join(root, 'apps/electron/package.json'), 'utf8'))
-    expect(manifest.version).toBe('0.1.0-beta.2')
+    const manifest: unknown = JSON.parse(await readFile(join(root, 'apps/electron/package.json'), 'utf8'))
+    expect(manifest).toMatchObject({ version: '0.1.0-beta.2' })
   })
 
   it('restores the AGENTS.downstream.md reference after upstream AGENTS.md sync', async () => {

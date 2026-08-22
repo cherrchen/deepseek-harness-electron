@@ -16,10 +16,14 @@ import {
   type ThemeState,
 } from '../bridge-types.ts'
 
-function subscribeChannel<T>(channel: string, callback: (value: T) => void): DesktopUnsubscribe {
+function subscribeChannel<T>(
+  channel: string,
+  callback: (value: T) => void,
+  decode: (value: unknown) => T,
+): DesktopUnsubscribe {
   const { port1, port2 } = new MessageChannel()
   const onMessage = (event: MessageEvent): void => {
-    callback(event.data as T)
+    callback(decode(event.data))
   }
   port2.addEventListener('message', onMessage)
   port2.start()
@@ -125,12 +129,20 @@ const bridge: DeepseekDesktopBridge = {
     install: () => ipcRenderer.invoke(DesktopIpcChannel.updaterInstall),
     getState: () => ipcRenderer.invoke(DesktopIpcChannel.updaterGetState),
     subscribe: (callback: (state: DesktopUpdaterSnapshot) => void) =>
-      subscribeChannel(DesktopIpcChannel.updaterSubscribe, callback),
+      subscribeChannel(
+        DesktopIpcChannel.updaterSubscribe,
+        callback,
+        value => value as DesktopUpdaterSnapshot,
+      ),
   },
   theme: {
     getState: () => ipcRenderer.invoke(DesktopIpcChannel.themeGetState),
     subscribe: (callback: (state: ThemeState) => void) =>
-      subscribeChannel(DesktopIpcChannel.themeSubscribe, callback),
+      subscribeChannel(
+        DesktopIpcChannel.themeSubscribe,
+        callback,
+        value => value as ThemeState,
+      ),
   },
   window: {
     minimize: () => ipcRenderer.invoke(DesktopIpcChannel.windowMinimize),

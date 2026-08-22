@@ -170,7 +170,7 @@ export class HarnessProxy {
 
     port.on('message', (event) => {
       const data = event.data as HostStreamPortMessage
-      if (data?.type === 'abort') shutdown()
+      if (data.type === 'abort') shutdown()
     })
     port.start()
   }

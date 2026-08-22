@@ -54,7 +54,7 @@ export function discoverRuntimePlugins(appPath: string): RuntimePluginManifest[]
     try {
       manifest = JSON.parse(readFileSync(manifestPath, 'utf8')) as { name?: string; dsh?: { client?: unknown } }
     } catch (error) {
-      throw new Error(`runtime plugins: invalid package.json at ${manifestPath}: ${error}`)
+      throw new Error(`runtime plugins: invalid package.json at ${manifestPath}: ${String(error)}`)
     }
     if (typeof manifest.name !== 'string' || manifest.name.length === 0) {
       throw new Error(`runtime plugins: package name missing in ${manifestPath}`)
