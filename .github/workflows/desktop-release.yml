@@ -45,25 +45,32 @@ jobs:
     steps:
       - uses: actions/checkout@v6
         with:
+          ref: ${{ github.event.inputs.tag || github.ref_name }}
           fetch-depth: 0
 
       - name: Resolve release context
         id: context
         run: |
-          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
-            tag="${{ inputs.tag }}"
-            version="${{ inputs.version }}"
-            prerelease="${{ inputs.prerelease }}"
-          else
-            tag="${GITHUB_REF_NAME}"
-            version="${GITHUB_REF_NAME#v}"
-            prerelease=false
-            if [[ "$tag" == *-beta.* || "$tag" == *-rc.* ]]; then prerelease=true; fi
-          fi
+          tag="${{ github.event.inputs.tag || github.ref_name }}"
 
           if [[ ! "$tag" =~ ^v[0-9]+\.[0-9]+\.[0-9]+(-beta\.[0-9]+|-rc\.[0-9]+)?$ ]]; then
             echo "::error::Tag $tag does not match the supported desktop release format."
             exit 1
+          fi
+
+          version="${tag#v}"
+          prerelease=false
+          if [[ "$tag" == *-beta.* || "$tag" == *-rc.* ]]; then prerelease=true; fi
+
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            if [ "${{ inputs.version }}" != "$version" ]; then
+              echo "::error::Requested version ${{ inputs.version }} does not match tag version $version."
+              exit 1
+            fi
+            if [ "${{ inputs.prerelease }}" != "$prerelease" ]; then
+              echo "::error::Requested prerelease value ${{ inputs.prerelease }} does not match tag $tag."
+              exit 1
+            fi
           fi
 
           if [[ "$tag" == *-beta.* ]]; then
