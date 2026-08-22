@@ -5,10 +5,10 @@ import { describe, expect, it } from 'vitest'
 import {
   allowsClipboardWrite,
   contextMenuTemplate,
-  desktopChromeScript,
   desktopWindowChrome,
   directoryOpenDialogOptions,
   isAllowedExternalUrl,
+  NATIVE_CONTROL_ROW_HEIGHT,
   normalizeShellPath,
   pickDirectoryResult,
   requireClipboardText,
@@ -24,24 +24,40 @@ import { resolveHostPatchPath } from '../src/runtime-overlay.ts'
 import { HttpHarnessTransport } from '../src/harness/transport.ts'
 
 describe('Electron desktop integration', () => {
-  it('keeps macOS traffic lights inside the reserved title strip', () => {
+  it('keeps macOS traffic lights inside the integrated chrome row', () => {
     expect(desktopWindowChrome('darwin')).toEqual({
       titleBarStyle: 'hidden',
       trafficLightPosition: { x: 14, y: 13 },
     })
+    expect(desktopWindowChrome('darwin').titleBarOverlay).toBeUndefined()
   })
 
-  it('uses Window Controls Overlay outside macOS', () => {
-    for (const platform of ['win32', 'linux'] as const) {
-      expect(desktopWindowChrome(platform)).toEqual({
-        titleBarStyle: 'hidden',
-        titleBarOverlay: {
-          color: '#00000000',
-          symbolColor: '#747c8c',
-          height: 40,
-        },
-      })
-    }
+  it('uses Window Controls Overlay on Windows', () => {
+    expect(desktopWindowChrome('win32')).toEqual({
+      titleBarStyle: 'hidden',
+      titleBarOverlay: {
+        color: '#00000000',
+        symbolColor: '#747c8c',
+        height: NATIVE_CONTROL_ROW_HEIGHT,
+      },
+    })
+    expect(desktopWindowChrome('win32').trafficLightPosition).toBeUndefined()
+  })
+
+  it('keeps Linux on the explicit fallback overlay path', () => {
+    expect(desktopWindowChrome('linux')).toEqual({
+      titleBarStyle: 'hidden',
+      titleBarOverlay: {
+        color: '#00000000',
+        symbolColor: '#747c8c',
+        height: NATIVE_CONTROL_ROW_HEIGHT,
+      },
+    })
+  })
+
+  it('does not share Windows chrome mutations with Linux through a darwin branch', () => {
+    expect(desktopWindowChrome('win32')).toEqual(desktopWindowChrome('linux'))
+    expect(desktopWindowChrome('darwin')).not.toEqual(desktopWindowChrome('linux'))
   })
 
   it('allows only sanitized clipboard writes from the Harness origin', () => {
@@ -70,12 +86,6 @@ describe('Electron desktop integration', () => {
       { role: 'reload' },
       { role: 'toggleDevTools' },
     ])
-  })
-
-  it('escapes the application name before injecting the title bar script', () => {
-    const script = desktopChromeScript('</script><script>bad()</script>')
-    expect(script).toContain(JSON.stringify('</script><script>bad()</script>'))
-    expect(script).toMatch(/textContent = "/)
   })
 
   it('maps directory picker options and results', () => {

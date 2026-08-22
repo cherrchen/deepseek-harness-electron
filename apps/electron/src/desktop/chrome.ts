@@ -5,25 +5,42 @@ import type {
 } from 'electron'
 import type { DesktopManifest } from '../manifest.ts'
 
-/** Height reserved above the upstream Web UI for draggable desktop chrome. */
-export const TITLE_BAR_HEIGHT = 40
+/** Visual height shared by native window controls and the app header row. */
+export const NATIVE_CONTROL_ROW_HEIGHT = 40
 
-/** Window options shared by the main and about windows. */
-export function desktopWindowChrome(platform: NodeJS.Platform): Pick<BrowserWindowConstructorOptions,
+/** macOS integrated chrome: hidden title bar with native traffic lights. */
+function darwinWindowChrome(): Pick<BrowserWindowConstructorOptions,
   'titleBarStyle' | 'titleBarOverlay' | 'trafficLightPosition'> {
-  if (platform === 'darwin') {
-    return {
-      titleBarStyle: 'hidden',
-      trafficLightPosition: { x: 14, y: 13 },
-    }
+  return {
+    titleBarStyle: 'hidden',
+    trafficLightPosition: { x: 14, y: 13 },
   }
+}
+
+type IntegratedWindowChrome = Pick<BrowserWindowConstructorOptions,
+  'titleBarStyle' | 'titleBarOverlay' | 'trafficLightPosition'>
+
+/** Transparent Window Controls Overlay chrome for Windows and Linux fallback. */
+function overlayWindowChrome(): IntegratedWindowChrome {
   return {
     titleBarStyle: 'hidden',
     titleBarOverlay: {
       color: '#00000000',
       symbolColor: '#747c8c',
-      height: TITLE_BAR_HEIGHT,
+      height: NATIVE_CONTROL_ROW_HEIGHT,
     },
+  }
+}
+
+/** Window options shared by the main and about windows. */
+export function desktopWindowChrome(platform: NodeJS.Platform): IntegratedWindowChrome {
+  switch (platform) {
+    case 'darwin':
+      return darwinWindowChrome()
+    case 'win32':
+      return overlayWindowChrome()
+    default:
+      return overlayWindowChrome()
   }
 }
 
@@ -82,49 +99,6 @@ export function contextMenuTemplate(
     { role: 'reload' },
     ...(development ? [{ role: 'toggleDevTools' as const }] : []),
   ]
-}
-
-/** CSS that reserves a calm, theme-aware drag strip above the upstream UI. */
-export const DESKTOP_CHROME_CSS = `
-#dsh-electron-titlebar {
-  position: fixed;
-  inset: 0 0 auto;
-  z-index: 2147483647;
-  height: ${String(TITLE_BAR_HEIGHT)}px;
-  box-sizing: border-box;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding-left: env(titlebar-area-x, 0px);
-  padding-right: calc(100% - env(titlebar-area-x, 0px) - env(titlebar-area-width, 100%));
-  border-bottom: 1px solid var(--dsw-alias-border-l1, rgb(20 32 54 / 8%));
-  background: color-mix(in srgb, var(--dsw-alias-bg-base, #f8f9fb) 92%, transparent);
-  color: var(--dsw-alias-label-tertiary, #747c8c);
-  font: 500 12px/1 var(--dsw-font-family, system-ui, sans-serif);
-  letter-spacing: 0.02em;
-  user-select: none;
-  -webkit-app-region: drag;
-  backdrop-filter: blur(18px) saturate(1.15);
-}
-#root {
-  box-sizing: border-box;
-  padding-top: ${String(TITLE_BAR_HEIGHT)}px;
-}
-@media (prefers-reduced-transparency: reduce) {
-  #dsh-electron-titlebar { backdrop-filter: none; }
-}
-`
-
-/** Renderer script that mounts the desktop drag strip before the window is shown. */
-export function desktopChromeScript(applicationName: string): string {
-  return `(() => {
-    if (document.getElementById('dsh-electron-titlebar') !== null) return
-    const bar = document.createElement('div')
-    bar.id = 'dsh-electron-titlebar'
-    bar.setAttribute('role', 'presentation')
-    bar.textContent = ${JSON.stringify(applicationName)}
-    document.body.prepend(bar)
-  })()`
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {

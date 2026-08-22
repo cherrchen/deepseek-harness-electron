@@ -88,6 +88,16 @@ export const theme = {
   },
 }
 
+/** Application facade. */
+export const app = {
+  getVersion(): Promise<string> {
+    return requireBridge().app.getVersion()
+  },
+  getPlatform(): Promise<string> {
+    return requireBridge().app.getPlatform()
+  },
+}
+
 /** Window facade. */
 export const windowControls = {
   minimize(): Promise<void> {
@@ -105,6 +115,7 @@ export const windowControls = {
 }
 
 export {
+  app as desktopApp,
   dialog as desktopDialog,
   clipboard as desktopClipboard,
   shell as desktopShell,

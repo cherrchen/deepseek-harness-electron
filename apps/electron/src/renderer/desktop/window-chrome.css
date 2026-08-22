@@ -1,0 +1,123 @@
+/**
+ * Electron integrated native window chrome: platform safe areas and drag regions.
+ * The shared Harness UI stays unaware of Electron; these rules only target
+ * Electron-owned markers on existing layout nodes.
+ */
+
+:root {
+  /* Windows overlay / shared header-row semantics. */
+  --dsh-native-control-row-height: 40px;
+  /* macOS: traffic lights sit at y ≈ 13 with ~12px controls. */
+  --dsh-macos-sidebar-top-inset: 28px;
+  --dsh-macos-center-drag-height: 40px;
+  --dsh-macos-sidebar-seam-width: 8px;
+  --dsh-macos-traffic-light-safe-width: 80px;
+  --dsh-sidebar-collapsed-width: 56px;
+  --dsh-windows-caption-inset: calc(
+    100vw - env(titlebar-area-x, 0px) - env(titlebar-area-width, 100vw)
+  );
+}
+
+#root {
+  box-sizing: border-box;
+  height: 100vh;
+}
+
+/*
+ * Drag-region contract (Electron/Chromium):
+ * - Set drag on the chrome container.
+ * - Set no-drag on every interactive descendant.
+ * - Flex gaps fall through to the container and stay draggable.
+ * Never blanket no-drag on a column wrapper: it defeats header/scroll drag.
+ */
+
+/* macOS sidebar: clear traffic lights, drag the inset band, defer the column border. */
+[data-dsh-desktop-platform='darwin'] [data-dsh-electron-sidebar] {
+  position: relative;
+  box-sizing: border-box;
+  padding-top: var(--dsh-macos-sidebar-top-inset);
+  border-right: none;
+}
+
+[data-dsh-desktop-platform='darwin'] [data-dsh-electron-sidebar][data-dsh-electron-drag-region] {
+  -webkit-app-region: drag;
+}
+
+[data-dsh-desktop-platform='darwin'] [data-dsh-electron-sidebar][data-dsh-electron-drag-region] * {
+  -webkit-app-region: no-drag;
+}
+
+/* Top inset band — height matches padding-top so content is never covered. */
+[data-dsh-desktop-platform='darwin'] [data-dsh-electron-sidebar][data-dsh-electron-drag-region]::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  right: 0;
+  left: 0;
+  height: var(--dsh-macos-sidebar-top-inset);
+  -webkit-app-region: drag;
+}
+
+/* Wider seam gradient instead of a 1px hard divider. Full height when expanded. */
+[data-dsh-desktop-platform='darwin'] [data-dsh-electron-sidebar]::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  width: var(--dsh-macos-sidebar-seam-width);
+  background: linear-gradient(
+    to right,
+    var(--dsw-specific-sidebar-fill) 0%,
+    color-mix(in srgb, var(--dsw-specific-sidebar-fill) 55%, var(--dsw-alias-bg-base) 45%) 45%,
+    color-mix(in srgb, var(--dsw-specific-sidebar-fill) 15%, var(--dsw-alias-bg-base) 85%) 75%,
+    var(--dsw-alias-bg-base) 100%
+  );
+  pointer-events: none;
+}
+
+/* Collapsed rail: keep the seam below native traffic lights. */
+[data-dsh-desktop-platform='darwin'] [data-sidebar-collapsed] [data-dsh-electron-sidebar]::after {
+  top: var(--dsh-macos-sidebar-top-inset);
+}
+
+[data-dsh-desktop-platform='darwin'] [data-dsh-electron-center] {
+  position: relative;
+}
+
+/*
+ * Hero / blank session: header is display:none — drag the conversation scrollport
+ * background; composer and controls stay no-drag via the descendant rule.
+ */
+[data-dsh-desktop-platform='darwin'] [data-dsh-electron-center][data-dsh-electron-drag-region]:has(header[aria-hidden='true']) [data-conversation-scroll] {
+  -webkit-app-region: drag;
+}
+
+[data-dsh-desktop-platform='darwin'] [data-dsh-electron-center][data-dsh-electron-drag-region]:has(header[aria-hidden='true']) [data-conversation-scroll] * {
+  -webkit-app-region: no-drag;
+}
+
+/* macOS collapsed rail: traffic lights can extend past the 56px rail into main. */
+[data-dsh-desktop-platform='darwin'] [data-sidebar-collapsed] [data-dsh-electron-main-header] {
+  padding-left: max(
+    0px,
+    calc(var(--dsh-macos-traffic-light-safe-width) - var(--dsh-sidebar-collapsed-width))
+  );
+}
+
+/* Windows / Linux: keep header utilities clear of native caption buttons. */
+[data-dsh-desktop-platform='win32'] [data-dsh-electron-main-header],
+[data-dsh-desktop-platform='linux'] [data-dsh-electron-main-header] {
+  box-sizing: border-box;
+  padding-right: var(--dsh-windows-caption-inset);
+}
+
+/* Session header: container drag with clickable descendants. */
+[data-dsh-electron-main-header][data-dsh-electron-drag-region] {
+  position: relative;
+  -webkit-app-region: drag;
+}
+
+[data-dsh-electron-main-header][data-dsh-electron-drag-region] * {
+  -webkit-app-region: no-drag;
+}
