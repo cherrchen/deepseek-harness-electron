@@ -18,6 +18,9 @@
       ]
     }
   },
+  "dependencies": {
+    "@deepseek-ai/cordis": "workspace:^"
+  },
   "files": [
     "lib/index.js",
     "lib/client.js",

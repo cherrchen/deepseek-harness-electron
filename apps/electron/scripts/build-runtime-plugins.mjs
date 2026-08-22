@@ -114,6 +114,7 @@ async function buildHostHalf(pluginRoot) {
     outfile: join(outDir, 'index.js'),
     bundle: true,
     platform: 'node',
+    packages: 'external',
     format: 'esm',
     target: 'node22',
     logLevel: 'silent',

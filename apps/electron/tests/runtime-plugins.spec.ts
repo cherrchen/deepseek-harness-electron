@@ -42,7 +42,7 @@ const { build } = require(resolveEsbuild())
 const pluginRoot = join(pluginsRoot, 'example-plugin')
 const manifest = JSON.parse(readFileSync(join(pluginRoot, 'package.json'), 'utf8'))
 mkdirSync(join(pluginRoot, 'lib'), { recursive: true })
-await build({ entryPoints: [join(pluginRoot, 'src', 'index.ts')], outfile: join(pluginRoot, 'lib', 'index.js'), bundle: true, platform: 'node', format: 'esm', target: 'node22', logLevel: 'silent' })
+await build({ entryPoints: [join(pluginRoot, 'src', 'index.ts')], outfile: join(pluginRoot, 'lib', 'index.js'), bundle: true, platform: 'node', packages: 'external', format: 'esm', target: 'node22', logLevel: 'silent' })
 const result = await build({ entryPoints: [join(pluginRoot, 'src', 'client', 'index.ts')], bundle: true, platform: 'browser', format: 'cjs', target: 'es2022', write: false, external: ['react','react/jsx-runtime','react-dom','@deepseek-ai/cordis','@deepseek-ai/dsh-client-runtime/client'], logLevel: 'silent' })
 const code = result.outputFiles[0].text
 writeFileSync(join(pluginRoot, 'lib', 'client.js'), 'window.__ModuleLoader__.load({ id: ' + JSON.stringify(manifest.name) + ', factory: (require) => { var module = { exports: {} }; var exports = module.exports; ' + code + ' return module.exports; } });')
@@ -233,6 +233,18 @@ describe('generic runtime plugin builder', () => {
         expect(client).toContain(`id: ${JSON.stringify(plugin.name)}`)
         expect(existsSync(join(plugin.rootPath, 'lib', 'client.js'))).toBe(true)
       }
+    }
+  })
+
+  it('keeps Host package imports external to the plugin bundle', async () => {
+    const appPath = await mkdtemp(join(tmpdir(), 'dsh-electron-plugins-'))
+    try {
+      const pluginRoot = await buildFixtureInInventory(appPath)
+      const host = await readFile(join(pluginRoot, 'lib', 'index.js'), 'utf8')
+      expect(host).toContain('from "@deepseek-ai/cordis"')
+      expect(readFileSync(buildScript, 'utf8')).toContain("packages: 'external'")
+    } finally {
+      await rm(appPath, { recursive: true, force: true })
     }
   })
 })
