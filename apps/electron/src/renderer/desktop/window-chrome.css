@@ -1,0 +1,58 @@
+/**
+ * Electron integrated native window chrome: platform safe areas and drag regions.
+ * The shared Harness UI stays unaware of Electron; these rules only target
+ * Electron-owned markers on existing layout nodes.
+ */
+
+:root {
+  --dsh-native-control-row-height: 40px;
+  --dsh-macos-traffic-light-safe-width: 80px;
+  --dsh-sidebar-collapsed-width: 56px;
+  --dsh-windows-caption-inset: calc(
+    100vw - env(titlebar-area-x, 0px) - env(titlebar-area-width, 100vw)
+  );
+}
+
+#root {
+  box-sizing: border-box;
+  height: 100vh;
+}
+
+/* macOS: sidebar content clears native traffic lights; main header stays at y = 0. */
+[data-dsh-desktop-platform='darwin'] [data-dsh-electron-sidebar] {
+  box-sizing: border-box;
+  padding-top: var(--dsh-native-control-row-height);
+}
+
+/* macOS collapsed rail: traffic lights can extend past the 56px rail into main. */
+[data-dsh-desktop-platform='darwin'] [data-sidebar-collapsed] [data-dsh-electron-main-header] {
+  padding-left: max(
+    0px,
+    calc(var(--dsh-macos-traffic-light-safe-width) - var(--dsh-sidebar-collapsed-width))
+  );
+}
+
+/* Windows / Linux: keep header utilities clear of native caption buttons. */
+[data-dsh-desktop-platform='win32'] [data-dsh-electron-main-header],
+[data-dsh-desktop-platform='linux'] [data-dsh-electron-main-header] {
+  box-sizing: border-box;
+  padding-right: var(--dsh-windows-caption-inset);
+}
+
+/* Window drag regions: empty header background only; interactive controls stay clickable. */
+[data-dsh-electron-drag-region] {
+  -webkit-app-region: drag;
+}
+
+[data-dsh-electron-drag-region] :is(
+  button,
+  a,
+  input,
+  textarea,
+  select,
+  [role='button'],
+  [role='tab'],
+  [role='tablist']
+) {
+  -webkit-app-region: no-drag;
+}
