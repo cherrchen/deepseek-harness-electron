@@ -1,0 +1,31 @@
+{
+  "compilerOptions": {
+    "target": "ES2024",
+    "module": "NodeNext",
+    "moduleResolution": "NodeNext",
+    "lib": ["ES2024", "DOM", "DOM.Iterable"],
+    "types": ["node", "react"],
+    "jsx": "react-jsx",
+    "strict": true,
+    "skipLibCheck": true,
+    "exactOptionalPropertyTypes": true,
+    "noUncheckedIndexedAccess": true,
+    "verbatimModuleSyntax": true,
+    "preserveSymlinks": true,
+    "rewriteRelativeImportExtensions": true,
+    "declaration": true,
+    "declarationMap": true,
+    "sourceMap": true,
+    "rootDir": "src",
+    "outDir": "lib/types"
+  },
+  "files": [
+    "src/types.ts",
+    "src/css-modules.d.ts",
+    "src/client/index.ts",
+    "src/client/controller.ts",
+    "src/client/GitPanel.tsx",
+    "src/client/GitAction.tsx",
+    "src/client/locales.ts"
+  ]
+}
