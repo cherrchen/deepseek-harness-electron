@@ -111,10 +111,6 @@ interface ComposedProfile {
   homePatches: PatchOptions[]
   /** Layers above the user layers on a live reload: `--patch` overlays and the telemetry switch. */
   overlays: PatchOptions[]
-  /** Resolved `--patch` files, retained so live generations re-read their current contents. */
-  overlayFiles: string[]
-  /** Launcher-owned overlays that do not come from watched files. */
-  generatedOverlays: PatchOptions[]
   /**
    * id → row of the composed tree (bundles + user layers + overlays), for the
    * launcher's own row checks.
@@ -149,20 +145,19 @@ function composeProfile(
 ): ComposedProfile {
   const profile = prepareProfile(name)
   const homePatches = loadOptionalPatches(NAME, homePatchPath()) ?? []
-  const overlayFiles = patchFiles.map(file => resolve(file))
-  const overlays = overlayFiles.flatMap(file => loadOverlayPatches(NAME, file))
+  const overlays = patchFiles.flatMap(file => loadOverlayPatches(NAME, resolve(file)))
   const bundlePatches = profile.layers.flatMap(layer => layer.patches)
   const rows = new Map<string, EntryOptions>()
   for (const row of composeEntries([bundlePatches, profile.patches, homePatches, overlays])) {
     if (typeof row.id === 'string') rows.set(row.id, row)
   }
-  const generatedOverlays: PatchOptions[] = []
+  const composedOverlays = [...overlays]
   // The SHIPPED root is the part of the roster only this app can resolve: it
   // sits beside this app's own config, in both the source and built layouts.
   // The writable root the roster appends is `dsh-agent-presets`' own, so a
   // launcher that never reaches this patch still finds a person's presets.
   if (rows.has('agent-presets')) {
-    generatedOverlays.push({
+    composedOverlays.push({
       id: 'agent-presets',
       config: {
         ...(rows.get('agent-presets')?.config ?? {}) as Record<string, unknown>,
@@ -171,16 +166,8 @@ function composeProfile(
     })
   }
   const telemetryPatch = resolveTelemetryPatch(process.env.DSH_TELEMETRY_DISABLED, rows.has(TELEMETRY_ROW_ID))
-  if (telemetryPatch !== undefined) generatedOverlays.push(telemetryPatch)
-  return {
-    profile,
-    bundlePatches,
-    homePatches,
-    overlays: [...overlays, ...generatedOverlays],
-    overlayFiles,
-    generatedOverlays,
-    rows,
-  }
+  if (telemetryPatch !== undefined) composedOverlays.push(telemetryPatch)
+  return { profile, bundlePatches, homePatches, overlays: composedOverlays, rows }
 }
 
 /** Options for {@link runProfile}. */
@@ -254,8 +241,7 @@ export async function runProfile(options: RunProfileOptions): Promise<{ ctx: Con
     ...composed.bundlePatches,
     ...loadOptionalPatches(NAME, composed.profile.patchPath) ?? [],
     ...loadOptionalPatches(NAME, homePatchPath()) ?? [],
-    ...composed.overlayFiles.flatMap(file => loadOverlayPatches(NAME, file)),
-    ...composed.generatedOverlays,
+    ...composed.overlays,
   ])
   // Cloned for the same insert-aliasing reason as composeLive: the boot
   // application must not mutate the objects later reloads recompose from.
@@ -306,15 +292,6 @@ export async function runProfile(options: RunProfileOptions): Promise<{ ctx: Con
         filename: homePatchPath(),
         compose: composeLive,
       })
-      const userFiles = new Set([composed.profile.patchPath, homePatchPath()])
-      for (const filename of new Set(composed.overlayFiles)) {
-        if (userFiles.has(filename)) continue
-        await watchUserPatches(ctx, {
-          binName: NAME,
-          filename,
-          compose: composeLive,
-        })
-      }
     } catch (error) {
       suppressShutdownError(ctx, signalShutdown.signal, error)
     }
