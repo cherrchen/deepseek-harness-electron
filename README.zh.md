@@ -26,6 +26,17 @@ Client main fiber 不要求 `desktop`。Child `ctx.inject(['desktop'], ...)` fib
 
 GitHub authentication、remotes、fetch／pull／push UX、issues、pull requests、stash、rebase、cherry-pick、merge-conflict editing 与 credential management 不属于本 package。
 
+## 开发
+
+使用 Node.js `^22.19` 或 `>=24` 与 pnpm 11。Standalone repository 管理自己的 dependency lockfile，并运行与 DeepSeek Harness subtree 相同的 package tests 和 bundle configuration。
+
+```sh
+pnpm install --frozen-lockfile
+pnpm test
+pnpm build
+pnpm pack
+```
+
 ## Model Experience
 
 无直接影响，因为本 package 贡献 human-facing repository service 与 Client UI，不注册 model tools 或 prompt content。
@@ -38,14 +49,3 @@ GitHub authentication、remotes、fetch／pull／push UX、issues、pull request
 
 - **仅支持 local repositories** — 所有操作都在配置的 DSH subprocess execution world 中运行；尚未实现 remote repository 与 hosting-provider workflows。
 - **Command output 有界** — 大于 `maxOutputBytes` 的 diff 只保留 subprocess collector tail；处理超大 diff 的 deployment 必须提高这一 validated setting。
-
-## 开发
-
-使用 Node.js `^22.19` 或 `>=24` 与 pnpm 11。Standalone repository 管理自己的 dependency lockfile，并运行与 DeepSeek Harness subtree 相同的 package tests 和 bundle configuration。
-
-```sh
-pnpm install --frozen-lockfile
-pnpm test
-pnpm build
-pnpm pack
-```

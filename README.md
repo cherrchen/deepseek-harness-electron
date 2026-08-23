@@ -26,6 +26,17 @@ The first release supports repository discovery, Git version, current branch and
 
 GitHub authentication, remotes, fetch/pull/push UX, issues, pull requests, stash, rebase, cherry-pick, merge-conflict editing, and credential management are outside this package.
 
+## Development
+
+Use Node.js `^22.19` or `>=24` with pnpm 11. The standalone repository owns its dependency lockfile and runs the same package tests and bundle configuration used by the DeepSeek Harness subtree.
+
+```sh
+pnpm install --frozen-lockfile
+pnpm test
+pnpm build
+pnpm pack
+```
+
 ## Model Experience
 
 None, as this package contributes a human-facing repository service and Client UI without registering model tools or prompt content.
@@ -38,14 +49,3 @@ None. The package does not add, replace, or retain model-request tokens.
 
 - **Local repositories only** — all operations run through the configured DSH subprocess execution world; remote repository and hosting-provider workflows are not implemented.
 - **Bounded command output** — a diff larger than `maxOutputBytes` retains only the subprocess collector's tail, so deployments handling very large diffs must raise that validated setting.
-
-## Development
-
-Use Node.js `^22.19` or `>=24` with pnpm 11. The standalone repository owns its dependency lockfile and runs the same package tests and bundle configuration used by the DeepSeek Harness subtree.
-
-```sh
-pnpm install --frozen-lockfile
-pnpm test
-pnpm build
-pnpm pack
-```
