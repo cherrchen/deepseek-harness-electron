@@ -1,58 +1,53 @@
-# DeepSeek Harness Desktop
+# `@dsh-electron/dsh-plugin-git`
 
 [English](README.md) | 中文
 
-DeepSeek Harness Desktop 将 [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness) 打包为适用于 macOS、Windows 和 Linux 的原生桌面应用。它保留上游 Web 应用、智能体运行时、profile 和工作区流程，并提供操作系统窗口与桌面安装包。
+一个标准 DSH/Cordis Git 插件，包含一项 portable Host service、一份 Client bundle 与 optional Desktop enhancement。Native DSH 与 DeepSeek Harness Desktop 原样运行同一个 package；npm scope 只表示 publisher，不表示 runtime requirement。
 
-## 状态
+## 组合
 
-本项目及其上游运行时均处于开发者预览阶段。发布版本可能包含破坏兼容性的变更。
+Host plugin 要求 `ctx.subprocess`，提供 `ctx.git`，并使用 executable 与独立 argv values 启动 Git。它绝不调用 shell。DSH Web Host 存在时，optional Connection child 注册 loopback `/git` RPC channel；没有 Connection 的 headless composition 中 Git service 仍保持 active。
 
-## 安装
+Client plugin 要求上游 Connection、locale、runtime、layout 与 conversation UI plugins。它向 `conversation.input.left` 贡献 branch selector 与 changed-files indicator，向 `shell.overlay` 贡献右侧 Git drawer。Business components 通过 slot injection 接收 controller，不访问 Cordis context。
 
-请从[最新发布版本](https://github.com/cherrchen/deepseek-harness-electron/releases/latest)下载对应平台的安装包：
+Controller 在 workspace 变化时发现 repository state，与 drawer 是否打开无关。关闭 drawer 不会丢弃已加载的 repository snapshot。
 
-- macOS：适用于 Apple Silicon 和 Intel Mac 的 DMG 或 ZIP
-- Windows：适用于 x64 和 ARM64 的 NSIS 安装程序
-- Linux：适用于 x64 和 ARM64 的 AppImage 或 DEB 包
+Client main fiber 不要求 `desktop`。Child `ctx.inject(['desktop'], ...)` fiber 只接受 `shell.showItemInFolder`、`shell.openPath` 与 `notification.show`；缺少这些能力时，repository、status、diff、stage、commit 与 branch operations 仍可用，native actions 不显示。
 
-打开已安装的应用，在开始智能体会话前通过 Harness UI 完成提供方设置。
+## 配置
 
-<a id="run"></a><a id="run-from-source"></a>
+| 字段 | 默认值 | 含义 |
+|---|---:|---|
+| `executable` | `git` | 由 `ctx.subprocess` 解析的 Git executable name 或 absolute path。 |
+| `maxOutputBytes` | 8 MiB | 单条 Git command 每个 stream 的 collection cap。 |
+| `graceMs` | 3000 | Managed subprocess termination grace period。 |
 
-## 从源码运行
+## Git 操作
 
-安装受支持的 Node.js 版本（`^22.19.0` 或 `>=24`）和 pnpm，然后构建 Harness 运行时并启动 Electron：
+首个版本支持 repository discovery、Git version、current branch 与 HEAD、staged／unstaged／untracked status、local branches、working 与 staged diffs、stage／unstage、commit、branch creation 与 branch switching。Status 使用带 NUL path separators 的 porcelain v2；branches 使用 `for-each-ref`；每个 caller-supplied path、branch 与 message 始终作为一个 argv value。
 
-```sh
-git clone https://github.com/cherrchen/deepseek-harness-electron.git
-cd deepseek-harness-electron
-pnpm install
-pnpm run build
-pnpm --filter @dsh-electron/dsh-electron start
-```
-
-## 运行时与数据
-
-Electron 在随机 `127.0.0.1` 端口启动 DeepSeek Harness，并在沙箱窗口中打开其就绪 URL。渲染进程未启用 Node.js 集成，使用上下文隔离和 Chromium 沙箱；请求的 HTTP 和 HTTPS 链接会在系统浏览器中打开。
-
-Harness profile 和状态存储在对应平台的应用数据目录。智能体 shell 命令从当前用户主目录开始；需要时可在 Harness UI 中选择其他工作区。
+GitHub authentication、remotes、fetch／pull／push UX、issues、pull requests、stash、rebase、cherry-pick、merge-conflict editing 与 credential management 不属于本 package。
 
 ## 开发
 
-使用以下命令运行桌面应用的聚焦检查：
+使用 Node.js `^22.19` 或 `>=24` 与 pnpm 11。Standalone repository 管理自己的 dependency lockfile，并运行与 DeepSeek Harness subtree 相同的 package tests 和 bundle configuration。
 
 ```sh
-pnpm --filter @dsh-electron/dsh-electron test
-pnpm --filter @dsh-electron/dsh-electron build
+pnpm install --frozen-lockfile
+pnpm test
+pnpm build
+pnpm pack
 ```
 
-有关仓库细节，请参阅[桌面应用指南](apps/electron/README.zh.md)、[开发指南](docs/development.zh.md)和[架构文档](docs/architecture.zh.md)。
+## Model Experience
 
-## 贡献
+无直接影响，因为本 package 贡献 human-facing repository service 与 Client UI，不注册 model tools 或 prompt content。
 
-参阅 [CONTRIBUTING.md](CONTRIBUTING.zh.md)。此 fork 跟随上游 DeepSeek Harness 的开发，同时维护其桌面端打包。
+#### KV Cache effect
 
-## 许可证
+无。本 package 不增加、替换或保留 model-request tokens。
 
-[MIT](LICENSE)。第三方依赖声明位于 [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md)。
+## Known Limitations and Deferred Work
+
+- **仅支持 local repositories** — 所有操作都在配置的 DSH subprocess execution world 中运行；尚未实现 remote repository 与 hosting-provider workflows。
+- **Command output 有界** — 大于 `maxOutputBytes` 的 diff 只保留 subprocess collector tail；处理超大 diff 的 deployment 必须提高这一 validated setting。

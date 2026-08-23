@@ -1,58 +1,53 @@
-# DeepSeek Harness Desktop
+# `@dsh-electron/dsh-plugin-git`
 
 English | [中文](README.zh.md)
 
-DeepSeek Harness Desktop packages [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness) as a native desktop application for macOS, Windows, and Linux. It keeps the upstream Web application, agent runtime, profiles, and workspace workflow while providing an operating-system window and desktop installers.
+A standard DSH/Cordis Git plugin with one portable Host service, one Client bundle, and optional Desktop enhancement. The package runs unchanged in Native DSH and DeepSeek Harness Desktop; the npm scope identifies its publisher, not a runtime requirement.
 
-## Status
+## Composition
 
-This project and its upstream runtime are in developer preview. Releases may introduce compatibility-breaking changes.
+The Host plugin requires `ctx.subprocess`, provides `ctx.git`, and starts Git with an executable plus separate argv values. It never invokes a shell. Its optional Connection child registers the loopback `/git` RPC channel when a DSH Web Host is present; the Git service remains active in headless compositions without Connection.
 
-## Install
+The Client plugin requires the upstream Connection, locale, runtime, layout, and conversation UI plugins. It contributes a branch selector and changed-files indicator to `conversation.input.left`, and a right-side Git drawer to `shell.overlay`. Business components receive a controller through slot injection and do not access Cordis context.
 
-Download the installer for your platform from the [latest release](https://github.com/cherrchen/deepseek-harness-electron/releases/latest):
+The controller discovers repository state when the workspace changes, independent of drawer visibility. Closing the drawer does not discard the loaded repository snapshot.
 
-- macOS: DMG or ZIP for Apple Silicon and Intel Macs
-- Windows: NSIS installer for x64 and ARM64
-- Linux: AppImage or DEB package for x64 and ARM64
+The Client main fiber does not require `desktop`. A child `ctx.inject(['desktop'], ...)` fiber accepts only `shell.showItemInFolder`, `shell.openPath`, and `notification.show`; without them, repository, status, diff, stage, commit, and branch operations remain available and native actions are not shown.
 
-Open the installed application and complete the provider setup in the Harness UI before starting an agent session.
+## Configuration
 
-<a id="run"></a><a id="run-from-source"></a>
+| Field | Default | Meaning |
+|---|---:|---|
+| `executable` | `git` | Git executable name or absolute path resolved by `ctx.subprocess`. |
+| `maxOutputBytes` | 8 MiB | Per-stream collection cap for one Git command. |
+| `graceMs` | 3000 | Managed subprocess termination grace period. |
 
-## Run from source
+## Git operations
 
-Install a supported Node.js version (`^22.19.0` or `>=24`) and pnpm, then build the Harness runtime and start Electron:
+The first release supports repository discovery, Git version, current branch and HEAD, staged/unstaged/untracked status, local branches, working and staged diffs, stage/unstage, commit, branch creation, and branch switching. Status uses porcelain v2 with NUL path separators; branches use `for-each-ref`; every caller-supplied path, branch, and message remains one argv value.
 
-```sh
-git clone https://github.com/cherrchen/deepseek-harness-electron.git
-cd deepseek-harness-electron
-pnpm install
-pnpm run build
-pnpm --filter @dsh-electron/dsh-electron start
-```
-
-## Runtime and data
-
-Electron starts DeepSeek Harness on a random `127.0.0.1` port and opens its ready URL in a sandboxed window. The renderer has no Node.js integration, uses context isolation and Chromium sandboxing, and opens requested HTTP and HTTPS links in the system browser.
-
-Harness profiles and state live in the platform-specific application-data directory. Agent shell commands start in the current user's home directory; select another workspace from the Harness UI when needed.
+GitHub authentication, remotes, fetch/pull/push UX, issues, pull requests, stash, rebase, cherry-pick, merge-conflict editing, and credential management are outside this package.
 
 ## Development
 
-Run the desktop application's focused checks with:
+Use Node.js `^22.19` or `>=24` with pnpm 11. The standalone repository owns its dependency lockfile and runs the same package tests and bundle configuration used by the DeepSeek Harness subtree.
 
 ```sh
-pnpm --filter @dsh-electron/dsh-electron test
-pnpm --filter @dsh-electron/dsh-electron build
+pnpm install --frozen-lockfile
+pnpm test
+pnpm build
+pnpm pack
 ```
 
-See the [desktop application guide](apps/electron/README.md), [development guide](docs/development.md), and [architecture documentation](docs/architecture.md) for repository details.
+## Model Experience
 
-## Contributing
+None, as this package contributes a human-facing repository service and Client UI without registering model tools or prompt content.
 
-See [CONTRIBUTING.md](CONTRIBUTING.md). This fork follows upstream DeepSeek Harness development while maintaining its desktop packaging.
+#### KV Cache effect
 
-## License
+None. The package does not add, replace, or retain model-request tokens.
 
-[MIT](LICENSE). Third-party dependency notices are in [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
+## Known Limitations and Deferred Work
+
+- **Local repositories only** — all operations run through the configured DSH subprocess execution world; remote repository and hosting-provider workflows are not implemented.
+- **Bounded command output** — a diff larger than `maxOutputBytes` retains only the subprocess collector's tail, so deployments handling very large diffs must raise that validated setting.
