@@ -46,6 +46,15 @@ async function waitForFile(file: string): Promise<void> {
   }
 }
 
+async function rewriteUntilFile(file: string, content: string, observed: string): Promise<void> {
+  const deadline = Date.now() + 20_000
+  while (!existsSync(observed)) {
+    if (Date.now() >= deadline) throw new Error(`dsh profile lifecycle marker did not appear: ${observed}`)
+    writeFileSync(file, content)
+    await new Promise(resolve => setTimeout(resolve, 250))
+  }
+}
+
 interface ProfileLifecycleFixture {
   home: string
   ready: string
@@ -539,6 +548,37 @@ describe.skipIf(!existsSync(dshBin))('dsh BUILT bin (node lib/bin.js, no tsx)', 
       expect(result.exitCode, `${result.stderr}\nstdout:\n${result.stdout}\nsignal: ${String(result.signal)}`).toBe(0)
       expect(result.signal).toBeUndefined()
       expect(existsSync(fixture.disposed)).toBe(true)
+    } finally {
+      child.kill('SIGKILL')
+      rmSync(fixture.home, { recursive: true, force: true })
+    }
+  }, 30_000)
+
+  it('hot-reloads a --patch overlay without restarting the profile', async () => {
+    const fixture = createProfileLifecycleFixture()
+    const overlay = join(fixture.home, 'runtime.patch.yml')
+    writeFileSync(overlay, [
+      '- id: profile-lifecycle-fixture',
+      '  config:',
+      '    generation: overlay-one',
+      '',
+    ].join('\n'))
+    const child = startProfileLifecycle(fixture, ['--patch', overlay])
+    const configFile = join(fixture.home, 'config-echo')
+    try {
+      await waitForFile(fixture.settled)
+      expect(readFileSync(configFile, 'utf8')).toBe('overlay-one')
+      rmSync(fixture.ready)
+      await rewriteUntilFile(overlay, [
+        '- id: profile-lifecycle-fixture',
+        '  config:',
+        '    generation: overlay-two',
+        '',
+      ].join('\n'), fixture.ready)
+      expect(readFileSync(configFile, 'utf8')).toBe('overlay-two')
+      requestProfileShutdown(child, fixture)
+      const result = await child
+      expect(result.exitCode, `${result.stderr}\nstdout:\n${result.stdout}\nsignal: ${String(result.signal)}`).toBe(0)
     } finally {
       child.kill('SIGKILL')
       rmSync(fixture.home, { recursive: true, force: true })
