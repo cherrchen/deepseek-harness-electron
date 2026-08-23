@@ -17,7 +17,7 @@ describe('Desktop-aware Git client lifecycle', () => {
     } as never)
     ctx.provide('connection', { rpc: { call: vi.fn() } } as never)
     ctx.provide('locale', { register: () => () => {} } as never)
-    const fiber = ctx.plugin({ inject, apply } as never)
+    const fiber = ctx.plugin({ inject, apply })
     await fiber.await()
     expect(registrations.map(entry => entry.id)).toEqual(['git', 'git'])
     const controller = registrations[0]?.inject?.().controller
