@@ -339,6 +339,8 @@ Desktop Capability Provider（`@dsh-electron/dsh-electron-desktop-capabilities`�
 
 目录选择器（`@dsh-electron/dsh-electron-ui-directory-picker`）是首个 feature 插件消费者：填充 workspace directory-flow slot，并调用 `ctx.desktop.dialog.pickDirectory()`。
 
+品牌插件（`@dsh-electron/dsh-electron-ui-brand`）始终用 DeepSeek Harness 视觉填充 `sidebar.brand.mark`、`sidebar.brand.name` 与 `conversation.hero.brand.mark`，因此 Desktop 产品品牌不依赖上游 `DSH_CLIENT_BUILD_PROFILE=official` client 构建。
+
 ```text
 Feature Plugin
      │
@@ -602,6 +604,7 @@ desktop.rawIpc
 apps/electron/runtime/plugins/
 ├─ desktop-capabilities/          infrastructure
 ├─ ui-directory-picker-electron/  feature plugin
+├─ ui-brand-electron/             feature plugin
 └─ <future-feature>/
 ```
 

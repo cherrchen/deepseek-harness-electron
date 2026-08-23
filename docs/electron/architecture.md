@@ -339,6 +339,8 @@ The Desktop Capability Provider (`@dsh-electron/dsh-electron-desktop-capabilitie
 
 The directory picker (`@dsh-electron/dsh-electron-ui-directory-picker`) is the first feature-plugin consumer: it fills workspace directory-flow slots and calls `ctx.desktop.dialog.pickDirectory()`.
 
+The brand plugin (`@dsh-electron/dsh-electron-ui-brand`) always fills `sidebar.brand.mark`, `sidebar.brand.name`, and `conversation.hero.brand.mark` with DeepSeek Harness artwork, so Desktop does not depend on the upstream `DSH_CLIENT_BUILD_PROFILE=official` client build for product branding.
+
 ```text
 Feature Plugin
      │
@@ -602,6 +604,7 @@ Downstream bundled plugins live under:
 apps/electron/runtime/plugins/
 ├─ desktop-capabilities/          infrastructure
 ├─ ui-directory-picker-electron/  feature plugin
+├─ ui-brand-electron/             feature plugin
 └─ <future-feature>/
 ```
 
