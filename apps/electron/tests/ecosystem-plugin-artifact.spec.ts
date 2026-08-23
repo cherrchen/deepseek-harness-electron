@@ -41,7 +41,7 @@ describe('standard ecosystem plugin artifact portability', () => {
         return packageRoot
       })
       expect(sha256(tarball)).toBe(packedChecksum)
-      for (const artifact of ['package.json', 'lib/index.js', 'lib/client.js']) {
+      for (const artifact of ['package.json', 'lib/index.js', 'lib/client.js', 'lib/types.js']) {
         expect(sha256(join(installs[0] ?? '', artifact))).toBe(sha256(join(installs[1] ?? '', artifact)))
       }
       const client = readFileSync(join(installs[0] ?? '', 'lib', 'client.js'), 'utf8')
