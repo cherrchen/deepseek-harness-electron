@@ -16,7 +16,7 @@ Desktop 产品功能需要独立 npm releases，同时不能创建 Electron-only
 
 Upstream sync merge driver 在普通 conflicts 中保留该 namespace；upstream tree 首次声明 `packages/dsh-electron` 时，workflow 在 merge 前停止。Workspace check 向 pnpm 查询 resolved package graph，并拒绝任何被排除在该 graph 外的 downstream subtree package。
 
-Electron 把标准 ecosystem packages 声明为 dependencies，发现其已安装 artifacts，将它们链接进受监督 Host profile，并通过 `runtime/host.patch.yml` 挂载。Desktop runtime builder 继续只编译 `apps/electron/runtime/plugins/` 下 Electron 自有的 adapters。
+Electron 把标准 ecosystem packages 声明为 dependencies，发现其已安装 artifacts，将它们链接进受监督 Host profile，并通过 `runtime/host.patch.yml` 挂载。其 custom-scheme handler 将已知 Host 读取路径和所有非读取请求发往受监督进程，使插件自有的 Connection RPC channel 不会与 Renderer 文件路由冲突。Desktop runtime builder 继续只编译 `apps/electron/runtime/plugins/` 下 Electron 自有的 adapters。
 
 ## Alternatives considered
 
@@ -28,4 +28,4 @@ Electron 把标准 ecosystem packages 声明为 dependencies，发现其已安�
 
 ## Consequences
 
-Native DSH 与 Electron 加载同一个 package version 和同一套 artifacts。Desktop capability 缺失或卸载时只影响 optional child fiber。Repository checks 在接受 canonical registry ranges 与 standalone build configuration 的同时，验证每个 subtree package 的 invariant source 和 publication metadata。下游 fork 必须维护显式 sync protection、standalone dependency ranges、artifact compatibility tests，以及与每个 canonical plugin repository 的 subtree synchronization。
+Native DSH 与 Electron 加载同一个 package version 和同一套 artifacts。Desktop capability 缺失或卸载时只影响 optional child fiber。Repository checks 在接受 canonical registry ranges 与 standalone build configuration 的同时，验证每个 subtree package 的 invariant source 和 publication metadata。下游 fork 必须维护显式 sync protection、standalone dependency ranges、artifact compatibility tests，以及与每个 canonical plugin repository 的 subtree synchronization。Electron 协议路由由聚焦单元测试覆盖；keyless browser snapshot harness 无法执行 Electron custom-scheme 请求。

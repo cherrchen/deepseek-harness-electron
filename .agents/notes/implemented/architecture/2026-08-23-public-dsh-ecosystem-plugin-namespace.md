@@ -16,7 +16,7 @@ Desktop product features need independent npm releases without creating an Elect
 
 The upstream sync merge driver preserves the namespace during ordinary conflicts and stops before merging when the upstream tree first claims `packages/dsh-electron`. A workspace check asks pnpm for its resolved package graph and rejects any downstream subtree package excluded from that graph.
 
-Electron declares standard ecosystem packages as dependencies, discovers their installed artifacts, links them into the supervised Host profile, and mounts them through `runtime/host.patch.yml`. The Desktop runtime builder continues to compile only Electron-owned adapters under `apps/electron/runtime/plugins/`.
+Electron declares standard ecosystem packages as dependencies, discovers their installed artifacts, links them into the supervised Host profile, and mounts them through `runtime/host.patch.yml`. Its custom-scheme handler sends known Host read paths and every non-read request to the supervised process, so plugin-owned Connection RPC channels do not collide with Renderer file routing. The Desktop runtime builder continues to compile only Electron-owned adapters under `apps/electron/runtime/plugins/`.
 
 ## Alternatives considered
 
@@ -28,4 +28,4 @@ Electron declares standard ecosystem packages as dependencies, discovers their i
 
 ## Consequences
 
-Native DSH and Electron load one package version and one artifact set. Missing or unloaded Desktop capability affects only the optional child fiber. Repository checks validate each subtree package's invariant source and publication metadata while accepting canonical registry ranges and standalone build configuration. The downstream fork must maintain explicit sync protection, standalone dependency ranges, artifact compatibility tests, and subtree synchronization with each canonical plugin repository.
+Native DSH and Electron load one package version and one artifact set. Missing or unloaded Desktop capability affects only the optional child fiber. Repository checks validate each subtree package's invariant source and publication metadata while accepting canonical registry ranges and standalone build configuration. The downstream fork must maintain explicit sync protection, standalone dependency ranges, artifact compatibility tests, and subtree synchronization with each canonical plugin repository. Electron protocol routing has focused unit coverage; the keyless browser snapshot harness cannot execute Electron custom-scheme requests.

@@ -2,7 +2,7 @@
 
 English | [中文](README.zh.md)
 
-This application packages the upstream DeepSeek Harness as a native desktop shell. Electron Main supervises the built `dsh web` backend on a loopback port for compatibility, while `BrowserWindow` loads an Electron-owned renderer from `dsh-electron://localhost/` built inside this package from `@deepseek-ai/dsh-client-web`. Host bootstrap, plugin bundles, unary `/api` calls, and event streams reach the supervised process only through Main (typed preload IPC and the custom-scheme protocol proxy). Profiles, sessions, and `$DSH_HOME` storage remain the upstream Harness behavior.
+This application packages the upstream DeepSeek Harness as a native desktop shell. Electron Main supervises the built `dsh web` backend on a loopback port for compatibility, while `BrowserWindow` loads an Electron-owned renderer from `dsh-electron://localhost/` built inside this package from `@deepseek-ai/dsh-client-web`. Host bootstrap, plugin bundles, unary Host calls (including plugin-owned Connection RPC channels), and event streams reach the supervised process only through Main (typed preload IPC and the custom-scheme protocol proxy). Profiles, sessions, and `$DSH_HOME` storage remain the upstream Harness behavior.
 
 Detailed CURRENT vs TARGET architecture, ownership rules, milestones, and ADRs live in [../../docs/electron/architecture.md](../../docs/electron/architecture.md).
 
