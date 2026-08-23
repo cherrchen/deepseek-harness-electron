@@ -12,7 +12,7 @@ The Electron wrapper displayed the upstream Web UI inside a default browser wind
 
 `apps/electron` owns desktop-only window chrome, lifecycle, permissions, menus, application metadata, and update behavior. The upstream Web composition remains unchanged and sandboxed.
 
-The main window reserves a fixed drag strip above the page. macOS uses a hidden title bar with positioned traffic lights; Windows and Linux use the Window Controls Overlay. A close event hides the main window unless an explicit quit or update installation is in progress. The tray retains the application, reopens the window, and provides the only ordinary quit action; a single-instance lock makes another launch reveal the existing window.
+The main window reserves a 40-pixel strip above the page as the renderer's only drag region. Page content and full-viewport overlays never receive drag-region markers, so controls and modal masks keep their pointer behavior. macOS uses a hidden title bar with positioned traffic lights; Windows and Linux use the Window Controls Overlay. A close event hides the main window unless an explicit quit or update installation is in progress. The tray retains the application, reopens the window, and provides the only ordinary quit action; a single-instance lock makes another launch reveal the existing window.
 
 The default session admits `clipboard-sanitized-write` only when both the requesting origin and `WebContents` belong to the active loopback Harness window. Native context menus use Chromium edit flags rather than renderer IPC. The About document is a sandboxed data URL with a restrictive Content Security Policy, and only the repository URL parsed from `package.json` may open externally.
 

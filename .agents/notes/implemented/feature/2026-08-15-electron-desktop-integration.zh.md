@@ -12,7 +12,7 @@ Electron 包装层在默认浏览器窗口中显示上游 Web UI。操作系统�
 
 `apps/electron` 负责桌面专用的窗口框架、生命周期、权限、菜单、应用元数据和更新行为。上游 Web 组合保持不变并继续在沙箱中运行。
 
-主窗口在页面上方保留固定拖拽区域。macOS 使用隐藏标题栏和定位后的“交通信号灯”；Windows 和 Linux 使用 Window Controls Overlay。除非正在明确退出或安装更新，关闭事件只隐藏主窗口。托盘保留应用、重新打开窗口，并提供唯一的常规退出操作；单实例锁使再次启动时显示已有窗口。
+主窗口在页面上方保留 40 像素条带，作为 Renderer 中唯一的拖拽区域。页面内容和全视口覆盖层不接收拖拽区域标记，因此控件和模态遮罩保持原有的指针行为。macOS 使用隐藏标题栏和定位后的“交通信号灯”；Windows 和 Linux 使用 Window Controls Overlay。除非正在明确退出或安装更新，关闭事件只隐藏主窗口。托盘保留应用、重新打开窗口，并提供唯一的常规退出操作；单实例锁使再次启动时显示已有窗口。
 
 默认 session（会话）仅在请求源和 `WebContents` 都属于活动环回 Harness 窗口时允许 `clipboard-sanitized-write`。原生右键菜单使用 Chromium 编辑标志，不通过渲染进程 IPC。“关于”文档是采用严格 Content Security Policy 的沙箱 data URL，只有从 `package.json` 解析出的仓库 URL 可以在外部打开。
 
