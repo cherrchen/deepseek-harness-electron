@@ -8,7 +8,9 @@
 
 Host plugin 要求 `ctx.subprocess`，提供 `ctx.git`，并使用 executable 与独立 argv values 启动 Git。它绝不调用 shell。DSH Web Host 存在时，optional Connection child 注册 loopback `/git` RPC channel；没有 Connection 的 headless composition 中 Git service 仍保持 active。
 
-Client plugin 要求上游 Connection、locale、runtime、layout 与 Sidebar plugins。它向 `sidebar.footer.action` 贡献 source-control action，向 `shell.overlay` 贡献 repository panel。Business components 通过 slot injection 接收 controller，不访问 Cordis context。
+Client plugin 要求上游 Connection、locale、runtime、layout 与 conversation UI plugins。它向 `conversation.input.left` 贡献 branch selector 与 changed-files indicator，向 `shell.overlay` 贡献右侧 Git drawer。Business components 通过 slot injection 接收 controller，不访问 Cordis context。
+
+Controller 在 workspace 变化时发现 repository state，与 drawer 是否打开无关。关闭 drawer 不会丢弃已加载的 repository snapshot。
 
 Client main fiber 不要求 `desktop`。Child `ctx.inject(['desktop'], ...)` fiber 只接受 `shell.showItemInFolder`、`shell.openPath` 与 `notification.show`；缺少这些能力时，repository、status、diff、stage、commit 与 branch operations 仍可用，native actions 不显示。
 

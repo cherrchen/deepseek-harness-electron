@@ -10,8 +10,17 @@
     "src/css-modules.d.ts",
     "src/client/index.ts",
     "src/client/controller.ts",
-    "src/client/GitPanel.tsx",
-    "src/client/GitAction.tsx",
+    "src/client/changed-path-count.ts",
+    "src/client/path-display.ts",
+    "src/client/ComposerToolTrigger.tsx",
+    "src/client/DrawerCloseButton.tsx",
+    "src/client/GitBranchControl.tsx",
+    "src/client/GitDrawer.tsx",
+    "src/client/drawer/ChangesTab.tsx",
+    "src/client/drawer/CommitTab.tsx",
+    "src/client/drawer/DiffTab.tsx",
+    "src/client/drawer/ChangeSection.tsx",
+    "src/client/drawer/ChangeRow.tsx",
     "src/client/locales.ts"
   ],
   "references": [
@@ -19,9 +28,9 @@
     { "path": "../../client/connection/tsconfig.client.json" },
     { "path": "../../client/locale" },
     { "path": "../../client/runtime" },
+    { "path": "../../client/ui-conversation" },
     { "path": "../../client/ui-layout" },
     { "path": "../../client/ui-primitives" },
-    { "path": "../../client/ui-sidebar" },
     { "path": "../../client/ui-slots" }
   ]
 }
