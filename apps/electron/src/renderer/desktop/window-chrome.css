@@ -87,15 +87,27 @@
   -webkit-app-region: drag;
 }
 
-/* The active conversation's own header supplies its matching drag surface;
-   every nested control remains interactive. */
+/* The active conversation's own header supplies its matching drag surface. */
 [data-dsh-electron-main-header]:not([aria-hidden='true']) {
   -webkit-user-select: none;
   user-select: none;
   -webkit-app-region: drag;
 }
 
-[data-dsh-electron-main-header]:not([aria-hidden='true']) * {
+/* Exclude controls rather than full-width layout descendants, preserving the
+   empty header gaps as useful drag targets. */
+[data-dsh-electron-main-header]:not([aria-hidden='true']) :is(
+  a[href],
+  button,
+  input,
+  textarea,
+  select,
+  summary,
+  [role='button'],
+  [role='link'],
+  [role='tab'],
+  [contenteditable='true']
+) {
   -webkit-app-region: no-drag;
 }
 

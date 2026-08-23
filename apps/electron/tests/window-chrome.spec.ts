@@ -35,6 +35,8 @@ describe('Electron renderer source structure', () => {
     expect(css).not.toContain('[data-conversation-scroll]')
     expect(css).not.toContain('data-dsh-electron-drag-region')
     expect(css.match(/-webkit-app-region:\s*no-drag/g)).toHaveLength(2)
+    expect(css).toContain("[role='tab']")
+    expect(css).not.toContain(":not([aria-hidden='true']) *")
     expect(css).not.toContain('#dsh-electron-titlebar')
     expect(css).toContain(MARKER_SIDEBAR)
     expect(css).toContain(MARKER_CENTER)
