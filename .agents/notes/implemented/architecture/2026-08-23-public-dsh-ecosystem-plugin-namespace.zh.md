@@ -28,4 +28,4 @@ Electron 把标准 ecosystem packages 声明为 dependencies，发现其已安�
 
 ## Consequences
 
-Native DSH 与 Electron 加载同一个 package version 和同一套 artifacts。Desktop capability 缺失或卸载时只影响 optional child fiber。下游 fork 必须维护显式 sync protection、standalone dependency ranges、artifact compatibility tests，以及与每个 canonical plugin repository 的 subtree synchronization。
+Native DSH 与 Electron 加载同一个 package version 和同一套 artifacts。Desktop capability 缺失或卸载时只影响 optional child fiber。Repository checks 在接受 canonical registry ranges 与 standalone build configuration 的同时，验证每个 subtree package 的 invariant source 和 publication metadata。下游 fork 必须维护显式 sync protection、standalone dependency ranges、artifact compatibility tests，以及与每个 canonical plugin repository 的 subtree synchronization。

@@ -28,4 +28,4 @@ Electron declares standard ecosystem packages as dependencies, discovers their i
 
 ## Consequences
 
-Native DSH and Electron load one package version and one artifact set. Missing or unloaded Desktop capability affects only the optional child fiber. The downstream fork must maintain explicit sync protection, standalone dependency ranges, artifact compatibility tests, and subtree synchronization with each canonical plugin repository.
+Native DSH and Electron load one package version and one artifact set. Missing or unloaded Desktop capability affects only the optional child fiber. Repository checks validate each subtree package's invariant source and publication metadata while accepting canonical registry ranges and standalone build configuration. The downstream fork must maintain explicit sync protection, standalone dependency ranges, artifact compatibility tests, and subtree synchronization with each canonical plugin repository.

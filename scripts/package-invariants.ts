@@ -10,6 +10,7 @@ import ts from 'typescript'
 
 /** Required explanation marker for an intentionally empty installer. */
 const NO_RUNTIME_INVARIANT_MARKER = 'No runtime invariant:'
+const DOWNSTREAM_ECOSYSTEM_PACKAGE = /^packages\/dsh-electron\/[^/]+$/
 
 interface PackageManifest {
   name?: string
@@ -95,6 +96,7 @@ function checkManifest(
   if (!manifest.files?.includes('lib/invariant.js')) {
     addViolation(violations, owner.manifestPath, 'files must publish lib/invariant.js')
   }
+  if (DOWNSTREAM_ECOSYSTEM_PACKAGE.test(owner.dir)) return
   if (owner.packageName === '@deepseek-ai/dsh-invariants') return
   if (manifest.peerDependencies?.['@deepseek-ai/dsh-invariants'] !== 'workspace:^') {
     addViolation(
@@ -117,6 +119,7 @@ function checkBuild(
   root: string,
   violations: PackageInvariantViolation[],
 ): void {
+  if (DOWNSTREAM_ECOSYSTEM_PACKAGE.test(owner.dir)) return
   const tsconfigPath = `${owner.dir}/tsconfig.json`
   if (owner.packageName !== '@deepseek-ai/dsh-invariants'
     && !projectReferencesInvariants(root, owner.dir, tsconfigPath)) {
