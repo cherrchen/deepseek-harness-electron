@@ -179,13 +179,13 @@ jobs:
         run: pnpm run build
 
       - name: Compile Electron application
-        run: pnpm --filter @deepseek-ai/dsh-electron build
+        run: pnpm --filter @dsh-electron/dsh-electron build
 
       - name: Test Electron runtime
-        run: pnpm --filter @deepseek-ai/dsh-electron test
+        run: pnpm --filter @dsh-electron/dsh-electron test
 
       - name: Build installer
-        run: pnpm --filter @deepseek-ai/dsh-electron exec electron-builder ${{ matrix.args }} --publish never
+        run: pnpm --filter @dsh-electron/dsh-electron exec electron-builder ${{ matrix.args }} --publish never
 
       - name: Smoke-test Windows installer
         if: runner.os == 'Windows'

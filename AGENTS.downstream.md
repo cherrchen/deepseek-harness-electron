@@ -121,8 +121,9 @@ Standing rules (do not duplicate the full architecture doc here):
 
 ## Electron development constraints
 
+- Downstream-owned npm packages under `apps/electron/` publish under the `@dsh-electron/` scope (for example `@dsh-electron/dsh-electron`, `@dsh-electron/dsh-electron-desktop-capabilities`). Upstream-synced packages under `packages/`, `vendor/`, and `apps/cli` / `apps/web` keep the `@deepseek-ai/` scope.
 - All desktop release work targets `apps/electron/`
-- Build the upstream runtime before starting Electron locally (`pnpm run build` then `pnpm --filter @deepseek-ai/dsh-electron start`)
+- Build the upstream runtime before starting Electron locally (`pnpm run build` then `pnpm --filter @dsh-electron/dsh-electron start`)
 - Desktop-owned registry dependencies (for example `electron-updater`) and declared desktop entry dependencies are retained across upstream dependency sync; other workspace dependencies are regenerated from the upstream CLI graph. A leftover `workspace:` specifier whose package is absent after the merge is dropped; it is not retained as a registry dependency ([rationale](.agents/notes/implemented/bug-fix/2026-08-20-drop-stale-electron-workspace-specifiers.md))
 - Packaged builds use `electron-builder` with NSIS (Windows), DMG/ZIP (macOS), and AppImage/DEB (Linux) on native x64 and ARM64 runners
 - Release artifacts are unsigned unless platform signing credentials are configured
@@ -202,8 +203,8 @@ All other workflow files are retained from upstream for clean synchronization bu
 ```sh
 pnpm install
 pnpm run build
-pnpm --filter @deepseek-ai/dsh-electron test
-pnpm --filter @deepseek-ai/dsh-electron build
+pnpm --filter @dsh-electron/dsh-electron test
+pnpm --filter @dsh-electron/dsh-electron build
 pnpm electron:sync-version          # sync workspace deps from upstream CLI graph
 pnpm electron:set-version <version> # set Electron manifest version
 node apps/electron/scripts/next-beta-tag.mjs   # print next beta tag for current tree

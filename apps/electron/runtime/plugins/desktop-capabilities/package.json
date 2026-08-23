@@ -1,5 +1,5 @@
 {
-  "name": "@deepseek-ai/dsh-electron-desktop-capabilities",
+  "name": "@dsh-electron/dsh-electron-desktop-capabilities",
   "description": "Desktop capability provider for Electron feature plugins",
   "version": "0.1.0",
   "private": true,

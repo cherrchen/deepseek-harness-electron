@@ -29,7 +29,7 @@ git clone https://github.com/cherrchen/deepseek-harness-electron.git
 cd deepseek-harness-electron
 pnpm install
 pnpm run build
-pnpm --filter @deepseek-ai/dsh-electron start
+pnpm --filter @dsh-electron/dsh-electron start
 ```
 
 ## 运行时与数据
@@ -43,8 +43,8 @@ Harness profile 和状态存储在对应平台的应用数据目录。智能体 
 使用以下命令运行桌面应用的聚焦检查：
 
 ```sh
-pnpm --filter @deepseek-ai/dsh-electron test
-pnpm --filter @deepseek-ai/dsh-electron build
+pnpm --filter @dsh-electron/dsh-electron test
+pnpm --filter @dsh-electron/dsh-electron build
 ```
 
 有关仓库细节，请参阅[桌面应用指南](apps/electron/README.zh.md)、[开发指南](docs/development.zh.md)和[架构文档](docs/architecture.zh.md)。

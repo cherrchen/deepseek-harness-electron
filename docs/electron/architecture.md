@@ -335,9 +335,9 @@ src/runtime-plugins.ts     discovery, validation, profile linking
 
 Startup links every bundled plugin into `$DSH_HOME/profiles/node_modules/<package-name>` before the supervised Host starts. Discovery determines what Desktop ships; `host.patch.yml` determines what the Desktop profile mounts.
 
-The Desktop Capability Provider (`@deepseek-ai/dsh-electron-desktop-capabilities`) adapts `window.deepseekDesktop` into `ctx.desktop` for feature plugins. Only renderer infrastructure and the provider read the global bridge directly.
+The Desktop Capability Provider (`@dsh-electron/dsh-electron-desktop-capabilities`) adapts `window.deepseekDesktop` into `ctx.desktop` for feature plugins. Only renderer infrastructure and the provider read the global bridge directly.
 
-The directory picker (`@deepseek-ai/dsh-electron-ui-directory-picker`) is the first feature-plugin consumer: it fills workspace directory-flow slots and calls `ctx.desktop.dialog.pickDirectory()`.
+The directory picker (`@dsh-electron/dsh-electron-ui-directory-picker`) is the first feature-plugin consumer: it fills workspace directory-flow slots and calls `ctx.desktop.dialog.pickDirectory()`.
 
 ```text
 Feature Plugin

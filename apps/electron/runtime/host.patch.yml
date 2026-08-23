@@ -11,6 +11,6 @@
     - id: directory-picker-browse
       name: '@deepseek-ai/dsh-host-directory-picker-browse'
     - id: desktop-capabilities
-      name: '@deepseek-ai/dsh-electron-desktop-capabilities'
+      name: '@dsh-electron/dsh-electron-desktop-capabilities'
     - id: desktop-directory-picker
-      name: '@deepseek-ai/dsh-electron-ui-directory-picker'
+      name: '@dsh-electron/dsh-electron-ui-directory-picker'

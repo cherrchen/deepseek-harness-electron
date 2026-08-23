@@ -1,5 +1,5 @@
 {
-  "name": "@deepseek-ai/dsh-electron",
+  "name": "@dsh-electron/dsh-electron",
   "productName": "DeepSeek Harness",
   "description": "Electron desktop shell for DeepSeek Harness",
   "version": "0.1.1-beta.4",

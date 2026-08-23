@@ -57,8 +57,8 @@ describe('runtime plugin discovery', () => {
     const plugins = discoverRuntimePlugins(electronRoot)
     expect(plugins.length).toBeGreaterThanOrEqual(2)
     const names = plugins.map(plugin => plugin.name)
-    expect(names).toContain('@deepseek-ai/dsh-electron-desktop-capabilities')
-    expect(names).toContain('@deepseek-ai/dsh-electron-ui-directory-picker')
+    expect(names).toContain('@dsh-electron/dsh-electron-desktop-capabilities')
+    expect(names).toContain('@dsh-electron/dsh-electron-ui-directory-picker')
   })
 
   it('ignores non-plugin files under runtime/plugins', async () => {
@@ -71,7 +71,7 @@ describe('runtime plugin discovery', () => {
       await buildFixtureInInventory(appPath)
       const plugins = discoverRuntimePlugins(appPath)
       expect(plugins).toHaveLength(1)
-      expect(plugins[0]?.name).toBe('@deepseek-ai/dsh-electron-fixture-example')
+      expect(plugins[0]?.name).toBe('@dsh-electron/dsh-electron-fixture-example')
     } finally {
       await rm(appPath, { recursive: true, force: true })
     }
@@ -189,8 +189,8 @@ describe('Host patch composition', () => {
       const body = await readFile(patchPath, 'utf8')
       expect(body).toContain('disabled: true')
       expect(body).toContain('@deepseek-ai/dsh-host-directory-picker-browse')
-      expect(body).toContain('@deepseek-ai/dsh-electron-desktop-capabilities')
-      expect(body).toContain('@deepseek-ai/dsh-electron-ui-directory-picker')
+      expect(body).toContain('@dsh-electron/dsh-electron-desktop-capabilities')
+      expect(body).toContain('@dsh-electron/dsh-electron-ui-directory-picker')
       expect(body).toContain('desktop-capabilities')
       expect(body).toContain('desktop-directory-picker')
       expect(body).not.toContain('directory-picker-browse-client')
