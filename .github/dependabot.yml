@@ -3,6 +3,7 @@ version: 2
 updates:
   - package-ecosystem: "npm"
     directory: "/"
+    target-branch: develop
     # Upstream owns every dependency except the Electron packaging toolchain.
     allow:
       - dependency-name: "electron"
