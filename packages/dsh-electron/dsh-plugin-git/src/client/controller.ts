@@ -1,7 +1,20 @@
 /** Client-side Git state and RPC orchestration. */
 
-import type { ClientConnectionRpc } from '@deepseek-ai/dsh-client-connection/client'
 import type { GitDiff, GitRepositorySnapshot } from '../types.ts'
+
+type GitRpcResult = { ok: true; value: unknown } | { ok: false; error: { message: string } }
+
+/** Structural subset of the Connection RPC caller consumed by the Git client. */
+export interface GitRpcClient {
+  /**
+   * Call one Git endpoint through the logical Connection channel.
+   * @param channel - Absolute logical channel.
+   * @param endpoint - Channel-relative Git endpoint.
+   * @param payload - Endpoint request payload.
+   * @returns Host success or error result.
+   */
+  call(channel: string, endpoint: string, payload: unknown): Promise<GitRpcResult>
+}
 
 /** Exact Desktop methods consumed by this plugin's optional enhancement. */
 export interface GitDesktopCapability {
@@ -38,7 +51,7 @@ export class GitClientController {
   private readonly listeners = new Set<() => void>()
   private desktop: GitDesktopCapability | undefined
 
-  constructor(private readonly rpc: ClientConnectionRpc) {}
+  constructor(private readonly rpc: GitRpcClient) {}
 
   /**
    * Read the current immutable view consumed by React external-store hooks.

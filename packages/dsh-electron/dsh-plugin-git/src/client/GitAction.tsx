@@ -6,8 +6,17 @@ import type { SidebarFooterActionOwnerProps } from '@deepseek-ai/dsh-client-ui-s
 import type { GitClientController } from './controller.ts'
 import css from './GitPanel.module.css'
 
-export type GitActionProps = PropsRuntime<'sidebar.footer.action'> & SidebarFooterActionOwnerProps
-  & PropsLocale<'git'> & { controller: GitClientController }
+interface GitWorkspaceList {
+  readonly items: readonly { readonly workspaceId: string; readonly path: string }[]
+  readonly recentWorkspaceId: string | undefined
+}
+
+interface GitWorkspaceProps {
+  readonly useWorkspaces: <T>(selector: (value: GitWorkspaceList) => T) => T
+}
+
+export type GitActionProps = Omit<PropsRuntime<'sidebar.footer.action'>, 'useWorkspaces'>
+  & SidebarFooterActionOwnerProps & PropsLocale<'git'> & GitWorkspaceProps & { controller: GitClientController }
 
 /** Render the source-control entry in the existing Sidebar footer action slot. */
 export function GitAction({ controller, useWorkspaces, wide, t }: GitActionProps): ReactNode {
