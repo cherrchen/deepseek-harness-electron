@@ -2,6 +2,7 @@ import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { describe, expect, it } from 'vitest'
+import { NATIVE_CONTROL_ROW_HEIGHT } from '../src/desktop/chrome.ts'
 import {
   DESKTOP_PLATFORM_ATTR,
   MARKER_SIDEBAR,
@@ -22,13 +23,16 @@ describe('Electron renderer source structure', () => {
     expect(main).toContain('./desktop/window-chrome.css')
     expect(main).not.toContain('titlebar.css')
     const css = readFileSync(join(electronRoot, 'src', 'renderer', 'desktop', 'window-chrome.css'), 'utf8')
-    expect(css).toContain('--dsh-macos-sidebar-top-inset')
-    expect(css).toContain('--dsh-macos-center-drag-height')
+    const height = css.match(/--dsh-native-control-row-height:\s*(\d+)px/)
+    expect(Number(height?.[1])).toBe(NATIVE_CONTROL_ROW_HEIGHT)
     expect(css).toContain('--dsh-macos-sidebar-seam-width')
-    expect(css).toContain('[data-conversation-scroll]')
-    expect(css).toContain('-webkit-app-region: drag')
+    expect(css).toContain('#root::before')
+    expect(css).toContain('padding-top: var(--dsh-native-control-row-height)')
+    expect(css.match(/-webkit-app-region:\s*drag/g)).toHaveLength(1)
+    expect(css).not.toContain('[data-conversation-scroll]')
+    expect(css).not.toContain('data-dsh-electron-drag-region')
+    expect(css).not.toContain('-webkit-app-region: no-drag')
     expect(css).not.toContain('#dsh-electron-titlebar')
-    expect(css).toContain('env(titlebar-area-x')
     expect(css).toContain(MARKER_SIDEBAR)
     expect(css).toContain(DESKTOP_PLATFORM_ATTR)
   })

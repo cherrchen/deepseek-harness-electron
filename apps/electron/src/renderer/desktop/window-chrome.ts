@@ -8,38 +8,8 @@ import { desktopApp } from './index.ts'
 /** Document root attribute carrying the Electron process platform. */
 export const DESKTOP_PLATFORM_ATTR = 'data-dsh-desktop-platform'
 
-/** Sidebar column marker for macOS traffic-light safe area. */
+/** Sidebar column marker for the macOS column seam. */
 export const MARKER_SIDEBAR = 'data-dsh-electron-sidebar'
-
-/** Main conversation header marker for drag regions and caption inset. */
-export const MARKER_MAIN_HEADER = 'data-dsh-electron-main-header'
-
-/** Right-aligned header utilities marker for Windows caption collision avoidance. */
-export const MARKER_HEADER_UTILITIES = 'data-dsh-electron-header-utilities'
-
-/** Main center column marker for hero-phase top drag regions. */
-export const MARKER_CENTER = 'data-dsh-electron-center'
-
-/** Drag region marker applied to header chrome backgrounds. */
-export const MARKER_DRAG_REGION = 'data-dsh-electron-drag-region'
-
-/** Collapsed sidebar rail width (matches ui-layout SIDEBAR_COLLAPSED). */
-export const SIDEBAR_COLLAPSED_WIDTH = 56
-
-/** Horizontal safe width for macOS traffic lights from the window origin. */
-export const MACOS_TRAFFIC_LIGHT_SAFE_WIDTH = 80
-
-/** Vertical inset under macOS traffic lights before sidebar content starts. */
-export const MACOS_SIDEBAR_TOP_INSET = 28
-
-/** Draggable band height at the top of the sidebar column (matches top inset). */
-export const MACOS_SIDEBAR_DRAG_HEIGHT = MACOS_SIDEBAR_TOP_INSET
-
-/** Draggable band height along the main column top edge (hero / hidden header). */
-export const MACOS_CENTER_DRAG_HEIGHT = 40
-
-/** Width of the sidebar/main seam gradient on macOS. */
-export const MACOS_SIDEBAR_SEAM_WIDTH = 8
 
 /** Supported desktop platforms for integrated chrome layout. */
 export type DesktopPlatform = 'darwin' | 'win32' | 'linux'
@@ -48,9 +18,6 @@ export type DesktopPlatform = 'darwin' | 'win32' | 'linux'
 export interface LayoutTargets {
   frame: Element
   sidebar: Element
-  center: Element
-  mainHeader: HTMLElement | null
-  headerUtilities: HTMLElement | null
 }
 
 /**
@@ -93,40 +60,6 @@ export function resolveSidebarColumn(frame: Element): Element | null {
 }
 
 /**
- * Resolve the center conversation column (second structural child of the frame).
- * @param frame - AppFrame element from {@link resolveLayoutFrame}.
- * @returns the center column element.
- */
-export function resolveCenterColumn(frame: Element): Element | null {
-  const sidebar = resolveSidebarColumn(frame)
-  return sidebar?.nextElementSibling ?? null
-}
-
-/**
- * Resolve the session header inside the center column.
- * @param center - Center column element from {@link resolveCenterColumn}.
- * @returns the conversation session header, or null while blank.
- */
-export function resolveMainHeader(center: Element): HTMLElement | null {
-  const visible = center.querySelector('header:not([aria-hidden="true"])')
-  if (visible instanceof HTMLElement) return visible
-  const header = center.querySelector('header')
-  return header instanceof HTMLElement ? header : null
-}
-
-/**
- * Resolve the right-aligned utilities cluster in the session header title row.
- * @param header - Session header from {@link resolveMainHeader}.
- * @returns the utilities container, or null when the header is hidden.
- */
-export function resolveHeaderUtilities(header: HTMLElement): HTMLElement | null {
-  const titleRow = header.firstElementChild
-  if (!(titleRow instanceof HTMLElement)) return null
-  const last = titleRow.lastElementChild
-  return last instanceof HTMLElement ? last : null
-}
-
-/**
  * Collect layout targets when the Harness shell is mounted.
  * @param root - DOM subtree to search.
  * @returns resolved targets, or null while required nodes are absent.
@@ -135,16 +68,7 @@ export function resolveLayoutTargets(root: ParentNode): LayoutTargets | null {
   const frame = resolveLayoutFrame(root)
   if (frame === null) return null
   const sidebar = resolveSidebarColumn(frame)
-  const center = resolveCenterColumn(frame)
-  if (sidebar === null || center === null) return null
-  const mainHeader = resolveMainHeader(center)
-  return {
-    frame,
-    sidebar,
-    center,
-    mainHeader,
-    headerUtilities: mainHeader === null ? null : resolveHeaderUtilities(mainHeader),
-  }
+  return sidebar === null ? null : { frame, sidebar }
 }
 
 /**
@@ -153,39 +77,9 @@ export function resolveLayoutTargets(root: ParentNode): LayoutTargets | null {
  * @returns whether any marker was newly attached.
  */
 export function attachLayoutMarkers(targets: LayoutTargets): boolean {
-  let changed = false
-  if (!targets.sidebar.hasAttribute(MARKER_SIDEBAR)) {
-    targets.sidebar.setAttribute(MARKER_SIDEBAR, '')
-    changed = true
-  }
-  if (!targets.sidebar.hasAttribute(MARKER_DRAG_REGION)) {
-    targets.sidebar.setAttribute(MARKER_DRAG_REGION, '')
-    changed = true
-  }
-  if (!targets.center.hasAttribute(MARKER_CENTER)) {
-    targets.center.setAttribute(MARKER_CENTER, '')
-    changed = true
-  }
-  if (!targets.center.hasAttribute(MARKER_DRAG_REGION)) {
-    targets.center.setAttribute(MARKER_DRAG_REGION, '')
-    changed = true
-  }
-  if (targets.mainHeader !== null && !targets.mainHeader.hasAttribute(MARKER_MAIN_HEADER)) {
-    targets.mainHeader.setAttribute(MARKER_MAIN_HEADER, '')
-    changed = true
-  }
-  if (targets.mainHeader !== null && !targets.mainHeader.hasAttribute(MARKER_DRAG_REGION)) {
-    targets.mainHeader.setAttribute(MARKER_DRAG_REGION, '')
-    changed = true
-  }
-  if (
-    targets.headerUtilities !== null
-    && !targets.headerUtilities.hasAttribute(MARKER_HEADER_UTILITIES)
-  ) {
-    targets.headerUtilities.setAttribute(MARKER_HEADER_UTILITIES, '')
-    changed = true
-  }
-  return changed
+  if (targets.sidebar.hasAttribute(MARKER_SIDEBAR)) return false
+  targets.sidebar.setAttribute(MARKER_SIDEBAR, '')
+  return true
 }
 
 /**
@@ -196,19 +90,7 @@ export function attachLayoutMarkers(targets: LayoutTargets): boolean {
 export function layoutNeedsReconcile(root: ParentNode): boolean {
   const targets = resolveLayoutTargets(root)
   if (targets === null) return true
-  if (!targets.sidebar.hasAttribute(MARKER_SIDEBAR)) return true
-  if (!targets.sidebar.hasAttribute(MARKER_DRAG_REGION)) return true
-  if (!targets.center.hasAttribute(MARKER_CENTER)) return true
-  if (!targets.center.hasAttribute(MARKER_DRAG_REGION)) return true
-  if (targets.mainHeader !== null && !targets.mainHeader.hasAttribute(MARKER_MAIN_HEADER)) return true
-  if (targets.mainHeader !== null && !targets.mainHeader.hasAttribute(MARKER_DRAG_REGION)) return true
-  if (
-    targets.headerUtilities !== null
-    && !targets.headerUtilities.hasAttribute(MARKER_HEADER_UTILITIES)
-  ) {
-    return true
-  }
-  return false
+  return !targets.sidebar.hasAttribute(MARKER_SIDEBAR)
 }
 
 /**
