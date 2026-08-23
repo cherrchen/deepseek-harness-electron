@@ -52,6 +52,8 @@ const publishedRepositoryUrl = 'git+https://github.com/deepseek-ai/deepseek-harn
 const experimentalPackageDirectory = /^packages\/experimental\/[^/]+$/
 /** npm namespace reserved for private experimental packages. */
 const experimentalPackageNamePrefix = '@deepseek-ai/dsh-experimental-'
+/** Downstream-owned standalone plugin mirrors keep registry semver ranges and independent releases. */
+const downstreamEcosystemPackageDirectory = /^packages\/dsh-electron\/[^/]+$/
 /** Directories whose packages this repository publishes: one release member each. */
 const releaseMemberDirectory = /^(?:packages\/(?!experimental\/)[^/]+\/[^/]+|apps\/[^/]+|vendor\/[^/]+)$/
 
@@ -262,7 +264,25 @@ function checkWorkspace({ dir, manifest }: WorkspaceManifest): string[] {
     && manifest.name !== undefined
     && publicLandlockPackages.has(manifest.name)
 
-  if (isPublicLandlockPackage) {
+  const isDownstreamEcosystemPackage = downstreamEcosystemPackageDirectory.test(dir)
+
+  if (isDownstreamEcosystemPackage) {
+    if (manifest.name?.startsWith('@dsh-electron/dsh-plugin-') !== true) {
+      errors.push(`${label}: public ecosystem package name must start with "@dsh-electron/dsh-plugin-"`)
+    }
+    if (manifest.private === true) errors.push(`${label}: public ecosystem package must not set "private": true`)
+    if (manifest.publishConfig?.access !== 'public') {
+      errors.push(`${label}: public ecosystem package must set publishConfig.access to "public"`)
+    }
+    if (manifest.repository?.type !== 'git'
+      || manifest.repository.url !== `git+https://github.com/cherrchen/${dir.split('/').at(-1)}.git`
+      || manifest.repository.directory !== undefined) {
+      errors.push(`${label}: public ecosystem package repository must name its canonical standalone GitHub repository`)
+    }
+    if (manifest.version === undefined || !/^\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?$/.test(manifest.version)) {
+      errors.push(`${label}: public ecosystem package must declare an independent semver version`)
+    }
+  } else if (isPublicLandlockPackage) {
     if (manifest.private === true) {
       errors.push(`${label}: published Landlock package must not set "private": true`)
     }
@@ -456,6 +476,7 @@ function checkWorkspaceProtocol(manifests: readonly WorkspaceManifest[]): string
   const members = new Set(manifests.map(entry => entry.manifest.name).filter(name => name !== undefined))
   const errors: string[] = []
   for (const { dir, manifest } of manifests) {
+    if (downstreamEcosystemPackageDirectory.test(dir)) continue
     for (const section of dependencySections) {
       for (const [name, range] of Object.entries(manifest[section] ?? {})) {
         if (!members.has(name) || range.startsWith('workspace:')) continue

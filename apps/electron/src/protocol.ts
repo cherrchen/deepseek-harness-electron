@@ -54,11 +54,25 @@ export function installRendererProtocol(rendererRoot: string, harness: HarnessPr
       return new Response('Forbidden', { status: 403 })
     }
     const pathname = decodeURIComponent(url.pathname)
-    if (pathname.startsWith('/api/') || pathname.startsWith('/plugins/')) {
+    if (shouldProxyHarnessRequest(request.method, pathname)) {
       return await harness.proxyRequest(request)
     }
     return await serveRendererFile(root, pathname)
   })
+}
+
+/**
+ * Select requests owned by the supervised Host rather than Renderer files.
+ * Registered Connection RPC channels use non-read methods outside the fixed
+ * `/api` namespace, while Host API and plugin assets retain their known paths.
+ * @param method - HTTP request method.
+ * @param pathname - Decoded request pathname.
+ * @returns Whether Electron Main must forward the request to the Host.
+ */
+export function shouldProxyHarnessRequest(method: string, pathname: string): boolean {
+  return pathname.startsWith('/api/')
+    || pathname.startsWith('/plugins/')
+    || (method !== 'GET' && method !== 'HEAD')
 }
 
 /**

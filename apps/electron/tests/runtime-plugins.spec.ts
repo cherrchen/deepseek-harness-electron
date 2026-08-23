@@ -7,6 +7,7 @@ import { spawnSync } from 'node:child_process'
 import { describe, expect, it } from 'vitest'
 import {
   discoverRuntimePlugins,
+  discoverEcosystemPlugins,
   ensureRuntimePluginsLinked,
   ensureSymlink,
   profileModuleLinkPath,
@@ -60,6 +61,12 @@ describe('runtime plugin discovery', () => {
     expect(names).toContain('@dsh-electron/dsh-electron-desktop-capabilities')
     expect(names).toContain('@dsh-electron/dsh-electron-ui-directory-picker')
     expect(names).toContain('@dsh-electron/dsh-electron-ui-brand')
+  })
+
+  it('discovers prebuilt ecosystem plugins without routing them through the Desktop builder', () => {
+    const plugins = discoverEcosystemPlugins(electronRoot)
+    expect(plugins.map(plugin => plugin.name)).toContain('@dsh-electron/dsh-plugin-git')
+    expect(readFileSync(buildScript, 'utf8')).not.toContain('packages/dsh-electron')
   })
 
   it('ignores non-plugin files under runtime/plugins', async () => {
@@ -183,7 +190,7 @@ describe('runtime plugin inventory layout', () => {
 })
 
 describe('Host patch composition', () => {
-  it('mounts desktop capabilities, directory picker, and brand plugins and disables upstream auto picker', async () => {
+  it('mounts desktop capabilities, adapters, and the standard Git package', async () => {
     const userData = await mkdtemp(join(tmpdir(), 'dsh-electron-patch-'))
     try {
       const patchPath = resolveHostPatchPath(electronRoot, userData)
@@ -193,6 +200,7 @@ describe('Host patch composition', () => {
       expect(body).toContain('@dsh-electron/dsh-electron-desktop-capabilities')
       expect(body).toContain('@dsh-electron/dsh-electron-ui-directory-picker')
       expect(body).toContain('@dsh-electron/dsh-electron-ui-brand')
+      expect(body).toContain('@dsh-electron/dsh-plugin-git')
       expect(body).toContain('desktop-capabilities')
       expect(body).toContain('desktop-directory-picker')
       expect(body).toContain('desktop-ui-brand')

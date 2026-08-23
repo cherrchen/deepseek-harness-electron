@@ -289,6 +289,7 @@
     { "path": "./packages/preset/persona" },
     { "path": "./packages/guard/repeat-tool-reminder" },
     { "path": "./packages/extensions/cordis-host-runner" },
+    { "path": "./packages/dsh-electron/dsh-plugin-git/tsconfig.host.json" },
     { "path": "./packages/extensions/tool-cordis" },
     { "path": "./packages/hooks/hook-protocol" },
     { "path": "./packages/hooks/hooks-claude-code" },

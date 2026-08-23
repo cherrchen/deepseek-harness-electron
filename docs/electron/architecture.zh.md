@@ -48,7 +48,8 @@ DeepSeek Harness Desktop 是构建于上游 `deepseek-ai/deepseek-harness` 仓�
 
 | 区域                         | 所有权     | 规则                                                                                                                          |
 | ---------------------------- | ---------- | ----------------------------------------------------------------------------------------------------------------------------- |
-| `packages/**`                | 上游       | 除非有意向上游贡献且与上游兼容的改动，否则不要在此加入下游桌面行为。 |
+| `packages/**`                | 上游       | 默认由上游拥有；不要在下述例外之外加入下游桌面行为。 |
+| `packages/dsh-electron/**`   | 下游       | 通过 subtree 集成的公共 DSH 生态插件，具有独立 repository 与版本。 |
 | `apps/cli/**`                | 上游       | 不要将其作为下游定制面使用。                                                                             |
 | `apps/web/**`                | 上游       | Desktop MUST NOT 依赖修改此应用来实现仅桌面端的 UI。                                                            |
 | `docs/**`（`docs/electron/**` 除外） | 上游       | 避免会造成同步冲突的下游专属编辑。                                                            |
@@ -324,10 +325,11 @@ Unprivileged Renderer / Client Plugins
 
 **CURRENT**
 
-里程碑 3 在 `apps/electron/runtime/plugins/` 下建立了通用的 bundled runtime 插件基础设施。
+里程碑 3 在 `apps/electron/runtime/plugins/` 下建立了 bundled Desktop adapter 基础设施。标准公共 DSH 生态插件位于 `packages/dsh-electron/`，并保留自身预构建的 Host 与 Client artifacts。
 
 ```text
-runtime/plugins/*          bundled inventory (build + link)
+runtime/plugins/*          Desktop adapters and Electron carrier plugins (build + link)
+packages/dsh-electron/*    standard public DSH packages (prebuilt + link)
 runtime/host.patch.yml     explicit Cordis composition authority
 scripts/build-runtime-plugins.mjs
 src/runtime-plugins.ts     discovery, validation, profile linking
@@ -358,7 +360,7 @@ Electron Main
 Native OS APIs
 ```
 
-添加新的 bundled 功能插件只需在 `runtime/plugins/<name>/` 创建目录、在 `host.patch.yml` 挂载并运行通用 builder——无需修改 `renderer/main.ts`、通用 linker 或 builder 本身。
+Desktop-required adapter 从 `runtime/plugins/<name>/` 构建。Portable 产品功能使用 `packages/dsh-electron/` 下的 `@dsh-electron/dsh-plugin-*` package；Electron 直接打包并链接其现有 artifacts，不重新构建或转换。
 
 # 第二部分 — 架构原则
 
@@ -598,14 +600,16 @@ desktop.rawIpc
 
 **CURRENT**
 
-下游 bundled 插件位于：
+下游插件按 runtime requirement 分属两处：
 
 ```text
 apps/electron/runtime/plugins/
 ├─ desktop-capabilities/          infrastructure
-├─ ui-directory-picker-electron/  feature plugin
-├─ ui-brand-electron/             feature plugin
-└─ <future-feature>/
+├─ ui-directory-picker-electron/  Desktop-required adapter
+└─ ui-brand-electron/             Electron carrier plugin
+
+packages/dsh-electron/
+└─ dsh-plugin-<feature>/           portable or Desktop-aware public DSH plugin
 ```
 
 架构规则：
@@ -616,7 +620,7 @@ apps/electron/runtime/plugins/
 * 特权操作仍位于能力约定之后；
 * 普通 Desktop 功能开发不需要修改上游。
 
-两类有用的插件类别是：
+插件分为三类：
 
 ### Portable DSH Plugin
 
@@ -644,6 +648,12 @@ Web
 Desktop
   -> normal feature + approved native capability
 ```
+
+主 fiber 只声明 portable requirements。缺少 `desktop` 时 optional `ctx.inject(['desktop'], ...)` child fiber 保持 pending；兼容 provider 出现时激活；provider 卸载时只释放 native enhancement。公共插件只声明实际使用的最小 structural `desktop` interface，绝不 import Electron provider。
+
+### Desktop-required Adapter
+
+Desktop-required adapter 把 `desktop` 声明为 required service，归属 `apps/electron/runtime/plugins/`，通常使用 `@dsh-electron/dsh-electron-*` package name。
 
 ## 20. 原生实现与功能所有权
 

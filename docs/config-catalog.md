@@ -3218,6 +3218,26 @@ export interface Config {
 
 Source: [`packages/workflow/workflow-worker-thread/src/index.ts:32`](../packages/workflow/workflow-worker-thread/src/index.ts)
 
+<a id="dsh-electrondsh-plugin-git"></a>
+
+## `@dsh-electron/dsh-plugin-git`
+
+Requires: `subprocess`
+
+```ts config-catalog
+/** Deployment-varying Git process policy. */
+export interface Config {
+  /** Git executable name or absolute path resolved by `ctx.subprocess`. */
+  executable?: string
+  /** Maximum bytes retained independently for stdout and stderr. */
+  maxOutputBytes?: number
+  /** Grace period used when managed subprocess termination is requested. */
+  graceMs?: number
+}
+```
+
+Source: [`packages/dsh-electron/dsh-plugin-git/src/index.ts:16`](../packages/dsh-electron/dsh-plugin-git/src/index.ts)
+
 ## Loadable plugins with no config
 
 These load from a `cordis.yml` entry with no `config:` block; they declare no configuration API.

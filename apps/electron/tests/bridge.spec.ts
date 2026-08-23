@@ -5,7 +5,7 @@ import {
   RENDERER_ORIGIN,
   RENDERER_SCHEME,
 } from '../src/bridge-types.ts'
-import { resolveRendererRoot } from '../src/protocol.ts'
+import { resolveRendererRoot, shouldProxyHarnessRequest } from '../src/protocol.ts'
 
 describe('desktop bridge constants', () => {
   it('keeps the renderer origin on localhost for upstream loopback gates', () => {
@@ -45,5 +45,13 @@ describe('desktop bridge constants', () => {
 
   it('resolves the renderer dist under the application root', () => {
     expect(resolveRendererRoot('/app/root').replaceAll('\\', '/')).toBe('/app/root/dist/renderer')
+  })
+
+  it('proxies plugin-owned RPC channels without treating their paths as renderer files', () => {
+    expect(shouldProxyHarnessRequest('POST', '/git/discover')).toBe(true)
+    expect(shouldProxyHarnessRequest('GET', '/git/discover')).toBe(false)
+    expect(shouldProxyHarnessRequest('GET', '/api/events.mux')).toBe(true)
+    expect(shouldProxyHarnessRequest('GET', '/plugins/git/client.js')).toBe(true)
+    expect(shouldProxyHarnessRequest('HEAD', '/index.html')).toBe(false)
   })
 })

@@ -190,6 +190,22 @@
         "tests/**/*.tsx"
       ]
     },
+    "packages/dsh-electron/dsh-plugin-git": {
+      "entry": [
+        "src/css-modules.d.ts",
+        "tests/**/*.spec.ts"
+      ],
+      "project": [
+        "src/**/*.ts",
+        "src/**/*.tsx",
+        "tests/**/*.ts"
+      ]
+    },
+    "apps/electron": {
+      "ignoreDependencies": [
+        "@dsh-electron/dsh-plugin-git"
+      ]
+    },
     "website": {
       "project": [
         "**/*.ts"

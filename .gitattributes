@@ -34,3 +34,6 @@ README.i18n.yaml merge=ours
 
 # Downstream-owned desktop documentation under docs/.
 docs/electron/** merge=ours
+
+# Downstream-owned public DSH ecosystem plugin subtree mirrors.
+packages/dsh-electron/** merge=ours

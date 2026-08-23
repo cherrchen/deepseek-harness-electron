@@ -12,6 +12,11 @@
   "type": "module",
   "main": "lib/main.js",
   "license": "MIT",
+  "dshElectron": {
+    "ecosystemPlugins": [
+      "@dsh-electron/dsh-plugin-git"
+    ]
+  },
   "scripts": {
     "build:main": "tsc -p tsconfig.json",
     "build:preload": "node ./scripts/build-preload.mjs",
@@ -125,6 +130,7 @@
     "@deepseek-ai/dsh-web": "workspace:^",
     "@deepseek-ai/dsh-workflow": "workspace:^",
     "@deepseek-ai/schemastery": "workspace:^",
+    "@dsh-electron/dsh-plugin-git": "workspace:^",
     "electron-updater": "^6.8.9"
   },
   "devDependencies": {

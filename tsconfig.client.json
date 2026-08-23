@@ -88,6 +88,7 @@
     { "path": "./packages/client/ui-user-questions" },
     { "path": "./packages/client/ui-trajectory" },
     { "path": "./packages/session-query/session-log-export" },
+    { "path": "./packages/dsh-electron/dsh-plugin-git/tsconfig.client.json" },
     { "path": "./packages/client/ui-theme" },
     { "path": "./packages/client/ui-settings" },
     { "path": "./packages/client/ui-settings-general" },

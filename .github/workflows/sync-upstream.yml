@@ -77,6 +77,10 @@ jobs:
           git config merge.theirs.driver 'cp %B %A'
           git config merge.dsh-translation-pairing.name 'DeepSeek Harness bilingual pairing records'
           git config merge.dsh-translation-pairing.driver 'scripts/merge-translation-pairing-driver.sh %O %A %B %P'
+          if [ -n "$(git ls-tree -d --name-only upstream/master -- packages/dsh-electron)" ]; then
+            echo "::error::Upstream now owns packages/dsh-electron. Stop for a manual namespace ownership decision."
+            exit 1
+          fi
           if ! git merge --no-edit upstream/master; then
             mapfile -t conflicts < <(git diff --name-only --diff-filter=U)
 
@@ -85,7 +89,7 @@ jobs:
 
             for file in "${conflicts[@]}"; do
               case "$file" in
-                README.md|README.zh.md|README.i18n.yaml)
+                README.md|README.zh.md|README.i18n.yaml|docs/electron/*|packages/dsh-electron/*)
                   git checkout --ours -- "$file"
                   git add "$file"
                   ;;
@@ -163,6 +167,7 @@ jobs:
             echo "::error::pnpm workspace no longer includes apps/electron after upstream merge."
             exit 1
           fi
+          node apps/electron/scripts/verify-downstream-plugin-workspace.mjs
 
       - name: Prepare Beta release commit
         if: steps.upstream.outputs.changed == 'true'

@@ -17,3 +17,5 @@
       name: '@dsh-electron/dsh-electron-ui-directory-picker'
     - id: desktop-ui-brand
       name: '@dsh-electron/dsh-electron-ui-brand'
+    - id: git
+      name: '@dsh-electron/dsh-plugin-git'

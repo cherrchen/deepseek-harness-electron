@@ -32,6 +32,10 @@ const SOURCE_LINK_POLICY: CordisCatalogPolicy = {
 }
 
 describe('Typert-backed Cordis catalog', () => {
+  it('keeps downstream-owned services out of the upstream subsystem catalog', { timeout: 480_000 }, () => {
+    expect(projection().model.services.some(service => service.key === 'git')).toBe(false)
+  })
+
   it('omits subsystem source lines while preserving inherited Cordis source lines', () => {
     const page = renderPageRegion('fixture.md', [{
       key: 'fixture',
