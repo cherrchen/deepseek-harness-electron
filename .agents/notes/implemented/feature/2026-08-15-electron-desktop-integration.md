@@ -12,7 +12,7 @@ The Electron wrapper displayed the upstream Web UI inside a default browser wind
 
 `apps/electron` owns desktop-only window chrome, lifecycle, permissions, menus, application metadata, and update behavior. The upstream Web composition remains unchanged and sandboxed.
 
-The main window reserves a 40-pixel strip above the page as the renderer's only drag region. Page content and full-viewport overlays never receive drag-region markers, so controls and modal masks keep their pointer behavior. macOS uses a hidden title bar with positioned traffic lights; Windows and Linux use the Window Controls Overlay. A close event hides the main window unless an explicit quit or update installation is in progress. The tray retains the application, reopens the window, and provides the only ordinary quit action; a single-instance lock makes another launch reveal the existing window.
+The main window uses integrated frameless chrome without a separate renderer heading. Existing sidebar and conversation fills reach the window top. The sidebar native-control inset, the active conversation header around its controls, and a transparent 40-pixel surface over the blank-session background provide the drag targets. Header descendants and full-viewport dialogs are non-draggable, so product controls and modal masks keep their pointer behavior. macOS uses a hidden title bar with positioned traffic lights; Windows and Linux use the Window Controls Overlay. A close event hides the main window unless an explicit quit or update installation is in progress. The tray retains the application, reopens the window, and provides the only ordinary quit action; a single-instance lock makes another launch reveal the existing window.
 
 The default session admits `clipboard-sanitized-write` only when both the requesting origin and `WebContents` belong to the active loopback Harness window. Native context menus use Chromium edit flags rather than renderer IPC. The About document is a sandboxed data URL with a restrictive Content Security Policy, and only the repository URL parsed from `package.json` may open externally.
 
@@ -21,6 +21,7 @@ The default session admits `clipboard-sanitized-write` only when both the reques
 ## Alternatives considered
 
 - **Modify upstream Web UI packages** — would place Electron layout, permissions, and lifecycle behavior in synchronized source that must also serve ordinary browsers.
+- **Reserve a separate full-width drag strip** — provides a simple hit target but introduces a visually independent heading and shifts the product UI away from the window edge.
 - **Expose a preload bridge for every desktop action** — adds a renderer API and IPC validation for operations Electron already supplies through native roles, session permissions, and main-process events.
 - **Quit when the last window closes** — preserves the former lifecycle but cannot support background tasks or an explicit tray-controlled exit.
 - **Publish one architecture's updater metadata** — makes release discovery select the wrong installer or omit the other architecture; merged file lists let `electron-updater` choose artifacts whose names contain the running architecture.
