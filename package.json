@@ -22,7 +22,6 @@
     "lib/invariant.js",
     "lib/client.js",
     "lib/client/**/*.css",
-    "lib/types/**/*.js",
     "lib/types/**/*.d.ts",
     "README.md",
     "README.zh.md",
@@ -72,10 +71,8 @@
     "jsdom": "^29.0.0",
     "lightningcss": "^1.30.0",
     "react": "^18.2.0",
-    "react-dom": "^18.2.0",
     "tsdown": "^0.22.0",
     "typescript": "^6.0.3",
-    "undici-types": "^6.21.0",
     "vitest": "^4.1.8"
   },
   "dsh": {
