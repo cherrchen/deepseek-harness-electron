@@ -7,6 +7,7 @@
 :root {
   /* Native Windows/Linux controls occupy this much of the top-right corner. */
   --dsh-native-control-row-height: 40px;
+  --dsh-sidebar-top-inset: 0px;
   --dsh-macos-sidebar-top-inset: 28px;
   --dsh-macos-sidebar-seam-width: 8px;
   --dsh-macos-traffic-light-safe-width: 80px;
@@ -23,11 +24,6 @@
 /* Keep the sidebar fill behind native controls and move its UI below them. */
 [data-dsh-desktop-platform='darwin'] [data-dsh-electron-sidebar] {
   --dsh-sidebar-top-inset: var(--dsh-macos-sidebar-top-inset);
-}
-
-[data-dsh-desktop-platform='win32'] [data-dsh-electron-sidebar],
-[data-dsh-desktop-platform='linux'] [data-dsh-electron-sidebar] {
-  --dsh-sidebar-top-inset: var(--dsh-native-control-row-height);
 }
 
 [data-dsh-electron-sidebar] {
@@ -126,7 +122,12 @@
   padding-right: var(--dsh-windows-caption-inset);
 }
 
-/* Full-viewport dialogs must always win hit testing over underlying chrome. */
-[role='presentation']:has(> [aria-hidden='true'] + [role='dialog'][aria-modal='true']) {
+/* Full-viewport dialog containers and their hit surfaces must always win hit
+   testing over underlying chrome. Draggable regions suppress pointer events
+   on overlapping descendants, so mark the mask, dialog, and controls. */
+[role='presentation']:has(> [aria-hidden='true'] + [role='dialog'][aria-modal='true']),
+[role='presentation'] > [aria-hidden='true']:has(+ [role='dialog'][aria-modal='true']),
+[role='presentation'] > [role='dialog'][aria-modal='true'],
+[role='presentation'] > [role='dialog'][aria-modal='true'] * {
   -webkit-app-region: no-drag;
 }
