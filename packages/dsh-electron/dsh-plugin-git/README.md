@@ -8,7 +8,9 @@ A standard DSH/Cordis Git plugin with one portable Host service, one Client bund
 
 The Host plugin requires `ctx.subprocess`, provides `ctx.git`, and starts Git with an executable plus separate argv values. It never invokes a shell. Its optional Connection child registers the loopback `/git` RPC channel when a DSH Web Host is present; the Git service remains active in headless compositions without Connection.
 
-The Client plugin requires the upstream Connection, locale, runtime, layout, and Sidebar plugins. It contributes a source-control action to `sidebar.footer.action` and a repository panel to `shell.overlay`. Business components receive a controller through slot injection and do not access Cordis context.
+The Client plugin requires the upstream Connection, locale, runtime, layout, and conversation UI plugins. It contributes a branch selector and changed-files indicator to `conversation.input.left`, and a right-side Git drawer to `shell.overlay`. Business components receive a controller through slot injection and do not access Cordis context.
+
+The controller discovers repository state when the workspace changes, independent of drawer visibility. Closing the drawer does not discard the loaded repository snapshot.
 
 The Client main fiber does not require `desktop`. A child `ctx.inject(['desktop'], ...)` fiber accepts only `shell.showItemInFolder`, `shell.openPath`, and `notification.show`; without them, repository, status, diff, stage, commit, and branch operations remain available and native actions are not shown.
 

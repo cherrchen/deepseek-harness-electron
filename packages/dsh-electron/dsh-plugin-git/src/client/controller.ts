@@ -27,22 +27,34 @@ export interface GitDesktopCapability {
   }
 }
 
+export type GitDrawerTab = 'changes' | 'diff' | 'commit'
+
+/** Selected diff identity retained across refresh. */
+export interface GitSelectedDiff {
+  readonly path: string
+  readonly staged: boolean
+}
+
 export interface GitClientState {
-  readonly open: boolean
   readonly workspacePath: string | undefined
   readonly repository: GitRepositorySnapshot | null | undefined
+  readonly drawerOpen: boolean
+  readonly activeTab: GitDrawerTab
+  readonly selectedDiff: GitSelectedDiff | undefined
   readonly diff: GitDiff | undefined
   readonly loading: boolean
   readonly error: string | undefined
   readonly desktopAvailable: boolean
 }
 
-/** Observable controller shared by the footer action and overlay panel. */
+/** Observable controller shared by the composer control and overlay drawer. */
 export class GitClientController {
   private state: GitClientState = {
-    open: false,
     workspacePath: undefined,
     repository: undefined,
+    drawerOpen: false,
+    activeTab: 'changes',
+    selectedDiff: undefined,
     diff: undefined,
     loading: false,
     error: undefined,
@@ -50,6 +62,7 @@ export class GitClientController {
   }
   private readonly listeners = new Set<() => void>()
   private desktop: GitDesktopCapability | undefined
+  private operationGeneration = 0
 
   constructor(private readonly rpc: GitRpcClient) {}
 
@@ -78,18 +91,24 @@ export class GitClientController {
   }
 
   /**
-   * Open the repository panel and discover the current workspace.
+   * Bind repository discovery to the current workspace path.
    * @param workspacePath - Current workspace path, if one is selected.
-   * @returns Completion after the first refresh settles.
+   * @returns Completion after the first discover and status calls settle.
    */
-  async open(workspacePath: string | undefined): Promise<void> {
-    this.patch({ open: true, workspacePath, diff: undefined, error: undefined })
-    await this.refresh(workspacePath)
-  }
-
-  /** Close the repository panel without discarding its loaded snapshot. */
-  close(): void {
-    this.patch({ open: false })
+  async setWorkspace(workspacePath: string | undefined): Promise<void> {
+    const generation = ++this.operationGeneration
+    this.patch({
+      workspacePath,
+      repository: undefined,
+      diff: undefined,
+      selectedDiff: undefined,
+      error: undefined,
+    })
+    if (workspacePath === undefined) {
+      this.patch({ loading: false })
+      return
+    }
+    await this.loadRepository(generation, workspacePath)
   }
 
   /**
@@ -102,28 +121,52 @@ export class GitClientController {
       this.patch({ workspacePath, repository: undefined, loading: false, error: undefined })
       return
     }
-    this.patch({ workspacePath, loading: true, error: undefined })
-    try {
-      const root = decodeRoot(await this.call('discover', { path: workspacePath }))
-      if (root === null) {
-        this.patch({ repository: null, diff: undefined, loading: false })
-        return
-      }
-      this.patch({ repository: decodeSnapshot(await this.call('status', { repository: root })), loading: false })
-    } catch (error) {
-      this.patch({ loading: false, error: error instanceof Error ? error.message : String(error) })
-    }
+    const generation = ++this.operationGeneration
+    await this.loadRepository(generation, workspacePath)
   }
 
   /**
-   * Load a diff for one changed path.
+   * Open the Git drawer and refresh repository state.
+   * @param tab - Optional tab to activate on open.
+   * @returns Completion after refresh settles.
+   */
+  async openDrawer(tab?: GitDrawerTab): Promise<void> {
+    this.patch({
+      drawerOpen: true,
+      activeTab: tab ?? 'changes',
+      error: undefined,
+    })
+    await this.refresh()
+  }
+
+  /** Close the Git drawer without discarding repository context. */
+  closeDrawer(): void {
+    this.patch({ drawerOpen: false })
+  }
+
+  /**
+   * Activate one drawer tab.
+   * @param tab - Drawer tab to show.
+   */
+  selectTab(tab: GitDrawerTab): void {
+    this.patch({ activeTab: tab })
+  }
+
+  /**
+   * Load a diff for one changed path and switch to the Diff tab.
    * @param path - Repository-relative changed path.
    * @param staged - Whether to read the staged diff.
    * @returns Completion after the Host diff call settles.
    */
   async selectDiff(path: string, staged: boolean): Promise<void> {
     const repository = this.requireRepository()
-    this.patch({ loading: true, error: undefined })
+    const selectedDiff = { path, staged }
+    this.patch({ selectedDiff, activeTab: 'diff', error: undefined })
+    if (repository.untracked.includes(path)) {
+      this.patch({ diff: undefined, loading: false })
+      return
+    }
+    this.patch({ loading: true })
     try {
       const diff = decodeDiff(await this.call('diff', { repository: repository.root, path, staged }))
       this.patch({ diff, loading: false })
@@ -176,13 +219,36 @@ export class GitClientController {
     await this.desktop?.shell.showItemInFolder(repository.root)
   }
 
+  private async loadRepository(generation: number, workspacePath: string): Promise<void> {
+    this.patch({ workspacePath, loading: true, error: undefined })
+    try {
+      const root = decodeRoot(await this.call('discover', { path: workspacePath }))
+      if (generation !== this.operationGeneration) return
+      if (root === null) {
+        this.patch({ repository: null, diff: undefined, selectedDiff: undefined, loading: false })
+        return
+      }
+      const snapshot = decodeSnapshot(await this.call('status', { repository: root }))
+      if (generation !== this.operationGeneration) return
+      this.patch({
+        repository: snapshot,
+        diff: undefined,
+        selectedDiff: undefined,
+        loading: false,
+      })
+    } catch (error) {
+      if (generation !== this.operationGeneration) return
+      this.patch({ loading: false, error: error instanceof Error ? error.message : String(error) })
+    }
+  }
+
   private async mutate(endpoint: string, fields: Record<string, unknown>): Promise<void> {
     const repository = this.requireRepository()
     this.patch({ loading: true, error: undefined })
     try {
       const payload = { repository: repository.root, ...fields }
       const next = decodeSnapshot(await this.call(endpoint, payload))
-      this.patch({ repository: next, diff: undefined, loading: false })
+      this.patch({ repository: next, diff: undefined, selectedDiff: undefined, loading: false })
     } catch (error) {
       this.patch({ loading: false, error: error instanceof Error ? error.message : String(error) })
     }
