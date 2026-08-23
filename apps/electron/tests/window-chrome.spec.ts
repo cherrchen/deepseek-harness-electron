@@ -5,6 +5,8 @@ import { describe, expect, it } from 'vitest'
 import { NATIVE_CONTROL_ROW_HEIGHT } from '../src/desktop/chrome.ts'
 import {
   DESKTOP_PLATFORM_ATTR,
+  MARKER_CENTER,
+  MARKER_MAIN_HEADER,
   MARKER_SIDEBAR,
 } from '../src/renderer/desktop/window-chrome.ts'
 
@@ -25,15 +27,18 @@ describe('Electron renderer source structure', () => {
     const css = readFileSync(join(electronRoot, 'src', 'renderer', 'desktop', 'window-chrome.css'), 'utf8')
     const height = css.match(/--dsh-native-control-row-height:\s*(\d+)px/)
     expect(Number(height?.[1])).toBe(NATIVE_CONTROL_ROW_HEIGHT)
+    expect(css).toContain('--dsh-macos-sidebar-top-inset')
     expect(css).toContain('--dsh-macos-sidebar-seam-width')
-    expect(css).toContain('#root::before')
-    expect(css).toContain('padding-top: var(--dsh-native-control-row-height)')
-    expect(css.match(/-webkit-app-region:\s*drag/g)).toHaveLength(1)
+    expect(css).not.toContain('#root::before')
+    expect(css).not.toContain('#root {\n  position: relative')
+    expect(css.match(/-webkit-app-region:\s*drag/g)).toHaveLength(3)
     expect(css).not.toContain('[data-conversation-scroll]')
     expect(css).not.toContain('data-dsh-electron-drag-region')
-    expect(css).not.toContain('-webkit-app-region: no-drag')
+    expect(css.match(/-webkit-app-region:\s*no-drag/g)).toHaveLength(2)
     expect(css).not.toContain('#dsh-electron-titlebar')
     expect(css).toContain(MARKER_SIDEBAR)
+    expect(css).toContain(MARKER_CENTER)
+    expect(css).toContain(MARKER_MAIN_HEADER)
     expect(css).toContain(DESKTOP_PLATFORM_ATTR)
   })
 

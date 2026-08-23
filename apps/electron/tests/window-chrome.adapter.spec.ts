@@ -3,11 +3,15 @@ import { describe, expect, it } from 'vitest'
 import {
   attachLayoutMarkers,
   layoutNeedsReconcile,
+  MARKER_CENTER,
+  MARKER_MAIN_HEADER,
   MARKER_SIDEBAR,
   normalizeDesktopPlatform,
   reconcileWindowChromeLayout,
   resolveLayoutFrame,
   resolveLayoutTargets,
+  resolveCenterColumn,
+  resolveMainHeader,
   resolveSidebarColumn,
 } from '../src/renderer/desktop/window-chrome.ts'
 
@@ -47,15 +51,21 @@ describe('Electron window chrome adapter', () => {
     const frame = resolveLayoutFrame(root)
     expect(frame).not.toBeNull()
     expect(resolveSidebarColumn(frame!)).toBe(root.querySelector('.sidebar-col'))
+    expect(resolveCenterColumn(frame!)).toBe(root.querySelector('.center-col'))
+    expect(resolveMainHeader(root.querySelector('.center-col')!)).toBe(root.querySelector('header'))
   })
 
-  it('marks only the sidebar seam and skips duplicate mutation', () => {
+  it('marks the existing sidebar, center, and conversation header nodes', () => {
     const root = mountHarnessShell()
     const targets = resolveLayoutTargets(root)
     expect(targets).not.toBeNull()
     expect(attachLayoutMarkers(targets!)).toBe(true)
     expect(targets!.sidebar.hasAttribute(MARKER_SIDEBAR)).toBe(true)
+    expect(targets!.center.hasAttribute(MARKER_CENTER)).toBe(true)
+    expect(targets!.mainHeader.hasAttribute(MARKER_MAIN_HEADER)).toBe(true)
     expect(root.querySelectorAll('[data-dsh-electron-sidebar]')).toHaveLength(1)
+    expect(root.querySelectorAll('[data-dsh-electron-center]')).toHaveLength(1)
+    expect(root.querySelectorAll('[data-dsh-electron-main-header]')).toHaveLength(1)
     expect(root.querySelectorAll('[data-dsh-electron-drag-region]')).toHaveLength(0)
     expect(attachLayoutMarkers(targets!)).toBe(false)
     expect(layoutNeedsReconcile(root)).toBe(false)
@@ -65,6 +75,19 @@ describe('Electron window chrome adapter', () => {
     const root = mountHarnessShell()
     expect(reconcileWindowChromeLayout(root)).toBe(true)
     expect(reconcileWindowChromeLayout(root)).toBe(false)
+  })
+
+  it('moves the header marker when a visible session header replaces the blank one', () => {
+    const root = mountHarnessShell()
+    const hidden = root.querySelector('header')!
+    hidden.setAttribute('aria-hidden', 'true')
+    expect(reconcileWindowChromeLayout(root)).toBe(true)
+
+    const visible = document.createElement('header')
+    root.querySelector('.center-col')!.append(visible)
+    expect(layoutNeedsReconcile(root)).toBe(true)
+    expect(reconcileWindowChromeLayout(root)).toBe(true)
+    expect(visible.hasAttribute(MARKER_MAIN_HEADER)).toBe(true)
   })
 
 })

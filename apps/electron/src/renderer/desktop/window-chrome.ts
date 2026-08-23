@@ -8,8 +8,14 @@ import { desktopApp } from './index.ts'
 /** Document root attribute carrying the Electron process platform. */
 export const DESKTOP_PLATFORM_ATTR = 'data-dsh-desktop-platform'
 
-/** Sidebar column marker for the macOS column seam. */
+/** Sidebar column marker for native-control spacing and the macOS seam. */
 export const MARKER_SIDEBAR = 'data-dsh-electron-sidebar'
+
+/** Center column marker for the blank-session drag surface. */
+export const MARKER_CENTER = 'data-dsh-electron-center'
+
+/** Visible conversation header marker for the active-session drag surface. */
+export const MARKER_MAIN_HEADER = 'data-dsh-electron-main-header'
 
 /** Supported desktop platforms for integrated chrome layout. */
 export type DesktopPlatform = 'darwin' | 'win32' | 'linux'
@@ -18,6 +24,8 @@ export type DesktopPlatform = 'darwin' | 'win32' | 'linux'
 export interface LayoutTargets {
   frame: Element
   sidebar: Element
+  center: Element
+  mainHeader: Element
 }
 
 /**
@@ -60,6 +68,26 @@ export function resolveSidebarColumn(frame: Element): Element | null {
 }
 
 /**
+ * Resolve the center grid column (second structural child of the frame).
+ * @param frame - AppFrame element from {@link resolveLayoutFrame}.
+ * @returns the center column element.
+ */
+export function resolveCenterColumn(frame: Element): Element | null {
+  const sidebar = resolveSidebarColumn(frame)
+  return sidebar?.nextElementSibling ?? null
+}
+
+/**
+ * Resolve the active conversation header, falling back to its hidden blank-session node.
+ * @param center - Center column from {@link resolveCenterColumn}.
+ * @returns the conversation header element, or null before it mounts.
+ */
+export function resolveMainHeader(center: Element): Element | null {
+  return center.querySelector('header:not([aria-hidden="true"])')
+    ?? center.querySelector('header[aria-hidden="true"]')
+}
+
+/**
  * Collect layout targets when the Harness shell is mounted.
  * @param root - DOM subtree to search.
  * @returns resolved targets, or null while required nodes are absent.
@@ -68,7 +96,10 @@ export function resolveLayoutTargets(root: ParentNode): LayoutTargets | null {
   const frame = resolveLayoutFrame(root)
   if (frame === null) return null
   const sidebar = resolveSidebarColumn(frame)
-  return sidebar === null ? null : { frame, sidebar }
+  const center = resolveCenterColumn(frame)
+  if (sidebar === null || center === null) return null
+  const mainHeader = resolveMainHeader(center)
+  return mainHeader === null ? null : { frame, sidebar, center, mainHeader }
 }
 
 /**
@@ -77,9 +108,17 @@ export function resolveLayoutTargets(root: ParentNode): LayoutTargets | null {
  * @returns whether any marker was newly attached.
  */
 export function attachLayoutMarkers(targets: LayoutTargets): boolean {
-  if (targets.sidebar.hasAttribute(MARKER_SIDEBAR)) return false
-  targets.sidebar.setAttribute(MARKER_SIDEBAR, '')
-  return true
+  let changed = false
+  for (const [element, marker] of [
+    [targets.sidebar, MARKER_SIDEBAR],
+    [targets.center, MARKER_CENTER],
+    [targets.mainHeader, MARKER_MAIN_HEADER],
+  ] as const) {
+    if (element.hasAttribute(marker)) continue
+    element.setAttribute(marker, '')
+    changed = true
+  }
+  return changed
 }
 
 /**
@@ -91,6 +130,8 @@ export function layoutNeedsReconcile(root: ParentNode): boolean {
   const targets = resolveLayoutTargets(root)
   if (targets === null) return true
   return !targets.sidebar.hasAttribute(MARKER_SIDEBAR)
+    || !targets.center.hasAttribute(MARKER_CENTER)
+    || !targets.mainHeader.hasAttribute(MARKER_MAIN_HEADER)
 }
 
 /**
