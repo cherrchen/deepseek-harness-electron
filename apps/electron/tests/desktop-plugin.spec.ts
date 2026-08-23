@@ -30,7 +30,7 @@ describe('directory picker feature plugin regression', () => {
     const manifest = JSON.parse(
       readFileSync(join(electronRoot, 'runtime', 'plugins', 'ui-directory-picker-electron', 'package.json'), 'utf8'),
     ) as { dsh?: { client?: { inject?: string[] } } }
-    expect(manifest.dsh?.client?.inject).toContain('@deepseek-ai/dsh-electron-desktop-capabilities')
+    expect(manifest.dsh?.client?.inject).toContain('@dsh-electron/dsh-electron-desktop-capabilities')
   })
 })
 

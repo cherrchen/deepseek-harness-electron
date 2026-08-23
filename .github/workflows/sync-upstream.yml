@@ -184,8 +184,8 @@ jobs:
         if: steps.upstream.outputs.changed == 'true'
         run: |
           pnpm run build
-          pnpm --filter @deepseek-ai/dsh-electron build
-          pnpm --filter @deepseek-ai/dsh-electron test
+          pnpm --filter @dsh-electron/dsh-electron build
+          pnpm --filter @dsh-electron/dsh-electron test
 
       - name: Push verified Beta commit to develop
         if: steps.upstream.outputs.changed == 'true'

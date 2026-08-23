@@ -9,7 +9,7 @@ const webDist = join(electronRoot, '..', 'web', 'dist')
 
 describe('Electron renderer build smoke', () => {
   it('emits index.html and hashed assets without reading apps/web/dist', () => {
-    expect(existsSync(join(rendererDist, 'index.html')), 'run pnpm --filter @deepseek-ai/dsh-electron build:renderer first').toBe(true)
+    expect(existsSync(join(rendererDist, 'index.html')), 'run pnpm --filter @dsh-electron/dsh-electron build:renderer first').toBe(true)
     const html = readFileSync(join(rendererDist, 'index.html'), 'utf8')
     expect(html).toContain('id="root"')
     expect(html).not.toContain('dsh-electron-titlebar')

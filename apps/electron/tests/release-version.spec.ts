@@ -17,7 +17,7 @@ afterEach(async () => {
 describe('Electron release version scripts', () => {
   it('sets the Electron manifest version from a tag or bare semver', async () => {
     const root = await createElectronFixture({
-      'apps/electron/package.json': JSON.stringify({ name: '@deepseek-ai/dsh-electron', version: '0.1.0-rc.1' }, null, 2),
+      'apps/electron/package.json': JSON.stringify({ name: '@dsh-electron/dsh-electron', version: '0.1.0-rc.1' }, null, 2),
     })
     const setVersionScript = join(root, 'apps/electron/scripts/set-version.mjs')
 

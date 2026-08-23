@@ -142,8 +142,8 @@ describe('Electron host runtime overlay', () => {
       expect(body).toContain('directory-picker')
       expect(body).toContain('disabled: true')
       expect(body).toContain('@deepseek-ai/dsh-host-directory-picker-browse')
-      expect(body).toContain('@deepseek-ai/dsh-electron-ui-directory-picker')
-      expect(body).toContain('@deepseek-ai/dsh-electron-desktop-capabilities')
+      expect(body).toContain('@dsh-electron/dsh-electron-ui-directory-picker')
+      expect(body).toContain('@dsh-electron/dsh-electron-desktop-capabilities')
       expect(body).not.toContain('directory-picker-browse-client')
     } finally {
       await rm(userData, { recursive: true, force: true })
@@ -155,7 +155,7 @@ describe('Electron host runtime overlay', () => {
     const harnessHome = await mkdtemp(join(tmpdir(), 'dsh-electron-home-'))
     try {
       ensureRuntimePluginsLinked(appPath, harnessHome)
-      const link = profileModuleLinkPath(harnessHome, '@deepseek-ai/dsh-electron-ui-directory-picker')
+      const link = profileModuleLinkPath(harnessHome, '@dsh-electron/dsh-electron-ui-directory-picker')
       const { readlink } = await import('node:fs/promises')
       const target = await readlink(link)
       expect(target.replaceAll('\\', '/')).toBe(

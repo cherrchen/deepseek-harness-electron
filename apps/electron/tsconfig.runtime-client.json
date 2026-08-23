@@ -5,7 +5,7 @@
     "incremental": false,
     "noEmit": true,
     "paths": {
-      "@deepseek-ai/dsh-electron-desktop-capabilities/client": [
+      "@dsh-electron/dsh-electron-desktop-capabilities/client": [
         "./runtime/plugins/desktop-capabilities/src/client/index.ts"
       ]
     }

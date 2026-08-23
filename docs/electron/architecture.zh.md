@@ -335,9 +335,9 @@ src/runtime-plugins.ts     discovery, validation, profile linking
 
 启动前会把每个 bundled 插件链接到 `$DSH_HOME/profiles/node_modules/<package-name>`，再启动受监督 Host。发现决定 Desktop 随包分发什么；`host.patch.yml` 决定 Desktop profile 挂载什么。
 
-Desktop Capability Provider（`@deepseek-ai/dsh-electron-desktop-capabilities`）把 `window.deepseekDesktop` 适配为 feature 插件可用的 `ctx.desktop`。只有 Renderer 基础设施与该 provider 可直接读取全局 bridge。
+Desktop Capability Provider（`@dsh-electron/dsh-electron-desktop-capabilities`）把 `window.deepseekDesktop` 适配为 feature 插件可用的 `ctx.desktop`。只有 Renderer 基础设施与该 provider 可直接读取全局 bridge。
 
-目录选择器（`@deepseek-ai/dsh-electron-ui-directory-picker`）是首个 feature 插件消费者：填充 workspace directory-flow slot，并调用 `ctx.desktop.dialog.pickDirectory()`。
+目录选择器（`@dsh-electron/dsh-electron-ui-directory-picker`）是首个 feature 插件消费者：填充 workspace directory-flow slot，并调用 `ctx.desktop.dialog.pickDirectory()`。
 
 ```text
 Feature Plugin

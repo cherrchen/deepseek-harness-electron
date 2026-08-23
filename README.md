@@ -29,7 +29,7 @@ git clone https://github.com/cherrchen/deepseek-harness-electron.git
 cd deepseek-harness-electron
 pnpm install
 pnpm run build
-pnpm --filter @deepseek-ai/dsh-electron start
+pnpm --filter @dsh-electron/dsh-electron start
 ```
 
 ## Runtime and data
@@ -43,8 +43,8 @@ Harness profiles and state live in the platform-specific application-data direct
 Run the desktop application's focused checks with:
 
 ```sh
-pnpm --filter @deepseek-ai/dsh-electron test
-pnpm --filter @deepseek-ai/dsh-electron build
+pnpm --filter @dsh-electron/dsh-electron test
+pnpm --filter @dsh-electron/dsh-electron build
 ```
 
 See the [desktop application guide](apps/electron/README.md), [development guide](docs/development.md), and [architecture documentation](docs/architecture.md) for repository details.
