@@ -53,7 +53,7 @@ pnpm --filter @dsh-electron/dsh-electron test
 
 ## 桌面集成
 
-主窗口使用隐藏标题栏，不绘制独立 Heading。侧栏和会话背景延伸至窗口顶部：侧栏的原生控件留白和活动会话 Header 的非交互部分可拖拽，空白会话背景顶部则覆盖一个透明的 40 像素命中面。Header 控件和全视口对话框被明确排除拖拽。macOS 将“交通信号灯”定位在侧栏上方；Windows 和 Linux 使用 Electron Window Controls Overlay 提供原生最小化、最大化和关闭控件。关闭主窗口会隐藏窗口，Harness 进程继续运行。通过托盘菜单可以重新打开窗口，也可以退出应用并停止受监管的子进程。
+主窗口使用隐藏标题栏，不绘制独立 Heading。侧栏和会话背景延伸至窗口顶部：macOS 在侧栏顶部保留可拖拽的“交通信号灯”区域；Windows 和 Linux 的 Window Controls Overlay 只占据右上角，因此侧栏内容从窗口顶边开始。活动会话 Header 的非交互部分可拖拽，空白会话背景顶部则覆盖一个透明的 40 像素命中面。Header 控件、对话框遮罩和全视口对话框被明确排除拖拽。关闭主窗口会隐藏窗口，Harness 进程继续运行。通过托盘菜单可以重新打开窗口，也可以退出应用并停止受监管的子进程。
 
 操作系统桌面能力由 Electron Main 拥有，并通过类型化的 `window.deepseekDesktop` preload 桥暴露。Desktop Capability Provider 插件（`runtime/plugins/desktop-capabilities`）将该桥适配为 feature 插件可用的 `ctx.desktop`。受监督 Host 接收 `apps/electron/runtime` 下的 cordis overlay：禁用 Host `directory-picker-auto`，保留 browse Host 后端以便 `directoryPicker` 仍能注入 apiproxy，挂载 capability provider，并挂载 Electron 本地 directory-flow client 插件（不挂载 browse client），因此 Windows 不再使用 Koffi native picker worker。Bundled runtime 插件由 `scripts/build-runtime-plugins.mjs` 构建，并在启动时链接到 `$DSH_HOME/profiles/node_modules`。上游 UI 的剪贴板写入在存在上游注入 seam 之前，经 Renderer 侧窄 shim 转到 Main。以新窗口打开的外部 URL 必须使用 `https:`、`http:` 或 `mailto:`。
 
