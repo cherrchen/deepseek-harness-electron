@@ -1,0 +1,80 @@
+/* Same composer chip chrome as upstream PermissionSelect.module.css
+   (ui-conversation). Copied here so the plugin does not import host src/. */
+
+.trigger {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  min-width: 0;
+  max-width: 220px;
+  height: 28px;
+  padding: 0 4px 0 8px;
+  border: none;
+  border-radius: 24px;
+  outline: none;
+  background: transparent;
+  color: var(--dsw-alias-label-secondary);
+  font-size: 13px;
+  line-height: 20px;
+  font-weight: 500;
+  cursor: pointer;
+}
+
+.trigger:hover:not(:disabled) {
+  background: var(--dsw-alias-interactive-bg-hover);
+}
+
+.trigger:focus-visible {
+  box-shadow: 0 0 0 2px var(--dsw-alias-border-l3);
+}
+
+.trigger:disabled {
+  color: var(--dsw-alias-label-dimmed);
+  cursor: default;
+}
+
+.triggerIcon {
+  display: inline-flex;
+  flex: 0 0 auto;
+}
+
+.triggerIcon svg {
+  width: 14px;
+  height: 14px;
+}
+
+.triggerLabel {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.triggerMetric {
+  justify-content: center;
+  padding: 0 8px;
+  min-width: 28px;
+  max-width: none;
+}
+
+.triggerMetric .triggerLabel {
+  flex: none;
+  text-align: center;
+}
+
+.chevron {
+  display: inline-flex;
+  flex: 0 0 auto;
+  color: var(--dsw-alias-label-caption);
+  transition: transform 120ms ease;
+}
+
+@container (max-width: 460px) {
+  .trigger:has(.triggerIcon) .triggerLabel {
+    display: none;
+  }
+}
+
+.chevronOpen {
+  transform: rotate(180deg);
+}

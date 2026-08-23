@@ -1,9 +1,10 @@
 import { useEffect, useSyncExternalStore } from 'react'
 import type { ReactNode } from 'react'
 import type { PropsLocale, PropsRuntime } from '@deepseek-ai/dsh-client-ui-slots'
-import { Button, IconCloseOutline16 } from '@deepseek-ai/dsh-client-ui-primitives'
+import { Button } from '@deepseek-ai/dsh-client-ui-primitives'
 import { changedPathCount } from './changed-path-count.ts'
 import type { GitClientController, GitDrawerTab } from './controller.ts'
+import { DrawerCloseButton } from './DrawerCloseButton.tsx'
 import { ChangesTab } from './drawer/ChangesTab.tsx'
 import { CommitTab } from './drawer/CommitTab.tsx'
 import { DiffTab } from './drawer/DiffTab.tsx'
@@ -42,26 +43,24 @@ export function GitDrawer({ controller, t }: GitDrawerProps): ReactNode {
   return (
     <aside className={css.drawer} aria-label={t('drawer.title')}>
       <header className={css.header}>
-        <div className={css.headerMain}>
-          <h2>{t('drawer.title')}</h2>
-          {repository !== undefined && repository !== null && (
-            <div className={css.headerMeta}>
-              <span className={css.repoName} title={repository.root}>{repoFolderName(repository.root)}</span>
-              {branchLabel !== undefined && <span className={css.branchName}>{branchLabel}</span>}
-            </div>
-          )}
+        <div className={css.headerTop}>
+          <h2 className={css.title}>{t('drawer.title')}</h2>
+          <DrawerCloseButton aria-label={t('drawer.close')} onClick={() => { controller.closeDrawer() }} />
         </div>
-        <span className={css.headerActions}>
+        {repository !== undefined && repository !== null && (
+          <div className={css.headerMeta}>
+            <span className={css.repoName} title={repository.root}>{repoFolderName(repository.root)}</span>
+            {branchLabel !== undefined && <span className={css.branchName}>{branchLabel}</span>}
+          </div>
+        )}
+        <div className={css.headerActions}>
           {state.desktopAvailable && repository !== undefined && repository !== null && (
             <Button size="sm" variant="ghost" onClick={() => { void controller.reveal() }}>{t('drawer.reveal')}</Button>
           )}
           <Button size="sm" variant="outline" disabled={state.loading} onClick={() => { void controller.refresh() }}>
             {t('drawer.refresh')}
           </Button>
-          <button type="button" className={css.closeButton} aria-label={t('drawer.close')} onClick={() => { controller.closeDrawer() }}>
-            <IconCloseOutline16 size={16} />
-          </button>
-        </span>
+        </div>
       </header>
       <nav className={css.tabs} aria-label={t('drawer.title')}>
         {TABS.map(tab => (

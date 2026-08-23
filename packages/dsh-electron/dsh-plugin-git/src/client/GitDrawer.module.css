@@ -18,24 +18,41 @@
 }
 .header {
   display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 12px;
-  padding: 14px 14px 10px;
+  flex-direction: column;
+  gap: 8px;
+  padding: 14px 12px 12px;
   border-bottom: 1px solid var(--dsw-alias-border-l2);
 }
-.headerMain { min-width: 0; }
-.headerMain h2 { margin: 0; font-size: 14px; color: var(--dsw-alias-label-primary); }
-.headerMeta { display: flex; flex-direction: column; gap: 2px; margin-top: 4px; }
+
+.headerTop {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  min-width: 0;
+}
+
+.title {
+  margin: 0;
+  overflow: hidden;
+  font-size: 14px;
+  line-height: 20px;
+  font-weight: 500;
+  color: var(--dsw-alias-label-primary);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.headerMeta {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
 .repoName { overflow: hidden; color: var(--dsw-alias-label-secondary); font-size: 12px; text-overflow: ellipsis; white-space: nowrap; }
 .branchName { color: var(--dsw-alias-label-tertiary); font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 11px; }
-.headerActions { display: flex; flex-shrink: 0; align-items: center; gap: 4px; }
-.closeButton {
-  display: inline-grid; width: 28px; height: 28px; place-items: center;
-  border: 0; border-radius: 6px; color: var(--dsw-alias-label-secondary);
-  background: transparent; cursor: pointer;
-}
-.closeButton:hover { background: var(--dsw-alias-interactive-bg-hover); color: var(--dsw-alias-label-primary); }
+.headerActions { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
 .tabs {
   display: flex;
   gap: 4px;

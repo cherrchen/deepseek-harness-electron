@@ -2,9 +2,10 @@ import { useEffect, useMemo, useState, useSyncExternalStore } from 'react'
 import type { ReactNode } from 'react'
 import type { PropsLocale, PropsRuntime } from '@deepseek-ai/dsh-client-ui-slots'
 import {
-  Button, IconBranchOutline16, IconCheckOutline16, Input, Menu, StateDot, Tooltip,
+  Button, IconBranchOutline16, IconCheckOutline16, Input, Menu, Tooltip,
 } from '@deepseek-ai/dsh-client-ui-primitives'
 import type { MenuEntry } from '@deepseek-ai/dsh-client-ui-primitives'
+import { ComposerToolTrigger } from './ComposerToolTrigger.tsx'
 import { changedPathCount } from './changed-path-count.ts'
 import type { GitClientController } from './controller.ts'
 import { formatLocale } from './locales.ts'
@@ -13,12 +14,13 @@ import css from './GitBranchControl.module.css'
 export type GitBranchControlProps = PropsRuntime<'conversation.input.left'> & PropsLocale<'git'>
   & { controller: GitClientController }
 
-/** Render branch selector and changed-files indicator in the composer tool row. */
-export function GitBranchControl({ controller, t, useWorkspaces }: GitBranchControlProps): ReactNode {
+/** Branch selector and changed-files chip for the composer `conversation.input.left` slot. */
+export function GitBranchControl({ controller, t, sessionId, useSessions }: GitBranchControlProps): ReactNode {
   const state = useSyncExternalStore(controller.subscribe, controller.getSnapshot)
-  const workspaces = useWorkspaces(value => value)
-  const current = workspaces.items.find(item => item.workspaceId === workspaces.recentWorkspaceId)
-  const workspacePath = current?.path
+  const workspacePath = useSessions((list) => {
+    if (sessionId === undefined) return undefined
+    return list.byId[sessionId]?.cwd
+  })
   const [menuOpen, setMenuOpen] = useState(false)
   const [creating, setCreating] = useState(false)
   const [branchName, setBranchName] = useState('')
@@ -32,10 +34,6 @@ export function GitBranchControl({ controller, t, useWorkspaces }: GitBranchCont
     window.addEventListener('focus', onFocus)
     return () => { window.removeEventListener('focus', onFocus) }
   }, [controller])
-
-  useEffect(() => {
-    if (menuOpen) void controller.refresh()
-  }, [controller, menuOpen])
 
   const repository = state.repository
   const branchItems = useMemo((): readonly MenuEntry[] => {
@@ -54,6 +52,7 @@ export function GitBranchControl({ controller, t, useWorkspaces }: GitBranchCont
     return rows
   }, [repository, t])
 
+  if (workspacePath === undefined || workspacePath === '') return null
   if (repository === undefined || repository === null) return null
 
   const branchLabel = repository.branch ?? (
@@ -62,6 +61,7 @@ export function GitBranchControl({ controller, t, useWorkspaces }: GitBranchCont
       : formatLocale(t('branch.detached'), { hash: repository.head.slice(0, 8) })
   )
   const count = changedPathCount(repository)
+  const changesLabel = formatLocale(t('changes.indicator'), { count })
 
   const onBranchSelect = (id: string): void => {
     if (id === 'create-branch') {
@@ -80,39 +80,33 @@ export function GitBranchControl({ controller, t, useWorkspaces }: GitBranchCont
     <span className={css.root}>
       <Menu
         open={menuOpen}
-        onClose={() => { setMenuOpen(false) }}
-        onSelect={onBranchSelect}
-        selectedId={repository.branch ?? undefined}
         items={branchItems}
-        compact
-        portal
+        selectedId={repository.branch ?? undefined}
+        onSelect={onBranchSelect}
+        onClose={() => { setMenuOpen(false) }}
+        side="top"
         anchor={(
-          <button
-            type="button"
-            className={css.branchButton}
-            disabled={state.loading}
-            aria-haspopup="menu"
-            aria-expanded={menuOpen}
+          <ComposerToolTrigger
+            icon={<IconBranchOutline16 size={16} />}
+            label={branchLabel}
+            chevron
+            open={menuOpen}
+            aria-label={branchLabel}
             onClick={() => { setMenuOpen(open => !open) }}
-          >
-            <IconBranchOutline16 size={14} />
-            <span className={css.branchText}>{branchLabel}</span>
-          </button>
+          />
         )}
       />
       {state.error !== undefined && menuOpen && (
         <span className={css.menuError} role="alert">{state.error}</span>
       )}
-      <Tooltip label={formatLocale(t('changes.indicator'), { count })}>
-        <button
-          type="button"
-          className={css.changesButton}
-          aria-label={formatLocale(t('changes.indicator'), { count })}
+      <Tooltip label={changesLabel} side="top" delayMs={200}>
+        <ComposerToolTrigger
+          metric
+          label={formatLocale(t('changes.indicatorCompact'), { count })}
+          labelClassName={count > 0 ? css.changesLabelWarn : css.changesLabelCaption}
+          aria-label={changesLabel}
           onClick={() => { void controller.openDrawer('changes') }}
-        >
-          {count > 0 && <StateDot state="warning" size={8} />}
-          <span>{formatLocale(t('changes.indicatorCompact'), { count })}</span>
-        </button>
+        />
       </Tooltip>
       {creating && (
         <span className={css.createForm} role="dialog" aria-label={t('branch.createTitle')}>

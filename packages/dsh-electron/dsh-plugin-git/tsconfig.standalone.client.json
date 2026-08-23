@@ -26,6 +26,8 @@
     "src/client/controller.ts",
     "src/client/changed-path-count.ts",
     "src/client/path-display.ts",
+    "src/client/ComposerToolTrigger.tsx",
+    "src/client/DrawerCloseButton.tsx",
     "src/client/GitBranchControl.tsx",
     "src/client/GitDrawer.tsx",
     "src/client/drawer/ChangesTab.tsx",
