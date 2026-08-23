@@ -122,6 +122,15 @@
   padding-right: var(--dsh-windows-caption-inset);
 }
 
+/* Modal layers are structural siblings of the native drag sources, so their
+   no-drag descendants cannot subtract an overlapping native hit region.
+   Suspend every page drag surface until the modal closes. */
+:root:has([role='dialog'][aria-modal='true']) [data-dsh-electron-sidebar]::before,
+:root:has([role='dialog'][aria-modal='true']) [data-dsh-electron-center]::before,
+:root:has([role='dialog'][aria-modal='true']) [data-dsh-electron-main-header] {
+  -webkit-app-region: no-drag;
+}
+
 /* Full-viewport dialog containers and their hit surfaces must always win hit
    testing over underlying chrome. Draggable regions suppress pointer events
    on overlapping descendants, so mark the mask, dialog, and controls. */
