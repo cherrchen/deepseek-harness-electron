@@ -48,7 +48,8 @@ This repository is a downstream fork of `deepseek-ai/deepseek-harness`.
 
 | Area                         | Ownership  | Rule                                                                                                                          |
 | ---------------------------- | ---------- | ----------------------------------------------------------------------------------------------------------------------------- |
-| `packages/**`                | Upstream   | Do not add downstream desktop behavior here unless an upstream-compatible change is intentionally being contributed upstream. |
+| `packages/**`                | Upstream   | Upstream-owned by default; do not add downstream desktop behavior outside the exception below.                               |
+| `packages/dsh-electron/**`   | Downstream | Subtree-integrated public DSH ecosystem plugins with independent repositories and versions.                                  |
 | `apps/cli/**`                | Upstream   | Do not use as a downstream customization surface.                                                                             |
 | `apps/web/**`                | Upstream   | Desktop MUST NOT depend on modifying this app for desktop-only UI.                                                            |
 | `docs/**` (except `docs/electron/**`) | Upstream   | Avoid downstream-only edits that create synchronization conflicts.                                                            |
@@ -324,10 +325,11 @@ A plugin MUST NOT receive raw Electron or Node access simply because it runs in 
 
 **CURRENT**
 
-Milestone 3 established generic bundled runtime plugin infrastructure under `apps/electron/runtime/plugins/`.
+Milestone 3 established bundled Desktop adapter infrastructure under `apps/electron/runtime/plugins/`. Standard public DSH ecosystem plugins live under `packages/dsh-electron/` and retain their prebuilt Host and Client artifacts.
 
 ```text
-runtime/plugins/*          bundled inventory (build + link)
+runtime/plugins/*          Desktop adapters and Electron carrier plugins (build + link)
+packages/dsh-electron/*    standard public DSH packages (prebuilt + link)
 runtime/host.patch.yml     explicit Cordis composition authority
 scripts/build-runtime-plugins.mjs
 src/runtime-plugins.ts     discovery, validation, profile linking
@@ -358,7 +360,7 @@ Electron Main
 Native OS APIs
 ```
 
-Adding a new bundled feature plugin requires creating `runtime/plugins/<name>/`, mounting it in `host.patch.yml`, and running the generic builder — not editing `renderer/main.ts`, generic linker code, or the builder itself.
+Desktop-required adapters are built from `runtime/plugins/<name>/`. Portable product features use `@dsh-electron/dsh-plugin-*` packages under `packages/dsh-electron/`; Electron packages and links their existing artifacts without rebuilding or converting them.
 
 # Part II — Architecture Principles
 
@@ -598,14 +600,16 @@ desktop.rawIpc
 
 **CURRENT**
 
-Downstream bundled plugins live under:
+Downstream plugin ownership is split by runtime requirement:
 
 ```text
 apps/electron/runtime/plugins/
 ├─ desktop-capabilities/          infrastructure
-├─ ui-directory-picker-electron/  feature plugin
-├─ ui-brand-electron/             feature plugin
-└─ <future-feature>/
+├─ ui-directory-picker-electron/  Desktop-required adapter
+└─ ui-brand-electron/             Electron carrier plugin
+
+packages/dsh-electron/
+└─ dsh-plugin-<feature>/           portable or Desktop-aware public DSH plugin
 ```
 
 The architectural rules:
@@ -616,7 +620,7 @@ The architectural rules:
 * privileged operations remain behind the capability contract;
 * ordinary Desktop feature development does not require upstream modifications.
 
-Two useful plugin categories are:
+Three plugin categories are:
 
 ### Portable DSH Plugin
 
@@ -644,6 +648,12 @@ Web
 Desktop
   -> normal feature + approved native capability
 ```
+
+The main fiber declares only portable requirements. An optional `ctx.inject(['desktop'], ...)` child fiber stays pending without `desktop`, activates when a compatible provider appears, and disposes only the native enhancement when that provider unloads. A public plugin declares the smallest structural `desktop` interface it consumes and never imports an Electron provider.
+
+### Desktop-required Adapter
+
+A Desktop-required adapter declares `desktop` as a required service and belongs under `apps/electron/runtime/plugins/`, normally with an `@dsh-electron/dsh-electron-*` package name.
 
 ## 20. Native implementation versus feature ownership
 

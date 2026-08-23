@@ -3220,6 +3220,26 @@ export interface Config {
 
 来源：[`packages/workflow/workflow-worker-thread/src/index.ts:32`](../packages/workflow/workflow-worker-thread/src/index.ts)
 
+<a id="dsh-electrondsh-plugin-git"></a>
+
+## `@dsh-electron/dsh-plugin-git`
+
+需要：`subprocess`
+
+```ts config-catalog
+/** Deployment-varying Git process policy. */
+export interface Config {
+  /** Git executable name or absolute path resolved by `ctx.subprocess`. */
+  executable?: string
+  /** Maximum bytes retained independently for stdout and stderr. */
+  maxOutputBytes?: number
+  /** Grace period used when managed subprocess termination is requested. */
+  graceMs?: number
+}
+```
+
+来源：[`packages/dsh-electron/dsh-plugin-git/src/index.ts:16`](../packages/dsh-electron/dsh-plugin-git/src/index.ts)
+
 ## 无配置的可加载插件
 
 这些插件通过 `cordis.yml` 中不含 `config:` 块的条目加载；它们未声明任何配置接口。

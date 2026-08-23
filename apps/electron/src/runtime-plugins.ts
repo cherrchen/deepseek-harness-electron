@@ -25,6 +25,10 @@ export interface RuntimePluginManifest {
   hasClient: boolean
 }
 
+interface ElectronPluginInventoryManifest {
+  dshElectron?: { ecosystemPlugins?: string[] }
+}
+
 /**
  * Absolute path of the bundled runtime plugin inventory.
  * @param appPath - Electron application root.
@@ -70,6 +74,37 @@ export function discoverRuntimePlugins(appPath: string): RuntimePluginManifest[]
 }
 
 /**
+ * Resolve prebuilt standard DSH packages declared by the Electron distribution.
+ * @param appPath - Electron application root.
+ * @returns manifests backed by installed package artifacts or workspace sources in development.
+ */
+export function discoverEcosystemPlugins(appPath: string): RuntimePluginManifest[] {
+  const appManifestPath = join(appPath, 'package.json')
+  if (!existsSync(appManifestPath)) return []
+  const appManifest = JSON.parse(readFileSync(appManifestPath, 'utf8')) as ElectronPluginInventoryManifest
+  const names = appManifest.dshElectron?.ecosystemPlugins ?? []
+  return names.map((name) => {
+    const installed = join(appPath, 'node_modules', ...name.split('/'))
+    const workspace = join(appPath, '..', '..', 'packages', 'dsh-electron', name.split('/').at(-1) ?? '')
+    const rootPath = existsSync(installed) ? installed : workspace
+    const manifestPath = join(rootPath, 'package.json')
+    if (!existsSync(manifestPath)) {
+      throw new Error(`ecosystem plugins: ${name} is declared but not installed at ${installed}`)
+    }
+    const manifest = JSON.parse(readFileSync(manifestPath, 'utf8')) as { name?: string; dsh?: { client?: unknown } }
+    if (manifest.name !== name) {
+      throw new Error(`ecosystem plugins: expected ${name} at ${manifestPath}, found ${String(manifest.name)}`)
+    }
+    return {
+      name,
+      directoryName: name.split('/').at(-1) ?? name,
+      rootPath,
+      hasClient: manifest.dsh?.client !== undefined,
+    }
+  })
+}
+
+/**
  * Validate that a bundled plugin has the expected built artifacts.
  * @param plugin - Discovered plugin manifest.
  */
@@ -102,7 +137,7 @@ export function profileModuleLinkPath(harnessHome: string, packageName: string):
  * @param harnessHome - `$DSH_HOME` root used by the supervised Host.
  */
 export function ensureRuntimePluginsLinked(appPath: string, harnessHome: string): void {
-  const plugins = discoverRuntimePlugins(appPath)
+  const plugins = [...discoverRuntimePlugins(appPath), ...discoverEcosystemPlugins(appPath)]
   if (plugins.length === 0) {
     throw new Error(`runtime plugins: no bundled plugins under ${runtimePluginsRoot(appPath)}`)
   }

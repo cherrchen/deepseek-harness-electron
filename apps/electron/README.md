@@ -14,7 +14,7 @@ Desktop separates three layers:
 | ----- | ---- |
 | Electron Runtime | Window/tray/menu/updater, OS privileges, security policy, Host process supervision, packaging |
 | DeepSeek Harness | Agents, sessions, tools, models, profiles, Cordis Host/client runtime, persistence |
-| Feature plugins | Independent downstream product UI (preferred home for new Desktop features) |
+| Feature plugins | Portable or Desktop-aware product features packaged as standard DSH plugins |
 
 Process topology:
 
@@ -30,8 +30,8 @@ Governing rules for contributors:
 
 - Desktop-only work stays under `apps/electron/**`; do not customize Desktop UI through `apps/web`.
 - Keep `src/renderer` a thin bootstrap/carrier; do not grow a second product frontend there.
-- Independent product features SHOULD be DSH/Cordis plugins under `runtime/plugins/`; Host composition stays explicit in `runtime/host.patch.yml`.
-- Feature plugins consume native behavior through the `ctx.desktop` capability service (Desktop Capability Provider), not direct `window.deepseekDesktop` access.
+- Portable and Desktop-aware product features belong in standard DSH/Cordis packages under `packages/dsh-electron/`; `runtime/plugins/` is reserved for Desktop-required adapters and carrier integration. Host composition stays explicit in `runtime/host.patch.yml`.
+- A Desktop-aware feature keeps its core fiber portable and installs native enhancements through an optional `ctx.inject(['desktop'], ...)` child fiber. It consumes the `ctx.desktop` capability service, never `window.deepseekDesktop` directly.
 - Loopback Host transport is an internal compatibility mechanism, not a defect to remove without evidence.
 
 ## Development
@@ -55,7 +55,7 @@ pnpm --filter @dsh-electron/dsh-electron test
 
 The main window uses a hidden title bar without a separate heading row. The sidebar and conversation backgrounds extend to the window top: macOS reserves a draggable sidebar inset for its traffic lights, while the Windows and Linux sidebar content starts at the top edge because their Window Controls Overlay occupies only the top-right corner. Unused parts of the active conversation header are draggable, and a transparent 40-pixel hit surface covers the empty-session background. Header controls are explicitly non-draggable, and every page drag region is suspended while a modal dialog is open so its mask and controls retain pointer input. Closing the main window hides it while the Harness process continues running. Use the tray menu to reopen the window or quit the application and stop the supervised process.
 
-OS desktop capabilities are owned by Electron Main and exposed through the typed `window.deepseekDesktop` preload bridge. The Desktop Capability Provider plugin (`runtime/plugins/desktop-capabilities`) adapts that bridge into `ctx.desktop` for feature plugins. The supervised Host receives an `apps/electron/runtime` cordis overlay that disables Host `directory-picker-auto`, keeps the browse Host backend so `directoryPicker` still injects for apiproxy, mounts the capability provider, mounts an Electron-local directory-flow client plugin (no browse client), and mounts an Electron-local brand plugin that always fills the shipped brand slots, so Windows no longer uses the Koffi native picker worker and Desktop branding does not require the upstream official client build profile. Bundled runtime plugins are built by `scripts/build-runtime-plugins.mjs` and linked into `$DSH_HOME/profiles/node_modules` at startup. Upstream UI clipboard writes are redirected through a narrow renderer shim to Main until an upstream injection seam exists. External URLs opened as new windows must use `https:`, `http:`, or `mailto:`.
+OS desktop capabilities are owned by Electron Main and exposed through the typed `window.deepseekDesktop` preload bridge. The Desktop Capability Provider plugin (`runtime/plugins/desktop-capabilities`) adapts that bridge into `ctx.desktop` for feature plugins. The supervised Host receives an `apps/electron/runtime` cordis overlay that disables Host `directory-picker-auto`, keeps the browse Host backend so `directoryPicker` still injects for apiproxy, mounts the capability provider, mounts an Electron-local directory-flow client plugin (no browse client), mounts an Electron-local brand plugin that always fills the shipped brand slots, and mounts standard ecosystem plugins such as `@dsh-electron/dsh-plugin-git`. Desktop-required runtime adapters are built by `scripts/build-runtime-plugins.mjs`; standard ecosystem plugins retain their independently built Host and Client artifacts. Both categories are linked into `$DSH_HOME/profiles/node_modules` at startup. Upstream UI clipboard writes are redirected through a narrow renderer shim to Main until an upstream injection seam exists. External URLs opened as new windows must use `https:`, `http:`, or `mailto:`.
 
 The native page context menu exposes cut, copy, paste, select all, and reload according to Chromium's current editing capabilities; development builds also expose DevTools. The application menu and tray menu provide the desktop-owned About window, update channel selection, and manual update check.
 

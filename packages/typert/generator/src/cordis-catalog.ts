@@ -116,6 +116,8 @@ export interface CordisCatalogPolicy {
   readonly foundationTypeNames: ReadonlySet<string>
   /** Repository types deliberately documented outside the linked data catalog. */
   readonly typeLinkExemptions: Readonly<Record<string, string>>
+  /** Services deliberately documented outside the generated catalog and service graphs. */
+  readonly serviceExclusions?: ReadonlySet<string>
   /** Framework Services included in the model-facing runtime catalog but not the harness documentation partition. */
   readonly runtimeServices?: readonly ServiceEntry[]
   /** Harness Services omitted from the model-facing runtime catalog because dynamic Plugins must not call them. */
@@ -278,7 +280,13 @@ export class CordisCatalogProjector {
     const entries: ServiceEntry[] = []
     const violations: string[] = []
     const typeLinkViolations: string[] = []
-    for (const service of this.renderableServices()) {
+    const renderable = this.renderableServices()
+    const renderableKeys = new Set(renderable.map(service => service.key))
+    for (const excluded of this.policy.serviceExclusions ?? []) {
+      if (!renderableKeys.has(excluded)) violations.push(`service exclusion ctx.${excluded} does not name a renderable service.`)
+    }
+    for (const service of renderable) {
+      if (this.policy.serviceExclusions?.has(service.key)) continue
       const declaration = this.renderer.declaration(service.symbol)
       const parsedDeclaration = parseJsDoc(declaration.jsDoc ?? '')
       if (parsedDeclaration.deprecated) continue

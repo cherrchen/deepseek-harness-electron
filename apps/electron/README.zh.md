@@ -14,7 +14,7 @@ Desktop 分离三层：
 | ---- | ---- |
 | Electron Runtime | 窗口/托盘/菜单/更新器、OS 特权、安全策略、Host 进程监督、打包 |
 | DeepSeek Harness | Agent、会话、工具、模型、profile、Cordis Host/Client 运行时、持久化 |
-| Feature plugins | 独立的下游产品 UI（新 Desktop 功能的首选落点） |
+| Feature plugins | 以标准 DSH 插件封装的 portable 或 Desktop-aware 产品功能 |
 
 进程拓扑：
 
@@ -30,8 +30,8 @@ Electron Main
 
 - Desktop 专属改动留在 `apps/electron/**`；不要通过改 `apps/web` 做 Desktop-only UI。
 - 保持 `src/renderer` 为薄 bootstrap/carrier；不要在此长出第二套产品前端。
-- 独立产品功能 SHOULD 落在 `runtime/plugins/` 下的 DSH/Cordis 插件；Host 组合由 `runtime/host.patch.yml` 显式声明。
-- Feature 插件通过 `ctx.desktop` 能力服务（Desktop Capability Provider）消费原生能力，不得直接访问 `window.deepseekDesktop`。
+- Portable 与 Desktop-aware 产品功能归属 `packages/dsh-electron/` 下的标准 DSH/Cordis package；`runtime/plugins/` 仅保留 Desktop-required adapter 与 carrier integration。Host 组合由 `runtime/host.patch.yml` 显式声明。
+- Desktop-aware feature 保持 core fiber portable，并通过 optional `ctx.inject(['desktop'], ...)` child fiber 安装原生增强。它通过 `ctx.desktop` 能力服务消费原生能力，不得直接访问 `window.deepseekDesktop`。
 - 环回 Host 传输是内部兼容机制，无证据时不要为架构纯粹性替换它。
 
 ## 开发
@@ -55,7 +55,7 @@ pnpm --filter @dsh-electron/dsh-electron test
 
 主窗口使用隐藏标题栏，不绘制独立 Heading。侧栏和会话背景延伸至窗口顶部：macOS 在侧栏顶部保留可拖拽的“交通信号灯”区域；Windows 和 Linux 的 Window Controls Overlay 只占据右上角，因此侧栏内容从窗口顶边开始。活动会话 Header 的非交互部分可拖拽，空白会话背景顶部则覆盖一个透明的 40 像素命中面。Header 控件被明确排除拖拽；模态对话框打开期间，页面的所有拖拽区域均会暂停，使对话框遮罩和控件能够保持指针输入。关闭主窗口会隐藏窗口，Harness 进程继续运行。通过托盘菜单可以重新打开窗口，也可以退出应用并停止受监管的子进程。
 
-操作系统桌面能力由 Electron Main 拥有，并通过类型化的 `window.deepseekDesktop` preload 桥暴露。Desktop Capability Provider 插件（`runtime/plugins/desktop-capabilities`）将该桥适配为 feature 插件可用的 `ctx.desktop`。受监督 Host 接收 `apps/electron/runtime` 下的 cordis overlay：禁用 Host `directory-picker-auto`，保留 browse Host 后端以便 `directoryPicker` 仍能注入 apiproxy，挂载 capability provider，挂载 Electron 本地 directory-flow client 插件（不挂载 browse client），并挂载始终填充已交付品牌 slot 的 Electron 本地品牌插件，因此 Windows 不再使用 Koffi native picker worker，且 Desktop 品牌不依赖上游 official client 构建 profile。Bundled runtime 插件由 `scripts/build-runtime-plugins.mjs` 构建，并在启动时链接到 `$DSH_HOME/profiles/node_modules`。上游 UI 的剪贴板写入在存在上游注入 seam 之前，经 Renderer 侧窄 shim 转到 Main。以新窗口打开的外部 URL 必须使用 `https:`、`http:` 或 `mailto:`。
+操作系统桌面能力由 Electron Main 拥有，并通过类型化的 `window.deepseekDesktop` preload 桥暴露。Desktop Capability Provider 插件（`runtime/plugins/desktop-capabilities`）将该桥适配为 feature 插件可用的 `ctx.desktop`。受监督 Host 接收 `apps/electron/runtime` 下的 cordis overlay：禁用 Host `directory-picker-auto`，保留 browse Host 后端以便 `directoryPicker` 仍能注入 apiproxy，挂载 capability provider，挂载 Electron 本地 directory-flow client 插件（不挂载 browse client），挂载始终填充已交付品牌 slot 的 Electron 本地品牌插件，并挂载 `@dsh-electron/dsh-plugin-git` 等标准生态插件。`scripts/build-runtime-plugins.mjs` 只构建 Desktop-required runtime adapter；标准生态插件保留独立构建的 Host 与 Client artifact。两类插件均在启动时链接到 `$DSH_HOME/profiles/node_modules`。上游 UI 的剪贴板写入在存在上游注入 seam 之前，经 Renderer 侧窄 shim 转到 Main。以新窗口打开的外部 URL 必须使用 `https:`、`http:` 或 `mailto:`。
 
 原生页面右键菜单根据 Chromium 当前的编辑能力提供剪切、复制、粘贴、全选和刷新；开发构建还提供 DevTools。应用菜单和托盘菜单提供桌面端自有的“关于”窗口、更新通道选择和手动更新检查入口。
 
