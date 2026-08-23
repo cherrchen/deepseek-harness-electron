@@ -34,6 +34,32 @@ describe('directory picker feature plugin regression', () => {
   })
 })
 
+describe('desktop brand feature plugin regression', () => {
+  it('always registers brand slots without gating on DSH_CLIENT_BUILD_PROFILE', () => {
+    const source = readFileSync(
+      join(electronRoot, 'runtime', 'plugins', 'ui-brand-electron', 'src', 'client', 'index.ts'),
+      'utf8',
+    )
+    expect(source).toContain('sidebar.brand.mark')
+    expect(source).toContain('sidebar.brand.name')
+    expect(source).toContain('conversation.hero.brand.mark')
+    expect(source).not.toContain('DSH_CLIENT_BUILD_PROFILE')
+  })
+
+  it('declares ui-primitives as a client external and brand declarers as inject edges', () => {
+    const manifest = JSON.parse(
+      readFileSync(join(electronRoot, 'runtime', 'plugins', 'ui-brand-electron', 'package.json'), 'utf8'),
+    ) as { name?: string; dsh?: { client?: { inject?: string[]; external?: string[] } } }
+    expect(manifest.name).toBe('@dsh-electron/dsh-electron-ui-brand')
+    expect(manifest.dsh?.client?.inject).toEqual(expect.arrayContaining([
+      '@deepseek-ai/dsh-client-runtime',
+      '@deepseek-ai/dsh-client-ui-conversation',
+      '@deepseek-ai/dsh-client-ui-sidebar',
+    ]))
+    expect(manifest.dsh?.client?.external).toContain('@deepseek-ai/dsh-client-ui-primitives')
+  })
+})
+
 describe('production runtime plugin packaging inventory', () => {
   it('includes built artifacts for every bundled production plugin and excludes test fixtures', () => {
     const pluginsRoot = join(electronRoot, 'runtime', 'plugins')

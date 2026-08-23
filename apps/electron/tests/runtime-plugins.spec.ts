@@ -59,6 +59,7 @@ describe('runtime plugin discovery', () => {
     const names = plugins.map(plugin => plugin.name)
     expect(names).toContain('@dsh-electron/dsh-electron-desktop-capabilities')
     expect(names).toContain('@dsh-electron/dsh-electron-ui-directory-picker')
+    expect(names).toContain('@dsh-electron/dsh-electron-ui-brand')
   })
 
   it('ignores non-plugin files under runtime/plugins', async () => {
@@ -182,7 +183,7 @@ describe('runtime plugin inventory layout', () => {
 })
 
 describe('Host patch composition', () => {
-  it('mounts desktop capabilities before the directory picker and disables upstream auto picker', async () => {
+  it('mounts desktop capabilities, directory picker, and brand plugins and disables upstream auto picker', async () => {
     const userData = await mkdtemp(join(tmpdir(), 'dsh-electron-patch-'))
     try {
       const patchPath = resolveHostPatchPath(electronRoot, userData)
@@ -191,13 +192,17 @@ describe('Host patch composition', () => {
       expect(body).toContain('@deepseek-ai/dsh-host-directory-picker-browse')
       expect(body).toContain('@dsh-electron/dsh-electron-desktop-capabilities')
       expect(body).toContain('@dsh-electron/dsh-electron-ui-directory-picker')
+      expect(body).toContain('@dsh-electron/dsh-electron-ui-brand')
       expect(body).toContain('desktop-capabilities')
       expect(body).toContain('desktop-directory-picker')
+      expect(body).toContain('desktop-ui-brand')
       expect(body).not.toContain('directory-picker-browse-client')
       const capabilitiesIndex = body.indexOf('desktop-capabilities')
       const pickerIndex = body.indexOf('desktop-directory-picker')
+      const brandIndex = body.indexOf('desktop-ui-brand')
       expect(capabilitiesIndex).toBeGreaterThan(-1)
       expect(pickerIndex).toBeGreaterThan(capabilitiesIndex)
+      expect(brandIndex).toBeGreaterThan(pickerIndex)
     } finally {
       await rm(userData, { recursive: true, force: true })
     }
