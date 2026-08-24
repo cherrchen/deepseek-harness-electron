@@ -23,6 +23,8 @@ Electron 通过 `apps/electron/src/runtime-plugins.ts` 发现两类 bundled 插�
 
 链接本身不是启用状态信号。Electron 会把 bundled artifact 同时暴露到 `$DSH_HOME/profiles/node_modules` 与 `$DSH_HOME/electron/node_modules`；运行时启停仅由生成的 Cordis 组合控制。
 
+每个 lifecycle entry 还会携带从 bundled npm `package.json` 读取的 package `version` 与可选 `description`。Electron 不维护单独的插件元数据格式。
+
 ## 运行时拥有的文件
 
 Electron 在 `$DSH_HOME/electron/` 下写入这些文件：
@@ -50,7 +52,9 @@ Electron Main 以如下顺序启动 Host：
 
 ## 运行时操作
 
-`PluginLifecycleController` 串行化 `list()`、`enable(name)`、`disable(name)` 与 `reload(name)`。
+`PluginLifecycleController` 通过一个全局 mutation queue 串行化 `enable(name)`、`disable(name)` 与 `reload(name)`。每次 mutation 都可能重新生成并应用完整的 effective roster，因此不同 plugin name 不使用独立队列。
+
+`list()` 绕过 mutation queue，并发读取当前 Host inventory。因此 Renderer polling 能在 mutation 稳定期间观察 transition phase。在此期间，`desiredEnabled` 保持为最后一次成功持久化的状态；Renderer 会组合 Host runtime state 与当前 operation record，而不会把 desired state 当作进度信号。
 
 这些操作通过重写 `plugins.cordis.yml` 来修改 desired state，然后轮询现有 Host `pluginInventory.list()` Remote 真相，直到目标状态稳定：
 
@@ -59,6 +63,16 @@ Electron Main 以如下顺序启动 Host：
 * **reload** 移除该包、等待消失、恢复该包、再等待其变为 `active`。
 
 若稳定失败，Electron 会先恢复上一份生成 roster，再向外报告失败。controller 还会在连续 mutation 之间等待一个 HMR quiet window，避免第二次生成文件写入落在前一次变更的 watcher debounce 窗口内。
+
+## Desktop 管理 view
+
+preload lifecycle group 通过 `@dsh-electron/dsh-electron-desktop-capabilities` 适配为 `ctx.desktop.plugins`。Desktop feature plugin 不直接读取 `window.deepseekDesktop.plugins`。
+
+`@dsh-electron/dsh-electron-ui-plugin-manager` 在 upstream 拥有的 `settings.plugins.tab` slot 中注册 order 为 `20` 的 `installed` contribution。upstream Plugins section 继续拥有 navigation、tab chrome、selection、keyboard behavior 与 mount lifecycle；Electron 不注册另一个 `settings.section`。
+
+“已安装”tab 仅在 mount 后读取第一份 lifecycle snapshot。它在主列表中展示可管理的 ecosystem 插件，并在默认折叠、只读的“系统组件”折叠区中展示必需的 Desktop runtime 插件。搜索会在 client 侧过滤 package name、display name 与 description。
+
+一次 enable、disable 或 reload 命令进行期间，该 view 会短周期轮询 `list()`，并禁用所有插件的 mutation 按钮。搜索、滚动与“系统组件”折叠操作仍可使用。命令稳定后，view 停止轮询，读取一份最终 snapshot，并使用 Main 与 Host 真相替换本地 lifecycle state。命令失败时，界面会报告操作与 rollback，但不会向用户渲染原始 rejection。
 
 ## Renderer refresh 边界
 
@@ -105,5 +119,7 @@ Electron 只会在 Host 稳定之后，并且仅当 manageable 插件分发产�
 * runtime overlay 渲染与占位符替换；
 * plugin-state 解析与持久化行为；
 * runtime config 的确定性生成；
-* lifecycle controller 的成功路径、回滚、串行化与 client-refresh 分支；
+* lifecycle controller 的成功路径、回滚、串行 mutation、并发读取与 client-refresh 分支；
+* lazy `ctx.desktop.plugins` forwarding 与 Plugin Manager slot redeclaration；
+* mutation polling、cleanup、最终协调、action、全局 locking、本地搜索与只读系统组件；
 * 通过 fixture 插件与 bundled Git 插件验证真实 Host 的 disable/enable/reload，并确认 PID 保持不变。

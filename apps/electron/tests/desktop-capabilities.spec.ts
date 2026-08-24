@@ -98,7 +98,7 @@ describe('desktop capability provider contract', () => {
     const ctx = new Context()
     const fiber = ctx.plugin(DesktopCapabilitiesService)
     await fiber.await()
-    const desktop = ctx.get('desktop') as unknown as DesktopCapabilitiesContract | undefined
+    const desktop = ctx.get('desktop')
     if (desktop === undefined) throw new Error('desktop capability service was not registered')
     await expect(desktop.dialog.pickDirectory()).rejects.toThrow(/window\.deepseekDesktop is unavailable/)
     await expect(desktop.plugins.list()).rejects.toThrow(/window\.deepseekDesktop is unavailable/)

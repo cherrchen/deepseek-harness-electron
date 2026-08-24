@@ -23,6 +23,7 @@ describe('runtime overlay plugin seat', () => {
       expect(body).toContain('@dsh-electron/dsh-electron-desktop-capabilities')
       expect(body).toContain('@dsh-electron/dsh-electron-ui-directory-picker')
       expect(body).toContain('@dsh-electron/dsh-electron-ui-brand')
+      expect(body).toContain('@dsh-electron/dsh-electron-ui-plugin-manager')
       expect(body).toContain("name: 'cordis:include'")
       expect(body).toContain('plugins.cordis.yml')
       expect(body).toContain('disabled: false')
