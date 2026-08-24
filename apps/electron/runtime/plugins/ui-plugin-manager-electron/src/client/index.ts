@@ -4,7 +4,7 @@ import type {} from '@deepseek-ai/dsh-client-locale/client'
 import type { ClientContext } from '@deepseek-ai/dsh-client-runtime/client'
 import type {} from '@deepseek-ai/dsh-client-ui-settings/client'
 import type {} from '@dsh-electron/dsh-electron-desktop-capabilities/client'
-import { PluginManagerTab } from './PluginManagerTab.tsx'
+import { PluginManagerTab, type PluginManagerTabInjected } from './PluginManagerTab.tsx'
 import { en, zh, type PluginManagerLocaleKey } from './locales.ts'
 
 declare module '@deepseek-ai/dsh-client-ui-slots' {
@@ -24,11 +24,13 @@ export const inject = ['slots', 'locale', 'desktop']
 export function apply(ctx: ClientContext): void {
   ctx.effect(() => ctx.locale.register(NS, { zh, en }), 'ui-plugin-manager-electron: dictionaries')
   const t = ctx.locale.bind(NS)
+  const injected = (): PluginManagerTabInjected => ({ plugins: ctx.desktop.plugins })
   ctx.slots.inject('settings.plugins.tab', () => ctx.slots.register({
     name: 'settings.plugins.tab',
     id: 'installed',
     order: 20,
     label: () => t('tab'),
     locale: NS,
+    inject: injected,
   }, PluginManagerTab))
 }
