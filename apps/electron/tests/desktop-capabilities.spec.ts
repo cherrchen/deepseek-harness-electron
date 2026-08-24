@@ -36,6 +36,12 @@ describe('desktop capability provider contract', () => {
       notification: {
         show: async () => { calls.push('notification.show'); return { shown: true } },
       },
+      plugins: {
+        list: async () => { calls.push('plugins.list'); return { entries: [] } },
+        enable: async (name: string) => { calls.push(`plugins.enable:${name}`) },
+        disable: async (name: string) => { calls.push(`plugins.disable:${name}`) },
+        reload: async (name: string) => { calls.push(`plugins.reload:${name}`) },
+      },
       updater: {
         check: async () => { calls.push('updater.check') },
         download: async () => { calls.push('updater.download') },
@@ -66,15 +72,23 @@ describe('desktop capability provider contract', () => {
 
     const desktop: DesktopCapabilitiesContract = createDesktopCapabilities(requireDesktopBridge())
     expect(Object.keys(desktop).sort()).toEqual([
-      'app', 'clipboard', 'dialog', 'notification', 'shell', 'theme', 'updater', 'window',
+      'app', 'clipboard', 'dialog', 'notification', 'plugins', 'shell', 'theme', 'updater', 'window',
     ])
     expect(await desktop.dialog.pickDirectory()).toEqual({ path: '/tmp' })
     expect(await desktop.updater.getState()).toEqual({ state: 'idle' })
     await desktop.clipboard.writeText('hello')
     desktop.updater.subscribe(() => {})
+    expect(await desktop.plugins.list()).toEqual({ entries: [] })
+    await desktop.plugins.enable('@example/plugin')
+    await desktop.plugins.disable('@example/plugin')
+    await desktop.plugins.reload('@example/plugin')
     expect(calls).toContain('dialog.pickDirectory')
     expect(calls).toContain('clipboard.writeText:hello')
     expect(calls).toContain('updater.subscribe')
+    expect(calls).toContain('plugins.list')
+    expect(calls).toContain('plugins.enable:@example/plugin')
+    expect(calls).toContain('plugins.disable:@example/plugin')
+    expect(calls).toContain('plugins.reload:@example/plugin')
     expect(JSON.stringify(desktop)).not.toContain('ipcRenderer')
     expect(JSON.stringify(desktop)).not.toContain('invoke')
   })
@@ -87,5 +101,6 @@ describe('desktop capability provider contract', () => {
     const desktop = ctx.get('desktop') as unknown as DesktopCapabilitiesContract | undefined
     if (desktop === undefined) throw new Error('desktop capability service was not registered')
     await expect(desktop.dialog.pickDirectory()).rejects.toThrow(/window\.deepseekDesktop is unavailable/)
+    await expect(desktop.plugins.list()).rejects.toThrow(/window\.deepseekDesktop is unavailable/)
   })
 })

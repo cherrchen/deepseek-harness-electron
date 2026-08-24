@@ -103,6 +103,16 @@ export interface DesktopCapabilitiesContract {
     /** Show an OS notification; click handling stays in Main. */
     show(options: DesktopNotificationOptions): Promise<DesktopNotificationResult>
   }
+  plugins: {
+    /** Read current lifecycle state for bundled plugins. */
+    list(): Promise<import('../../../../../src/plugin-lifecycle-contract.ts').PluginLifecycleSnapshot>
+    /** Enable one manageable bundled ecosystem plugin. */
+    enable(name: string): Promise<void>
+    /** Disable one manageable bundled ecosystem plugin. */
+    disable(name: string): Promise<void>
+    /** Reload one enabled manageable bundled ecosystem plugin. */
+    reload(name: string): Promise<void>
+  }
   updater: {
     /** Request an update check. */
     check(): Promise<void>
@@ -140,6 +150,7 @@ interface DesktopBridge {
   clipboard: DesktopCapabilitiesContract['clipboard']
   shell: DesktopCapabilitiesContract['shell']
   notification: DesktopCapabilitiesContract['notification']
+  plugins: DesktopCapabilitiesContract['plugins']
   updater: DesktopCapabilitiesContract['updater']
   theme: DesktopCapabilitiesContract['theme']
   window: DesktopCapabilitiesContract['window']
@@ -189,6 +200,12 @@ export function createDesktopCapabilities(bridge: DesktopBridge): DesktopCapabil
     },
     notification: {
       show: options => bridge.notification.show(options),
+    },
+    plugins: {
+      list: () => bridge.plugins.list(),
+      enable: name => bridge.plugins.enable(name),
+      disable: name => bridge.plugins.disable(name),
+      reload: name => bridge.plugins.reload(name),
     },
     updater: {
       check: () => bridge.updater.check(),

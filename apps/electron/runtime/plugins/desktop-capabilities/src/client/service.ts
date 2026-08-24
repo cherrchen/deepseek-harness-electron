@@ -37,6 +37,12 @@ function createLazyDesktopCapabilities(): DesktopCapabilitiesContract {
     notification: {
       show: async options => resolve().notification.show(options),
     },
+    plugins: {
+      list: async () => resolve().plugins.list(),
+      enable: async name => resolve().plugins.enable(name),
+      disable: async name => resolve().plugins.disable(name),
+      reload: async name => resolve().plugins.reload(name),
+    },
     updater: {
       check: async () => resolve().updater.check(),
       download: async () => resolve().updater.download(),
@@ -64,6 +70,7 @@ export class DesktopCapabilitiesService extends Service implements DesktopCapabi
   readonly clipboard: DesktopCapabilitiesContract['clipboard']
   readonly shell: DesktopCapabilitiesContract['shell']
   readonly notification: DesktopCapabilitiesContract['notification']
+  readonly plugins: DesktopCapabilitiesContract['plugins']
   readonly updater: DesktopCapabilitiesContract['updater']
   readonly theme: DesktopCapabilitiesContract['theme']
   readonly window: DesktopCapabilitiesContract['window']
@@ -79,6 +86,7 @@ export class DesktopCapabilitiesService extends Service implements DesktopCapabi
     this.clipboard = capabilities.clipboard
     this.shell = capabilities.shell
     this.notification = capabilities.notification
+    this.plugins = capabilities.plugins
     this.updater = capabilities.updater
     this.theme = capabilities.theme
     this.window = capabilities.window

@@ -61,6 +61,9 @@ describe('runtime plugin discovery', () => {
     expect(names).toContain('@dsh-electron/dsh-electron-desktop-capabilities')
     expect(names).toContain('@dsh-electron/dsh-electron-ui-directory-picker')
     expect(names).toContain('@dsh-electron/dsh-electron-ui-brand')
+    expect(plugins.every(plugin => plugin.version.length > 0)).toBe(true)
+    expect(plugins.find(plugin => plugin.name === '@dsh-electron/dsh-electron-desktop-capabilities')?.description)
+      .toBe('Desktop capability provider for Electron feature plugins')
   })
 
   it('discovers prebuilt ecosystem plugins without routing them through the Desktop builder', () => {

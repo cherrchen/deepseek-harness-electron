@@ -9,6 +9,8 @@ const lifecycleProbeRoot = fileURLToPath(new URL('./fixtures/plugins/lifecycle-p
 
 const hostOnlyPlugin: ManagedPlugin = {
   name: '@dsh-electron/dsh-plugin-host-only',
+  version: '1.2.3',
+  description: 'Host-only lifecycle fixture',
   directoryName: 'dsh-plugin-host-only',
   rootPath: lifecycleProbeRoot,
   hasClient: false,
@@ -19,6 +21,8 @@ const hostOnlyPlugin: ManagedPlugin = {
 
 const clientPlugin: ManagedPlugin = {
   name: '@dsh-electron/dsh-plugin-client',
+  version: '2.0.0',
+  description: 'Client lifecycle fixture',
   directoryName: 'dsh-plugin-client',
   rootPath: lifecycleProbeRoot,
   hasClient: true,
@@ -29,6 +33,8 @@ const clientPlugin: ManagedPlugin = {
 
 const requiredPlugin: ManagedPlugin = {
   name: '@dsh-electron/dsh-electron-desktop-capabilities',
+  version: '0.1.0',
+  description: 'Desktop capability provider',
   directoryName: 'desktop-capabilities',
   rootPath: lifecycleProbeRoot,
   hasClient: true,
@@ -193,7 +199,54 @@ describe('plugin lifecycle controller', () => {
     expect(backend.applied).toEqual([[hostOnlyPlugin.name], []])
   })
 
-  it('serializes lifecycle operations on one queue', async () => {
+  it('list remains readable while a lifecycle mutation is settling', async () => {
+    let release!: () => void
+    let phase: 'absent' | 'loading' | 'active' = 'absent'
+    const blocked = new Promise<void>((resolve) => { release = resolve })
+    const backend: PluginCompositionBackend = {
+      apply: async () => {
+        phase = 'loading'
+        await blocked
+        phase = 'active'
+      },
+    }
+    const inventory: PluginInventoryProbe = {
+      list: async () => phase === 'absent'
+        ? absent()
+        : { entries: [{ entryId: 'host-only-id', moduleName: hostOnlyPlugin.name, enabled: true, fiberPhase: phase }] },
+      dispose: async () => {},
+    }
+    const controller = new PluginLifecycleController(
+      [hostOnlyPlugin],
+      { version: 1, disabled: [hostOnlyPlugin.name] },
+      '/tmp/plugin-state.json',
+      backend,
+      inventory,
+      () => {},
+      async () => {},
+      { timeoutMs: 500, pollIntervalMs: 0, hmrQuietMs: 0 },
+    )
+
+    const enabling = controller.enable(hostOnlyPlugin.name)
+    await vi.waitFor(() => { expect(phase).toBe('loading') })
+    await expect(controller.list()).resolves.toEqual({
+      entries: [{
+        name: hostOnlyPlugin.name,
+        version: hostOnlyPlugin.version,
+        description: hostOnlyPlugin.description,
+        source: 'ecosystem',
+        hasClient: false,
+        manageable: true,
+        required: false,
+        desiredEnabled: false,
+        runtime: 'loading',
+      }],
+    })
+    release()
+    await enabling
+  })
+
+  it('serializes lifecycle mutations on one queue', async () => {
     let release = Promise.resolve()
     const apply = vi.fn(async (roster: readonly ManagedPlugin[]) => {
       if (roster.some(plugin => plugin.name === clientPlugin.name)) await release
