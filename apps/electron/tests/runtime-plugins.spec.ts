@@ -74,6 +74,18 @@ describe('runtime plugin discovery', () => {
     expect(readFileSync(buildScript, 'utf8')).not.toContain('packages/dsh-electron')
   })
 
+  it('declares Details Host as Git\'s module-table request so boot arrives that factory first', () => {
+    const git = discoverEcosystemPlugins(electronRoot)
+      .find(plugin => plugin.name === '@dsh-electron/dsh-plugin-git')
+    if (git === undefined) throw new Error('Git ecosystem plugin is missing')
+    const manifest = JSON.parse(readFileSync(join(git.rootPath, 'package.json'), 'utf8')) as {
+      dsh?: { client?: { external?: string[] } }
+    }
+    expect(manifest.dsh?.client?.external).toEqual([
+      '@dsh-electron/dsh-client-ui-details-host/client',
+    ])
+  })
+
   it('classifies runtime adapters and ecosystem plugins for lifecycle management', () => {
     const plugins = discoverManagedPlugins(electronRoot)
     expect(plugins.some(plugin =>
