@@ -8,11 +8,15 @@ A standard DSH/Cordis Git plugin with one portable Host service, one Client bund
 
 The Host plugin requires `ctx.subprocess`, provides `ctx.git`, and starts Git with an executable plus separate argv values. It never invokes a shell. Its optional Connection child registers the loopback `/git` RPC channel when a DSH Web Host is present; the Git service remains active in headless compositions without Connection.
 
-The Client plugin requires the upstream Connection, locale, runtime, layout, and conversation UI plugins. It contributes a branch selector and changed-files indicator to `conversation.input.left`, and a right-side Git drawer to `shell.overlay`. Business components receive a controller through slot injection and do not access Cordis context.
+The Client plugin requires the upstream Connection, locale, runtime, conversation UI, primitives, and `@dsh-electron/dsh-client-ui-details-host`. It contributes a branch selector and changed-files indicator to `conversation.input.left`, and a Git details surface to `shell.details.surface`. Opening Git calls `ctx.shellDetails.open('git')`; the AppFrame details column, resize handle, and close button are owned by Details Host, not this package.
 
-The controller discovers repository state when the workspace changes, independent of drawer visibility. Closing the drawer does not discard the loaded repository snapshot.
+Business components receive a controller and `openDetails()` through slot injection and do not access Cordis context.
+
+The controller discovers repository state when the workspace changes. Details Host unmounts the Git surface when the column closes.
 
 The Client main fiber does not require `desktop`. A child `ctx.inject(['desktop'], ...)` fiber accepts only `shell.showItemInFolder`, `shell.openPath`, and `notification.show`; without them, repository, status, diff, stage, commit, and branch operations remain available and native actions are not shown.
+
+On Electron, Details Host is a required built-in. On other DSH Web hosts, install and enable `@dsh-electron/dsh-client-ui-details-host` alongside this package.
 
 ## Configuration
 
@@ -31,6 +35,8 @@ GitHub authentication, remotes, fetch/pull/push UX, issues, pull requests, stash
 ## Development
 
 Use Node.js `^22.19` or `>=24` with pnpm 11. The standalone repository owns its dependency lockfile and runs the same package tests and bundle configuration used by the DeepSeek Harness subtree.
+
+Until `@dsh-electron/dsh-client-ui-details-host@0.1.0` is published to npm, local development installs the pinned fixture tarball under `tests/fixtures/`. Replace that dev-only path with the registry range once the public artifact is available.
 
 ```sh
 pnpm install --frozen-lockfile

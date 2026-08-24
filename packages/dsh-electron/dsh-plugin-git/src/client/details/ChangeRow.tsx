@@ -1,7 +1,7 @@
 import type { ReactNode } from 'react'
 import { Button } from '@deepseek-ai/dsh-client-ui-primitives'
 import { splitRepoPath } from '../path-display.ts'
-import css from '../GitDrawer.module.css'
+import css from '../GitDetailsSurface.module.css'
 
 /** Render one changed-file row with status, path, and action. */
 export function ChangeRow({ status, path, action, onSelect, onAction }: {

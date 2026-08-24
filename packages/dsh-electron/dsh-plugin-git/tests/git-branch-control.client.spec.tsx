@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { describe, expect, it, vi } from 'vitest'
-import { render, waitFor } from '@testing-library/react'
+import { render, waitFor, fireEvent, screen } from '@testing-library/react'
 import type { SessionId } from '@deepseek-ai/dsh-client-connection/client'
 import type { SessionListState, SessionSummary } from '@deepseek-ai/dsh-client-runtime/client'
 import type { PropsLocale } from '@deepseek-ai/dsh-client-ui-slots'
@@ -36,8 +36,7 @@ function controllerOf(state: GitClientState): GitClientController {
     },
     setWorkspace: vi.fn(async () => {}),
     refresh: vi.fn(async () => {}),
-    openDrawer: vi.fn(async () => {}),
-    closeDrawer: vi.fn(),
+    openDetails: vi.fn(),
     selectTab: vi.fn(),
     selectDiff: vi.fn(async () => {}),
     stage: vi.fn(async () => {}),
@@ -79,8 +78,13 @@ const unused = (): never => { throw new Error('unused') }
 
 describe('GitBranchControl', () => {
   const t = ((key: keyof typeof en) => en[key]) as PropsLocale<'git'>['t']
-  const baseProps = (controller: GitClientController, list: SessionListState) => ({
+  const baseProps = (
+    controller: GitClientController,
+    list: SessionListState,
+    openDetails: ReturnType<typeof vi.fn> = vi.fn(),
+  ) => ({
     controller,
+    openDetails,
     t,
     useSessions: <S,>(selector: (s: SessionListState) => S): S => selector(list),
     useSession: unused,
@@ -102,7 +106,6 @@ describe('GitBranchControl', () => {
     const controller = controllerOf({
       workspacePath: undefined,
       repository: snapshot({ branch: 'develop' }),
-      drawerOpen: false,
       activeTab: 'changes',
       selectedDiff: undefined,
       diff: undefined,
@@ -127,7 +130,6 @@ describe('GitBranchControl', () => {
     const pending = controllerOf({
       workspacePath: '/projects/plain',
       repository: undefined,
-      drawerOpen: false,
       activeTab: 'changes',
       selectedDiff: undefined,
       diff: undefined,
@@ -143,7 +145,6 @@ describe('GitBranchControl', () => {
     const nonRepo = controllerOf({
       workspacePath: '/projects/plain',
       repository: null,
-      drawerOpen: false,
       activeTab: 'changes',
       selectedDiff: undefined,
       diff: undefined,
@@ -153,5 +154,23 @@ describe('GitBranchControl', () => {
     })
     rerender(<GitBranchControl {...baseProps(nonRepo, list)} sessionId={SESSION_A} />)
     expect(container.firstChild).toBeNull()
+  })
+
+  it('calls openDetails when the changes indicator is clicked', () => {
+    const openDetails = vi.fn()
+    const controller = controllerOf({
+      workspacePath: '/projects/alpha',
+      repository: snapshot({ unstaged: [{ path: 'src/a.ts', status: ' M' }] }),
+      activeTab: 'changes',
+      selectedDiff: undefined,
+      diff: undefined,
+      loading: false,
+      error: undefined,
+      desktopAvailable: false,
+    })
+    const list = sessionsOf({ [SESSION_A]: '/projects/alpha' })
+    render(<GitBranchControl {...baseProps(controller, list, openDetails)} sessionId={SESSION_A} />)
+    fireEvent.click(screen.getByRole('button', { name: /1 changes/i }))
+    expect(openDetails).toHaveBeenCalledWith('changes')
   })
 })

@@ -4,7 +4,7 @@ import type { GitClientController } from '../controller.ts'
 import type { GitLocaleKey } from '../locales.ts'
 import { changedPathCount } from '../changed-path-count.ts'
 import { BulkActions, ChangeSection } from './ChangeSection.tsx'
-import css from '../GitDrawer.module.css'
+import css from '../GitDetailsSurface.module.css'
 
 /** Render the Changes tab with staged, unstaged, and untracked sections. */
 export function ChangesTab({ repository, controller, t, loading, error }: {
@@ -18,37 +18,37 @@ export function ChangesTab({ repository, controller, t, loading, error }: {
   return (
     <div className={css.tabBody}>
       {error !== undefined && <p className={css.error} role="alert">{error}</p>}
-      {clean && <p className={css.empty}>{t('drawer.clean')}</p>}
+      {clean && <p className={css.empty}>{t('details.clean')}</p>}
       <ChangeSection
-        title={t('drawer.staged')}
+        title={t('details.staged')}
         changes={repository.staged}
-        action={t('drawer.unstage')}
+        action={t('details.unstage')}
         onSelect={(path) => { void controller.selectDiff(path, true) }}
         onAction={(path) => { void controller.unstage(path) }}
       />
       <ChangeSection
-        title={t('drawer.unstaged')}
+        title={t('details.unstaged')}
         changes={repository.unstaged}
-        action={t('drawer.stage')}
+        action={t('details.stage')}
         onSelect={(path) => { void controller.selectDiff(path, false) }}
         onAction={(path) => { void controller.stage(path) }}
       />
       <ChangeSection
-        title={t('drawer.untracked')}
+        title={t('details.untracked')}
         changes={repository.untracked.map(path => ({ path, status: '??' }))}
-        action={t('drawer.stage')}
+        action={t('details.stage')}
         onSelect={(path) => { void controller.selectDiff(path, false) }}
         onAction={(path) => { void controller.stage(path) }}
       />
       {!clean && (
         <BulkActions
-          stageAllLabel={t('drawer.stageAll')}
-          unstageAllLabel={t('drawer.unstageAll')}
+          stageAllLabel={t('details.stageAll')}
+          unstageAllLabel={t('details.unstageAll')}
           onStageAll={() => { void controller.stage() }}
           onUnstageAll={() => { void controller.unstage() }}
         />
       )}
-      {loading && <p className={css.loadingHint}>{t('drawer.loading')}</p>}
+      {loading && <p className={css.loadingHint}>{t('details.loading')}</p>}
     </div>
   )
 }

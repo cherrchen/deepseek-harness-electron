@@ -3,7 +3,7 @@ import type { GitDiff, GitRepositorySnapshot } from '../../types.ts'
 import type { GitSelectedDiff } from '../controller.ts'
 import type { GitLocaleKey } from '../locales.ts'
 import { splitRepoPath } from '../path-display.ts'
-import css from '../GitDrawer.module.css'
+import css from '../GitDetailsSurface.module.css'
 
 function DiffLine({ line }: { line: string }): ReactNode {
   let className = css.diffPlain
@@ -22,12 +22,12 @@ export function DiffTab({ repository, selectedDiff, diff, clean, t, error }: {
   t: (key: GitLocaleKey) => string
   error: string | undefined
 }): ReactNode {
-  if (clean) return <p className={css.empty}>{t('drawer.noChangesDiff')}</p>
-  if (selectedDiff === undefined) return <p className={css.empty}>{t('drawer.noDiff')}</p>
+  if (clean) return <p className={css.empty}>{t('details.noChangesDiff')}</p>
+  if (selectedDiff === undefined) return <p className={css.empty}>{t('details.noDiff')}</p>
   const untracked = repository.untracked.includes(selectedDiff.path)
-  if (untracked) return <p className={css.empty}>{t('drawer.untrackedDiff')}</p>
+  if (untracked) return <p className={css.empty}>{t('details.untrackedDiff')}</p>
   const { name, dir } = splitRepoPath(selectedDiff.path)
-  const mode = selectedDiff.staged ? t('drawer.stagedLabel') : t('drawer.workingTree')
+  const mode = selectedDiff.staged ? t('details.stagedLabel') : t('details.workingTree')
   return (
     <div className={css.tabBody}>
       {error !== undefined && <p className={css.error} role="alert">{error}</p>}
@@ -38,9 +38,9 @@ export function DiffTab({ repository, selectedDiff, diff, clean, t, error }: {
       </header>
       <div className={css.diffBody}>
         {diff === undefined
-          ? <p className={css.empty}>{t('drawer.loading')}</p>
+          ? <p className={css.empty}>{t('details.loading')}</p>
           : diff.text === ''
-            ? <p className={css.empty}>{t('drawer.clean')}</p>
+            ? <p className={css.empty}>{t('details.clean')}</p>
             : diff.text.split('\n').map((line, index) => <DiffLine key={`${index}:${line}`} line={line} />)}
       </div>
     </div>

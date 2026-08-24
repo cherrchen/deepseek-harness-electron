@@ -1,6 +1,7 @@
 /** Client-side Git state and RPC orchestration. */
 
 import type { GitDiff, GitRepositorySnapshot } from '../types.ts'
+import type { GitDetailsTab } from './contract.ts'
 
 type GitRpcResult = { ok: true; value: unknown } | { ok: false; error: { message: string } }
 
@@ -27,8 +28,6 @@ export interface GitDesktopCapability {
   }
 }
 
-export type GitDrawerTab = 'changes' | 'diff' | 'commit'
-
 /** Selected diff identity retained across refresh. */
 export interface GitSelectedDiff {
   readonly path: string
@@ -38,8 +37,7 @@ export interface GitSelectedDiff {
 export interface GitClientState {
   readonly workspacePath: string | undefined
   readonly repository: GitRepositorySnapshot | null | undefined
-  readonly drawerOpen: boolean
-  readonly activeTab: GitDrawerTab
+  readonly activeTab: GitDetailsTab
   readonly selectedDiff: GitSelectedDiff | undefined
   readonly diff: GitDiff | undefined
   readonly loading: boolean
@@ -47,12 +45,11 @@ export interface GitClientState {
   readonly desktopAvailable: boolean
 }
 
-/** Observable controller shared by the composer control and overlay drawer. */
+/** Observable controller shared by the composer control and details surface. */
 export class GitClientController {
   private state: GitClientState = {
     workspacePath: undefined,
     repository: undefined,
-    drawerOpen: false,
     activeTab: 'changes',
     selectedDiff: undefined,
     diff: undefined,
@@ -102,6 +99,7 @@ export class GitClientController {
       repository: undefined,
       diff: undefined,
       selectedDiff: undefined,
+      activeTab: 'changes',
       error: undefined,
     })
     if (workspacePath === undefined) {
@@ -126,29 +124,10 @@ export class GitClientController {
   }
 
   /**
-   * Open the Git drawer and refresh repository state.
-   * @param tab - Optional tab to activate on open.
-   * @returns Completion after refresh settles.
+   * Activate one details tab.
+   * @param tab - Details tab to show.
    */
-  async openDrawer(tab?: GitDrawerTab): Promise<void> {
-    this.patch({
-      drawerOpen: true,
-      activeTab: tab ?? 'changes',
-      error: undefined,
-    })
-    await this.refresh()
-  }
-
-  /** Close the Git drawer without discarding repository context. */
-  closeDrawer(): void {
-    this.patch({ drawerOpen: false })
-  }
-
-  /**
-   * Activate one drawer tab.
-   * @param tab - Drawer tab to show.
-   */
-  selectTab(tab: GitDrawerTab): void {
+  selectTab(tab: GitDetailsTab): void {
     this.patch({ activeTab: tab })
   }
 
