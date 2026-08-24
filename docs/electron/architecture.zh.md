@@ -123,6 +123,7 @@ DeepSeek Harness Desktop 是构建于上游 `deepseek-ai/deepseek-harness` 仓�
 * `apps/electron/src/harness/**`
 * `apps/electron/src/protocol.ts`
 * `apps/electron/runtime/host.patch.yml`
+* `docs/electron/plugin-lifecycle.md`
 
 ## 5. 当前进程拓扑
 
@@ -330,12 +331,12 @@ Unprivileged Renderer / Client Plugins
 ```text
 runtime/plugins/*          Desktop adapters and Electron carrier plugins (build + link)
 packages/dsh-electron/*    standard public DSH packages (prebuilt + link)
-runtime/host.patch.yml     explicit Cordis composition authority
+runtime/host.patch.yml     bootstrap overlay: desktop adapters, include seat, config-only HMR
 scripts/build-runtime-plugins.mjs
-src/runtime-plugins.ts     discovery, validation, profile linking
+src/runtime-plugins.ts     discovery, validation, profile and nested-include linking
 ```
 
-启动前会把每个 bundled 插件链接到 `$DSH_HOME/profiles/node_modules/<package-name>`，再启动受监督 Host。发现决定 Desktop 随包分发什么；`host.patch.yml` 决定 Desktop profile 挂载什么。
+启动前会把每个 bundled 插件链接到 `$DSH_HOME/profiles/node_modules/<package-name>` 与 `$DSH_HOME/electron/node_modules/<package-name>`，再启动受监督 Host。发现决定 Desktop 随包分发什么。`host.patch.yml` 挂载 Desktop-required adapter 以及一个 `cordis:include` seat；Electron 生成 `$DSH_HOME/electron/plugins.cordis.yml` 作为运行时生态 roster。运行时 enable、disable 与 reload 见 [plugin-lifecycle.zh.md](plugin-lifecycle.zh.md)。
 
 Desktop Capability Provider（`@dsh-electron/dsh-electron-desktop-capabilities`）把 `window.deepseekDesktop` 适配为 feature 插件可用的 `ctx.desktop`。只有 Renderer 基础设施与该 provider 可直接读取全局 bridge。
 

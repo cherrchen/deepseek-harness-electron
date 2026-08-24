@@ -123,6 +123,7 @@ Primary implementation references:
 * `apps/electron/src/harness/**`
 * `apps/electron/src/protocol.ts`
 * `apps/electron/runtime/host.patch.yml`
+* `docs/electron/plugin-lifecycle.md`
 
 ## 5. Current process topology
 
@@ -330,12 +331,12 @@ Milestone 3 established bundled Desktop adapter infrastructure under `apps/elect
 ```text
 runtime/plugins/*          Desktop adapters and Electron carrier plugins (build + link)
 packages/dsh-electron/*    standard public DSH packages (prebuilt + link)
-runtime/host.patch.yml     explicit Cordis composition authority
+runtime/host.patch.yml     bootstrap overlay: desktop adapters, include seat, config-only HMR
 scripts/build-runtime-plugins.mjs
-src/runtime-plugins.ts     discovery, validation, profile linking
+src/runtime-plugins.ts     discovery, validation, profile and nested-include linking
 ```
 
-Startup links every bundled plugin into `$DSH_HOME/profiles/node_modules/<package-name>` before the supervised Host starts. Discovery determines what Desktop ships; `host.patch.yml` determines what the Desktop profile mounts.
+Startup links every bundled plugin into `$DSH_HOME/profiles/node_modules/<package-name>` and `$DSH_HOME/electron/node_modules/<package-name>` before the supervised Host starts. Discovery determines what Desktop ships. `host.patch.yml` mounts Desktop-required adapters plus a `cordis:include` seat; Electron generates `$DSH_HOME/electron/plugins.cordis.yml` as the runtime ecosystem roster. Runtime enable, disable, and reload are documented in [plugin-lifecycle.md](plugin-lifecycle.md).
 
 The Desktop Capability Provider (`@dsh-electron/dsh-electron-desktop-capabilities`) adapts `window.deepseekDesktop` into `ctx.desktop` for feature plugins. Only renderer infrastructure and the provider read the global bridge directly.
 

@@ -1,6 +1,6 @@
 # Bilingual-pair consistency record (docs/i18n/README.md): the git blob hash of each
 # side as of the last confirmed-consistent state. Both languages carry equal authority;
 # after editing either side, bring the other along and re-record with:
-#   pnpm run verify-translation-pairing --write docs/electron/architecture.md
-architecture.md: 71afcb0cda43d0d808fad550e4fe513621471938
-architecture.zh.md: 356576bae7334172b4bae47725ac1a825870e082
+#   pnpm run verify-translation-pairing --write docs/electron/plugin-lifecycle.md
+plugin-lifecycle.md: 32246a8bbe7869ad324f46cf8777cb4985f98f1e
+plugin-lifecycle.zh.md: 4e4114d55e06bd7365c3ce06d2a7aeb68900acc4
