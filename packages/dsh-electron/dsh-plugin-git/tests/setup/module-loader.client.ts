@@ -5,13 +5,15 @@ const nodeRequire = createRequire(import.meta.url)
 
 type Factory = (require: NodeRequire) => Record<string, unknown>
 
+type ModuleLoader = {
+  load(handoff: { id: string; factory: Factory }): void
+}
+
 const factories = new Map<string, Factory>()
 const materialized = new Map<string, Record<string, unknown>>()
 
-function ensureWindow(): Window & typeof globalThis {
-  const root = globalThis as typeof globalThis & { window?: Window }
-  if (root.window === undefined) root.window = root as unknown as Window
-  return root.window
+function loaderHost(): { __ModuleLoader__?: ModuleLoader } {
+  return globalThis as { __ModuleLoader__?: ModuleLoader }
 }
 
 function bundleRequire(specifier: string): unknown {
@@ -19,7 +21,7 @@ function bundleRequire(specifier: string): unknown {
   return nodeRequire(specifier)
 }
 
-ensureWindow().__ModuleLoader__ = {
+loaderHost().__ModuleLoader__ = {
   load({ id, factory }: { id: string; factory: Factory }) {
     if (!materialized.has(id)) materialized.set(id, factory(bundleRequire as NodeRequire))
     factories.set(id, factory)
@@ -32,8 +34,9 @@ export function materializeClientBundle(packageName: string): Record<string, unk
   if (cached !== undefined) return cached
   const entry = nodeRequire.resolve(`${packageName}/client`)
   const source = readFileSync(entry, 'utf8')
+  const host = loaderHost()
   const evaluate = new Function('window', 'globalThis', `${source}\n;return null;`)
-  evaluate(ensureWindow(), globalThis)
+  evaluate(host, globalThis)
   const factory = factories.get(packageName)
   if (factory === undefined) throw new Error(`client bundle ${packageName} did not register via __ModuleLoader__.load`)
   const exports = factory(bundleRequire as NodeRequire)

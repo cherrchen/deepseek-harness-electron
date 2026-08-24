@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { describe, expect, it } from 'vitest'
-import { GIT_DETAILS_SURFACE_ID, UpstreamDetailsPanel, integrationBench } from './harness/integration.ts'
+import { GIT_DETAILS_SURFACE_ID, UpstreamDetailsPanel, integrationBench } from './harness/integration.client.ts'
 
 function winner(slots: Awaited<ReturnType<typeof integrationBench>>['slots']): unknown {
   return slots.entriesOfSlot('details')[0]?.component

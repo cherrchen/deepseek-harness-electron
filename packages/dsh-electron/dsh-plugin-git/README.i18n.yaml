@@ -2,5 +2,5 @@
 # side as of the last confirmed-consistent state. Both languages carry equal authority;
 # after editing either side, bring the other along and re-record with:
 #   pnpm run verify-translation-pairing --write packages/dsh-electron/dsh-plugin-git/README.md
-README.md: 978a6d82851d314191cd11444b0870e43935b530
-README.zh.md: 42a45e4d64615f44b6125ddcae11cb4fe0f4a0cc
+README.md: cf4ac404925602d13e5bd3e20f9628eb96af6717
+README.zh.md: 3665da0549ed5c6b0e48281b1d1ac13d2b64d75e

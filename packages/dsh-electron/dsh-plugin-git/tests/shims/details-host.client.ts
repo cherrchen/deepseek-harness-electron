@@ -1,4 +1,4 @@
-import { materializeClientBundle } from '../setup/module-loader.ts'
+import { materializeClientBundle } from '../setup/module-loader.client.ts'
 
 const detailsHost = materializeClientBundle('@dsh-electron/dsh-client-ui-details-host')
 

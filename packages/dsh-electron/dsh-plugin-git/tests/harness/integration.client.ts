@@ -4,7 +4,7 @@ import { vi } from 'vitest'
 import { apply as applyDetailsHost, inject as injectDetailsHost } from '@dsh-electron/dsh-client-ui-details-host/client'
 import { apply as applyGit, inject as injectGit } from '../../src/client/index.ts'
 import { GIT_DETAILS_SURFACE_ID } from '../../src/client/contract.ts'
-import { materializeClientBundle } from '../setup/module-loader.ts'
+import { materializeClientBundle } from '../setup/module-loader.client.ts'
 
 const { SlotRegistry } = materializeClientBundle('@deepseek-ai/dsh-client-runtime') as {
   SlotRegistry: Parameters<Context['plugin']>[0]
@@ -14,7 +14,7 @@ function UpstreamDetailsPanel(): null {
   return null
 }
 
-export function fakeLayout() {
+export function fakeLayout(): { openDetails: () => void; closeDetails: () => void } {
   return {
     openDetails: vi.fn(),
     closeDetails: vi.fn(),
@@ -22,7 +22,7 @@ export function fakeLayout() {
 }
 
 export function fakeSessions(current: string | undefined = 'session-a') {
-  let snapshot = { current }
+  let snapshot: { current: string | undefined } = { current }
   const listeners = new Set<() => void>()
   return {
     list: {
@@ -40,7 +40,17 @@ export function fakeSessions(current: string | undefined = 'session-a') {
 }
 
 /** Bench with Details Host and Git plugins mounted against the real slot registry. */
-export async function integrationBench() {
+export async function integrationBench(): Promise<{
+  ctx: Context
+  slots: Context['slots']
+  layout: { openDetails: () => void; closeDetails: () => void }
+  sessions: ReturnType<typeof fakeSessions>
+  detailsFiber: Awaited<ReturnType<Context['plugin']>>
+  gitFiber: Awaited<ReturnType<Context['plugin']>>
+  shellDetails: Context['shellDetails']
+  disposeRoot: () => void
+  disposeUpstream: () => void
+}> {
   const ctx = new Context()
   await ctx.plugin(SlotRegistry)
   const layout = fakeLayout()

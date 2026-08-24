@@ -88,6 +88,9 @@
         "@deepseek-ai/dsh-client-ui-conversation",
         "@deepseek-ai/dsh-client-ui-primitives",
         "@dsh-electron/dsh-client-ui-details-host"
+      ],
+      "external": [
+        "@dsh-electron/dsh-client-ui-details-host/client"
       ]
     }
   }
