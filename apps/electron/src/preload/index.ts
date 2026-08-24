@@ -150,6 +150,12 @@ const bridge: DeepseekDesktopBridge = {
     close: () => ipcRenderer.invoke(DesktopIpcChannel.windowClose),
     getState: () => ipcRenderer.invoke(DesktopIpcChannel.windowGetState),
   },
+  plugins: {
+    list: () => ipcRenderer.invoke(DesktopIpcChannel.pluginsList),
+    enable: (name: string) => ipcRenderer.invoke(DesktopIpcChannel.pluginsEnable, name),
+    disable: (name: string) => ipcRenderer.invoke(DesktopIpcChannel.pluginsDisable, name),
+    reload: (name: string) => ipcRenderer.invoke(DesktopIpcChannel.pluginsReload, name),
+  },
 }
 
 contextBridge.exposeInMainWorld('deepseekDesktop', bridge)

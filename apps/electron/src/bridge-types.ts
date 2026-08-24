@@ -12,6 +12,7 @@ import type {
   WindowState,
   DesktopUpdaterSnapshot,
 } from './desktop/index.ts'
+import type { PluginLifecycleSnapshot } from './plugin-lifecycle.ts'
 
 /** Privileged custom scheme that owns the packaged renderer origin. */
 export const RENDERER_SCHEME = 'dsh-electron'
@@ -47,6 +48,10 @@ export const DesktopIpcChannel = {
   windowMaximize: 'deepseek-desktop:window:maximize',
   windowClose: 'deepseek-desktop:window:close',
   windowGetState: 'deepseek-desktop:window:getState',
+  pluginsList: 'deepseek-desktop:plugins:list',
+  pluginsEnable: 'deepseek-desktop:plugins:enable',
+  pluginsDisable: 'deepseek-desktop:plugins:disable',
+  pluginsReload: 'deepseek-desktop:plugins:reload',
 } as const
 
 /** Host boot payload extracted from the supervised dsh web index HTML. */
@@ -180,6 +185,16 @@ export interface DeepseekDesktopBridge {
     /** Read the current window snapshot. */
     getState(): Promise<WindowState>
   }
+  plugins: {
+    /** Read the bundled plugin lifecycle snapshot. */
+    list(): Promise<PluginLifecycleSnapshot>
+    /** Enable one manageable bundled ecosystem plugin. */
+    enable(name: string): Promise<void>
+    /** Disable one manageable bundled ecosystem plugin. */
+    disable(name: string): Promise<void>
+    /** Reload one enabled manageable bundled ecosystem plugin. */
+    reload(name: string): Promise<void>
+  }
 }
 
 export type {
@@ -190,6 +205,7 @@ export type {
   ThemeState,
   WindowState,
   DesktopUpdaterSnapshot,
+  PluginLifecycleSnapshot,
 }
 
 declare global {

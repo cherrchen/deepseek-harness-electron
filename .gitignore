@@ -2,6 +2,9 @@ CLAUDE.local.md
 .env
 node_modules/
 lib/
+# Fixture plugins commit JS under lib/ to match validateRuntimePlugin.
+!apps/electron/tests/fixtures/plugins/**/lib/
+!apps/electron/tests/fixtures/plugins/**/lib/**
 *.tsbuildinfo
 pnpm-debug.log
 .pnpm-store/

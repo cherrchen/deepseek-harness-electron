@@ -20,7 +20,7 @@ import {
   ensureRuntimePluginsLinked,
   profileModuleLinkPath,
 } from '../src/runtime-plugins.ts'
-import { resolveHostPatchPath } from '../src/runtime-overlay.ts'
+import { prepareHostRuntimeOverlay } from '../src/runtime-overlay.ts'
 import { HttpHarnessTransport } from '../src/harness/transport.ts'
 
 describe('Electron desktop integration', () => {
@@ -136,18 +136,21 @@ describe('Electron host runtime overlay', () => {
   it('writes the Host patch that keeps browse Host and Electron client', async () => {
     const appPath = join(import.meta.dirname, '..')
     const userData = await mkdtemp(join(tmpdir(), 'dsh-electron-patch-'))
+    const harnessHome = await mkdtemp(join(tmpdir(), 'dsh-electron-home-'))
     try {
-      const patchPath = resolveHostPatchPath(appPath, userData)
-      const body = await readFile(patchPath, 'utf8')
+      const overlay = await prepareHostRuntimeOverlay(appPath, userData, harnessHome)
+      const body = await readFile(overlay.patchPath, 'utf8')
       expect(body).toContain('directory-picker')
       expect(body).toContain('disabled: true')
       expect(body).toContain('@deepseek-ai/dsh-host-directory-picker-browse')
       expect(body).toContain('@dsh-electron/dsh-electron-ui-directory-picker')
       expect(body).toContain('@dsh-electron/dsh-electron-desktop-capabilities')
       expect(body).toContain('@dsh-electron/dsh-electron-ui-brand')
+      expect(body).toContain('cordis:include')
       expect(body).not.toContain('directory-picker-browse-client')
     } finally {
       await rm(userData, { recursive: true, force: true })
+      await rm(harnessHome, { recursive: true, force: true })
     }
   })
 

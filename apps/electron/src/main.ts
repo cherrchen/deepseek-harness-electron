@@ -4,7 +4,7 @@
  * `dsh-electron://localhost`, and owns desktop OS capabilities.
  */
 
-import { readFileSync } from 'node:fs'
+import { existsSync, readFileSync } from 'node:fs'
 import { spawn, type ChildProcessByStdio } from 'node:child_process'
 import type { Readable } from 'node:stream'
 import { join } from 'node:path'
@@ -39,8 +39,14 @@ import {
   registerRendererScheme,
   resolveRendererRoot,
 } from './protocol.ts'
-import { resolveHostPatchPath } from './runtime-overlay.ts'
-import { ensureRuntimePluginsLinked } from './runtime-plugins.ts'
+import { prepareHostRuntimeOverlay } from './runtime-overlay.ts'
+import {
+  ensureRuntimePluginsLinked,
+  discoverManagedPlugins,
+  profileModuleLinkPath,
+  pluginRuntimeModuleLinkPath,
+  ensureSymlink,
+} from './runtime-plugins.ts'
 import {
   HARNESS_START_TIMEOUT_MS,
   harnessArguments,
@@ -48,6 +54,10 @@ import {
   resolveDshBin,
   resolveHarnessHome,
 } from './runtime.ts'
+import { DynamicIncludeCompositionBackend, effectivePluginRoster } from './plugin-runtime-config.ts'
+import { loadPluginState, reconcilePluginState, savePluginState } from './plugin-state.ts'
+import { PluginLifecycleController } from './plugin-lifecycle.ts'
+import { RemotePluginInventoryProbe } from './plugin-inventory-probe.ts'
 import {
   trayIconNeedsLogicalLoad,
   trayIconPath,
@@ -64,6 +74,8 @@ let harness: HarnessProcess | undefined
 let mainWindow: BrowserWindow | undefined
 let tray: Tray | undefined
 let updater: UpdaterController | undefined
+let pluginLifecycle: PluginLifecycleController | undefined
+let inventoryProbe: RemotePluginInventoryProbe | undefined
 let quitting = false
 let stopping = false
 const transport = new HttpHarnessTransport()
@@ -76,12 +88,7 @@ const desktop = new DesktopServices({
 registerRendererScheme()
 
 /** Start dsh and resolve only after its complete Web composition is ready. */
-async function startHarness(): Promise<{ child: HarnessProcess; url: string }> {
-  const dshBin = resolveDshBin(app.getAppPath())
-  const harnessHome = resolveHarnessHome(app.getPath('home'))
-  ensureRuntimePluginsLinked(app.getAppPath(), harnessHome)
-  const hostPatch = resolveHostPatchPath(app.getAppPath(), app.getPath('userData'))
-
+async function startHarness(dshBin: string, harnessHome: string, hostPatch: string): Promise<{ child: HarnessProcess; url: string }> {
   const child = spawn(process.execPath, harnessArguments(dshBin, hostPatch), {
     cwd: app.getPath('home'),
     env: {
@@ -135,6 +142,10 @@ async function startHarness(): Promise<{ child: HarnessProcess; url: string }> {
     })
     child.stderr.on('data', (chunk: Buffer) => { process.stderr.write(chunk) })
   })
+}
+
+function logPlugins(message: string, ...details: unknown[]): void {
+  console.info('[electron:plugins]', message, ...details)
 }
 
 /** Open one hardened desktop window for the Electron-owned renderer. */
@@ -211,6 +222,9 @@ function requestQuit(): void {
 async function prepareToInstall(): Promise<void> {
   quitting = true
   stopping = true
+  // Drain in-flight plugin mutations before tearing down Host.
+  await pluginLifecycle?.list().catch(() => undefined)
+  await inventoryProbe?.dispose().catch(() => undefined)
   await transport.stop()
   const child = harness
   harness = undefined
@@ -346,6 +360,13 @@ function refreshTrayIcon(): void {
   tray.setImage(createTrayIcon())
 }
 
+async function refreshRendererForPluginLifecycle(): Promise<void> {
+  const window = mainWindow
+  if (window === undefined || window.isDestroyed()) return
+  logPlugins('refreshing renderer after client plugin lifecycle change')
+  await window.loadURL(RENDERER_ENTRY_URL)
+}
+
 function safeOrigin(value: string): string {
   try { return new URL(value).origin } catch { return '' }
 }
@@ -369,15 +390,52 @@ if (!primaryInstance) {
 } else {
   void app.whenReady().then(async () => {
     installRendererProtocol(resolveRendererRoot(app.getAppPath()), transport.harnessProxy)
+    const appPath = app.getAppPath()
+    const harnessHome = resolveHarnessHome(app.getPath('home'))
+    const managedPlugins = discoverManagedPlugins(appPath)
+    ensureRuntimePluginsLinked(appPath, harnessHome)
+    const overlay = await prepareHostRuntimeOverlay(appPath, app.getPath('userData'), harnessHome)
+    const loadedState = loadPluginState(overlay.pluginStatePath)
+    for (const warning of loadedState.warnings) console.warn(warning)
+    const reconciled = reconcilePluginState(
+      loadedState.state,
+      managedPlugins.filter(plugin => plugin.manageable).map(plugin => plugin.name),
+    )
+    if (reconciled.removed.length > 0) {
+      console.warn('[electron:plugins] ignoring stale disabled plugins', reconciled.removed)
+    }
+    const composition = new DynamicIncludeCompositionBackend(overlay.pluginConfigPath)
+    await composition.apply(effectivePluginRoster(managedPlugins, reconciled.state))
+    if (!existsSync(overlay.pluginStatePath)) {
+      await savePluginState(overlay.pluginStatePath, reconciled.state)
+    }
+    logPlugins('desired startup roster', effectivePluginRoster(managedPlugins, reconciled.state).map(plugin => plugin.name))
     installDesktopIpc(
       transport,
       desktop,
       contents => mainWindow !== undefined && contents === mainWindow.webContents,
+      () => {
+        if (pluginLifecycle === undefined) throw new Error('desktop ipc: plugin lifecycle is unavailable')
+        return pluginLifecycle
+      },
     )
 
-    const started = await startHarness()
+    const started = await startHarness(resolveDshBin(appPath), harnessHome, overlay.patchPath)
     harness = started.child
     await transport.start(started.url)
+    inventoryProbe = new RemotePluginInventoryProbe(transport)
+    pluginLifecycle = new PluginLifecycleController(
+      managedPlugins,
+      reconciled.state,
+      overlay.pluginStatePath,
+      composition,
+      inventoryProbe,
+      (plugin) => {
+        ensureSymlink(profileModuleLinkPath(harnessHome, plugin.name), plugin.rootPath)
+        ensureSymlink(pluginRuntimeModuleLinkPath(harnessHome, plugin.name), plugin.rootPath)
+      },
+      refreshRendererForPluginLifecycle,
+    )
     harness.once('exit', (code, signal) => {
       if (quitting) return
       dialog.showErrorBox(
