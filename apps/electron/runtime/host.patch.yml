@@ -25,6 +25,8 @@
       name: '@dsh-electron/dsh-electron-ui-directory-picker'
     - id: desktop-ui-brand
       name: '@dsh-electron/dsh-electron-ui-brand'
+    - id: desktop-plugin-manager
+      name: '@dsh-electron/dsh-electron-ui-plugin-manager'
     - id: dsh-electron-ecosystem-plugins
       name: 'cordis:include'
       config:
