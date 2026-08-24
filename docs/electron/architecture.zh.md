@@ -327,17 +327,17 @@ Unprivileged Renderer / Client Plugins
 
 **CURRENT**
 
-里程碑 3 在 `apps/electron/runtime/plugins/` 下建立了 bundled Desktop adapter 基础设施。标准公共 DSH 生态插件位于 `packages/dsh-electron/`，并保留自身预构建的 Host 与 Client artifacts。
+里程碑 3 在 `apps/electron/runtime/plugins/` 下建立了 bundled runtime 插件基础设施。标准公共 DSH 生态插件位于 `packages/dsh-electron/`，并保留自身预构建的 Host 与 Client artifacts。
 
 ```text
-runtime/plugins/*          Desktop adapters and Electron carrier plugins (build + link)
+runtime/plugins/*          Desktop adapters, Electron carriers, and Electron-required portable UI infrastructure (build + link)
 packages/dsh-electron/*    standard public DSH packages (prebuilt + link)
-runtime/host.patch.yml     bootstrap overlay: desktop adapters, include seat, config-only HMR
+runtime/host.patch.yml     bootstrap overlay: required runtime plugins, include seat, config-only HMR
 scripts/build-runtime-plugins.mjs
 src/runtime-plugins.ts     discovery, validation, profile and nested-include linking
 ```
 
-启动前会把每个 bundled 插件链接到 `$DSH_HOME/profiles/node_modules/<package-name>` 与 `$DSH_HOME/electron/node_modules/<package-name>`，再启动受监督 Host。发现决定 Desktop 随包分发什么。`host.patch.yml` 挂载 Desktop-required adapter 以及一个 `cordis:include` seat；Electron 生成 `$DSH_HOME/electron/plugins.cordis.yml` 作为运行时生态 roster。运行时 enable、disable 与 reload 见 [plugin-lifecycle.zh.md](plugin-lifecycle.zh.md)。
+启动前会把每个 bundled 插件链接到 `$DSH_HOME/profiles/node_modules/<package-name>` 与 `$DSH_HOME/electron/node_modules/<package-name>`，再启动受监督 Host。发现决定 Desktop 随包分发什么。`host.patch.yml` 挂载必需的 runtime 插件以及一个 `cordis:include` seat；Electron 生成 `$DSH_HOME/electron/plugins.cordis.yml` 作为运行时生态 roster。运行时 enable、disable 与 reload 见 [plugin-lifecycle.zh.md](plugin-lifecycle.zh.md)。
 
 Desktop Capability Provider（`@dsh-electron/dsh-electron-desktop-capabilities`）把 `window.deepseekDesktop` 适配为 feature 插件可用的 `ctx.desktop`。只有 Renderer 基础设施与该 provider 可直接读取全局 bridge。
 
@@ -346,6 +346,8 @@ Desktop Capability Provider（`@dsh-electron/dsh-electron-desktop-capabilities`�
 品牌插件（`@dsh-electron/dsh-electron-ui-brand`）始终用 DeepSeek Harness 视觉填充 `sidebar.brand.mark`、`sidebar.brand.name` 与 `conversation.hero.brand.mark`，因此 Desktop 产品品牌不依赖上游 `DSH_CLIENT_BUILD_PROFILE=official` client 构建。
 
 Plugin Manager（`@dsh-electron/dsh-electron-ui-plugin-manager`）消费 `ctx.desktop.plugins`，并通过 upstream 拥有的 `settings.plugins.tab` slot 贡献 `installed` view。它只在 mount 期间读取 lifecycle snapshot，并且只在一项全局 lifecycle mutation 进行时轮询；必需的 Desktop runtime 插件保持只读。
+
+Details Host（`@dsh-electron/dsh-client-ui-details-host`）是必需的 portable UI 基础设施。源码真源是 `cherrchen/dsh-client-ui-details-host`；`apps/electron/runtime/plugins/ui-details-host` 是 git subtree 镜像。Electron 从该源码重新构建 Host 与 Client artifacts。该包在启动时挂载 `ctx.shellDetails`，在消费者调用 `open(id)` 之前不占用 `details`。加载它 MUST 让上游 DetailsPanel 继续作为栏位 winner。
 
 ```text
 Feature Plugin
@@ -364,7 +366,7 @@ Electron Main
 Native OS APIs
 ```
 
-Desktop-required adapter 从 `runtime/plugins/<name>/` 构建。Portable 产品功能使用 `packages/dsh-electron/` 下的 `@dsh-electron/dsh-plugin-*` package；Electron 直接打包并链接其现有 artifacts，不重新构建或转换。
+`runtime/plugins/<name>/` 下的每个目录都从源码重新构建。Portable 产品功能使用 `packages/dsh-electron/` 下的 `@dsh-electron/dsh-plugin-*` package；Electron 直接打包并链接其现有 artifacts，不重新构建或转换。
 
 # 第二部分 — 架构原则
 
@@ -610,7 +612,9 @@ desktop.rawIpc
 apps/electron/runtime/plugins/
 ├─ desktop-capabilities/          infrastructure
 ├─ ui-directory-picker-electron/  Desktop-required adapter
-└─ ui-brand-electron/             Electron carrier plugin
+├─ ui-brand-electron/             Electron carrier plugin
+├─ ui-plugin-manager-electron/    Electron carrier plugin
+└─ ui-details-host/               Electron-required portable UI infrastructure (subtree)
 
 packages/dsh-electron/
 └─ dsh-plugin-<feature>/           portable or Desktop-aware public DSH plugin
@@ -624,7 +628,7 @@ packages/dsh-electron/
 * 特权操作仍位于能力约定之后；
 * 普通 Desktop 功能开发不需要修改上游。
 
-插件分为三类：
+插件分为四类：
 
 ### Portable DSH Plugin
 
@@ -658,6 +662,10 @@ Desktop
 ### Desktop-required Adapter
 
 Desktop-required adapter 把 `desktop` 声明为 required service，归属 `apps/electron/runtime/plugins/`，通常使用 `@dsh-electron/dsh-electron-*` package name。
+
+### Electron 必需的 portable DSH UI 基础设施
+
+这是 Desktop 始终作为必需 Host 组合挂载的 portable `platform: web` 公共包。它只使用上游 DSH 服务，不依赖 Electron，源码真源是独立仓库。`apps/electron/runtime/plugins/<name>/` 是 git subtree 镜像；Electron 从该源码重新构建 artifacts。加载该包 MUST NOT 占用产品 UI，直到消费者调用已发布的服务。当前成员是 Details Host：`ctx.shellDetails.open(id)` 以低于上游 DetailsPanel 的 priority 把 DetailsHost 注册进单一 `details` slot，再由 `ctx.layout.openDetails()` 打开栏位。`close()` 释放该注册，使上游 occupant 重新成为 winner。不要用 DOM 替换、portal、CSS overlay，或修改上游 `ui-layout` / `ui-conversation` 来完成这次接管。用户可禁用的产品功能归属 `packages/dsh-electron/`，不属于此类。
 
 ## 20. 原生实现与功能所有权
 

@@ -12,11 +12,11 @@ Desktop 产品功能需要独立 npm releases，同时不能创建 Electron-only
 
 `packages/dsh-electron/**` 是位于默认上游拥有的 `packages/**` tree 中的下游 namespace island。每个 direct child 通过 Git subtree 镜像 canonical standalone repository，并保留自己的 npm version、registry semver dependencies 与预构建 Host 和 Client artifacts。
 
-`@dsh-electron/dsh-plugin-*` 标识公共 DSH ecosystem features。Publisher scope 不表示 Electron requirement。Portable plugins 使用上游 DSH/Cordis services；Desktop-aware plugins 保持 main fiber portable，并在 optional `ctx.inject(['desktop'], ...)` child fiber 中针对实际消费的最小 structural interface 安装 native behavior。`@dsh-electron/dsh-electron-*` 继续保留给 `apps/electron/runtime/plugins/` 下的 Desktop-required adapters 与 infrastructure。
+`@dsh-electron/dsh-plugin-*` 标识公共 DSH ecosystem features。Publisher scope 不表示 Electron requirement。Portable plugins 使用上游 DSH/Cordis services；Desktop-aware plugins 保持 main fiber portable，并在 optional `ctx.inject(['desktop'], ...)` child fiber 中针对实际消费的最小 structural interface 安装 native behavior。`@dsh-electron/dsh-electron-*` 继续保留给 `apps/electron/runtime/plugins/` 下的 Desktop-required adapters 与 infrastructure。Electron 必需的 portable UI 基础设施也可以作为公共 `platform: web` 包的 subtree 放在同一目录；[该类](2026-08-24-electron-required-portable-ui-infrastructure.zh.md) 不是生态插件。
 
 Upstream sync merge driver 在普通 conflicts 中保留该 namespace；upstream tree 首次声明 `packages/dsh-electron` 时，workflow 在 merge 前停止。Workspace check 向 pnpm 查询 resolved package graph，并拒绝任何被排除在该 graph 外的 downstream subtree package。
 
-Electron 把标准 ecosystem packages 声明为 dependencies，发现其已安装 artifacts，将它们链接进受监督 Host profile，并通过 `runtime/host.patch.yml` 挂载。其 custom-scheme handler 将已知 Host 读取路径和所有非读取请求发往受监督进程，使插件自有的 Connection RPC channel 不会与 Renderer 文件路由冲突。Desktop runtime builder 继续只编译 `apps/electron/runtime/plugins/` 下 Electron 自有的 adapters。
+Electron 把标准 ecosystem packages 声明为 dependencies，发现其已安装 artifacts，将它们链接进受监督 Host profile，并通过生成的组合挂载。其 custom-scheme handler 将已知 Host 读取路径和所有非读取请求发往受监督进程，使插件自有的 Connection RPC channel 不会与 Renderer 文件路由冲突。Desktop runtime builder 从源码编译 `apps/electron/runtime/plugins/` 下的每个目录。`packages/dsh-electron/` 下的公共生态插件保留独立构建的 artifacts。
 
 ## Alternatives considered
 

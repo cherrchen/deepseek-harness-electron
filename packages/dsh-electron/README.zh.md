@@ -6,7 +6,7 @@
 
 `@dsh-electron/dsh-plugin-*` 命名 portable 或 Desktop-aware 产品功能。Publisher scope 不表示 Electron requirement。Portable 行为只能依赖上游 DSH 服务；可选的原生增强使用 `ctx.inject(['desktop'], ...)` child fiber，并以包内 structural interface 声明它实际消费的确切方法。
 
-`@dsh-electron/dsh-electron-*` 命名 Desktop-required 适配器与 infrastructure。此类包属于 `apps/electron/runtime/plugins/`，不应放在本目录。
+`@dsh-electron/dsh-electron-*` 命名 Desktop-required 适配器与 infrastructure。此类包属于 `apps/electron/runtime/plugins/`，不应放在本目录。Desktop 始终挂载的 Electron 必需 portable UI 基础设施（例如 `@dsh-electron/dsh-client-ui-details-host`）是 `apps/electron/runtime/plugins/` 下的 git subtree，不是本 island 的成员。
 
 每个 subtree 包拥有一个 NPM 版本，以及一套由 Native DSH 与 Electron 原样使用的 Host 和 Client 产物。此处不得引入 Electron import、preload global、Electron provider dependency、`workspace:` 发布范围或第二个 Desktop-specific 包变体。
 

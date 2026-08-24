@@ -59,6 +59,7 @@ describe('runtime plugin discovery', () => {
     expect(plugins.length).toBeGreaterThanOrEqual(2)
     const names = plugins.map(plugin => plugin.name)
     expect(names).toContain('@dsh-electron/dsh-electron-desktop-capabilities')
+    expect(names).toContain('@dsh-electron/dsh-client-ui-details-host')
     expect(names).toContain('@dsh-electron/dsh-electron-ui-directory-picker')
     expect(names).toContain('@dsh-electron/dsh-electron-ui-brand')
     expect(names).toContain('@dsh-electron/dsh-electron-ui-plugin-manager')
@@ -81,10 +82,20 @@ describe('runtime plugin discovery', () => {
       && plugin.required
       && !plugin.manageable)).toBe(true)
     expect(plugins.some(plugin =>
+      plugin.name === '@dsh-electron/dsh-client-ui-details-host'
+      && plugin.source === 'desktop-runtime'
+      && plugin.required
+      && !plugin.manageable)).toBe(true)
+    expect(plugins.some(plugin =>
       plugin.name === '@dsh-electron/dsh-plugin-git'
       && plugin.source === 'ecosystem'
       && !plugin.required
       && plugin.manageable)).toBe(true)
+    const appManifest = JSON.parse(readFileSync(join(electronRoot, 'package.json'), 'utf8')) as {
+      dshElectron?: { ecosystemPlugins?: string[] }
+    }
+    expect(appManifest.dshElectron?.ecosystemPlugins).toContain('@dsh-electron/dsh-plugin-git')
+    expect(appManifest.dshElectron?.ecosystemPlugins).not.toContain('@dsh-electron/dsh-client-ui-details-host')
   })
 
   it('ignores non-plugin files under runtime/plugins', async () => {
