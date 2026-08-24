@@ -44,7 +44,7 @@ const pluginRoot = join(pluginsRoot, 'example-plugin')
 const manifest = JSON.parse(readFileSync(join(pluginRoot, 'package.json'), 'utf8'))
 mkdirSync(join(pluginRoot, 'lib'), { recursive: true })
 await build({ entryPoints: [join(pluginRoot, 'src', 'index.ts')], outfile: join(pluginRoot, 'lib', 'index.js'), bundle: true, platform: 'node', packages: 'external', format: 'esm', target: 'node22', logLevel: 'silent' })
-const result = await build({ entryPoints: [join(pluginRoot, 'src', 'client', 'index.ts')], bundle: true, platform: 'browser', format: 'cjs', target: 'es2022', write: false, external: ['react','react/jsx-runtime','react-dom','@deepseek-ai/cordis','@deepseek-ai/dsh-client-runtime/client'], logLevel: 'silent' })
+const result = await build({ entryPoints: [join(pluginRoot, 'src', 'client', 'index.ts')], bundle: true, platform: 'browser', format: 'cjs', target: 'es2022', write: false, jsx: 'automatic', external: ['react','react/jsx-runtime','react-dom','@deepseek-ai/cordis','@deepseek-ai/dsh-client-runtime/client'], logLevel: 'silent' })
 const code = result.outputFiles[0].text
 writeFileSync(join(pluginRoot, 'lib', 'client.js'), 'window.__ModuleLoader__.load({ id: ' + JSON.stringify(manifest.name) + ', factory: (require) => { var module = { exports: {} }; var exports = module.exports; ' + code + ' return module.exports; } });')
 `
@@ -59,6 +59,7 @@ describe('runtime plugin discovery', () => {
     expect(plugins.length).toBeGreaterThanOrEqual(2)
     const names = plugins.map(plugin => plugin.name)
     expect(names).toContain('@dsh-electron/dsh-electron-desktop-capabilities')
+    expect(names).toContain('@dsh-electron/dsh-client-ui-details-host')
     expect(names).toContain('@dsh-electron/dsh-electron-ui-directory-picker')
     expect(names).toContain('@dsh-electron/dsh-electron-ui-brand')
     expect(names).toContain('@dsh-electron/dsh-electron-ui-plugin-manager')
@@ -73,6 +74,18 @@ describe('runtime plugin discovery', () => {
     expect(readFileSync(buildScript, 'utf8')).not.toContain('packages/dsh-electron')
   })
 
+  it('declares Details Host as Git\'s module-table request so boot arrives that factory first', () => {
+    const git = discoverEcosystemPlugins(electronRoot)
+      .find(plugin => plugin.name === '@dsh-electron/dsh-plugin-git')
+    if (git === undefined) throw new Error('Git ecosystem plugin is missing')
+    const manifest = JSON.parse(readFileSync(join(git.rootPath, 'package.json'), 'utf8')) as {
+      dsh?: { client?: { external?: string[] } }
+    }
+    expect(manifest.dsh?.client?.external).toEqual([
+      '@dsh-electron/dsh-client-ui-details-host/client',
+    ])
+  })
+
   it('classifies runtime adapters and ecosystem plugins for lifecycle management', () => {
     const plugins = discoverManagedPlugins(electronRoot)
     expect(plugins.some(plugin =>
@@ -81,10 +94,20 @@ describe('runtime plugin discovery', () => {
       && plugin.required
       && !plugin.manageable)).toBe(true)
     expect(plugins.some(plugin =>
+      plugin.name === '@dsh-electron/dsh-client-ui-details-host'
+      && plugin.source === 'desktop-runtime'
+      && plugin.required
+      && !plugin.manageable)).toBe(true)
+    expect(plugins.some(plugin =>
       plugin.name === '@dsh-electron/dsh-plugin-git'
       && plugin.source === 'ecosystem'
       && !plugin.required
       && plugin.manageable)).toBe(true)
+    const appManifest = JSON.parse(readFileSync(join(electronRoot, 'package.json'), 'utf8')) as {
+      dshElectron?: { ecosystemPlugins?: string[] }
+    }
+    expect(appManifest.dshElectron?.ecosystemPlugins).toContain('@dsh-electron/dsh-plugin-git')
+    expect(appManifest.dshElectron?.ecosystemPlugins).not.toContain('@dsh-electron/dsh-client-ui-details-host')
   })
 
   it('ignores non-plugin files under runtime/plugins', async () => {
@@ -237,6 +260,18 @@ describe('generic runtime plugin builder', () => {
         expect(existsSync(join(plugin.rootPath, 'lib', 'client.js'))).toBe(true)
       }
     }
+  })
+
+  it('emits automatic JSX so a TSX occupant does not need a React identifier', () => {
+    const builderSource = readFileSync(buildScript, 'utf8')
+    expect(builderSource).toMatch(/jsx:\s*'automatic'/)
+
+    const plugin = discoverRuntimePlugins(electronRoot)
+      .find(candidate => candidate.name === '@dsh-electron/dsh-client-ui-details-host')
+    if (plugin === undefined) throw new Error('Details Host runtime plugin is missing')
+    const client = readFileSync(join(plugin.rootPath, 'lib', 'client.js'), 'utf8')
+    expect(client).toContain('react/jsx-runtime')
+    expect(client).not.toMatch(/\bReact\.createElement\b/)
   })
 
   it('keeps Host package imports external to the plugin bundle', async () => {

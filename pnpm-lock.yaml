@@ -4236,9 +4236,6 @@ importers:
       '@deepseek-ai/dsh-client-ui-conversation':
         specifier: '>=0.1.1-rc.2 <0.2.0'
         version: link:../../client/ui-conversation
-      '@deepseek-ai/dsh-client-ui-layout':
-        specifier: '>=0.1.1-rc.2 <0.2.0'
-        version: link:../../client/ui-layout
       '@deepseek-ai/dsh-client-ui-primitives':
         specifier: '>=0.1.1-rc.2 <0.2.0'
         version: link:../../client/ui-primitives
@@ -4254,6 +4251,9 @@ importers:
       '@deepseek-ai/dsh-subprocess-local':
         specifier: '>=0.1.1-rc.2 <0.2.0'
         version: link:../../subprocess/subprocess-local
+      '@dsh-electron/dsh-client-ui-details-host':
+        specifier: file:./tests/fixtures/dsh-client-ui-details-host-0.1.0.tgz
+        version: file:packages/dsh-electron/dsh-plugin-git/tests/fixtures/dsh-client-ui-details-host-0.1.0.tgz(@deepseek-ai/cordis@vendor+cordis)(@deepseek-ai/dsh-client-runtime@packages+client+runtime)(@deepseek-ai/dsh-client-ui-layout@packages+client+ui-layout)(@deepseek-ai/dsh-client-ui-slots@packages+client+ui-slots)(react@18.3.1)
       '@testing-library/react':
         specifier: ^16.3.2
         version: 16.3.2(@testing-library/dom@10.4.1)(@types/react-dom@18.3.7(@types/react@18.3.31))(@types/react@18.3.31)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
@@ -10074,6 +10074,17 @@ packages:
         optional: true
       search-insights:
         optional: true
+
+  '@dsh-electron/dsh-client-ui-details-host@file:packages/dsh-electron/dsh-plugin-git/tests/fixtures/dsh-client-ui-details-host-0.1.0.tgz':
+    resolution: {integrity: sha512-z8KskWrIFi1fU/QDY8Dw5xh8Zpkya6O2zs6pNhwbcli0QZDYDVUf6BWOJmSo3o1EyxtZJJiSpzFjBQ5v5KCB9Q==, tarball: file:packages/dsh-electron/dsh-plugin-git/tests/fixtures/dsh-client-ui-details-host-0.1.0.tgz}
+    version: 0.1.0
+    engines: {node: ^22.19.0 || >=24.0.0}
+    peerDependencies:
+      '@deepseek-ai/cordis': '>=4.0.1 <5.0.0'
+      '@deepseek-ai/dsh-client-runtime': '>=0.1.1-rc.2 <0.2.0'
+      '@deepseek-ai/dsh-client-ui-layout': '>=0.1.1-rc.2 <0.2.0'
+      '@deepseek-ai/dsh-client-ui-slots': '>=0.1.1-rc.2 <0.2.0'
+      react: '>=18.2.0 <19.0.0'
 
   '@earendil-works/pi-ai@0.82.1':
     resolution: {integrity: sha512-3WFYRhEp3lQB3444EhPMBcM7zSaEUE3eJgHOR7s4081NLqbw/FsWilIKWXSua0Gv3sRr7m9xMidR3pPDE7jI/A==}
@@ -16593,6 +16604,14 @@ snapshots:
       search-insights: 2.17.3
     transitivePeerDependencies:
       - '@algolia/client-search'
+
+  '@dsh-electron/dsh-client-ui-details-host@file:packages/dsh-electron/dsh-plugin-git/tests/fixtures/dsh-client-ui-details-host-0.1.0.tgz(@deepseek-ai/cordis@vendor+cordis)(@deepseek-ai/dsh-client-runtime@packages+client+runtime)(@deepseek-ai/dsh-client-ui-layout@packages+client+ui-layout)(@deepseek-ai/dsh-client-ui-slots@packages+client+ui-slots)(react@18.3.1)':
+    dependencies:
+      '@deepseek-ai/cordis': link:vendor/cordis
+      '@deepseek-ai/dsh-client-runtime': link:packages/client/runtime
+      '@deepseek-ai/dsh-client-ui-layout': link:packages/client/ui-layout
+      '@deepseek-ai/dsh-client-ui-slots': link:packages/client/ui-slots
+      react: 18.3.1
 
   '@earendil-works/pi-ai@0.82.1(@modelcontextprotocol/sdk@1.29.0(zod@4.4.3))(ws@8.21.0)(zod@4.4.3)':
     dependencies:

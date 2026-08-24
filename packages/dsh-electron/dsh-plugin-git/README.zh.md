@@ -8,11 +8,15 @@
 
 Host plugin 要求 `ctx.subprocess`，提供 `ctx.git`，并使用 executable 与独立 argv values 启动 Git。它绝不调用 shell。DSH Web Host 存在时，optional Connection child 注册 loopback `/git` RPC channel；没有 Connection 的 headless composition 中 Git service 仍保持 active。
 
-Client plugin 要求上游 Connection、locale、runtime、layout 与 conversation UI plugins。它向 `conversation.input.left` 贡献 branch selector 与 changed-files indicator，向 `shell.overlay` 贡献右侧 Git drawer。Business components 通过 slot injection 接收 controller，不访问 Cordis context。
+Client plugin 要求上游 Connection、locale、runtime、conversation UI、primitives，以及 `@dsh-electron/dsh-client-ui-details-host`。其 `dsh.client.external` 列出 `@dsh-electron/dsh-client-ui-details-host/client`，以便模块表在本 bundle `require` 该 factory 之前先物化它。它向 `conversation.input.left` 贡献 branch selector 与 changed-files indicator，并向 `shell.details.surface` 贡献 Git details surface。打开 Git 会调用 `ctx.shellDetails.open('git')`；AppFrame details 栏位、resize handle 与 close button 由 Details Host 拥有，不属于本 package。
 
-Controller 在 workspace 变化时发现 repository state，与 drawer 是否打开无关。关闭 drawer 不会丢弃已加载的 repository snapshot。
+Business components 通过 slot injection 接收 controller 与 `openDetails()`，不访问 Cordis context。
+
+Controller 在 workspace 变化时发现 repository state。Details Host 在栏位关闭时会 unmount Git surface。
 
 Client main fiber 不要求 `desktop`。Child `ctx.inject(['desktop'], ...)` fiber 只接受 `shell.showItemInFolder`、`shell.openPath` 与 `notification.show`；缺少这些能力时，repository、status、diff、stage、commit 与 branch operations 仍可用，native actions 不显示。
+
+在 Electron 上，Details Host 是 required built-in。在其他 DSH Web host 上，需要与本 package 一起安装并启用 `@dsh-electron/dsh-client-ui-details-host`。
 
 ## 配置
 
@@ -31,6 +35,8 @@ GitHub authentication、remotes、fetch／pull／push UX、issues、pull request
 ## 开发
 
 使用 Node.js `^22.19` 或 `>=24` 与 pnpm 11。Standalone repository 管理自己的 dependency lockfile，并运行与 DeepSeek Harness subtree 相同的 package tests 和 bundle configuration。
+
+在 `@dsh-electron/dsh-client-ui-details-host@0.1.0` 发布到 npm 之前，本地开发通过 `tests/fixtures/` 下的 pinned fixture tarball 安装 Details Host。公共 artifact 可用后，应把该 dev-only 路径替换为 registry range。
 
 ```sh
 pnpm install --frozen-lockfile

@@ -3,12 +3,14 @@
 import type { ClientContext } from '@deepseek-ai/dsh-client-runtime/client'
 import type { ConnectionHandle } from '@deepseek-ai/dsh-client-connection/client'
 import type {} from '@deepseek-ai/cordis'
-import type {} from '@deepseek-ai/dsh-client-ui-layout/client'
 import type {} from '@deepseek-ai/dsh-client-ui-conversation/client'
 import type {} from '@deepseek-ai/dsh-client-locale/client'
+import { DETAILS_SURFACE_SLOT } from '@dsh-electron/dsh-client-ui-details-host/client'
+import type {} from '@dsh-electron/dsh-client-ui-details-host/client'
 import { GitBranchControl } from './GitBranchControl.tsx'
-import { GitDrawer } from './GitDrawer.tsx'
+import { GitDetailsSurface } from './GitDetailsSurface.tsx'
 import { GitClientController, type GitDesktopCapability } from './controller.ts'
+import { GIT_DETAILS_SURFACE_ID, type GitDetailsTab } from './contract.ts'
 import { en, NS, zh, type GitLocaleKey } from './locales.ts'
 
 declare module '@deepseek-ai/dsh-client-ui-slots' {
@@ -23,28 +25,34 @@ declare module '@deepseek-ai/cordis' {
   }
 }
 
-export { GitBranchControl, GitDrawer, GitClientController }
+export { GitBranchControl, GitDetailsSurface, GitClientController }
+export { GIT_DETAILS_SURFACE_ID, type GitDetailsTab } from './contract.ts'
 export type { GitDesktopCapability } from './controller.ts'
 
-export const inject = ['slots', 'connection', 'locale']
+export const inject = ['slots', 'connection', 'locale', 'shellDetails']
 
 /** Register portable UI first, then activate native enhancement in an optional child fiber. */
 export function apply(ctx: ClientContext): void {
   const connection = ctx.get('connection') as ConnectionHandle
   const controller = new GitClientController(connection.rpc)
+  const openDetails = (tab: GitDetailsTab = 'changes'): void => {
+    controller.selectTab(tab)
+    ctx.shellDetails.open(GIT_DETAILS_SURFACE_ID)
+  }
   ctx.effect(() => ctx.locale.register(NS, { en, zh }), 'git: dictionaries')
   ctx.slots.inject('conversation.input.left', () => ctx.slots.register({
     name: 'conversation.input.left',
     id: 'git-context',
     locale: NS,
-    inject: () => ({ controller }),
+    inject: () => ({ controller, openDetails }),
   }, GitBranchControl))
-  ctx.slots.inject('shell.overlay', () => ctx.slots.register({
-    name: 'shell.overlay',
-    id: 'git-drawer',
+  ctx.slots.inject(DETAILS_SURFACE_SLOT, () => ctx.slots.register({
+    name: DETAILS_SURFACE_SLOT,
+    id: GIT_DETAILS_SURFACE_ID,
+    label: 'Git',
     locale: NS,
     inject: () => ({ controller }),
-  }, GitDrawer))
+  }, GitDetailsSurface))
   ctx.inject(['desktop'], (desktopCtx) => {
     controller.setDesktop(desktopCtx.desktop)
     return () => { controller.setDesktop(undefined) }

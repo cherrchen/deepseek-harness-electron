@@ -8,14 +8,18 @@ import type { MenuEntry } from '@deepseek-ai/dsh-client-ui-primitives'
 import { ComposerToolTrigger } from './ComposerToolTrigger.tsx'
 import { changedPathCount } from './changed-path-count.ts'
 import type { GitClientController } from './controller.ts'
+import type { GitDetailsTab } from './contract.ts'
 import { formatLocale } from './locales.ts'
 import css from './GitBranchControl.module.css'
 
 export type GitBranchControlProps = PropsRuntime<'conversation.input.left'> & PropsLocale<'git'>
-  & { controller: GitClientController }
+  & {
+    controller: GitClientController
+    openDetails: (tab?: GitDetailsTab) => void
+  }
 
 /** Branch selector and changed-files chip for the composer `conversation.input.left` slot. */
-export function GitBranchControl({ controller, t, sessionId, useSessions }: GitBranchControlProps): ReactNode {
+export function GitBranchControl({ controller, openDetails, t, sessionId, useSessions }: GitBranchControlProps): ReactNode {
   const state = useSyncExternalStore(controller.subscribe, controller.getSnapshot)
   const workspacePath = useSessions((list) => {
     if (sessionId === undefined) return undefined
@@ -105,7 +109,7 @@ export function GitBranchControl({ controller, t, sessionId, useSessions }: GitB
           label={formatLocale(t('changes.indicatorCompact'), { count })}
           labelClassName={count > 0 ? css.changesLabelWarn : css.changesLabelCaption}
           aria-label={changesLabel}
-          onClick={() => { void controller.openDrawer('changes') }}
+          onClick={() => { openDetails('changes') }}
         />
       </Tooltip>
       {creating && (

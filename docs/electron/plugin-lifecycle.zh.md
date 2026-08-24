@@ -18,7 +18,7 @@ Electron 拥有插件的 desired state。DSH Host 拥有实际的 Cordis fiber s
 
 Electron 通过 `apps/electron/src/runtime-plugins.ts` 发现两类 bundled 插件：
 
-* **桌面运行时适配器** 是必需项，在 Host 启动前完成链接，且不允许用户在运行时管理。
+* **必需 runtime 插件**（`runtime/plugins/` 下的 Desktop adapter、Electron carrier，以及 Electron 必需的 portable UI 基础设施）在 Host 启动前完成链接，且不允许用户在运行时管理。发现结果仍标记为 `source: desktop-runtime`。
 * **bundled 生态插件** 在 Host 启动前完成链接，允许用户在运行时管理，并通过生成的 include 文件进入组合。
 
 链接本身不是启用状态信号。Electron 会把 bundled artifact 同时暴露到 `$DSH_HOME/profiles/node_modules` 与 `$DSH_HOME/electron/node_modules`；运行时启停仅由生成的 Cordis 组合控制。
@@ -34,7 +34,7 @@ Electron 在 `$DSH_HOME/electron/` 下写入这些文件：
 
 Electron 还会在 Electron `userData` 下写入 `electron-host.patch.yml`，并将其传给 `dsh web --patch`。
 
-bootstrap patch 只保留桌面必需基础设施行，为 `plugins.cordis.yml` 打开窄 HMR，并安装一个稳定的 `cordis:include` seat 指向该生成文件。bootstrap overlay 不列出各个生态插件。
+bootstrap patch 只保留必需 runtime 插件行，为 `plugins.cordis.yml` 打开窄 HMR，并安装一个稳定的 `cordis:include` seat 指向该生成文件。bootstrap overlay 不列出各个生态插件。Details Host 是必需行：它不得进入 `dshElectron.ecosystemPlugins`。
 
 ## 启动顺序
 
@@ -70,7 +70,7 @@ preload lifecycle group 通过 `@dsh-electron/dsh-electron-desktop-capabilities`
 
 `@dsh-electron/dsh-electron-ui-plugin-manager` 在 upstream 拥有的 `settings.plugins.tab` slot 中注册 order 为 `20` 的 `installed` contribution。upstream Plugins section 继续拥有 navigation、tab chrome、selection、keyboard behavior 与 mount lifecycle；Electron 不注册另一个 `settings.section`。
 
-“已安装”tab 仅在 mount 后读取第一份 lifecycle snapshot。它在主列表中展示可管理的 ecosystem 插件，并在默认折叠、只读的“系统组件”折叠区中展示必需的 Desktop runtime 插件。搜索会在 client 侧过滤 package name、display name 与 description。
+“已安装”tab 仅在 mount 后读取第一份 lifecycle snapshot。它在主列表中展示可管理的 ecosystem 插件，并在默认折叠、只读的“系统组件”折叠区中展示必需 runtime 插件。搜索会在 client 侧过滤 package name、display name 与 description。
 
 一次 enable、disable 或 reload 命令进行期间，该 view 会短周期轮询 `list()`，并禁用所有插件的 mutation 按钮。搜索、滚动与“系统组件”折叠操作仍可使用。命令稳定后，view 停止轮询，读取一份最终 snapshot，并使用 Main 与 Host 真相替换本地 lifecycle state。命令失败时，界面会报告操作与 rollback，但不会向用户渲染原始 rejection。
 
@@ -122,4 +122,5 @@ Electron 只会在 Host 稳定之后，并且仅当 manageable 插件分发产�
 * lifecycle controller 的成功路径、回滚、串行 mutation、并发读取与 client-refresh 分支；
 * lazy `ctx.desktop.plugins` forwarding 与 Plugin Manager slot redeclaration；
 * mutation polling、cleanup、最终协调、action、全局 locking、本地搜索与只读系统组件；
-* 通过 fixture 插件与 bundled Git 插件验证真实 Host 的 disable/enable/reload，并确认 PID 保持不变。
+* 通过 fixture 插件与 bundled Git 插件验证真实 Host 的 disable/enable/reload，并确认 PID 保持不变；
+* 针对当前 SlotRegistry 验证 Details Host 空闲启动、dummy surface 接管 `details`、close 后恢复上游 occupant，以及 host unload/reload。

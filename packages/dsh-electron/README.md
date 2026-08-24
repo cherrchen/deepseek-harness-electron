@@ -6,7 +6,7 @@ Packages under this downstream-owned namespace island are standard DSH/Cordis pl
 
 `@dsh-electron/dsh-plugin-*` names portable or Desktop-aware product features. The publisher scope does not imply an Electron requirement. Portable behavior may depend only on upstream DSH services; an optional native enhancement uses a child `ctx.inject(['desktop'], ...)` fiber and a package-local structural interface for the exact methods it consumes.
 
-`@dsh-electron/dsh-electron-*` names Desktop-required adapters and infrastructure. Those packages belong under `apps/electron/runtime/plugins/`, not in this directory.
+`@dsh-electron/dsh-electron-*` names Desktop-required adapters and infrastructure. Those packages belong under `apps/electron/runtime/plugins/`, not in this directory. Electron-required portable UI infrastructure that Desktop always mounts, such as `@dsh-electron/dsh-client-ui-details-host`, is a git subtree under `apps/electron/runtime/plugins/`, not a member of this island.
 
 Each subtree package owns one npm version and one set of Host and Client artifacts used unchanged by Native DSH and Electron. Do not introduce Electron imports, preload globals, Electron provider dependencies, `workspace:` publication ranges, or a second Desktop-specific package variant here.
 

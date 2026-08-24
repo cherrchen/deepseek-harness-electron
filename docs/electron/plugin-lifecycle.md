@@ -18,7 +18,7 @@ Electron owns desired plugin state. DSH Host owns actual Cordis fiber state. The
 
 Electron discovers two bundled plugin classes through `apps/electron/src/runtime-plugins.ts`:
 
-* **Desktop runtime adapters** are required, are linked before Host start, and are not user-manageable at runtime.
+* **Required runtime plugins** under `runtime/plugins/` (Desktop adapters, Electron carriers, and Electron-required portable UI infrastructure) are linked before Host start and are not user-manageable at runtime. Discovery still labels them `source: desktop-runtime`.
 * **Bundled ecosystem plugins** are linked before Host start, are user-manageable at runtime, and are composed through a generated include file.
 
 Linking is not the enable-state signal. Electron keeps bundled artifacts available under both `$DSH_HOME/profiles/node_modules` and `$DSH_HOME/electron/node_modules`; runtime enablement is controlled only by generated Cordis composition.
@@ -34,7 +34,7 @@ Electron writes these files below `$DSH_HOME/electron/`:
 
 Electron also writes `electron-host.patch.yml` into Electron `userData` and passes it to `dsh web --patch`.
 
-The bootstrap patch keeps desktop-required infrastructure rows, enables narrow HMR for `plugins.cordis.yml`, and mounts one stable `cordis:include` seat for that generated file. Individual ecosystem plugins are not listed in the bootstrap overlay.
+The bootstrap patch keeps required runtime plugin rows, enables narrow HMR for `plugins.cordis.yml`, and mounts one stable `cordis:include` seat for that generated file. Individual ecosystem plugins are not listed in the bootstrap overlay. Details Host is a required row: it must stay out of `dshElectron.ecosystemPlugins`.
 
 ## Startup sequence
 
@@ -70,7 +70,7 @@ The preload lifecycle group is adapted through `@dsh-electron/dsh-electron-deskt
 
 `@dsh-electron/dsh-electron-ui-plugin-manager` registers the `installed` contribution at order `20` in the upstream-owned `settings.plugins.tab` slot. The upstream Plugins section continues to own navigation, tab chrome, selection, keyboard behavior, and mount lifecycle; Electron does not register another `settings.section`.
 
-The Installed tab reads its first lifecycle snapshot only after mount. It shows manageable ecosystem plugins in the main list and required Desktop runtime plugins in a collapsed, read-only System Components disclosure. Search filters package name, display name, and description locally.
+The Installed tab reads its first lifecycle snapshot only after mount. It shows manageable ecosystem plugins in the main list and required runtime plugins in a collapsed, read-only System Components disclosure. Search filters package name, display name, and description locally.
 
 During one enable, disable, or reload command, the view polls `list()` at a short interval and disables mutation buttons for every plugin. Search, scrolling, and the System Components disclosure remain usable. The view stops polling when the command settles, reads one final snapshot, and replaces local lifecycle state with Main and Host truth. A failed command reports the operation and rollback without rendering the raw rejection to the user.
 
@@ -122,4 +122,5 @@ Focused `apps/electron` coverage verifies:
 * lifecycle-controller success, rollback, serialized mutations, concurrent reads, and client-refresh branching;
 * lazy `ctx.desktop.plugins` forwarding and Plugin Manager slot redeclaration;
 * mutation polling, cleanup, final reconciliation, actions, global locking, local search, and read-only system components;
-* real Host disable/enable/reload with stable PID through a fixture plugin and the bundled Git plugin.
+* real Host disable/enable/reload with stable PID through a fixture plugin and the bundled Git plugin;
+* Details Host idle boot against the current SlotRegistry, dummy-surface takeover of `details`, close restoring the upstream occupant, and host unload/reload.

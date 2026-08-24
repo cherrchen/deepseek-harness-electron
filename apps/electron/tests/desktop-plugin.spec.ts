@@ -60,6 +60,32 @@ describe('desktop brand feature plugin regression', () => {
   })
 })
 
+describe('details host portable runtime plugin regression', () => {
+  it('declares a public web client and does not import Electron or desktop', () => {
+    const manifest = JSON.parse(
+      readFileSync(join(electronRoot, 'runtime', 'plugins', 'ui-details-host', 'package.json'), 'utf8'),
+    ) as {
+      name?: string
+      dsh?: { client?: { platform?: string; inject?: string[] } }
+    }
+    expect(manifest.name).toBe('@dsh-electron/dsh-client-ui-details-host')
+    expect(manifest.dsh?.client?.platform).toBe('web')
+    expect(manifest.dsh?.client?.inject).toEqual([
+      '@deepseek-ai/dsh-client-runtime',
+      '@deepseek-ai/dsh-client-ui-layout',
+    ])
+    const clientRoot = join(electronRoot, 'runtime', 'plugins', 'ui-details-host', 'src', 'client')
+    for (const file of readdirSync(clientRoot)) {
+      if (!file.endsWith('.ts') && !file.endsWith('.tsx')) continue
+      const source = readFileSync(join(clientRoot, file), 'utf8')
+      expect(source).not.toContain('window.deepseekDesktop')
+      expect(source).not.toContain('ipcRenderer')
+      expect(source).not.toContain("from 'electron'")
+      expect(source).not.toContain('ctx.desktop')
+    }
+  })
+})
+
 describe('desktop plugin manager feature plugin regression', () => {
   it('depends on canonical Settings contracts and keeps primitives external', () => {
     const manifest = JSON.parse(

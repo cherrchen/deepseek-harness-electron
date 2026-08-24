@@ -327,17 +327,17 @@ A plugin MUST NOT receive raw Electron or Node access simply because it runs in 
 
 **CURRENT**
 
-Milestone 3 established bundled Desktop adapter infrastructure under `apps/electron/runtime/plugins/`. Standard public DSH ecosystem plugins live under `packages/dsh-electron/` and retain their prebuilt Host and Client artifacts.
+Milestone 3 established bundled runtime plugin infrastructure under `apps/electron/runtime/plugins/`. Standard public DSH ecosystem plugins live under `packages/dsh-electron/` and retain their prebuilt Host and Client artifacts.
 
 ```text
-runtime/plugins/*          Desktop adapters and Electron carrier plugins (build + link)
+runtime/plugins/*          Desktop adapters, Electron carriers, and Electron-required portable UI infrastructure (build + link)
 packages/dsh-electron/*    standard public DSH packages (prebuilt + link)
-runtime/host.patch.yml     bootstrap overlay: desktop adapters, include seat, config-only HMR
+runtime/host.patch.yml     bootstrap overlay: required runtime plugins, include seat, config-only HMR
 scripts/build-runtime-plugins.mjs
 src/runtime-plugins.ts     discovery, validation, profile and nested-include linking
 ```
 
-Startup links every bundled plugin into `$DSH_HOME/profiles/node_modules/<package-name>` and `$DSH_HOME/electron/node_modules/<package-name>` before the supervised Host starts. Discovery determines what Desktop ships. `host.patch.yml` mounts Desktop-required adapters plus a `cordis:include` seat; Electron generates `$DSH_HOME/electron/plugins.cordis.yml` as the runtime ecosystem roster. Runtime enable, disable, and reload are documented in [plugin-lifecycle.md](plugin-lifecycle.md).
+Startup links every bundled plugin into `$DSH_HOME/profiles/node_modules/<package-name>` and `$DSH_HOME/electron/node_modules/<package-name>` before the supervised Host starts. Discovery determines what Desktop ships. `host.patch.yml` mounts required runtime plugins plus a `cordis:include` seat; Electron generates `$DSH_HOME/electron/plugins.cordis.yml` as the runtime ecosystem roster. Runtime enable, disable, and reload are documented in [plugin-lifecycle.md](plugin-lifecycle.md).
 
 The Desktop Capability Provider (`@dsh-electron/dsh-electron-desktop-capabilities`) adapts `window.deepseekDesktop` into `ctx.desktop` for feature plugins. Only renderer infrastructure and the provider read the global bridge directly.
 
@@ -346,6 +346,8 @@ The directory picker (`@dsh-electron/dsh-electron-ui-directory-picker`) is the f
 The brand plugin (`@dsh-electron/dsh-electron-ui-brand`) always fills `sidebar.brand.mark`, `sidebar.brand.name`, and `conversation.hero.brand.mark` with DeepSeek Harness artwork, so Desktop does not depend on the upstream `DSH_CLIENT_BUILD_PROFILE=official` client build for product branding.
 
 The Plugin Manager (`@dsh-electron/dsh-electron-ui-plugin-manager`) consumes `ctx.desktop.plugins` and contributes the `installed` view through the upstream-owned `settings.plugins.tab` slot. It reads lifecycle snapshots only while mounted and polls only while one global lifecycle mutation is active; required Desktop runtime plugins remain read-only.
+
+Details Host (`@dsh-electron/dsh-client-ui-details-host`) is required portable UI infrastructure. Canonical source is `cherrchen/dsh-client-ui-details-host`; `apps/electron/runtime/plugins/ui-details-host` is the git subtree mirror. Electron rebuilds Host and Client artifacts from that source. The package mounts `ctx.shellDetails` at boot and does not occupy `details` until a consumer calls `open(id)`. Loading it MUST leave the upstream DetailsPanel as the column winner.
 
 ```text
 Feature Plugin
@@ -364,7 +366,7 @@ Electron Main
 Native OS APIs
 ```
 
-Desktop-required adapters are built from `runtime/plugins/<name>/`. Portable product features use `@dsh-electron/dsh-plugin-*` packages under `packages/dsh-electron/`; Electron packages and links their existing artifacts without rebuilding or converting them.
+Every directory under `runtime/plugins/<name>/` is rebuilt from source. Portable product features use `@dsh-electron/dsh-plugin-*` packages under `packages/dsh-electron/`; Electron packages and links their existing artifacts without rebuilding or converting them.
 
 # Part II — Architecture Principles
 
@@ -610,7 +612,9 @@ Downstream plugin ownership is split by runtime requirement:
 apps/electron/runtime/plugins/
 ├─ desktop-capabilities/          infrastructure
 ├─ ui-directory-picker-electron/  Desktop-required adapter
-└─ ui-brand-electron/             Electron carrier plugin
+├─ ui-brand-electron/             Electron carrier plugin
+├─ ui-plugin-manager-electron/    Electron carrier plugin
+└─ ui-details-host/               Electron-required portable UI infrastructure (subtree)
 
 packages/dsh-electron/
 └─ dsh-plugin-<feature>/           portable or Desktop-aware public DSH plugin
@@ -624,7 +628,7 @@ The architectural rules:
 * privileged operations remain behind the capability contract;
 * ordinary Desktop feature development does not require upstream modifications.
 
-Three plugin categories are:
+Four plugin categories are:
 
 ### Portable DSH Plugin
 
@@ -658,6 +662,10 @@ The main fiber declares only portable requirements. An optional `ctx.inject(['de
 ### Desktop-required Adapter
 
 A Desktop-required adapter declares `desktop` as a required service and belongs under `apps/electron/runtime/plugins/`, normally with an `@dsh-electron/dsh-electron-*` package name.
+
+### Electron-required portable DSH UI infrastructure
+
+A portable `platform: web` public package that Desktop always mounts as required Host composition. It uses only upstream DSH services, has no Electron dependency, and lives in a standalone canonical repository. `apps/electron/runtime/plugins/<name>/` is a git subtree mirror; Electron rebuilds artifacts from that source. Loading the package MUST NOT occupy product UI until a consumer calls the published service. Details Host is the current member: `ctx.shellDetails.open(id)` registers DetailsHost into the single `details` slot at a lower priority than the upstream DetailsPanel, then `ctx.layout.openDetails()` opens the column. `close()` disposes that registration so the upstream occupant wins again. Do not use DOM replacement, portals, CSS overlays, or edits to upstream `ui-layout` / `ui-conversation` for this takeover. Product features that consumers may disable belong under `packages/dsh-electron/`, not this category.
 
 ## 20. Native implementation versus feature ownership
 

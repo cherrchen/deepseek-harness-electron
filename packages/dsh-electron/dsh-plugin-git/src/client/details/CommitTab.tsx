@@ -6,7 +6,7 @@ import type { GitLocaleKey } from '../locales.ts'
 import { formatLocale } from '../locales.ts'
 import { splitRepoPath } from '../path-display.ts'
 import { Button } from '@deepseek-ai/dsh-client-ui-primitives'
-import css from '../GitDrawer.module.css'
+import css from '../GitDetailsSurface.module.css'
 
 /** Render the Commit tab with message input and staged file list. */
 export function CommitTab({ repository, controller, t, loading, error }: {
@@ -22,14 +22,14 @@ export function CommitTab({ repository, controller, t, loading, error }: {
     <div className={css.tabBody} key={repository.root}>
       {error !== undefined && <p className={css.error} role="alert">{error}</p>}
       <p className={css.stagedSummary}>
-        {formatLocale(t('drawer.stagedCount'), { count: repository.staged.length })}
+        {formatLocale(t('details.stagedCount'), { count: repository.staged.length })}
       </p>
       <label className={css.field}>
-        <span>{t('drawer.commitPlaceholder')}</span>
+        <span>{t('details.commitPlaceholder')}</span>
         <textarea
           value={message}
           onChange={(event) => { setMessage(event.target.value) }}
-          placeholder={t('drawer.commitPlaceholder')}
+          placeholder={t('details.commitPlaceholder')}
         />
       </label>
       <ul className={css.commitList}>
@@ -44,7 +44,7 @@ export function CommitTab({ repository, controller, t, loading, error }: {
           disabled={!canCommit}
           onClick={() => { void controller.commit(message).then(() => { setMessage('') }) }}
         >
-          {t('drawer.commit')}
+          {t('details.commit')}
         </Button>
       </div>
     </div>

@@ -180,6 +180,10 @@ async function buildClientHalf(pluginRoot, packageId, manifest) {
     format: 'cjs',
     target: 'es2022',
     write: false,
+    // Pin automatic JSX. esbuild otherwise follows the nearest tsconfig.json;
+    // a solution-style package file with no `jsx` setting emits
+    // `React.createElement` without importing `React`.
+    jsx: 'automatic',
     external: clientExternals(manifest),
     plugins: [clientCssModules(packageId)],
     logLevel: 'silent',
