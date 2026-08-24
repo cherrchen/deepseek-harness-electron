@@ -123,7 +123,7 @@ describe('Desktop synchronization and release workflows', () => {
     expect(merge.run).toContain('pnpm install --no-frozen-lockfile')
     expect(merge.run).not.toMatch(/pnpm install --lockfile-only/)
     expect(merge.run).toContain('apps/electron')
-    expect(merge.run).toContain('verify-downstream-plugin-workspace.mjs')
+    expect(merge.run).toContain('run verify:downstream-workspace')
     expect(prepareBeta.run).toContain('next-beta-tag.mjs')
     expect(prepareBeta.run).toContain('set-version.mjs')
     expect(prepareBeta.run).toContain('pnpm install --no-frozen-lockfile')

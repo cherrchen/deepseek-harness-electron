@@ -167,7 +167,7 @@ jobs:
             echo "::error::pnpm workspace no longer includes apps/electron after upstream merge."
             exit 1
           fi
-          node apps/electron/scripts/verify-downstream-plugin-workspace.mjs
+          pnpm --filter @dsh-electron/dsh-electron run verify:downstream-workspace
 
       - name: Prepare Beta release commit
         if: steps.upstream.outputs.changed == 'true'

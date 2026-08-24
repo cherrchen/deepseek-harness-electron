@@ -2,7 +2,7 @@
 import { spawn } from 'node:child_process'
 import { lstat, mkdir, readdir, rm, unlink } from 'node:fs/promises'
 import { join, relative, sep } from 'node:path'
-import { pnpmInvocation } from './pnpm-invocation.ts'
+import { pnpmInvocation } from './pnpm-invocation.mjs'
 
 /** Environment variable selecting the number of instrumented coverage processes. */
 export const COVERAGE_PARTITIONS_ENV = 'DSH_COVERAGE_PARTITIONS'

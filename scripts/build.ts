@@ -11,7 +11,7 @@ import {
   resolveClientBuildEnvironment,
   writeClientBuildRecord,
 } from './client-build-environment.ts'
-import { pnpmInvocation } from './pnpm-invocation.ts'
+import { pnpmInvocation } from './pnpm-invocation.mjs'
 
 /** Run one package script through the package manager that invoked this build. */
 function runScript(script: string, environment: NodeJS.ProcessEnv): void {
