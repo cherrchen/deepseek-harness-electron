@@ -4,6 +4,7 @@ import { existsSync, readdirSync, readFileSync } from 'node:fs'
 import { execFileSync } from 'node:child_process'
 import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
+import { pnpmInvocation } from '../../../scripts/pnpm-invocation.mjs'
 
 const scriptDirectory = dirname(fileURLToPath(import.meta.url))
 const repositoryRoot = resolve(scriptDirectory, '../../..')
@@ -35,8 +36,8 @@ export function downstreamPluginPackages(root = repositoryRoot) {
  * @returns {Set<string>} resolved package names.
  */
 export function pnpmWorkspacePackageNames(root = repositoryRoot) {
-  const executable = process.platform === 'win32' ? 'pnpm.cmd' : 'pnpm'
-  const output = execFileSync(executable, ['--recursive', 'list', '--depth', '-1', '--json'], {
+  const invocation = pnpmInvocation(['--recursive', 'list', '--depth', '-1', '--json'])
+  const output = execFileSync(invocation.command, invocation.args, {
     cwd: root,
     encoding: 'utf8',
     stdio: ['ignore', 'pipe', 'pipe'],

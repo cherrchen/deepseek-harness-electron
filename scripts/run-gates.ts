@@ -17,7 +17,7 @@ import {
   coverageTestTimeoutArgs,
   parseCoveragePartitionCount,
 } from './coverage-partitions.ts'
-import { pnpmInvocation } from './pnpm-invocation.ts'
+import { pnpmInvocation } from './pnpm-invocation.mjs'
 
 /** A named aggregate exposed by the gate runner. */
 export type Mode =

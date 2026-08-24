@@ -6,6 +6,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { describe, expect, it } from 'vitest'
+import { pnpmInvocation } from '../../../scripts/pnpm-invocation.mjs'
 import { validateRuntimePlugin } from '../src/runtime-plugins.ts'
 
 const electronRoot = fileURLToPath(new URL('..', import.meta.url))
@@ -19,7 +20,8 @@ describe('standard ecosystem plugin artifact portability', () => {
   it('validates Native and Electron installs extracted from the same tgz', async () => {
     const scratch = await mkdtemp(join(tmpdir(), 'dsh-plugin-git-artifact-'))
     try {
-      const pack = execFileSync('pnpm', ['pack', '--pack-destination', scratch], {
+      const invocation = pnpmInvocation(['pack', '--pack-destination', scratch])
+      const pack = execFileSync(invocation.command, invocation.args, {
         cwd: pluginRoot,
         encoding: 'utf8',
         env: { ...process.env, CI: 'true' },
