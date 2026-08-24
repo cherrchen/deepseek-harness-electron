@@ -3,10 +3,18 @@
 # still exists for apiproxy inject; the Electron client fills directory-flow
 # holes and calls Main's dialog (browse client is not mounted).
 # Desktop brand occupants replace the upstream `DSH Local Build` shell fallbacks.
-# Bundled runtime plugins are linked into `$DSH_HOME/profiles/node_modules`
-# before Host start (see ensureRuntimePluginsLinked).
+# Bundled runtime plugins are linked into `$DSH_HOME/profiles/node_modules` before
+# Host start (see ensureRuntimePluginsLinked). Ecosystem plugin lifecycle uses the
+# generated include file below, not this bootstrap overlay.
 - id: directory-picker
   disabled: true
+
+- id: hmr
+  disabled: false
+  config:
+    base: '__DSH_ELECTRON_PLUGIN_RUNTIME_BASE_URL__'
+    root:
+      - plugins.cordis.yml
 
 - insert:
     - id: directory-picker-browse
@@ -17,5 +25,8 @@
       name: '@dsh-electron/dsh-electron-ui-directory-picker'
     - id: desktop-ui-brand
       name: '@dsh-electron/dsh-electron-ui-brand'
-    - id: git
-      name: '@dsh-electron/dsh-plugin-git'
+    - id: dsh-electron-ecosystem-plugins
+      name: 'cordis:include'
+      config:
+        path: '__DSH_ELECTRON_PLUGIN_CONFIG_URL__'
+        enableLogs: true

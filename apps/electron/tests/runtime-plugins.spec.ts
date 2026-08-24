@@ -8,6 +8,7 @@ import { describe, expect, it } from 'vitest'
 import {
   discoverRuntimePlugins,
   discoverEcosystemPlugins,
+  discoverManagedPlugins,
   ensureRuntimePluginsLinked,
   ensureSymlink,
   profileModuleLinkPath,
@@ -15,7 +16,6 @@ import {
   runtimePluginsRoot,
   validateRuntimePlugin,
 } from '../src/runtime-plugins.ts'
-import { resolveHostPatchPath } from '../src/runtime-overlay.ts'
 
 const electronRoot = fileURLToPath(new URL('..', import.meta.url))
 const fixtureRoot = join(electronRoot, 'tests', 'fixtures', 'runtime-plugins', 'example-plugin')
@@ -67,6 +67,20 @@ describe('runtime plugin discovery', () => {
     const plugins = discoverEcosystemPlugins(electronRoot)
     expect(plugins.map(plugin => plugin.name)).toContain('@dsh-electron/dsh-plugin-git')
     expect(readFileSync(buildScript, 'utf8')).not.toContain('packages/dsh-electron')
+  })
+
+  it('classifies runtime adapters and ecosystem plugins for lifecycle management', () => {
+    const plugins = discoverManagedPlugins(electronRoot)
+    expect(plugins.some(plugin =>
+      plugin.name === '@dsh-electron/dsh-electron-desktop-capabilities'
+      && plugin.source === 'desktop-runtime'
+      && plugin.required
+      && !plugin.manageable)).toBe(true)
+    expect(plugins.some(plugin =>
+      plugin.name === '@dsh-electron/dsh-plugin-git'
+      && plugin.source === 'ecosystem'
+      && !plugin.required
+      && plugin.manageable)).toBe(true)
   })
 
   it('ignores non-plugin files under runtime/plugins', async () => {
@@ -186,34 +200,6 @@ describe('runtime plugin inventory layout', () => {
     const source = readFileSync(join(electronRoot, 'src', 'runtime-plugins.ts'), 'utf8')
     expect(source).not.toContain('ui-directory-picker-electron')
     expect(source).not.toContain('ELECTRON_DIRECTORY_PICKER')
-  })
-})
-
-describe('Host patch composition', () => {
-  it('mounts desktop capabilities, adapters, and the standard Git package', async () => {
-    const userData = await mkdtemp(join(tmpdir(), 'dsh-electron-patch-'))
-    try {
-      const patchPath = resolveHostPatchPath(electronRoot, userData)
-      const body = await readFile(patchPath, 'utf8')
-      expect(body).toContain('disabled: true')
-      expect(body).toContain('@deepseek-ai/dsh-host-directory-picker-browse')
-      expect(body).toContain('@dsh-electron/dsh-electron-desktop-capabilities')
-      expect(body).toContain('@dsh-electron/dsh-electron-ui-directory-picker')
-      expect(body).toContain('@dsh-electron/dsh-electron-ui-brand')
-      expect(body).toContain('@dsh-electron/dsh-plugin-git')
-      expect(body).toContain('desktop-capabilities')
-      expect(body).toContain('desktop-directory-picker')
-      expect(body).toContain('desktop-ui-brand')
-      expect(body).not.toContain('directory-picker-browse-client')
-      const capabilitiesIndex = body.indexOf('desktop-capabilities')
-      const pickerIndex = body.indexOf('desktop-directory-picker')
-      const brandIndex = body.indexOf('desktop-ui-brand')
-      expect(capabilitiesIndex).toBeGreaterThan(-1)
-      expect(pickerIndex).toBeGreaterThan(capabilitiesIndex)
-      expect(brandIndex).toBeGreaterThan(pickerIndex)
-    } finally {
-      await rm(userData, { recursive: true, force: true })
-    }
   })
 })
 

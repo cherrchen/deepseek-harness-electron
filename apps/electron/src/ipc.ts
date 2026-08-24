@@ -11,6 +11,7 @@ import {
 } from './bridge-types.ts'
 import { DesktopServices, parsePickDirectoryOptions } from './desktop/services.ts'
 import type { HarnessTransport } from './harness/transport.ts'
+import type { PluginLifecycleController } from './plugin-lifecycle.ts'
 
 const updaterSubscriptions = new WeakMap<WebContents, () => void>()
 const themeSubscriptions = new WeakMap<WebContents, () => void>()
@@ -20,11 +21,13 @@ const themeSubscriptions = new WeakMap<WebContents, () => void>()
  * @param transport - Main-process Harness transport.
  * @param desktop - Desktop capability services.
  * @param isTrustedContents - Whether the sender owns the main renderer window.
+ * @param getPluginLifecycle - Current Main-process plugin lifecycle controller.
  */
 export function installDesktopIpc(
   transport: HarnessTransport,
   desktop: DesktopServices,
   isTrustedContents: (contents: WebContents) => boolean,
+  getPluginLifecycle: () => PluginLifecycleController,
 ): void {
   const guard = (event: Electron.IpcMainInvokeEvent): void => {
     if (!isTrustedContents(event.sender)) {
@@ -132,6 +135,35 @@ export function installDesktopIpc(
   ipcMain.handle(DesktopIpcChannel.windowGetState, (event) => {
     guard(event)
     return desktop.getWindowState()
+  })
+
+  ipcMain.handle(DesktopIpcChannel.pluginsList, async (event) => {
+    guard(event)
+    return await getPluginLifecycle().list()
+  })
+
+  ipcMain.handle(DesktopIpcChannel.pluginsEnable, async (event, name: unknown) => {
+    guard(event)
+    if (typeof name !== 'string' || name.length === 0) {
+      throw new Error('desktop ipc: plugins.enable requires a package name')
+    }
+    await getPluginLifecycle().enable(name)
+  })
+
+  ipcMain.handle(DesktopIpcChannel.pluginsDisable, async (event, name: unknown) => {
+    guard(event)
+    if (typeof name !== 'string' || name.length === 0) {
+      throw new Error('desktop ipc: plugins.disable requires a package name')
+    }
+    await getPluginLifecycle().disable(name)
+  })
+
+  ipcMain.handle(DesktopIpcChannel.pluginsReload, async (event, name: unknown) => {
+    guard(event)
+    if (typeof name !== 'string' || name.length === 0) {
+      throw new Error('desktop ipc: plugins.reload requires a package name')
+    }
+    await getPluginLifecycle().reload(name)
   })
 
   ipcMain.on(DesktopIpcChannel.openStream, (event, path: string) => {

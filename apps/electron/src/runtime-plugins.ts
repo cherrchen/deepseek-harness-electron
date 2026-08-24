@@ -25,6 +25,19 @@ export interface RuntimePluginManifest {
   hasClient: boolean
 }
 
+/** Origin of one plugin artifact inside the Electron distribution. */
+export type ManagedPluginSource = 'desktop-runtime' | 'ecosystem'
+
+/** Runtime plugin plus lifecycle-management policy owned by Electron Main. */
+export interface ManagedPlugin extends RuntimePluginManifest {
+  /** Whether this artifact comes from runtime/plugins or ecosystem inventory. */
+  source: ManagedPluginSource
+  /** Whether users may enable, disable, or reload this plugin at runtime. */
+  manageable: boolean
+  /** Whether the desktop shell requires the plugin in static bootstrap composition. */
+  required: boolean
+}
+
 interface ElectronPluginInventoryManifest {
   dshElectron?: { ecosystemPlugins?: string[] }
 }
@@ -105,6 +118,36 @@ export function discoverEcosystemPlugins(appPath: string): RuntimePluginManifest
 }
 
 /**
+ * Discover every Electron-bundled plugin artifact with lifecycle policy metadata.
+ * @param appPath - Electron application root.
+ * @returns Runtime adapters first, then ecosystem plugins in distribution order.
+ */
+export function discoverManagedPlugins(appPath: string): ManagedPlugin[] {
+  const runtime = discoverRuntimePlugins(appPath).map<ManagedPlugin>(plugin => ({
+    ...plugin,
+    source: 'desktop-runtime',
+    manageable: false,
+    required: true,
+  }))
+  const ecosystem = discoverEcosystemPlugins(appPath).map<ManagedPlugin>(plugin => ({
+    ...plugin,
+    source: 'ecosystem',
+    manageable: true,
+    required: false,
+  }))
+  return [...runtime, ...ecosystem]
+}
+
+/**
+ * Discover only ecosystem plugins that Electron may manage at runtime.
+ * @param appPath - Electron application root.
+ * @returns Bundled ecosystem plugins in distribution order.
+ */
+export function discoverManageablePlugins(appPath: string): ManagedPlugin[] {
+  return discoverManagedPlugins(appPath).filter(plugin => plugin.manageable)
+}
+
+/**
  * Validate that a bundled plugin has the expected built artifacts.
  * @param plugin - Discovered plugin manifest.
  */
@@ -132,20 +175,34 @@ export function profileModuleLinkPath(harnessHome: string, packageName: string):
 }
 
 /**
+ * Resolve the dynamic-include module fallback path for one npm package name.
+ * @param harnessHome - `$DSH_HOME` root used by the supervised Host.
+ * @param packageName - Scoped or unscoped npm package name.
+ * @returns Absolute symlink path under `electron/node_modules`.
+ */
+export function pluginRuntimeModuleLinkPath(harnessHome: string, packageName: string): string {
+  return join(harnessHome, 'electron', 'node_modules', ...packageName.split('/'))
+}
+
+/**
  * Symlink every bundled runtime plugin into the profile module fallback.
  * @param appPath - Electron application root.
  * @param harnessHome - `$DSH_HOME` root used by the supervised Host.
  */
 export function ensureRuntimePluginsLinked(appPath: string, harnessHome: string): void {
-  const plugins = [...discoverRuntimePlugins(appPath), ...discoverEcosystemPlugins(appPath)]
+  const plugins = discoverManagedPlugins(appPath)
   if (plugins.length === 0) {
     throw new Error(`runtime plugins: no bundled plugins under ${runtimePluginsRoot(appPath)}`)
   }
   for (const plugin of plugins) {
     validateRuntimePlugin(plugin)
-    const link = profileModuleLinkPath(harnessHome, plugin.name)
-    mkdirSync(dirname(link), { recursive: true })
-    ensureSymlink(link, plugin.rootPath)
+    for (const link of [
+      profileModuleLinkPath(harnessHome, plugin.name),
+      pluginRuntimeModuleLinkPath(harnessHome, plugin.name),
+    ]) {
+      mkdirSync(dirname(link), { recursive: true })
+      ensureSymlink(link, plugin.rootPath)
+    }
   }
 }
 
