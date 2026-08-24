@@ -48,7 +48,7 @@ describe('GitClientController', () => {
     expect(controller.getSnapshot().repository?.root).toBe('/repo')
   })
 
-  it('opens drawer independently from repository discovery', async () => {
+  it('resets activeTab when the workspace changes', async () => {
     const rpc = {
       call: vi.fn(async (_channel: string, endpoint: string) => {
         if (endpoint === 'discover') return { ok: true as const, value: '/repo' }
@@ -57,13 +57,10 @@ describe('GitClientController', () => {
       }),
     }
     const controller = new GitClientController(rpc)
-    await controller.setWorkspace('/workspace')
-    await controller.openDrawer('diff')
-    expect(controller.getSnapshot().drawerOpen).toBe(true)
-    expect(controller.getSnapshot().activeTab).toBe('diff')
-    controller.closeDrawer()
-    expect(controller.getSnapshot().drawerOpen).toBe(false)
-    expect(controller.getSnapshot().repository?.root).toBe('/repo')
+    await controller.setWorkspace('/workspace-a')
+    controller.selectTab('diff')
+    await controller.setWorkspace('/workspace-b')
+    expect(controller.getSnapshot().activeTab).toBe('changes')
   })
 
   it('surfaces switch-branch errors without mutating repository state', async () => {

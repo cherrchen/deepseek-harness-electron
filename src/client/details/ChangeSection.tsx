@@ -2,7 +2,7 @@ import type { ReactNode } from 'react'
 import type { GitFileChange } from '../../types.ts'
 import { Button } from '@deepseek-ai/dsh-client-ui-primitives'
 import { ChangeRow } from './ChangeRow.tsx'
-import css from '../GitDrawer.module.css'
+import css from '../GitDetailsSurface.module.css'
 
 /** Render one change section with title, count, and rows. */
 export function ChangeSection({ title, changes, action, onSelect, onAction }: {
