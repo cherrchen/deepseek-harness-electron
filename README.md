@@ -8,7 +8,7 @@ A standard DSH/Cordis Git plugin with one portable Host service, one Client bund
 
 The Host plugin requires `ctx.subprocess`, provides `ctx.git`, and starts Git with an executable plus separate argv values. It never invokes a shell. Its optional Connection child registers the loopback `/git` RPC channel when a DSH Web Host is present; the Git service remains active in headless compositions without Connection.
 
-The Client plugin requires the upstream Connection, locale, runtime, conversation UI, primitives, and `@dsh-electron/dsh-client-ui-details-host`. It contributes a branch selector and changed-files indicator to `conversation.input.left`, and a Git details surface to `shell.details.surface`. Opening Git calls `ctx.shellDetails.open('git')`; the AppFrame details column, resize handle, and close button are owned by Details Host, not this package.
+The Client plugin requires the upstream Connection, locale, runtime, conversation UI, primitives, and `@dsh-electron/dsh-client-ui-details-host`. Its `dsh.client.external` list names `@dsh-electron/dsh-client-ui-details-host/client` so the module table materializes that factory before this bundle `require`s it. It contributes a branch selector and changed-files indicator to `conversation.input.left`, and a Git details surface to `shell.details.surface`. Opening Git calls `ctx.shellDetails.open('git')`; the AppFrame details column, resize handle, and close button are owned by Details Host, not this package.
 
 Business components receive a controller and `openDetails()` through slot injection and do not access Cordis context.
 

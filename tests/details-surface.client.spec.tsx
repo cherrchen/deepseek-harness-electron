@@ -1,8 +1,10 @@
 // @vitest-environment jsdom
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { cleanup, render, screen } from '@testing-library/react'
+import type { PropsLocale } from '@deepseek-ai/dsh-client-ui-slots'
 import type { GitRepositorySnapshot } from '../src/types.ts'
 import { GitDetailsSurface } from '../src/client/GitDetailsSurface.tsx'
+import type { GitDetailsSurfaceProps } from '../src/client/GitDetailsSurface.tsx'
 import type { GitClientController } from '../src/client/controller.ts'
 import { en } from '../src/client/locales.ts'
 
@@ -45,7 +47,9 @@ function controllerOf(state: ReturnType<GitClientController['getSnapshot']>): Gi
 describe('GitDetailsSurface', () => {
   afterEach(() => { cleanup() })
 
-  const t = ((key: keyof typeof en) => en[key]) as (key: keyof typeof en) => string
+  const t = ((key: keyof typeof en) => en[key]) as PropsLocale<'git'>['t']
+  const surfaceProps = (controller: GitClientController): GitDetailsSurfaceProps =>
+    ({ controller, t }) as GitDetailsSurfaceProps
 
   it('refreshes on mount and renders repository metadata without a close button', async () => {
     const controller = controllerOf({
@@ -58,7 +62,7 @@ describe('GitDetailsSurface', () => {
       error: undefined,
       desktopAvailable: true,
     })
-    const { container } = render(<GitDetailsSurface controller={controller} t={t} />)
+    const { container } = render(<GitDetailsSurface {...surfaceProps(controller)} />)
     expect(controller.refresh).toHaveBeenCalled()
     expect(screen.getByText('repo')).toBeTruthy()
     expect(screen.getByText('main')).toBeTruthy()
@@ -79,7 +83,7 @@ describe('GitDetailsSurface', () => {
       error: undefined,
       desktopAvailable: false,
     })
-    render(<GitDetailsSurface controller={controller} t={t} />)
+    render(<GitDetailsSurface {...surfaceProps(controller)} />)
     expect(screen.queryByRole('button', { name: en['details.reveal'] })).toBeNull()
     expect(screen.getByText(en['details.notRepository'])).toBeTruthy()
   })

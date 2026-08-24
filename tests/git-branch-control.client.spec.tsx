@@ -7,6 +7,7 @@ import type { PropsLocale } from '@deepseek-ai/dsh-client-ui-slots'
 import type { GitRepositorySnapshot } from '../src/types.ts'
 import { GitBranchControl } from '../src/client/GitBranchControl.tsx'
 import type { GitClientController, GitClientState } from '../src/client/controller.ts'
+import type { GitDetailsTab } from '../src/client/contract.ts'
 import { en } from '../src/client/locales.ts'
 
 const SESSION_A = 'session-a' as SessionId
@@ -36,7 +37,6 @@ function controllerOf(state: GitClientState): GitClientController {
     },
     setWorkspace: vi.fn(async () => {}),
     refresh: vi.fn(async () => {}),
-    openDetails: vi.fn(),
     selectTab: vi.fn(),
     selectDiff: vi.fn(async () => {}),
     stage: vi.fn(async () => {}),
@@ -81,7 +81,7 @@ describe('GitBranchControl', () => {
   const baseProps = (
     controller: GitClientController,
     list: SessionListState,
-    openDetails: ReturnType<typeof vi.fn> = vi.fn(),
+    openDetails: (tab?: GitDetailsTab) => void = vi.fn(),
   ) => ({
     controller,
     openDetails,
