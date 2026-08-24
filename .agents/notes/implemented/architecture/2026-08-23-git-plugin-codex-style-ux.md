@@ -4,23 +4,35 @@ Status: implemented
 
 English | [中文](2026-08-23-git-plugin-codex-style-ux.zh.md)
 
+## Problem
+
+Git controls need to distinguish the branch that defines the agent's working context from repository inspection and mutation actions without displacing the conversation or tool-call details.
+
+## Decision
+
 Branch selection belongs in the Composer because branch is part of the agent working context, not a separate app surface. Changes, diff, and commit stay in a right-side Git drawer because they are inspection and mutation tools for that context.
 
 ## Slot choices
 
 - `conversation.input.left` hosts `GitBranchControl` (branch menu + changed-files indicator).
 - `shell.overlay` hosts `GitDrawer` as a non-modal right-side panel.
-- The plugin does not register `sidebar.footer.action` and no longer depends on `dsh-client-ui-sidebar`.
+- The plugin does not register `sidebar.footer.action` or depend on `dsh-client-ui-sidebar`.
 - The plugin does not occupy `details`; that slot remains owned by tool-call details in `ui-conversation`.
 
 ## Controller lifecycle
 
 Repository discovery runs when the workspace path changes, independent of drawer visibility. Closing the drawer does not clear repository state. Async discover/status calls use a monotonic generation counter so stale responses cannot overwrite a newer workspace.
 
-## Desktop remains optional
+## Desktop is optional
 
 The portable client fiber registers composer control and drawer. Native reveal and commit notification stay in a child `ctx.inject(['desktop'], ...)` fiber.
 
-## Out of scope for this change
+## Alternatives considered
+
+**A separate Git application surface.** This separates branch selection from the Composer even though the selected branch is part of the agent's working context.
+
+**Sidebar or details placement.** The sidebar footer obscures the relationship between branch and Composer context, while `details` belongs to tool-call details.
+
+## Consequences
 
 Remote branches, fetch/pull/push, GitHub integration, stash, and merge/rebase UI remain deferred.

@@ -9,6 +9,9 @@ import {
   unlinkSync,
 } from 'node:fs'
 import { dirname, join } from 'node:path'
+import type { ManagedPluginSource } from './plugin-lifecycle-contract.ts'
+
+export type { ManagedPluginSource } from './plugin-lifecycle-contract.ts'
 
 /** Relative path from the Electron application root to bundled runtime plugins. */
 export const RUNTIME_PLUGINS_RELATIVE = join('runtime', 'plugins')
@@ -17,6 +20,10 @@ export const RUNTIME_PLUGINS_RELATIVE = join('runtime', 'plugins')
 export interface RuntimePluginManifest {
   /** npm package name from package.json. */
   name: string
+  /** npm package version from package.json. */
+  version: string
+  /** User-facing package description from package.json. */
+  description?: string
   /** Direct child directory name under runtime/plugins. */
   directoryName: string
   /** Absolute path to the plugin root (contains package.json and lib/). */
@@ -24,9 +31,6 @@ export interface RuntimePluginManifest {
   /** Whether package.json declares a dsh.client browser half. */
   hasClient: boolean
 }
-
-/** Origin of one plugin artifact inside the Electron distribution. */
-export type ManagedPluginSource = 'desktop-runtime' | 'ecosystem'
 
 /** Runtime plugin plus lifecycle-management policy owned by Electron Main. */
 export interface ManagedPlugin extends RuntimePluginManifest {
@@ -67,17 +71,22 @@ export function discoverRuntimePlugins(appPath: string): RuntimePluginManifest[]
     const pluginRoot = join(root, entry.name)
     const manifestPath = join(pluginRoot, 'package.json')
     if (!existsSync(manifestPath)) continue
-    let manifest: { name?: string; dsh?: { client?: unknown } }
+    let manifest: PackageManifest
     try {
-      manifest = JSON.parse(readFileSync(manifestPath, 'utf8')) as { name?: string; dsh?: { client?: unknown } }
+      manifest = JSON.parse(readFileSync(manifestPath, 'utf8')) as PackageManifest
     } catch (error) {
       throw new Error(`runtime plugins: invalid package.json at ${manifestPath}: ${String(error)}`)
     }
     if (typeof manifest.name !== 'string' || manifest.name.length === 0) {
       throw new Error(`runtime plugins: package name missing in ${manifestPath}`)
     }
+    if (typeof manifest.version !== 'string' || manifest.version.length === 0) {
+      throw new Error(`runtime plugins: package version missing in ${manifestPath}`)
+    }
     plugins.push({
       name: manifest.name,
+      version: manifest.version,
+      ...(typeof manifest.description === 'string' ? { description: manifest.description } : {}),
       directoryName: entry.name,
       rootPath: pluginRoot,
       hasClient: manifest.dsh?.client !== undefined,
@@ -104,17 +113,29 @@ export function discoverEcosystemPlugins(appPath: string): RuntimePluginManifest
     if (!existsSync(manifestPath)) {
       throw new Error(`ecosystem plugins: ${name} is declared but not installed at ${installed}`)
     }
-    const manifest = JSON.parse(readFileSync(manifestPath, 'utf8')) as { name?: string; dsh?: { client?: unknown } }
+    const manifest = JSON.parse(readFileSync(manifestPath, 'utf8')) as PackageManifest
     if (manifest.name !== name) {
       throw new Error(`ecosystem plugins: expected ${name} at ${manifestPath}, found ${String(manifest.name)}`)
     }
+    if (typeof manifest.version !== 'string' || manifest.version.length === 0) {
+      throw new Error(`ecosystem plugins: package version missing in ${manifestPath}`)
+    }
     return {
       name,
+      version: manifest.version,
+      ...(typeof manifest.description === 'string' ? { description: manifest.description } : {}),
       directoryName: name.split('/').at(-1) ?? name,
       rootPath,
       hasClient: manifest.dsh?.client !== undefined,
     }
   })
+}
+
+interface PackageManifest {
+  name?: string
+  version?: string
+  description?: string
+  dsh?: { client?: unknown }
 }
 
 /**

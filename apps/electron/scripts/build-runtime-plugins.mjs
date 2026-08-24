@@ -4,8 +4,9 @@
 
 import { createRequire } from 'node:module'
 import { existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from 'node:fs'
-import { dirname, join } from 'node:path'
+import { basename, dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
+import { transform } from 'lightningcss'
 
 const require = createRequire(import.meta.url)
 const root = join(dirname(fileURLToPath(import.meta.url)), '..')
@@ -104,6 +105,49 @@ function clientExternals(manifest) {
 }
 
 /**
+ * Compile CSS Modules into a class map and a plugin-owned inline style.
+ * @param {string} packageId
+ * @returns {import('esbuild').Plugin}
+ */
+function clientCssModules(packageId) {
+  return {
+    name: 'dsh-electron-css-modules-inline',
+    setup(build) {
+      build.onResolve({ filter: /\.module\.css$/ }, args => ({
+        path: join(args.resolveDir, args.path),
+        namespace: 'dsh-electron-css',
+      }))
+      build.onLoad({ filter: /.*/, namespace: 'dsh-electron-css' }, (args) => {
+        const source = readFileSync(args.path)
+        const { code, exports: cssExports } = transform({
+          filename: args.path,
+          code: source,
+          cssModules: { pattern: '[hash]_[local]' },
+          minify: true,
+        })
+        const classMap = {}
+        for (const [local, value] of Object.entries(cssExports ?? {})) classMap[local] = value.name
+        const tagId = `${packageId}/${basename(args.path)}`
+        return {
+          loader: 'js',
+          contents: [
+            `const css = ${JSON.stringify(code.toString())};`,
+            'if (typeof document !== "undefined") {',
+            '  const tag = document.createElement("style");',
+            `  tag.dataset.plugin = ${JSON.stringify(packageId)};`,
+            `  tag.dataset.pluginCss = ${JSON.stringify(tagId)};`,
+            '  tag.textContent = css;',
+            '  document.head.append(tag);',
+            '}',
+            `export default ${JSON.stringify(classMap)};`,
+          ].join('\n'),
+        }
+      })
+    },
+  }
+}
+
+/**
  * @param {string} pluginRoot
  */
 async function buildHostHalf(pluginRoot) {
@@ -137,6 +181,7 @@ async function buildClientHalf(pluginRoot, packageId, manifest) {
     target: 'es2022',
     write: false,
     external: clientExternals(manifest),
+    plugins: [clientCssModules(packageId)],
     logLevel: 'silent',
   })
   const code = result.outputFiles?.[0]?.text

@@ -157,6 +157,8 @@ describe('runtime plugin hot plug', () => {
   it('hot-disables, hot-enables, and hot-reloads a fixture plugin without changing the Host PID', { timeout: 30_000 }, async () => {
     const plugin: ManagedPlugin = {
       name: '@dsh-electron/dsh-plugin-lifecycle-probe',
+      version: '0.0.0',
+      description: 'Lifecycle integration probe',
       directoryName: 'lifecycle-probe',
       rootPath: lifecycleProbeRoot,
       hasClient: false,

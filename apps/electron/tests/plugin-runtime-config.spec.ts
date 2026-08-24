@@ -8,6 +8,7 @@ import type { PluginState } from '../src/plugin-state.ts'
 
 const desktopAdapter: ManagedPlugin = {
   name: '@dsh-electron/dsh-electron-desktop-capabilities',
+  version: '0.1.0',
   directoryName: 'desktop-capabilities',
   rootPath: '/runtime/desktop-capabilities',
   hasClient: true,
@@ -18,6 +19,7 @@ const desktopAdapter: ManagedPlugin = {
 
 const gitPlugin: ManagedPlugin = {
   name: '@dsh-electron/dsh-plugin-git',
+  version: '0.1.0',
   directoryName: 'dsh-plugin-git',
   rootPath: '/plugins/dsh-plugin-git',
   hasClient: true,
@@ -28,6 +30,7 @@ const gitPlugin: ManagedPlugin = {
 
 const notesPlugin: ManagedPlugin = {
   name: '@dsh-electron/dsh-plugin-notes',
+  version: '0.1.0',
   directoryName: 'dsh-plugin-notes',
   rootPath: '/plugins/dsh-plugin-notes',
   hasClient: false,

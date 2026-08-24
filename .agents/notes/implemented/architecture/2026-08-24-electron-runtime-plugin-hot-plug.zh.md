@@ -21,7 +21,11 @@ Electron 在 `$DSH_HOME/electron/` 下写入 `plugin-state.json` 与 `plugins.co
 
 Host bootstrap 现在来自运行时渲染的 `electron-host.patch.yml`。该 overlay 保留桌面必需基础设施行，为 `plugins.cordis.yml` 打开窄 HMR，并安装一个稳定的 `cordis:include` seat 指向该生成 roster。静态 ecosystem 行不再位于 bootstrap overlay 中。
 
-Electron 通过 `PluginLifecycleController` 应用运行时变更，该 controller 串行化 `list()`、`enable(name)`、`disable(name)` 与 `reload(name)`。controller 重写 `plugins.cordis.yml`，然后轮询现有 Host `pluginInventory.list()` Remote 真相，直到目标包消失或进入 `active`。失败时，它会先恢复上一份生成 roster，再向外报告错误。controller 还会在连续的生成文件写入之间等待一个 HMR quiet window，避免后续 mutation 落在前一个 watcher 的 debounce 窗口内。
+Electron 通过 `PluginLifecycleController` 应用运行时变更。`enable(name)`、`disable(name)` 与 `reload(name)` 共用一个全局 mutation queue，因为每条命令都可能替换完整的 effective roster。`list()` 绕过该队列并发读取当前 Host inventory，因此 Renderer 能在 mutation 稳定期间观察 `pending`、`loading`、`unloading` 与 `failed`。在此期间，`desiredEnabled` 仍表示最后一次成功持久化的 desired state；只有成功完成稳定与持久化后才会提交 target state。controller 重写 `plugins.cordis.yml`，轮询现有 Host `pluginInventory.list()` Remote 真相，直到目标包消失或进入 `active`，并在失败时恢复上一份生成 roster。它还会在连续的生成文件写入之间等待一个 HMR quiet window，避免后续 mutation 落在前一个 watcher 的 debounce 窗口内。
+
+`@dsh-electron/dsh-electron-desktop-capabilities` 把 typed preload 的插件生命周期分组适配为 `ctx.desktop.plugins`。`@dsh-electron/dsh-electron-ui-plugin-manager` 仅消费这一 capability，并向 upstream 拥有的 `settings.plugins.tab` slot 贡献 `installed` view；它不会注册另一个 Settings section，也不会直接读取 `window.deepseekDesktop`。package `version` 与可选 `description` 来自每个 bundled npm `package.json`；必需的 Desktop runtime 插件显示在默认折叠、只读的“系统组件”列表中，可管理的 ecosystem 插件则提供操作命令。
+
+“已安装”view 仅在 tab mount 时读取第一份 snapshot。Main 等待命令稳定期间，Renderer 使用一条 operation record 表达用户意图，并且只在该 mutation 进行时短周期轮询。所有 mutation 按钮共用一个 Renderer lock，而搜索与“系统组件”折叠操作仍可使用。成功与失败都会以一次新的 `list()` 协调结束；失败命令显示安全的操作摘要与 rollback 提示，完整 rejection 则保留在 Renderer console。本路径不包含 lifecycle subscription 或 marketplace/install API。
 
 生成的 include 文件位于 `$DSH_HOME/electron/` 下，而嵌套 `cordis:include` 会从该目录解析 bare package name。因此 Electron 除了保留现有 `$DSH_HOME/profiles/node_modules` fallback 外，还会在 `$DSH_HOME/electron/node_modules` 下保留 bundled 插件 symlink。运行时启用状态仍由生成组合拥有；这一额外链接位置仅用于为嵌套 include 子树保留包解析能力。
 
@@ -37,10 +41,16 @@ Renderer refresh 仍是 Electron 拥有的边界。只有在 Host 稳定之后�
 
 **对每次 client 插件变更都做 Renderer 模块图热协调。** 拒绝：上游 client 图仍期待一条全新的 bootstrap 路径；Electron 拥有的整页 reload 是更窄且已发货的边界。
 
+**创建 Electron 专用的 Plugins settings section，或 patch upstream Settings DOM。** 拒绝：`settings.plugins.tab` 是 canonical contribution point，并使 section chrome、navigation、selection 与 redeclaration lifecycle 继续由 upstream owner 管理。
+
+**让 Plugin Manager 直接调用 `window.deepseekDesktop.plugins`。** 拒绝：feature plugin 通过 `ctx.desktop` 消费 privileged operation；把 preload bridge 保留在该 capability 后方，可以维持单一的 client-side authority boundary。
+
+**在发布管理 view 前增加 lifecycle event stream。** 拒绝：并发 `list()` 读取加 mutation-scoped polling 已能暴露所需 transition state，无需增加永久 IPC subscription protocol。
+
 ## Consequences
 
 Electron 运行时生命周期现在拥有一个 desired-state owner 与一个 runtime truth source。启动阶段与后续生命周期 mutation 都操作同一个生成的 `plugins.cordis.yml` 路径，因此首次 Host 挂载与后续运行时变更保持一致。
 
-已发货行为由聚焦的 `apps/electron` 覆盖固定：overlay 渲染、plugin-state 解析、确定性 runtime config 生成、lifecycle controller 的回滚与串行化、bridge 暴露，以及通过 fixture 插件与 bundled Git 插件验证真实 Host disable/enable/reload 且 PID 保持不变。
+已发货行为由聚焦的 `apps/electron` 覆盖固定：overlay 渲染、plugin-state 解析、确定性 runtime config 生成、lifecycle controller 回滚、串行 mutation 与并发读取、lazy desktop capability forwarding、Settings slot redeclaration、controller polling 与 cleanup、lifecycle action presentation、只读系统组件、本地搜索，以及通过 fixture 插件与 bundled Git 插件验证真实 Host disable/enable/reload 且 PID 保持不变。
 
 如果上游未来提供能在嵌套 include 间保留包解析语境的原生运行时组合 API，或提供 client 图协调路径，Electron 可以替换生成文件后端并移除额外的 `electron/node_modules` 链接面，而无需改变公开桌面 bridge 的语义。

@@ -5,6 +5,11 @@ import type { ClientContext } from '@deepseek-ai/dsh-client-runtime/client'
 import { DesktopCapabilitiesService } from './service.ts'
 
 export type { DesktopCapabilitiesContract } from './contract.ts'
+export type {
+  PluginLifecycleEntry,
+  PluginLifecycleSnapshot,
+  PluginRuntimeState,
+} from '../../../../../src/plugin-lifecycle-contract.ts'
 export { createDesktopCapabilities, requireDesktopBridge } from './contract.ts'
 
 declare module '@deepseek-ai/cordis' {

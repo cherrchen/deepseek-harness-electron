@@ -4,30 +4,13 @@ import type { PluginState } from './plugin-state.ts'
 import { savePluginState } from './plugin-state.ts'
 import { effectivePluginRoster, type PluginCompositionBackend } from './plugin-runtime-config.ts'
 import type { PluginInventoryProbe } from './plugin-inventory-probe.ts'
+import type { PluginLifecycleSnapshot, PluginRuntimeState } from './plugin-lifecycle-contract.ts'
 
-/** One manageable plugin's observable lifecycle state. */
-export type PluginRuntimeState =
-  | 'absent'
-  | 'pending'
-  | 'loading'
-  | 'active'
-  | 'failed'
-  | 'unloading'
-
-/** UI-facing lifecycle snapshot for one bundled plugin artifact. */
-export interface PluginLifecycleEntry {
-  name: string
-  hasClient: boolean
-  manageable: boolean
-  required: boolean
-  desiredEnabled: boolean
-  runtime: PluginRuntimeState
-}
-
-/** Ordered snapshot returned to the desktop bridge. */
-export interface PluginLifecycleSnapshot {
-  entries: PluginLifecycleEntry[]
-}
+export type {
+  PluginLifecycleEntry,
+  PluginLifecycleSnapshot,
+  PluginRuntimeState,
+} from './plugin-lifecycle-contract.ts'
 
 /** Renderer refresh hook after a client-bearing plugin reaches its target Host state. */
 export type RendererRefresher = () => Promise<void>
@@ -51,7 +34,7 @@ export class PluginLifecycleController {
   private readonly timeoutMs: number
   private readonly pollIntervalMs: number
   private readonly hmrQuietMs: number
-  private operationQueue = Promise.resolve()
+  private mutationQueue = Promise.resolve()
 
   constructor(
     private readonly plugins: readonly ManagedPlugin[],
@@ -73,7 +56,7 @@ export class PluginLifecycleController {
    * @returns Ordered lifecycle entries.
    */
   list(): Promise<PluginLifecycleSnapshot> {
-    return this.enqueue(() => this.snapshot())
+    return this.snapshot()
   }
 
   /**
@@ -81,7 +64,7 @@ export class PluginLifecycleController {
    * @param name - Distribution package name.
    */
   enable(name: string): Promise<void> {
-    return this.enqueue(() => this.runEnable(name))
+    return this.enqueueMutation(() => this.runEnable(name))
   }
 
   /**
@@ -89,7 +72,7 @@ export class PluginLifecycleController {
    * @param name - Distribution package name.
    */
   disable(name: string): Promise<void> {
-    return this.enqueue(() => this.runDisable(name))
+    return this.enqueueMutation(() => this.runDisable(name))
   }
 
   /**
@@ -97,7 +80,7 @@ export class PluginLifecycleController {
    * @param name - Distribution package name.
    */
   reload(name: string): Promise<void> {
-    return this.enqueue(() => this.runReload(name))
+    return this.enqueueMutation(() => this.runReload(name))
   }
 
   private async runEnable(name: string): Promise<void> {
@@ -189,6 +172,9 @@ export class PluginLifecycleController {
     return {
       entries: this.plugins.map(plugin => ({
         name: plugin.name,
+        version: plugin.version,
+        ...(plugin.description === undefined ? {} : { description: plugin.description }),
+        source: plugin.source,
         hasClient: plugin.hasClient,
         manageable: plugin.manageable,
         required: plugin.required,
@@ -232,9 +218,9 @@ export class PluginLifecycleController {
     }
   }
 
-  private enqueue<T>(operation: () => Promise<T>): Promise<T> {
-    const result = this.operationQueue.then(operation, operation)
-    this.operationQueue = result.then(() => undefined, () => undefined)
+  private enqueueMutation<T>(operation: () => Promise<T>): Promise<T> {
+    const result = this.mutationQueue.then(operation, operation)
+    this.mutationQueue = result.then(() => undefined, () => undefined)
     return result
   }
 }

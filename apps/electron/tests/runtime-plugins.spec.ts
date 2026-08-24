@@ -61,6 +61,10 @@ describe('runtime plugin discovery', () => {
     expect(names).toContain('@dsh-electron/dsh-electron-desktop-capabilities')
     expect(names).toContain('@dsh-electron/dsh-electron-ui-directory-picker')
     expect(names).toContain('@dsh-electron/dsh-electron-ui-brand')
+    expect(names).toContain('@dsh-electron/dsh-electron-ui-plugin-manager')
+    expect(plugins.every(plugin => plugin.version.length > 0)).toBe(true)
+    expect(plugins.find(plugin => plugin.name === '@dsh-electron/dsh-electron-desktop-capabilities')?.description)
+      .toBe('Desktop capability provider for Electron feature plugins')
   })
 
   it('discovers prebuilt ecosystem plugins without routing them through the Desktop builder', () => {
@@ -245,5 +249,15 @@ describe('generic runtime plugin builder', () => {
     } finally {
       await rm(appPath, { recursive: true, force: true })
     }
+  })
+
+  it('inlines plugin-owned CSS Modules for loader lifecycle cleanup', () => {
+    const plugin = discoverRuntimePlugins(electronRoot)
+      .find(candidate => candidate.name === '@dsh-electron/dsh-electron-ui-plugin-manager')
+    if (plugin === undefined) throw new Error('Plugin Manager runtime plugin is missing')
+    const client = readFileSync(join(plugin.rootPath, 'lib', 'client.js'), 'utf8')
+    expect(client).toContain('dataset.pluginCss')
+    expect(client).toContain(plugin.name)
+    expect(client).toContain('PluginManagerTab.module.css')
   })
 })

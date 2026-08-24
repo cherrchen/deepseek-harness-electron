@@ -23,6 +23,8 @@ Electron discovers two bundled plugin classes through `apps/electron/src/runtime
 
 Linking is not the enable-state signal. Electron keeps bundled artifacts available under both `$DSH_HOME/profiles/node_modules` and `$DSH_HOME/electron/node_modules`; runtime enablement is controlled only by generated Cordis composition.
 
+Each lifecycle entry also carries the package `version` and optional `description` read from the bundled npm `package.json`. Electron does not maintain a separate plugin metadata format.
+
 ## Runtime-owned files
 
 Electron writes these files below `$DSH_HOME/electron/`:
@@ -50,7 +52,9 @@ Startup and later lifecycle mutations both act on the same generated `plugins.co
 
 ## Runtime operations
 
-`PluginLifecycleController` serializes `list()`, `enable(name)`, `disable(name)`, and `reload(name)`.
+`PluginLifecycleController` serializes `enable(name)`, `disable(name)`, and `reload(name)` on one global mutation queue. Each mutation can regenerate and apply the complete effective roster, so different plugin names do not receive separate queues.
+
+`list()` bypasses the mutation queue and reads current Host inventory concurrently. Renderer polling can therefore observe transition phases while a mutation settles. During that interval `desiredEnabled` remains the last successfully persisted state; the renderer combines Host runtime state with its current operation record instead of treating desired state as a progress signal.
 
 Operations mutate desired state by rewriting `plugins.cordis.yml`, then poll the existing Host `pluginInventory.list()` Remote truth until the target settles:
 
@@ -59,6 +63,16 @@ Operations mutate desired state by rewriting `plugins.cordis.yml`, then poll the
 * **reload** removes the package, waits absent, restores it, then waits active.
 
 If settlement fails, Electron restores the previous generated roster before surfacing the failure. The controller also waits one HMR quiet window between consecutive mutations so a second generated-file write does not land inside the watcher debounce window of the prior change.
+
+## Desktop management view
+
+The preload lifecycle group is adapted through `@dsh-electron/dsh-electron-desktop-capabilities` into `ctx.desktop.plugins`. Desktop feature plugins do not read `window.deepseekDesktop.plugins` directly.
+
+`@dsh-electron/dsh-electron-ui-plugin-manager` registers the `installed` contribution at order `20` in the upstream-owned `settings.plugins.tab` slot. The upstream Plugins section continues to own navigation, tab chrome, selection, keyboard behavior, and mount lifecycle; Electron does not register another `settings.section`.
+
+The Installed tab reads its first lifecycle snapshot only after mount. It shows manageable ecosystem plugins in the main list and required Desktop runtime plugins in a collapsed, read-only System Components disclosure. Search filters package name, display name, and description locally.
+
+During one enable, disable, or reload command, the view polls `list()` at a short interval and disables mutation buttons for every plugin. Search, scrolling, and the System Components disclosure remain usable. The view stops polling when the command settles, reads one final snapshot, and replaces local lifecycle state with Main and Host truth. A failed command reports the operation and rollback without rendering the raw rejection to the user.
 
 ## Renderer refresh boundary
 
@@ -105,5 +119,7 @@ Focused `apps/electron` coverage verifies:
 * runtime overlay rendering and placeholder replacement;
 * plugin-state parsing and persistence behavior;
 * deterministic runtime config generation;
-* lifecycle-controller success, rollback, serialization, and client-refresh branching;
+* lifecycle-controller success, rollback, serialized mutations, concurrent reads, and client-refresh branching;
+* lazy `ctx.desktop.plugins` forwarding and Plugin Manager slot redeclaration;
+* mutation polling, cleanup, final reconciliation, actions, global locking, local search, and read-only system components;
 * real Host disable/enable/reload with stable PID through a fixture plugin and the bundled Git plugin.

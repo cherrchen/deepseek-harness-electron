@@ -282,6 +282,7 @@ notification
 updater
 theme
 window
+plugins
 ```
 
 There is no generic `ipcRenderer.invoke()` escape hatch.
@@ -343,6 +344,8 @@ The Desktop Capability Provider (`@dsh-electron/dsh-electron-desktop-capabilitie
 The directory picker (`@dsh-electron/dsh-electron-ui-directory-picker`) is the first feature-plugin consumer: it fills workspace directory-flow slots and calls `ctx.desktop.dialog.pickDirectory()`.
 
 The brand plugin (`@dsh-electron/dsh-electron-ui-brand`) always fills `sidebar.brand.mark`, `sidebar.brand.name`, and `conversation.hero.brand.mark` with DeepSeek Harness artwork, so Desktop does not depend on the upstream `DSH_CLIENT_BUILD_PROFILE=official` client build for product branding.
+
+The Plugin Manager (`@dsh-electron/dsh-electron-ui-plugin-manager`) consumes `ctx.desktop.plugins` and contributes the `installed` view through the upstream-owned `settings.plugins.tab` slot. It reads lifecycle snapshots only while mounted and polls only while one global lifecycle mutation is active; required Desktop runtime plugins remain read-only.
 
 ```text
 Feature Plugin
