@@ -24,7 +24,10 @@ export const inject = ['slots', 'locale', 'desktop']
 export function apply(ctx: ClientContext): void {
   ctx.effect(() => ctx.locale.register(NS, { zh, en }), 'ui-plugin-manager-electron: dictionaries')
   const t = ctx.locale.bind(NS)
-  const injected = (): PluginManagerTabInjected => ({ plugins: ctx.desktop.plugins })
+  const injected = (): PluginManagerTabInjected => ({
+    plugins: ctx.desktop.plugins,
+    dialog: ctx.desktop.dialog,
+  })
   ctx.slots.inject('settings.plugins.tab', () => ctx.slots.register({
     name: 'settings.plugins.tab',
     id: 'installed',

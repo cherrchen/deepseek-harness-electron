@@ -70,6 +70,12 @@ export class PluginManagerController {
     await this.load()
   }
 
+  /** Refresh the catalog after a package installation completes. */
+  async refresh(): Promise<void> {
+    if (this.disposed || this.state.activeOperation !== undefined) return
+    await this.load()
+  }
+
   /**
    * Run one global lifecycle mutation and reconcile with Main afterward.
    * @param operation - Plugin package name and lifecycle command.
