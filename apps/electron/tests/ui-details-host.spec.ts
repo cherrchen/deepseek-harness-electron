@@ -29,8 +29,16 @@ function fakeLayout() {
 }
 
 function fakeSessions(current: string | undefined = 'session-a') {
-  let snapshot = { current }
+  let snapshot = {
+    current,
+    ids: current === undefined ? [] as string[] : [current],
+    byId: {} as Record<string, { id: string }>,
+  }
+  if (current !== undefined) snapshot.byId[current] = { id: current }
   const listeners = new Set<() => void>()
+  const notify = (): void => {
+    for (const listener of listeners) listener()
+  }
   return {
     list: {
       getSnapshot: () => snapshot,
@@ -40,8 +48,17 @@ function fakeSessions(current: string | undefined = 'session-a') {
       },
     },
     setCurrent(next: string | undefined) {
-      snapshot = { current: next }
-      for (const listener of listeners) listener()
+      if (next !== undefined && !snapshot.ids.includes(next)) {
+        snapshot = {
+          ...snapshot,
+          current: next,
+          ids: [...snapshot.ids, next],
+          byId: { ...snapshot.byId, [next]: { id: next } },
+        }
+      } else {
+        snapshot = { ...snapshot, current: next }
+      }
+      notify()
     },
   }
 }
@@ -92,10 +109,17 @@ describe('Details Host Electron integration', () => {
 
   it('lets DetailsHost win details, then restores the upstream occupant on close', async () => {
     const b = await bench()
+    expect(b.shellDetails.apiVersion).toBe(2)
+    expect(b.shellDetails.features.has('sessionRestore')).toBe(true)
+    expect(b.shellDetails.features.has('navigationHistory')).toBe(true)
     contributeSurface(b.ctx, 'test.alpha', 'Alpha', DummyAlpha)
     contributeSurface(b.ctx, 'test.beta', 'Beta', DummyBeta)
 
-    b.shellDetails.open('test.alpha')
+    const opened = b.shellDetails.open({
+      surfaceId: 'test.alpha',
+      payload: { tab: 'diff' },
+    })
+    expect(opened.payload).toEqual({ tab: 'diff' })
     expect(winner(b.slots)).toBe(DetailsHost)
     expect(b.slots.spec(DETAILS_SURFACE_SLOT)).toEqual({ kind: 'list', scope: 'session' })
     expect(b.layout.openDetails).toHaveBeenCalledTimes(1)
@@ -108,6 +132,23 @@ describe('Details Host Electron integration', () => {
     b.shellDetails.close()
     expect(winner(b.slots)).toBe(UpstreamDetailsPanel)
     expect(b.slots.spec(DETAILS_SURFACE_SLOT)).toBeUndefined()
+    await b.fiber.dispose()
+  })
+
+  it('restores an open surface across session switch without occupying an empty session', async () => {
+    const b = await bench()
+    contributeSurface(b.ctx, 'test.alpha', 'Alpha', DummyAlpha)
+    const opened = b.shellDetails.open({
+      surfaceId: 'test.alpha',
+      payload: { tab: 'commit' },
+    })
+    b.sessions.setCurrent('session-b')
+    expect(b.shellDetails.isOpen()).toBe(false)
+    expect(winner(b.slots)).toBe(UpstreamDetailsPanel)
+    b.sessions.setCurrent('session-a')
+    expect(b.shellDetails.activeInstance?.instanceId).toBe(opened.instanceId)
+    expect(b.shellDetails.activeInstance?.payload).toEqual({ tab: 'commit' })
+    expect(winner(b.slots)).toBe(DetailsHost)
     await b.fiber.dispose()
   })
 
