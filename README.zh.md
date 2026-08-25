@@ -26,12 +26,7 @@ dsh plugin --profile web add .
 dsh plugin --profile web add github:cherrchen/dsh-client-ui-details-host
 ```
 
-在 `cordis.yml`（或负责 Web 组合的 profile patch 层）中挂载 Host 与 Client 两半：
-
-```yaml
-plugins:
-  - name: '@dsh-electron/dsh-client-ui-details-host'
-```
+`dsh plugin add` 会激活随包附带的 `cordis.patch.yml` 层，把插件行插入组合配置。无需手动编辑 `cordis.yml`。
 
 Client 半通过 package 的 `exports["./client"]` 入口解析。Peer 依赖（`@deepseek-ai/dsh-client-runtime`、`@deepseek-ai/dsh-client-ui-layout`、`@deepseek-ai/dsh-client-ui-slots` 与 React）必须已存在于 host 组合中。
 
