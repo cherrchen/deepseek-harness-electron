@@ -1,58 +1,142 @@
-# DeepSeek Harness Desktop
+# dsh-plugin-git
 
 [English](README.md) | 中文
 
-DeepSeek Harness Desktop 将 [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness) 打包为适用于 macOS、Windows 和 Linux 的原生桌面应用。它保留上游 Web 应用、智能体运行时、profile 和工作区流程，并提供操作系统窗口与桌面安装包。
+标准 DSH/Cordis Git 插件，包含一项 portable Host service、一份 Client bundle 与 optional Desktop enhancement。同一 package 可在 DeepSeek Harness Desktop 与标准 DSH Web host 中原样运行；npm scope `@dsh-electron/` 标识发布者，不是运行时要求。
 
-## 状态
+**依赖 Details Host。** 安装本包前必须先安装并启用 `@dsh-electron/dsh-client-ui-details-host`。Git 向 `shell.details.surface` 贡献 surface，并通过 `ctx.shellDetails` 打开详情栏；没有 Details Host 时 Client 半无法加载。
 
-本项目及其上游运行时均处于开发者预览阶段。发布版本可能包含破坏兼容性的变更。
+[DeepSeek Harness Desktop](https://github.com/cherrchen/deepseek-harness-electron) 预装本插件，并通过 git subtree 镜像本仓库。用户可在**设置 → 插件**中禁用 Git；Details Host 仍是必需内置项。
 
 ## 安装
 
-请从[最新发布版本](https://github.com/cherrchen/deepseek-harness-electron/releases/latest)下载对应平台的安装包：
+本包处于试验开发阶段，计划以 `@dsh-electron/dsh-plugin-git` 发布到 npm；在此之前请从本仓库安装。
 
-- macOS：适用于 Apple Silicon 和 Intel Mac 的 DMG 或 ZIP
-- Windows：适用于 x64 和 ARM64 的 NSIS 安装程序
-- Linux：适用于 x64 和 ARM64 的 AppImage 或 DEB 包
+**DeepSeek Harness Desktop** — Git 默认预装并启用。不需要仓库 UI 时，可在**设置 → 插件**中禁用。
 
-打开已安装的应用，在开始智能体会话前通过 Harness UI 完成提供方设置。
-
-<a id="run"></a><a id="run-from-source"></a>
-
-## 从源码运行
-
-安装受支持的 Node.js 版本（`^22.19.0` 或 `>=24`）和 pnpm，然后构建 Harness 运行时并启动 Electron：
+**DSH Web** — 先安装 Details Host，再安装 Git：
 
 ```sh
-git clone https://github.com/cherrchen/deepseek-harness-electron.git
-cd deepseek-harness-electron
-pnpm install
-pnpm run build
-pnpm --filter @dsh-electron/dsh-electron start
+# 1. Details Host (required dependency)
+dsh plugin --profile web add github:cherrchen/dsh-client-ui-details-host
+
+# 2. Git plugin
+dsh plugin --profile web add github:cherrchen/dsh-plugin-git
 ```
 
-## 运行时与数据
+本地开发时，分别构建各 checkout 并加入 profile：
 
-Electron 在随机 `127.0.0.1` 端口启动 DeepSeek Harness，并在沙箱窗口中打开其就绪 URL。渲染进程未启用 Node.js 集成，使用上下文隔离和 Chromium 沙箱；请求的 HTTP 和 HTTPS 链接会在系统浏览器中打开。
+```sh
+pnpm install
+pnpm build
+dsh plugin --profile web add /path/to/dsh-client-ui-details-host
+dsh plugin --profile web add /path/to/dsh-plugin-git
+```
 
-Harness profile 和状态存储在对应平台的应用数据目录。智能体 shell 命令从当前用户主目录开始；需要时可在 Harness UI 中选择其他工作区。
+在 `cordis.yml`（或 profile patch 层）中挂载两个 package，Details Host 排在 Git 之前：
+
+```yaml
+plugins:
+  - name: '@dsh-electron/dsh-client-ui-details-host'
+  - name: '@dsh-electron/dsh-plugin-git'
+```
+
+在 `@dsh-electron/dsh-client-ui-details-host` 上线 npm 之前，本仓库本地开发通过 `tests/fixtures/` 下的 pinned fixture tarball 安装 Details Host。
+
+## 与 Details Host 配对
+
+Git 是 Details Host 的参考消费者。Client manifest 显式声明依赖关系：
+
+```json
+{
+  "dsh": {
+    "client": {
+      "inject": [
+        "@dsh-electron/dsh-client-ui-details-host"
+      ],
+      "external": [
+        "@dsh-electron/dsh-client-ui-details-host/client"
+      ]
+    }
+  }
+}
+```
+
+`external` 确保模块表在本 bundle `require` Details Host Client factory 之前先物化它。`inject` 将 `ctx.shellDetails` 声明为运行时依赖。
+
+Git 注册 surface id `git`、可选 payload tab（`changes`、`diff`、`commit`），并通过以下调用打开栏位：
+
+```ts
+ctx.shellDetails.open({
+  surfaceId: 'git',
+  payload: { tab: 'changes' },
+})
+```
+
+Payload 类型通过 augmentation 挂到 Details Host：
+
+```ts
+declare module '@dsh-electron/dsh-client-ui-details-host/client' {
+  interface DetailsSurfacePayloadMap {
+    git: { tab?: 'changes' | 'diff' | 'commit'; path?: string }
+  }
+}
+```
+
+AppFrame 详情栏几何、resize handle 与 close button 由 Details Host 拥有，不属于本 package。
+
+## 用户体验
+
+在会话输入区左侧，Git 贡献 branch selector 与 changed-files indicator。点击任一控件会在第三栏打开 Git details surface。
+
+面板内可查看 staged、unstaged 与 untracked 变更，检查 diff，stage / unstage 路径，编写 commit message，以及切换或创建本地 branch。在 Electron 上，optional Desktop enhancement 在 Desktop provider 存在时提供 reveal-in-folder 与 open-path 操作。
+
+## 组合
+
+Host plugin 要求 `ctx.subprocess`，提供 `ctx.git`，并使用 executable 与独立 argv values 启动 Git。它绝不调用 shell。DSH Web Host 存在时，optional Connection child 注册 loopback `/git` RPC channel。
+
+Client plugin 要求 Connection、locale、runtime、conversation UI、primitives 与 Details Host。Business components 通过 slot injection 接收 controller 与 `openDetails()`，不访问 Cordis context。
+
+Client main fiber 不要求 `desktop`。Child `ctx.inject(['desktop'], ...)` fiber 只接受 `shell.showItemInFolder`、`shell.openPath` 与 `notification.show`；缺少这些能力时，repository、status、diff、stage、commit 与 branch operations 仍可用，native actions 不显示。
+
+## 配置
+
+| 字段 | 默认值 | 含义 |
+|---|---:|---|
+| `executable` | `git` | 由 `ctx.subprocess` 解析的 Git executable name 或 absolute path。 |
+| `maxOutputBytes` | 8 MiB | 单条 Git command 每个 stream 的 collection cap。 |
+| `graceMs` | 3000 | Managed subprocess termination grace period。 |
+
+## Git 操作
+
+首个版本支持 repository discovery、Git version、current branch 与 HEAD、staged／unstaged／untracked status、local branches、working 与 staged diffs、stage／unstage、commit、branch creation 与 branch switching。Status 使用带 NUL path separators 的 porcelain v2；branches 使用 `for-each-ref`；每个 caller-supplied path、branch 与 message 始终作为一个 argv value。
+
+GitHub authentication、remotes、fetch／pull／push UX、issues、pull requests、stash、rebase、cherry-pick、merge-conflict editing 与 credential management 不属于本 package。
+
+## npm 发布
+
+本包将以 `@dsh-electron/dsh-plugin-git` 发布到 npm。当前尚未公开发布；请将 API 与版本视为 pre-release。Details Host 必须作为独立依赖安装。
 
 ## 开发
 
-使用以下命令运行桌面应用的聚焦检查：
+使用 Node.js `^22.19` 或 `>=24` 与 pnpm 11。
 
 ```sh
-pnpm --filter @dsh-electron/dsh-electron test
-pnpm --filter @dsh-electron/dsh-electron build
+pnpm install --frozen-lockfile
+pnpm test
+pnpm build
+pnpm pack
 ```
 
-有关仓库细节，请参阅[桌面应用指南](apps/electron/README.zh.md)、[开发指南](docs/development.zh.md)和[架构文档](docs/architecture.zh.md)。
+## Model Experience
 
-## 贡献
+无直接影响，因为本 package 贡献 human-facing repository service 与 Client UI，不注册 model tools 或 prompt content。
 
-参阅 [CONTRIBUTING.md](CONTRIBUTING.zh.md)。此 fork 跟随上游 DeepSeek Harness 的开发，同时维护其桌面端打包。
+#### KV Cache effect
 
-## 许可证
+无。本 package 不增加、替换或保留 model-request tokens。
 
-[MIT](LICENSE)。第三方依赖声明位于 [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md)。
+## Known Limitations and Deferred Work
+
+- **仅支持 local repositories** — 所有操作都在配置的 DSH subprocess execution world 中运行；尚未实现 remote repository 与 hosting-provider workflows。
+- **Command output 有界** — 大于 `maxOutputBytes` 的 diff 只保留 subprocess collector tail；处理超大 diff 的 deployment 必须提高这一 validated setting。

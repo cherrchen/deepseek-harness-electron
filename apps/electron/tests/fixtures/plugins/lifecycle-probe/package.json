@@ -1,6 +1,0 @@
-{
-  "name": "@dsh-electron/dsh-plugin-lifecycle-probe",
-  "private": true,
-  "type": "module",
-  "main": "./lib/index.js"
-}
