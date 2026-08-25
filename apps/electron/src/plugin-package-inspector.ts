@@ -13,7 +13,7 @@ interface PackageManifest {
 }
 
 /** Installed package facts used for catalog membership and activation. */
-export interface InspectedPluginPackage {
+interface InspectedPluginPackage {
   name: string
   version: string
   description?: string
@@ -23,27 +23,8 @@ export interface InspectedPluginPackage {
 }
 
 /** Catalog inspection that preserves a package with unloadable declared entries. */
-export interface ProfilePackageInspection extends InspectedPluginPackage {
+interface ProfilePackageInspection extends InspectedPluginPackage {
   entryProblem?: string
-}
-
-/**
- * Inspect one direct dependency through the active profile's node_modules tree.
- * @param profileDir - Absolute active profile directory.
- * @param dependencyName - Real dependency key written by pnpm.
- * @returns validated installed package facts.
- */
-export function inspectProfilePackage(profileDir: string, dependencyName: string): InspectedPluginPackage {
-  const inspection = inspectProfilePackageState(profileDir, dependencyName)
-  if (inspection.entryProblem !== undefined) {
-    throw new PluginInstallError(
-      'invalid-package',
-      `Installed package ${inspection.name} is invalid.`,
-      inspection.entryProblem,
-    )
-  }
-  const { entryProblem: _entryProblem, ...installed } = inspection
-  return installed
 }
 
 /**
