@@ -20,7 +20,7 @@ describe('details host lifecycle', () => {
     await b.fiber.dispose()
   })
 
-  it('closes on session switch and restores the upstream occupant', async () => {
+  it('keeps session state across switch and restores upstream when the next session is empty', async () => {
     const b = await bench()
     contributeSurface(b.ctx, 'test.alpha', 'Alpha', DummyAlpha)
     b.shellDetails.open('test.alpha')
@@ -28,6 +28,9 @@ describe('details host lifecycle', () => {
     expect(b.shellDetails.isOpen()).toBe(false)
     expect(winner(b.slots)).toBe(UpstreamDetailsPanel)
     expect(b.layout.closeDetails).toHaveBeenCalled()
+    b.sessions.setCurrent('session-a')
+    expect(b.shellDetails.isOpen('test.alpha')).toBe(true)
+    expect(winner(b.slots)).toBe(DetailsHost)
     await b.fiber.dispose()
   })
 

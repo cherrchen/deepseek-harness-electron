@@ -17,6 +17,10 @@ export function DummyBeta(): null {
   return null
 }
 
+export function DummyGamma(): null {
+  return null
+}
+
 export function fakeLayout() {
   return {
     openDetails: vi.fn(),
@@ -25,8 +29,16 @@ export function fakeLayout() {
 }
 
 export function fakeSessions(current: string | undefined = 'session-a') {
-  let snapshot = { current }
+  let snapshot = {
+    current,
+    ids: current === undefined ? [] as string[] : [current],
+    byId: {} as Record<string, { id: string }>,
+  }
+  if (current !== undefined) snapshot.byId[current] = { id: current }
   const listeners = new Set<() => void>()
+  const notify = (): void => {
+    for (const listener of listeners) listener()
+  }
   return {
     list: {
       getSnapshot: () => snapshot,
@@ -36,8 +48,28 @@ export function fakeSessions(current: string | undefined = 'session-a') {
       },
     },
     setCurrent(next: string | undefined) {
-      snapshot = { current: next }
-      for (const listener of listeners) listener()
+      if (next !== undefined && !snapshot.ids.includes(next)) {
+        snapshot = {
+          ...snapshot,
+          current: next,
+          ids: [...snapshot.ids, next],
+          byId: { ...snapshot.byId, [next]: { id: next } },
+        }
+      } else {
+        snapshot = { ...snapshot, current: next }
+      }
+      notify()
+    },
+    removeSession(id: string) {
+      const ids = snapshot.ids.filter(entry => entry !== id)
+      const byId = { ...snapshot.byId }
+      delete byId[id]
+      snapshot = {
+        current: snapshot.current === id ? ids[0] : snapshot.current,
+        ids,
+        byId,
+      }
+      notify()
     },
   }
 }
