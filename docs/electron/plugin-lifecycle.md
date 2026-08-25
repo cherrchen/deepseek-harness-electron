@@ -10,7 +10,7 @@ English | [中文](plugin-lifecycle.zh.md)
 
 ## Purpose
 
-This reference describes the Desktop plugin catalog, profile installation path, and runtime lifecycle.
+This reference describes the Desktop plugin catalog, profile package lifecycle, and runtime lifecycle.
 
 Electron owns desired plugin state. DSH Host owns actual Cordis fiber state. The runtime lifecycle path bridges those two facts without restarting Electron Main or the supervised `dsh web` process.
 
@@ -24,7 +24,7 @@ Electron owns desired plugin state. DSH Host owns actual Cordis fiber state. The
 
 Linking is not the enable-state signal. Electron keeps bundled artifacts available under both `$DSH_HOME/profiles/node_modules` and `$DSH_HOME/electron/node_modules`; runtime enablement is controlled only by generated Cordis composition.
 
-System and bundled ownership takes precedence over profile ownership for a duplicate real package name. Each entry separates ownership, package kind (`runtime-plugin`, `bundle`, or `dependency`), installation source, and activation behavior. Host runtime state is present only for runtime plugins.
+System and bundled ownership takes precedence over profile ownership for a duplicate real package name. Each entry separates ownership, package kind (`runtime-plugin`, `bundle`, or `dependency`), installation source, activation mode, package health, and Main-owned package actions. Host runtime state is present only for packages with hot activation.
 
 ## Runtime-owned files
 
@@ -53,7 +53,7 @@ Startup and later lifecycle mutations both act on the same generated `plugins.co
 
 ## Runtime operations
 
-`PluginMutationCoordinator` serializes install, enable, disable, and reload in Electron Main. Each operation can change profile state or regenerate the complete effective roster, so different commands do not receive separate queues.
+`PluginMutationCoordinator` serializes install, update check, update, reinstall, remove, enable, disable, and reload in Electron Main. Each operation can read or change profile state or regenerate the complete effective roster, so different commands do not receive separate queues. `list()` reports the active Main operation while it executes.
 
 `list()` bypasses the mutation queue and reads current Host inventory concurrently. Renderer polling can therefore observe transition phases while a mutation settles. During that interval `desiredEnabled` remains the last successfully persisted state; the renderer combines Host runtime state with its current operation record instead of treating desired state as a progress signal.
 
@@ -81,13 +81,27 @@ Electron Main validates the request, converts it to one pnpm-compatible spec, an
 
 Packaged Desktop includes pnpm at the repository package-manager version. A generated platform shim under `$DSH_HOME/electron/bin` launches bundled pnpm through Electron's Node mode, and Main prepends that directory to the child PATH. Users do not need global Node.js, Corepack, or pnpm.
 
-An ordinary runtime plugin enters `plugins.cordis.yml` and hot-activates through the existing lifecycle controller. A client-bearing plugin refreshes the Renderer after Host settlement. A bundle remains outside the runtime include and reports **Restart required**; a plain dependency reports **Installed as dependency** and exposes no lifecycle controls. Upstream reconciliation adds a bundle only when its patch parses and every declared Host or client package export exists. Electron also verifies ordinary runtime Host and client targets before activation. A direct dependency left by failed pnpm, an invalid bundle excluded from the profile stack, or a runtime plugin with missing declared output remains visible as **Installation incomplete** without lifecycle controls or startup-roster membership. Electron does not restart Host automatically.
+An ordinary runtime plugin enters `plugins.cordis.yml` and hot-activates through the existing lifecycle controller. A client-bearing plugin refreshes the Renderer after Host settlement. A healthy bundle reports **Installed** because `profile-restart` is its activation mode, not evidence of an unapplied change. A plain dependency reports **Installed as dependency** and exposes no runtime lifecycle controls. Upstream reconciliation adds a bundle only when its patch parses and every declared Host or client package export exists. Electron also verifies ordinary runtime Host and client targets before activation. A direct dependency left by failed pnpm, an invalid bundle excluded from the profile stack, a missing installed package, or a runtime plugin with missing declared output remains visible as **Installation incomplete** with the package actions that can repair or remove it. Electron does not restart Host automatically.
 
 System and bundled package names are reserved because the profile's `node_modules` tree takes precedence during Host package resolution. Registry requests for those names fail before installation. When a Git or local source resolves to a reserved name, Electron removes the newly added dependency before reporting the conflict. A conflicting dependency already present in the profile must be removed with `dsh plugin --profile web remove <package-name>` before Desktop starts.
 
 Installation executes third-party package and plugin code with Harness process permissions, outside the agent sandbox. The dialog warns users to install only trusted packages. Stable error categories distinguish invalid requests, missing packages or paths, Git failures, blocked install-time build scripts, profile reconciliation, and activation failure while preserving technical details. A blocked-build diagnostic names the packages parsed from pnpm instead of attributing an existing dependency's script to the requested plugin. When pnpm changes profile dependencies before returning failure, the error records that fact and the Renderer refreshes the catalog without claiming rollback.
 
-During one enable, disable, or reload command, the view polls `list()` at a short interval and disables mutation buttons for every plugin. Search, scrolling, and the System Components disclosure remain usable. The view stops polling when the command settles, reads one final snapshot, and replaces local lifecycle state with Main and Host truth. A failed command reports the operation and rollback without rendering the raw rejection to the user.
+## Profile package update, repair, and removal
+
+The Renderer requests package lifecycle operations by direct dependency name only. Main rereads the catalog entry, requested dependency spec, source, kind, ownership, health, and permitted actions; Renderer fields never authorize a mutation. System and bundled packages cannot update, reinstall, or remove. Profile Registry packages support range-respecting update checks, update, reinstall, and remove. Git and local `file:` dependencies refresh from their recorded source. A healthy local `link:` dependency uses runtime reload instead of package update; an incomplete link may be repaired. Unknown profile dependencies default to removal only.
+
+Update checks run only when the user selects **Check for Updates**. Main invokes the bundled pnpm through `dsh plugin --profile web outdated --format json`, filters results to Registry-owned direct dependencies, and keeps `wanted` distinct from `latest`. Registry and Git update invoke `dsh plugin --profile web update <name>`; the Registry dependency range therefore selects the target without opting into a new major version. Copied local packages and explicit reinstall invoke `add <requestedSpec> --force`, while remove invokes `remove <name>` through the same upstream interface. Upstream dsh remains the sole owner of `dsh.profile.bundles` reconciliation.
+
+Before update, reinstall, or removal changes package files, `PluginLifecycleController.quiesceForPackageMutation()` removes an active hot plugin from the generated roster and waits until Host inventory reports it absent. This temporary quiescence does not edit the persisted disabled preference. If the package command fails without changing the dependency manifest, lockfile, or installed package manifest, the controller restores the prior runtime. If any captured disk state changes, Electron leaves the plugin unloaded, refreshes the catalog, and reports `profile-changed`; it does not execute a possibly partial artifact. Successful removal deletes the package name from both `profileManaged` and `disabled`.
+
+Package kind is inspected again after every successful update or reinstall. A managed runtime package hot-activates unless its startup kind was a bundle. A transition from a running bundle never hot-loads the new runtime entry because the Host still contains the startup bundle composition. Any transition into or out of a bundle instead creates a pending restart change.
+
+Runtime reactivation uses a Main-generated revision query on the package's Host entry. Removing and restoring the same bare package request would otherwise reuse Node's cached ESM module and execute the previous package version. Host settlement matches the stable nested loader entry id as well as the module request, so cache-busted requests still project onto the canonical package name.
+
+`PluginRestartTracker` captures the profile package baseline before Host starts and keeps pending bundle install, update, reinstall, and removal changes in Electron Main memory. It retains removal tombstones after catalog rows disappear and treats same-version source refresh as a change. Installing and then removing a bundle absent from the baseline cancels the pending change. A new Main process captures a new baseline, so pending restart state clears after Desktop restart without changing `plugin-state.json` version 2.
+
+During one mutation, the view polls `list()` at a short interval and disables conflicting actions for every plugin. Search, scrolling, and the System Components disclosure remain usable. The view stops polling when the command settles, reads one final snapshot, and replaces local lifecycle state with Main and Host truth. Package actions live in an overflow menu except for an available Registry update, which becomes a primary row action. Removal requires confirmation. Pending bundle changes appear in a banner even when removal has deleted the package row. A failed runtime command reports the operation and rollback without rendering the raw rejection to the user; package failures show their stable recovery outcome.
 
 ## Renderer refresh boundary
 
@@ -137,10 +151,11 @@ Focused `apps/electron` coverage verifies:
 * plugin-state migration, parsing, persistence, and stale-name reconciliation;
 * catalog precedence and runtime-plugin/bundle/dependency classification;
 * Registry, Git, and local request normalization across POSIX and Windows paths;
-* bundled pnpm shim generation and install-service reconciliation;
+* bundled pnpm shim generation, update-result parsing, install-service reconciliation, and package mutation recovery;
 * deterministic runtime config generation;
 * lifecycle-controller success, rollback, serialized mutations, concurrent reads, and client-refresh branching;
 * lazy `ctx.desktop.plugins` forwarding and Plugin Manager slot redeclaration;
-* install-dialog source switching, native directory selection, pending state, success and failure, plus lifecycle mutation polling and global locking;
+* install-dialog source switching, native directory selection, update checks and badges, package menus, removal confirmation, pending restart tombstones, mutation polling, and global locking;
 * real Host disable/enable/reload with stable PID through a fixture plugin and the bundled Git plugin;
+* real Host local-package v1 refresh to v2 and removal with stable PID, plus pinned-pnpm copied-source refresh through paths containing spaces;
 * Details Host idle boot against the current SlotRegistry, dummy-surface takeover of `details`, close restoring the upstream occupant, and host unload/reload.
