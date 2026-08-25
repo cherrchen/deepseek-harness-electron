@@ -1,10 +1,11 @@
 import type {
   DesktopCapabilitiesContract,
   PluginLifecycleSnapshot,
+  PluginUpdateInfo,
 } from '@dsh-electron/dsh-electron-desktop-capabilities/client'
 
 /** Mutations supported by Electron Main's plugin lifecycle controller. */
-export type PluginOperationKind = 'enable' | 'disable' | 'reload'
+export type PluginOperationKind = 'enable' | 'disable' | 'reload' | 'update' | 'reinstall' | 'remove'
 
 /** One in-flight user command. Main serializes these commands globally. */
 export interface ActivePluginOperation {
@@ -18,6 +19,10 @@ export interface PluginManagerState {
   snapshot?: PluginLifecycleSnapshot
   activeOperation?: ActivePluginOperation
   operationError?: ActivePluginOperation
+  updateInfo?: PluginUpdateInfo[]
+  packageError?: { operation: ActivePluginOperation; message: string; recovery?: string }
+  checkingUpdates?: boolean
+  checkError?: string
 }
 
 type PluginLifecycleCapabilities = DesktopCapabilitiesContract['plugins']
@@ -76,6 +81,22 @@ export class PluginManagerController {
     await this.load()
   }
 
+  /** Ask Main to check only eligible Registry dependencies, then retain the result beside the snapshot. */
+  async checkUpdates(): Promise<void> {
+    if (this.disposed || this.state.status !== 'ready' || this.state.activeOperation !== undefined) return
+    const snapshot = this.state.snapshot
+    if (snapshot === undefined) return
+    this.update({ status: 'ready', snapshot, checkingUpdates: true })
+    try {
+      const updateInfo = await this.plugins.checkUpdates()
+      if (!this.disposed) this.update({ status: 'ready', snapshot: await this.plugins.list(), updateInfo })
+    } catch (error) {
+      if (!this.disposed) {
+        this.update({ status: 'ready', snapshot, checkError: (error as Error).message })
+      }
+    }
+  }
+
   /**
    * Run one global lifecycle mutation and reconcile with Main afterward.
    * @param operation - Plugin package name and lifecycle command.
@@ -87,11 +108,12 @@ export class PluginManagerController {
     this.update({ status: 'ready', snapshot, activeOperation: operation })
     this.schedulePoll(operation)
 
-    let failed = false
+    let failure: { message: string; recovery?: string } | undefined
     try {
       await this.plugins[operation.kind](operation.plugin)
     } catch (error) {
-      failed = true
+      const value = error as Error & { recovery?: string }
+      failure = { message: value.message, ...(value.recovery === undefined ? {} : { recovery: value.recovery }) }
       console.error(`plugin manager: ${operation.kind} failed for ${JSON.stringify(operation.plugin)}`, error)
     } finally {
       this.stopPolling()
@@ -104,11 +126,17 @@ export class PluginManagerController {
       this.update({
         status: 'ready',
         snapshot: finalSnapshot,
-        ...(failed ? { operationError: operation } : {}),
+        ...(failure === undefined ? {} : {
+          operationError: operation,
+          ...(operation.kind === 'enable' || operation.kind === 'disable' || operation.kind === 'reload'
+            ? {}
+            : { packageError: { operation, ...failure } }),
+        }),
+        ...(this.state.updateInfo === undefined ? {} : { updateInfo: this.state.updateInfo }),
       })
     } catch {
       if (!this.disposed) {
-        this.update({ status: 'error', ...(failed ? { operationError: operation } : {}) })
+        this.update({ status: 'error', ...(failure === undefined ? {} : { operationError: operation }) })
       }
     }
   }

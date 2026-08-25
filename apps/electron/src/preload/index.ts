@@ -15,6 +15,7 @@ import {
   type PickDirectoryOptions,
   type PluginInstallRequest,
   type PluginInstallWireResult,
+  type PluginPackageWireResult,
   type ThemeState,
 } from '../bridge-types.ts'
 
@@ -34,6 +35,16 @@ function subscribeChannel<T>(
     port2.removeEventListener('message', onMessage)
     port2.close()
   }
+}
+
+async function invokePackageMutation(channel: string, name: string): Promise<import('../plugin-package-contract.ts').PluginPackageMutationResult> {
+  const response = await ipcRenderer.invoke(channel, name) as PluginPackageWireResult
+  if (response.ok) return response.result
+  const error = new Error(response.error.message) as Error & { code: string; recovery: string; details?: string }
+  error.code = response.error.code
+  error.recovery = response.error.recovery
+  if (response.error.details !== undefined) error.details = response.error.details
+  throw error
 }
 
 /**
@@ -163,6 +174,10 @@ const bridge: DeepseekDesktopBridge = {
       if (response.error.profileChanged === true) error.profileChanged = true
       throw error
     },
+    checkUpdates: () => ipcRenderer.invoke(DesktopIpcChannel.pluginsCheckUpdates),
+    update: (name: string) => invokePackageMutation(DesktopIpcChannel.pluginsUpdate, name),
+    reinstall: (name: string) => invokePackageMutation(DesktopIpcChannel.pluginsReinstall, name),
+    remove: (name: string) => invokePackageMutation(DesktopIpcChannel.pluginsRemove, name),
     enable: (name: string) => ipcRenderer.invoke(DesktopIpcChannel.pluginsEnable, name),
     disable: (name: string) => ipcRenderer.invoke(DesktopIpcChannel.pluginsDisable, name),
     reload: (name: string) => ipcRenderer.invoke(DesktopIpcChannel.pluginsReload, name),

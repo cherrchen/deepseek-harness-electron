@@ -29,7 +29,7 @@ function plugin(overrides: Partial<PluginLifecycleEntry> = {}): PluginLifecycleE
     name: GIT,
     version: '0.2.0',
     description: 'Git integration for DeepSeek Harness',
-    ownership: 'bundled', kind: 'runtime-plugin', installSource: 'bundled', activation: 'hot',
+    ownership: 'bundled', kind: 'runtime-plugin', installSource: 'bundled', activationMode: 'hot', health: 'healthy', packageActions: { checkUpdates: false, update: false, reinstall: false, remove: false },
     hasClient: true,
     manageable: true,
     required: false,
@@ -40,7 +40,7 @@ function plugin(overrides: Partial<PluginLifecycleEntry> = {}): PluginLifecycleE
 }
 
 function snapshot(...entries: PluginLifecycleEntry[]): PluginLifecycleSnapshot {
-  return { entries }
+  return { entries, pendingRestart: [] }
 }
 
 function capabilities(initial: PluginLifecycleSnapshot): DesktopCapabilitiesContract['plugins'] & {
@@ -49,12 +49,19 @@ function capabilities(initial: PluginLifecycleSnapshot): DesktopCapabilitiesCont
   disable: ReturnType<typeof vi.fn<DesktopCapabilitiesContract['plugins']['disable']>>
   reload: ReturnType<typeof vi.fn<DesktopCapabilitiesContract['plugins']['reload']>>
   install: ReturnType<typeof vi.fn<DesktopCapabilitiesContract['plugins']['install']>>
+  checkUpdates: ReturnType<typeof vi.fn<DesktopCapabilitiesContract['plugins']['checkUpdates']>>
+  update: ReturnType<typeof vi.fn<DesktopCapabilitiesContract['plugins']['update']>>
+  remove: ReturnType<typeof vi.fn<DesktopCapabilitiesContract['plugins']['remove']>>
 } {
   return {
     list: vi.fn<DesktopCapabilitiesContract['plugins']['list']>().mockResolvedValue(initial),
     install: vi.fn<DesktopCapabilitiesContract['plugins']['install']>().mockResolvedValue({
       name: '@fixture/plugin', version: '1.0.0', kind: 'runtime-plugin', activation: 'activated', source: 'registry',
     }),
+    checkUpdates: vi.fn<DesktopCapabilitiesContract['plugins']['checkUpdates']>().mockResolvedValue([]),
+    update: vi.fn<DesktopCapabilitiesContract['plugins']['update']>().mockResolvedValue({ name: GIT, operation: 'update', restartRequired: false }),
+    reinstall: vi.fn<DesktopCapabilitiesContract['plugins']['reinstall']>().mockResolvedValue({ name: GIT, operation: 'reinstall', restartRequired: false }),
+    remove: vi.fn<DesktopCapabilitiesContract['plugins']['remove']>().mockResolvedValue({ name: GIT, operation: 'remove', restartRequired: false }),
     enable: vi.fn<DesktopCapabilitiesContract['plugins']['enable']>().mockResolvedValue(undefined),
     disable: vi.fn<DesktopCapabilitiesContract['plugins']['disable']>().mockResolvedValue(undefined),
     reload: vi.fn<DesktopCapabilitiesContract['plugins']['reload']>().mockResolvedValue(undefined),
@@ -170,7 +177,7 @@ describe('Electron Plugin Manager view', () => {
     const system = plugin({
       name: SYSTEM,
       description: 'Desktop capability provider',
-      ownership: 'system', kind: 'runtime-plugin', installSource: 'bundled', activation: 'hot',
+      ownership: 'system', kind: 'runtime-plugin', installSource: 'bundled', activationMode: 'hot', health: 'healthy', packageActions: { checkUpdates: false, update: false, reinstall: false, remove: false },
       manageable: false,
       required: true,
     })
@@ -203,7 +210,9 @@ describe('Electron Plugin Manager view', () => {
       ownership: 'profile',
       kind: 'runtime-plugin',
       installSource: 'git',
-      activation: 'reconcile-required',
+      activationMode: 'hot',
+      health: 'reconcile-required',
+      packageActions: { checkUpdates: false, update: 'source-refresh', reinstall: true, remove: true },
       manageable: false,
       desiredEnabled: undefined,
       runtime: undefined,
@@ -214,7 +223,7 @@ describe('Electron Plugin Manager view', () => {
     expect(await screen.findByText('Installation incomplete')).toBeTruthy()
     const row = view.container.querySelector('[data-plugin="dsh-context"]')
     if (row === null) throw new Error('incomplete dependency row missing')
-    expect(within(row).queryByRole('button')).toBeNull()
+    expect(within(row).getByRole('button', { name: 'Package actions for DSH Context' })).toBeTruthy()
   })
 
   it('refreshes the installed list when failed pnpm changed the profile', async () => {
@@ -223,7 +232,9 @@ describe('Electron Plugin Manager view', () => {
       ownership: 'profile',
       kind: 'bundle',
       installSource: 'git',
-      activation: 'reconcile-required',
+      activationMode: 'profile-restart',
+      health: 'reconcile-required',
+      packageActions: { checkUpdates: false, update: 'source-refresh', reinstall: true, remove: true },
       manageable: false,
       desiredEnabled: undefined,
       runtime: undefined,
@@ -270,6 +281,97 @@ describe('Electron Plugin Manager view', () => {
     expect(screen.getByText('The previous plugin state was restored.')).toBeTruthy()
     expect(screen.queryByText('raw failure detail')).toBeNull()
     expect(log).toHaveBeenCalled()
+  })
+
+  it('checks Registry updates explicitly and promotes the wanted version to a primary action', async () => {
+    const registry = plugin({
+      name: '@fixture/plugin',
+      ownership: 'profile',
+      installSource: 'registry',
+      requestedSpec: '^1.0.0',
+      packageActions: { checkUpdates: true, update: 'registry', reinstall: true, remove: true },
+    })
+    const plugins = capabilities(snapshot(registry))
+    plugins.checkUpdates.mockResolvedValueOnce([{
+      name: '@fixture/plugin', currentVersion: '1.0.0', wantedVersion: '1.4.0', latestVersion: '2.0.0', updateAvailable: true,
+    }])
+    render(createElement(PluginManagerTab, { plugins, dialog, t }))
+    await screen.findByText('Plugin')
+
+    fireEvent.click(screen.getByRole('button', { name: 'Check for Updates' }))
+    expect(await screen.findByText('Update available: 1.4.0')).toBeTruthy()
+    fireEvent.click(screen.getByRole('button', { name: 'Update' }))
+    await vi.waitFor(() => { expect(plugins.update.mock.calls).toContainEqual(['@fixture/plugin']) })
+  })
+
+  it('confirms profile removal and keeps removed Bundle restart tombstones visible', async () => {
+    const bundle = plugin({
+      name: '@fixture/bundle',
+      ownership: 'profile',
+      kind: 'bundle',
+      installSource: 'git',
+      requestedSpec: 'github:fixture/bundle#main',
+      activationMode: 'profile-restart',
+      packageActions: { checkUpdates: false, update: 'source-refresh', reinstall: true, remove: true },
+      manageable: false,
+      desiredEnabled: undefined,
+      runtime: undefined,
+    })
+    const plugins = capabilities(snapshot(bundle))
+    plugins.list.mockResolvedValueOnce(snapshot(bundle)).mockResolvedValue({
+      entries: [],
+      pendingRestart: [{ name: '@fixture/bundle', operation: 'remove', previousVersion: '0.2.0' }],
+    })
+    render(createElement(PluginManagerTab, { plugins, dialog, t }))
+    await screen.findByText('Bundle')
+
+    fireEvent.click(screen.getByRole('button', { name: 'Package actions for Bundle' }))
+    fireEvent.click(await screen.findByRole('menuitem', { name: 'Remove' }))
+    expect(screen.getByText('Remove Bundle?')).toBeTruthy()
+    expect(screen.getByText('Restart DeepSeek Harness to fully apply this change.')).toBeTruthy()
+    fireEvent.click(screen.getByRole('button', { name: 'Remove' }))
+    await vi.waitFor(() => { expect(plugins.remove.mock.calls).toContainEqual(['@fixture/bundle']) })
+    expect(await screen.findByText('Plugin changes require restart')).toBeTruthy()
+    expect(screen.getByText('@fixture/bundle was removed')).toBeTruthy()
+  })
+
+  it.each([
+    ['Git', 'git', 'github:fixture/plugin#main'],
+    ['Local', 'local', 'file:/fixtures/plugin'],
+  ] as const)('offers %s source refresh through the package menu', async (_label, installSource, requestedSpec) => {
+    const source = plugin({
+      name: `@fixture/${installSource}`,
+      ownership: 'profile',
+      installSource,
+      requestedSpec,
+      packageActions: { checkUpdates: false, update: 'source-refresh', reinstall: true, remove: true },
+    })
+    const plugins = capabilities(snapshot(source))
+    render(createElement(PluginManagerTab, { plugins, dialog, t }))
+    await screen.findByText(pluginDisplayName(source))
+
+    fireEvent.click(screen.getByRole('button', { name: `Package actions for ${pluginDisplayName(source)}` }))
+    fireEvent.click(await screen.findByRole('menuitem', { name: 'Refresh from Source' }))
+    await vi.waitFor(() => { expect(plugins.update.mock.calls).toContainEqual([source.name]) })
+  })
+
+  it('keeps Development Link update out of the package menu', async () => {
+    const linked = plugin({
+      name: '@fixture/linked',
+      ownership: 'profile',
+      installSource: 'local',
+      requestedSpec: 'link:/fixtures/plugin',
+      packageActions: { checkUpdates: false, update: false, reinstall: false, remove: true },
+    })
+    const plugins = capabilities(snapshot(linked))
+    render(createElement(PluginManagerTab, { plugins, dialog, t }))
+    const title = pluginDisplayName(linked)
+    await screen.findByText(title)
+
+    fireEvent.click(screen.getByRole('button', { name: `Package actions for ${title}` }))
+    expect(screen.queryByRole('menuitem', { name: 'Refresh from Source' })).toBeNull()
+    expect(screen.getByRole('menuitem', { name: 'Remove' })).toBeTruthy()
+    expect(screen.getByRole('button', { name: 'Reload' })).toBeTruthy()
   })
 
   it.each([

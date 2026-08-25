@@ -5,6 +5,8 @@ import type { PluginCompositionBackend } from '../src/plugin-runtime-config.ts'
 import type { ManagedPlugin } from '../src/runtime-plugins.ts'
 import type { PluginInventoryProbe, PluginInventorySnapshot } from '../src/plugin-inventory-probe.ts'
 
+const noPackageActions = { checkUpdates: false, update: false, reinstall: false, remove: false } as const
+
 const lifecycleProbeRoot = fileURLToPath(new URL('./fixtures/plugins/lifecycle-probe', import.meta.url))
 
 const hostOnlyPlugin: ManagedPlugin = {
@@ -14,7 +16,7 @@ const hostOnlyPlugin: ManagedPlugin = {
   directoryName: 'dsh-plugin-host-only',
   rootPath: lifecycleProbeRoot,
   hasClient: false,
-  ownership: 'bundled', kind: 'runtime-plugin', installSource: 'bundled', activation: 'hot',
+  ownership: 'bundled', kind: 'runtime-plugin', installSource: 'bundled', activationMode: 'hot', health: 'healthy', packageActions: noPackageActions,
   manageable: true,
   required: false,
 }
@@ -26,7 +28,7 @@ const clientPlugin: ManagedPlugin = {
   directoryName: 'dsh-plugin-client',
   rootPath: lifecycleProbeRoot,
   hasClient: true,
-  ownership: 'bundled', kind: 'runtime-plugin', installSource: 'bundled', activation: 'hot',
+  ownership: 'bundled', kind: 'runtime-plugin', installSource: 'bundled', activationMode: 'hot', health: 'healthy', packageActions: noPackageActions,
   manageable: true,
   required: false,
 }
@@ -38,7 +40,7 @@ const requiredPlugin: ManagedPlugin = {
   directoryName: 'desktop-capabilities',
   rootPath: lifecycleProbeRoot,
   hasClient: true,
-  ownership: 'system', kind: 'runtime-plugin', installSource: 'bundled', activation: 'hot',
+  ownership: 'system', kind: 'runtime-plugin', installSource: 'bundled', activationMode: 'hot', health: 'healthy', packageActions: noPackageActions,
   manageable: false,
   required: true,
 }
@@ -242,8 +244,12 @@ describe('plugin lifecycle controller', () => {
         required: false,
         desiredEnabled: false,
         runtime: 'loading',
-        activation: 'hot',
+        activationMode: 'hot',
+        health: 'healthy',
+        packageActions: noPackageActions,
       }],
+      pendingRestart: [],
+      activeOperation: { kind: 'enable', plugin: hostOnlyPlugin.name },
     })
     release()
     await enabling

@@ -10,7 +10,8 @@ import {
 } from 'node:fs'
 import { dirname, join } from 'node:path'
 import type {
-  PluginActivation,
+  PluginActivationMode,
+  PluginPackageActions,
   PluginInstallSource,
   PluginOwnership,
   PluginPackageKind,
@@ -37,6 +38,8 @@ export interface RuntimePluginManifest {
 
 /** Runtime plugin plus lifecycle-management policy owned by Electron Main. */
 export interface ManagedPlugin extends RuntimePluginManifest {
+  /** Optional cache-busting Host module request for an in-process package refresh. */
+  runtimeRequest?: string
   /** Authority that owns the package's catalog membership. */
   ownership: PluginOwnership
   /** Installed package behavior. */
@@ -49,8 +52,12 @@ export interface ManagedPlugin extends RuntimePluginManifest {
   manageable: boolean
   /** Whether the desktop shell requires the plugin in static bootstrap composition. */
   required: boolean
-  /** Runtime activation behavior. */
-  activation: PluginActivation
+  /** Runtime activation mechanism. */
+  activationMode: PluginActivationMode
+  /** Whether declared package entries can currently load. */
+  health: 'healthy' | 'reconcile-required'
+  /** Main-owned profile package policy. */
+  packageActions: PluginPackageActions
 }
 
 interface ElectronPluginInventoryManifest {
@@ -162,7 +169,9 @@ export function discoverManagedPlugins(appPath: string): ManagedPlugin[] {
     installSource: 'bundled',
     manageable: false,
     required: true,
-    activation: 'hot',
+    activationMode: 'hot',
+    health: 'healthy',
+    packageActions: noPackageActions(),
   }))
   const ecosystem = discoverEcosystemPlugins(appPath).map<ManagedPlugin>(plugin => ({
     ...plugin,
@@ -171,9 +180,15 @@ export function discoverManagedPlugins(appPath: string): ManagedPlugin[] {
     installSource: 'bundled',
     manageable: true,
     required: false,
-    activation: 'hot',
+    activationMode: 'hot',
+    health: 'healthy',
+    packageActions: noPackageActions(),
   }))
   return [...runtime, ...ecosystem]
+}
+
+function noPackageActions(): PluginPackageActions {
+  return { checkUpdates: false, update: false, reinstall: false, remove: false }
 }
 
 /**

@@ -56,17 +56,56 @@ describe('profile plugin catalog', () => {
     }
     try {
       const entries = await new ProfilePluginCatalog(appPath, harnessHome, 'web', () => state).list()
-      expect(entries.map(entry => [entry.name, entry.ownership, entry.kind, entry.activation])).toEqual([
-        ['@desktop/system', 'system', 'runtime-plugin', 'hot'],
-        ['@fixture/runtime', 'profile', 'runtime-plugin', 'hot'],
-        ['@fixture/bundle', 'profile', 'bundle', 'profile-restart'],
-        ['@fixture/incomplete', 'profile', 'bundle', 'reconcile-required'],
-        ['@fixture/broken-runtime', 'profile', 'runtime-plugin', 'reconcile-required'],
-        ['@fixture/library', 'profile', 'dependency', 'none'],
+      expect(entries.map(entry => [entry.name, entry.ownership, entry.kind, entry.activationMode, entry.health])).toEqual([
+        ['@desktop/system', 'system', 'runtime-plugin', 'hot', 'healthy'],
+        ['@fixture/runtime', 'profile', 'runtime-plugin', 'hot', 'healthy'],
+        ['@fixture/bundle', 'profile', 'bundle', 'profile-restart', 'healthy'],
+        ['@fixture/incomplete', 'profile', 'bundle', 'profile-restart', 'reconcile-required'],
+        ['@fixture/broken-runtime', 'profile', 'runtime-plugin', 'hot', 'reconcile-required'],
+        ['@fixture/library', 'profile', 'dependency', 'none', 'healthy'],
       ])
       expect(entries.find(entry => entry.name === '@fixture/runtime')).toMatchObject({ manageable: true, hasClient: true, installSource: 'local' })
       expect(entries.find(entry => entry.name === '@fixture/broken-runtime')).toMatchObject({ manageable: false, hasClient: true })
       expect(effectivePluginRoster(entries, state).map(entry => entry.name)).not.toContain('@fixture/broken-runtime')
+    } finally {
+      await rm(root, { recursive: true, force: true })
+    }
+  })
+
+  it('owns package action policy for Registry, Git, copied local, link, and missing dependencies', async () => {
+    const root = await mkdtemp(join(tmpdir(), 'dsh-electron-catalog-actions-'))
+    const appPath = join(root, 'app')
+    const harnessHome = join(root, 'home')
+    mkdirSync(join(appPath, 'runtime', 'plugins'), { recursive: true })
+    writeManifest(appPath, { dshElectron: { ecosystemPlugins: [] } })
+    const profileDir = join(harnessHome, 'profiles', 'web')
+    writeManifest(profileDir, {
+      dependencies: {
+        registry: '^1.0.0',
+        git: 'github:fixture/git#main',
+        copied: 'file:/fixture/copied',
+        linked: 'link:/fixture/linked',
+        missing: '^1.0.0',
+      },
+    })
+    for (const name of ['registry', 'git', 'copied', 'linked']) {
+      writeManifest(join(profileDir, 'node_modules', name), { name, version: '1.0.0' })
+    }
+    const state: PluginState = { version: 2, disabled: [], profileManaged: [] }
+    try {
+      const entries = await new ProfilePluginCatalog(appPath, harnessHome, 'web', () => state).list()
+      expect(entries.find(entry => entry.name === 'registry')?.packageActions)
+        .toEqual({ checkUpdates: true, update: 'registry', reinstall: true, remove: true })
+      expect(entries.find(entry => entry.name === 'git')?.packageActions)
+        .toEqual({ checkUpdates: false, update: 'source-refresh', reinstall: true, remove: true })
+      expect(entries.find(entry => entry.name === 'copied')?.packageActions)
+        .toEqual({ checkUpdates: false, update: 'source-refresh', reinstall: true, remove: true })
+      expect(entries.find(entry => entry.name === 'linked')?.packageActions)
+        .toEqual({ checkUpdates: false, update: false, reinstall: false, remove: true })
+      expect(entries.find(entry => entry.name === 'missing')).toMatchObject({
+        health: 'reconcile-required',
+        packageActions: { checkUpdates: true, update: 'registry', reinstall: true, remove: true },
+      })
     } finally {
       await rm(root, { recursive: true, force: true })
     }

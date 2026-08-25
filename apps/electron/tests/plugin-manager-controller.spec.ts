@@ -13,7 +13,7 @@ function entry(runtime: PluginLifecycleEntry['runtime'], desiredEnabled = true):
     name: PLUGIN,
     version: '0.2.0',
     description: 'Git integration',
-    ownership: 'bundled', kind: 'runtime-plugin', installSource: 'bundled', activation: 'hot',
+    ownership: 'bundled', kind: 'runtime-plugin', installSource: 'bundled', activationMode: 'hot', health: 'healthy', packageActions: { checkUpdates: false, update: false, reinstall: false, remove: false },
     hasClient: true,
     manageable: true,
     required: false,
@@ -23,7 +23,7 @@ function entry(runtime: PluginLifecycleEntry['runtime'], desiredEnabled = true):
 }
 
 function snapshot(runtime: PluginLifecycleEntry['runtime'], desiredEnabled = true): PluginLifecycleSnapshot {
-  return { entries: [entry(runtime, desiredEnabled)] }
+  return { entries: [entry(runtime, desiredEnabled)], pendingRestart: [] }
 }
 
 function deferred(): { promise: Promise<void>; resolve: () => void; reject: (error: Error) => void } {
@@ -45,6 +45,10 @@ function capabilities(): DesktopCapabilitiesContract['plugins'] & {
   return {
     list: vi.fn<DesktopCapabilitiesContract['plugins']['list']>(),
     install: vi.fn<DesktopCapabilitiesContract['plugins']['install']>(),
+    checkUpdates: vi.fn<DesktopCapabilitiesContract['plugins']['checkUpdates']>(),
+    update: vi.fn<DesktopCapabilitiesContract['plugins']['update']>(),
+    reinstall: vi.fn<DesktopCapabilitiesContract['plugins']['reinstall']>(),
+    remove: vi.fn<DesktopCapabilitiesContract['plugins']['remove']>(),
     enable: vi.fn<DesktopCapabilitiesContract['plugins']['enable']>(),
     disable: vi.fn<DesktopCapabilitiesContract['plugins']['disable']>(),
     reload: vi.fn<DesktopCapabilitiesContract['plugins']['reload']>(),
