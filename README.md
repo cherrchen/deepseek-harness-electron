@@ -33,13 +33,7 @@ dsh plugin --profile web add /path/to/dsh-client-ui-details-host
 dsh plugin --profile web add /path/to/dsh-plugin-git
 ```
 
-Mount both packages in `cordis.yml` (or the profile patch layer), with Details Host listed before Git:
-
-```yaml
-plugins:
-  - name: '@dsh-electron/dsh-client-ui-details-host'
-  - name: '@dsh-electron/dsh-plugin-git'
-```
+Each `dsh plugin add` activates the package's bundled `cordis.patch.yml` layer. Install Details Host before Git so `ctx.shellDetails` is available when the Git client loads.
 
 Until `@dsh-electron/dsh-client-ui-details-host` is on npm, local development in this repository uses the pinned fixture tarball under `tests/fixtures/`.
 
