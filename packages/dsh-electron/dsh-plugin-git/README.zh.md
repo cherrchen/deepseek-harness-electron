@@ -1,22 +1,103 @@
-# `@dsh-electron/dsh-plugin-git`
+# dsh-plugin-git
 
 [English](README.md) | 中文
 
-一个标准 DSH/Cordis Git 插件，包含一项 portable Host service、一份 Client bundle 与 optional Desktop enhancement。Native DSH 与 DeepSeek Harness Desktop 原样运行同一个 package；npm scope 只表示 publisher，不表示 runtime requirement。
+标准 DSH/Cordis Git 插件，包含一项 portable Host service、一份 Client bundle 与 optional Desktop enhancement。同一 package 可在 DeepSeek Harness Desktop 与标准 DSH Web host 中原样运行；npm scope `@dsh-electron/` 标识发布者，不是运行时要求。
+
+**依赖 Details Host。** 安装本包前必须先安装并启用 `@dsh-electron/dsh-client-ui-details-host`。Git 向 `shell.details.surface` 贡献 surface，并通过 `ctx.shellDetails` 打开详情栏；没有 Details Host 时 Client 半无法加载。
+
+[DeepSeek Harness Desktop](https://github.com/cherrchen/deepseek-harness-electron) 预装本插件，并通过 git subtree 镜像本仓库。用户可在**设置 → 插件**中禁用 Git；Details Host 仍是必需内置项。
+
+## 安装
+
+本包处于试验开发阶段，计划以 `@dsh-electron/dsh-plugin-git` 发布到 npm；在此之前请从本仓库安装。
+
+**DeepSeek Harness Desktop** — Git 默认预装并启用。不需要仓库 UI 时，可在**设置 → 插件**中禁用。
+
+**DSH Web** — 先安装 Details Host，再安装 Git：
+
+```sh
+# 1. Details Host (required dependency)
+dsh plugin --profile web add github:cherrchen/dsh-client-ui-details-host
+
+# 2. Git plugin
+dsh plugin --profile web add github:cherrchen/dsh-plugin-git
+```
+
+本地开发时，分别构建各 checkout 并加入 profile：
+
+```sh
+pnpm install
+pnpm build
+dsh plugin --profile web add /path/to/dsh-client-ui-details-host
+dsh plugin --profile web add /path/to/dsh-plugin-git
+```
+
+在 `cordis.yml`（或 profile patch 层）中挂载两个 package，Details Host 排在 Git 之前：
+
+```yaml
+plugins:
+  - name: '@dsh-electron/dsh-client-ui-details-host'
+  - name: '@dsh-electron/dsh-plugin-git'
+```
+
+在 `@dsh-electron/dsh-client-ui-details-host` 上线 npm 之前，本仓库本地开发通过 `tests/fixtures/` 下的 pinned fixture tarball 安装 Details Host。
+
+## 与 Details Host 配对
+
+Git 是 Details Host 的参考消费者。Client manifest 显式声明依赖关系：
+
+```json
+{
+  "dsh": {
+    "client": {
+      "inject": [
+        "@dsh-electron/dsh-client-ui-details-host"
+      ],
+      "external": [
+        "@dsh-electron/dsh-client-ui-details-host/client"
+      ]
+    }
+  }
+}
+```
+
+`external` 确保模块表在本 bundle `require` Details Host Client factory 之前先物化它。`inject` 将 `ctx.shellDetails` 声明为运行时依赖。
+
+Git 注册 surface id `git`、可选 payload tab（`changes`、`diff`、`commit`），并通过以下调用打开栏位：
+
+```ts
+ctx.shellDetails.open({
+  surfaceId: 'git',
+  payload: { tab: 'changes' },
+})
+```
+
+Payload 类型通过 augmentation 挂到 Details Host：
+
+```ts
+declare module '@dsh-electron/dsh-client-ui-details-host/client' {
+  interface DetailsSurfacePayloadMap {
+    git: { tab?: 'changes' | 'diff' | 'commit'; path?: string }
+  }
+}
+```
+
+AppFrame 详情栏几何、resize handle 与 close button 由 Details Host 拥有，不属于本 package。
+
+## 用户体验
+
+在会话输入区左侧，Git 贡献 branch selector 与 changed-files indicator。点击任一控件会在第三栏打开 Git details surface。
+
+面板内可查看 staged、unstaged 与 untracked 变更，检查 diff，stage / unstage 路径，编写 commit message，以及切换或创建本地 branch。在 Electron 上，optional Desktop enhancement 在 Desktop provider 存在时提供 reveal-in-folder 与 open-path 操作。
 
 ## 组合
 
-Host plugin 要求 `ctx.subprocess`，提供 `ctx.git`，并使用 executable 与独立 argv values 启动 Git。它绝不调用 shell。DSH Web Host 存在时，optional Connection child 注册 loopback `/git` RPC channel；没有 Connection 的 headless composition 中 Git service 仍保持 active。
+Host plugin 要求 `ctx.subprocess`，提供 `ctx.git`，并使用 executable 与独立 argv values 启动 Git。它绝不调用 shell。DSH Web Host 存在时，optional Connection child 注册 loopback `/git` RPC channel。
 
-Client plugin 要求上游 Connection、locale、runtime、conversation UI、primitives，以及 `@dsh-electron/dsh-client-ui-details-host`。其 `dsh.client.external` 列出 `@dsh-electron/dsh-client-ui-details-host/client`，以便模块表在本 bundle `require` 该 factory 之前先物化它。它向 `conversation.input.left` 贡献 branch selector 与 changed-files indicator，并向 `shell.details.surface` 贡献 Git details surface。打开 Git 会调用 `ctx.shellDetails.open('git')`；AppFrame details 栏位、resize handle 与 close button 由 Details Host 拥有，不属于本 package。
-
-Business components 通过 slot injection 接收 controller 与 `openDetails()`，不访问 Cordis context。
-
-Controller 在 workspace 变化时发现 repository state。Details Host 在栏位关闭时会 unmount Git surface。
+Client plugin 要求 Connection、locale、runtime、conversation UI、primitives 与 Details Host。Business components 通过 slot injection 接收 controller 与 `openDetails()`，不访问 Cordis context。
 
 Client main fiber 不要求 `desktop`。Child `ctx.inject(['desktop'], ...)` fiber 只接受 `shell.showItemInFolder`、`shell.openPath` 与 `notification.show`；缺少这些能力时，repository、status、diff、stage、commit 与 branch operations 仍可用，native actions 不显示。
-
-在 Electron 上，Details Host 是 required built-in。在其他 DSH Web host 上，需要与本 package 一起安装并启用 `@dsh-electron/dsh-client-ui-details-host`。
 
 ## 配置
 
@@ -32,11 +113,13 @@ Client main fiber 不要求 `desktop`。Child `ctx.inject(['desktop'], ...)` fib
 
 GitHub authentication、remotes、fetch／pull／push UX、issues、pull requests、stash、rebase、cherry-pick、merge-conflict editing 与 credential management 不属于本 package。
 
+## npm 发布
+
+本包将以 `@dsh-electron/dsh-plugin-git` 发布到 npm。当前尚未公开发布；请将 API 与版本视为 pre-release。Details Host 必须作为独立依赖安装。
+
 ## 开发
 
-使用 Node.js `^22.19` 或 `>=24` 与 pnpm 11。Standalone repository 管理自己的 dependency lockfile，并运行与 DeepSeek Harness subtree 相同的 package tests 和 bundle configuration。
-
-在 `@dsh-electron/dsh-client-ui-details-host@0.2.0` 发布到 npm 之前，本地开发通过 `tests/fixtures/` 下的 pinned fixture tarball 安装 Details Host。公共 artifact 可用后，应把该 dev-only 路径替换为 registry range。
+使用 Node.js `^22.19` 或 `>=24` 与 pnpm 11。
 
 ```sh
 pnpm install --frozen-lockfile
