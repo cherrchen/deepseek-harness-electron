@@ -1,0 +1,6 @@
+# Profile bundle: mount Details Host portable UI infrastructure.
+# The row loads the package main entry as the Host half; the dsh.client
+# declaration makes the Web app load its ./client bundle as the browser half.
+- insert:
+    - id: client-ui-details-host
+      name: '@dsh-electron/dsh-client-ui-details-host'

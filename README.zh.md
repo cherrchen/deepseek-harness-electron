@@ -38,6 +38,17 @@ Electron 在随机 `127.0.0.1` 端口启动 DeepSeek Harness，并在沙箱窗�
 
 Harness profile 和状态存储在对应平台的应用数据目录。智能体 shell 命令从当前用户主目录开始；需要时可在 Harness UI 中选择其他工作区。
 
+## 内置插件
+
+DeepSeek Harness Desktop 随附两个来自独立 canonical repository 的可移植 DSH 插件。两者在桌面应用中原样运行；单独安装后也可在标准 DSH Web host 中使用。
+
+| 插件 | 桌面角色 | 简介 |
+|---|---|---|
+| [dsh-client-ui-details-host](https://github.com/cherrchen/dsh-client-ui-details-host) | 必需内置 | 通过 `ctx.shellDetails` 在 AppFrame 第三栏承载一个活动 details surface。 |
+| [dsh-plugin-git](https://github.com/cherrchen/dsh-plugin-git) | 预装（可在**设置 → 插件**中禁用） | 在输入区与详情栏提供本地 Git 状态、diff、stage、commit 与 branch 操作。依赖 Details Host。 |
+
+Canonical 开发在各自仓库进行；本 monorepo 通过 git subtree 镜像它们。
+
 ## 开发
 
 使用以下命令运行桌面应用的聚焦检查：

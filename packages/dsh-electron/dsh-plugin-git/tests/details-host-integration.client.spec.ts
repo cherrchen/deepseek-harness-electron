@@ -50,7 +50,7 @@ describe('Git + Details Host integration', () => {
     const gitSurface = bench.slots.entries('shell.details.surface').find(entry => entry.options.id === GIT_DETAILS_SURFACE_ID)
     expect(gitSurface).toBeDefined()
     await bench.gitFiber.dispose()
-    await new Promise<void>((resolve) => { queueMicrotask(resolve) })
+    await new Promise<void>(resolve => { queueMicrotask(resolve) })
     expect(bench.slots.entries('shell.details.surface').some(entry => entry.options.id === GIT_DETAILS_SURFACE_ID)).toBe(false)
     expect(bench.shellDetails.isOpen()).toBe(false)
     expect(winner(bench.slots)).toBe(UpstreamDetailsPanel)

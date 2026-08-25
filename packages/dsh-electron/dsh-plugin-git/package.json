@@ -38,6 +38,7 @@
     "lib/client.js",
     "lib/client/**/*.css",
     "lib/types/**/*.d.ts",
+    "cordis.patch.yml",
     "README.md",
     "README.zh.md",
     "LICENSE"
@@ -93,6 +94,9 @@
     "vitest": "^4.1.8"
   },
   "dsh": {
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    },
     "client": {
       "platform": "web",
       "inject": [

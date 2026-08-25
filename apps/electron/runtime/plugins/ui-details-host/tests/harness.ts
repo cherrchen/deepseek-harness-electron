@@ -29,10 +29,14 @@ export function fakeLayout() {
 }
 
 export function fakeSessions(current: string | undefined = 'session-a') {
-  let snapshot = {
+  let snapshot: {
+    current: string | undefined
+    ids: string[]
+    byId: Record<string, { id: string }>
+  } = {
     current,
-    ids: current === undefined ? [] as string[] : [current],
-    byId: {} as Record<string, { id: string }>,
+    ids: current === undefined ? [] : [current],
+    byId: {},
   }
   if (current !== undefined) snapshot.byId[current] = { id: current }
   const listeners = new Set<() => void>()
@@ -62,8 +66,9 @@ export function fakeSessions(current: string | undefined = 'session-a') {
     },
     removeSession(id: string) {
       const ids = snapshot.ids.filter(entry => entry !== id)
-      const byId = { ...snapshot.byId }
-      delete byId[id]
+      const byId = Object.fromEntries(
+        Object.entries(snapshot.byId).filter(([key]) => key !== id),
+      )
       snapshot = {
         current: snapshot.current === id ? ids[0] : snapshot.current,
         ids,

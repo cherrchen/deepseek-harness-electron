@@ -38,6 +38,17 @@ Electron starts DeepSeek Harness on a random `127.0.0.1` port and opens its read
 
 Harness profiles and state live in the platform-specific application-data directory. Agent shell commands start in the current user's home directory; select another workspace from the Harness UI when needed.
 
+## Bundled plugins
+
+DeepSeek Harness Desktop ships two portable DSH plugins from standalone canonical repositories. Both run unchanged in the desktop app and in a standard DSH Web host when installed separately.
+
+| Plugin | Desktop role | Summary |
+|---|---|---|
+| [dsh-client-ui-details-host](https://github.com/cherrchen/dsh-client-ui-details-host) | Required built-in | Hosts one active details surface in the AppFrame third column through `ctx.shellDetails`. |
+| [dsh-plugin-git](https://github.com/cherrchen/dsh-plugin-git) | Pre-installed (disable in **Settings → Plugins**) | Local Git status, diffs, staging, commits, and branch controls in the composer and details column. Requires Details Host. |
+
+Canonical development happens in those repositories; this monorepo mirrors them with git subtree.
+
 ## Development
 
 Run the desktop application's focused checks with:
