@@ -77,13 +77,13 @@ preload lifecycle group 通过 `@dsh-electron/dsh-electron-desktop-capabilities`
 
 “已安装”header 会打开一个包含 Registry、GitHub/Git 与 Local source 的对话框。本地安装使用 Electron native directory picker，并支持 `file:` 或 development `link:` 语义。Renderer 发送 typed request，不会获得 filesystem、child-process、shell-command 或 arbitrary pnpm access。
 
-Electron Main 校验请求，把它转换成一个 pnpm-compatible spec，再调用 `dsh plugin --profile web add <spec>`。上游 dsh 仍负责 profile 初始化与 bundle 协调。Catalog identity 与 package kind 由 installed dependency name 与 manifest 决定，而不是 request text。
+Electron Main 校验请求，把它转换成一个 pnpm-compatible spec，再调用 `dsh plugin --profile web add <spec>`。未指定版本的 Registry 请求会显式使用 `@latest`，从而替换已有 Git 或 local spec，而不是继续保留原 source。上游 dsh 仍负责 profile 初始化与 bundle 协调。Catalog identity 与 package kind 由 pnpm 写入的 installed dependency name 与 manifest 决定，而不是 request text；未发生变化的 Git 与 local spec 通过 pnpm 已写入的 dependency value 解析。
 
 打包后的 Desktop 包含仓库 package-manager version 对应的 pnpm。`$DSH_HOME/electron/bin` 下的 generated platform shim 会通过 Electron Node mode 启动 bundled pnpm，Main 把该目录放到 child PATH 最前。用户不需要全局 Node.js、Corepack 或 pnpm。
 
-普通 runtime 插件会进入 `plugins.cordis.yml`，并通过既有 lifecycle controller 热激活。Client-bearing 插件会在 Host 稳定后刷新 Renderer。Bundle 保持在 runtime include 之外并显示**需要重启**；plain dependency 显示**已作为依赖安装**且不提供 lifecycle control。Electron 不会自动重启 Host。
+普通 runtime 插件会进入 `plugins.cordis.yml`，并通过既有 lifecycle controller 热激活。Client-bearing 插件会在 Host 稳定后刷新 Renderer。Bundle 保持在 runtime include 之外并显示**需要重启**；plain dependency 显示**已作为依赖安装**且不提供 lifecycle control。只有 patch 能够解析，并且 manifest 声明的 Host 与 client package export 都存在时，上游协调才会把 Bundle 加入 profile stack。pnpm 失败后留下的 direct dependency，以及因无效而未进入 profile stack 的 Bundle，都会显示为**安装未完成**，且不提供 lifecycle control。Electron 不会自动重启 Host。
 
-安装会使用 Harness process permission 执行 third-party package 与 plugin code，位于 agent sandbox 之外。对话框会提醒用户只安装可信 package。Stable error category 会区分 invalid request、missing package 或 path、Git failure、blocked install-time build script、profile reconciliation 与 activation failure，同时保留 technical details。
+安装会使用 Harness process permission 执行 third-party package 与 plugin code，位于 agent sandbox 之外。对话框会提醒用户只安装可信 package。Stable error category 会区分 invalid request、missing package 或 path、Git failure、blocked install-time build script、profile reconciliation 与 activation failure，同时保留 technical details。Blocked-build 诊断会列出从 pnpm 输出解析出的实际 package，不会把已有 dependency 的脚本归因给本次请求的插件。如果 pnpm 在失败前改写了 profile dependencies，错误会记录这一事实，Renderer 也会刷新 catalog，而不会声称已回滚。
 
 一次 enable、disable 或 reload 命令进行期间，该 view 会短周期轮询 `list()`，并禁用所有插件的 mutation 按钮。搜索、滚动与“系统组件”折叠操作仍可使用。命令稳定后，view 停止轮询，读取一份最终 snapshot，并使用 Main 与 Host 真相替换本地 lifecycle state。命令失败时，界面会报告操作与 rollback，但不会向用户渲染原始 rejection。
 
