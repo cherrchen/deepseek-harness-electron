@@ -16,6 +16,14 @@
   border-bottom: 1px solid var(--dsw-alias-border-l2);
 }
 
+.headerLeading {
+  display: flex;
+  min-width: 0;
+  flex: 1;
+  align-items: center;
+  gap: 4px;
+}
+
 .title {
   margin: 0;
   overflow: hidden;
@@ -27,6 +35,22 @@
   white-space: nowrap;
 }
 
+.headerTrailing {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: 4px;
+  min-width: 0;
+}
+
+.actions {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  min-width: 0;
+}
+
+.back,
 .close {
   display: grid;
   flex: none;
@@ -41,6 +65,7 @@
   cursor: pointer;
 }
 
+.back:hover,
 .close:hover {
   background: var(--dsw-alias-fill-hover);
 }
