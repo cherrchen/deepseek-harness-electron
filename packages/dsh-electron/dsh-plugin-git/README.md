@@ -36,7 +36,7 @@ GitHub authentication, remotes, fetch/pull/push UX, issues, pull requests, stash
 
 Use Node.js `^22.19` or `>=24` with pnpm 11. The standalone repository owns its dependency lockfile and runs the same package tests and bundle configuration used by the DeepSeek Harness subtree.
 
-Until `@dsh-electron/dsh-client-ui-details-host@0.1.0` is published to npm, local development installs the pinned fixture tarball under `tests/fixtures/`. Replace that dev-only path with the registry range once the public artifact is available.
+Until `@dsh-electron/dsh-client-ui-details-host@0.2.0` is published to npm, local development installs the pinned fixture tarball under `tests/fixtures/`. Replace that dev-only path with the registry range once the public artifact is available.
 
 ```sh
 pnpm install --frozen-lockfile

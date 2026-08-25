@@ -1,7 +1,7 @@
 {
   "name": "@dsh-electron/dsh-client-ui-details-host",
   "description": "Portable DSH client plugin that hosts one active details surface in the AppFrame details column",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "publishConfig": {
     "access": "public"
   },

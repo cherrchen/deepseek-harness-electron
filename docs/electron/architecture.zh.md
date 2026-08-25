@@ -347,7 +347,7 @@ Desktop Capability Provider（`@dsh-electron/dsh-electron-desktop-capabilities`�
 
 Plugin Manager（`@dsh-electron/dsh-electron-ui-plugin-manager`）消费 `ctx.desktop.plugins`，并通过 upstream 拥有的 `settings.plugins.tab` slot 贡献 `installed` view。它只在 mount 期间读取 refreshable `web` profile catalog，只在一项 global lifecycle mutation 进行时轮询，并通过上游 `dsh plugin` 安装 Registry、Git 或 local package；必需的 Desktop runtime 插件保持只读。
 
-Details Host（`@dsh-electron/dsh-client-ui-details-host`）是必需的 portable UI 基础设施。源码真源是 `cherrchen/dsh-client-ui-details-host`；`apps/electron/runtime/plugins/ui-details-host` 是 git subtree 镜像。Electron 从该源码重新构建 Host 与 Client artifacts。该包在启动时挂载 `ctx.shellDetails`，在消费者调用 `open(id)` 之前不占用 `details`。加载它 MUST 让上游 DetailsPanel 继续作为栏位 winner。
+Details Host（`@dsh-electron/dsh-client-ui-details-host`）是必需的 portable UI 基础设施。源码真源是 `cherrchen/dsh-client-ui-details-host`；`apps/electron/runtime/plugins/ui-details-host` 是 git subtree 镜像。Electron 从该源码重新构建 Host 与 Client artifacts。该包在启动时挂载 `ctx.shellDetails`，在消费者调用 `open()` 之前不占用 `details`。加载它 MUST 让上游 DetailsPanel 继续作为栏位 winner。`open(id)` 仍然支持；当 surface 需要参数时，优先使用 `open({ surfaceId, payload })`。每个 session 在内存中保留独立的 active instance 与有界 back stack。
 
 ```text
 Feature Plugin
@@ -665,7 +665,7 @@ Desktop-required adapter 把 `desktop` 声明为 required service，归属 `apps
 
 ### Electron 必需的 portable DSH UI 基础设施
 
-这是 Desktop 始终作为必需 Host 组合挂载的 portable `platform: web` 公共包。它只使用上游 DSH 服务，不依赖 Electron，源码真源是独立仓库。`apps/electron/runtime/plugins/<name>/` 是 git subtree 镜像；Electron 从该源码重新构建 artifacts。加载该包 MUST NOT 占用产品 UI，直到消费者调用已发布的服务。当前成员是 Details Host：`ctx.shellDetails.open(id)` 以低于上游 DetailsPanel 的 priority 把 DetailsHost 注册进单一 `details` slot，再由 `ctx.layout.openDetails()` 打开栏位。`close()` 释放该注册，使上游 occupant 重新成为 winner。不要用 DOM 替换、portal、CSS overlay，或修改上游 `ui-layout` / `ui-conversation` 来完成这次接管。用户可禁用的产品功能归属 `packages/dsh-electron/`，不属于此类。
+这是 Desktop 始终作为必需 Host 组合挂载的 portable `platform: web` 公共包。它只使用上游 DSH 服务，不依赖 Electron，源码真源是独立仓库。`apps/electron/runtime/plugins/<name>/` 是 git subtree 镜像；Electron 从该源码重新构建 artifacts。加载该包 MUST NOT 占用产品 UI，直到消费者调用已发布的服务。当前成员是 Details Host：`ctx.shellDetails.open()` 以低于上游 DetailsPanel 的 priority 把 DetailsHost 注册进单一 `details` slot，再由 `ctx.layout.openDetails()` 打开栏位。`close()` 释放该注册，使上游 occupant 重新成为 winner。不要用 DOM 替换、portal、CSS overlay，或修改上游 `ui-layout` / `ui-conversation` 来完成这次接管。用户可禁用的产品功能归属 `packages/dsh-electron/`，不属于此类。
 
 ## 20. 原生实现与功能所有权
 

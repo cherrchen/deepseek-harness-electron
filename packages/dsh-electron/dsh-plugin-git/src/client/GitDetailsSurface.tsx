@@ -1,10 +1,9 @@
 import { useEffect, useSyncExternalStore } from 'react'
 import type { ReactNode } from 'react'
 import type { PropsLocale, PropsRuntime } from '@deepseek-ai/dsh-client-ui-slots'
-import { Button } from '@deepseek-ai/dsh-client-ui-primitives'
 import { changedPathCount } from './changed-path-count.ts'
 import type { GitClientController } from './controller.ts'
-import type { GitDetailsTab } from './contract.ts'
+import type { GitDetailsTab, GitDetailsPayload } from './contract.ts'
 import { ChangesTab } from './details/ChangesTab.tsx'
 import { CommitTab } from './details/CommitTab.tsx'
 import { DiffTab } from './details/DiffTab.tsx'
@@ -24,12 +23,19 @@ const TAB_LABEL: Record<GitDetailsTab, GitLocaleKey> = {
 }
 
 /** Render the Git details surface body hosted by Details Host. */
-export function GitDetailsSurface({ controller, t }: GitDetailsSurfaceProps): ReactNode {
+export function GitDetailsSurface({ controller, t, detailsInstance }: GitDetailsSurfaceProps): ReactNode {
   const state = useSyncExternalStore(controller.subscribe, controller.getSnapshot)
 
   useEffect(() => {
     void controller.refresh()
   }, [controller])
+
+  // Payload owns initial navigation for this Host open; live tab changes stay on the controller.
+  useEffect(() => {
+    const payload = detailsInstance.payload as GitDetailsPayload
+    const tab = payload.tab
+    if (tab !== undefined) controller.selectTab(tab)
+  }, [controller, detailsInstance.instanceId, detailsInstance.payload])
 
   const repository = state.repository
   const clean = repository !== undefined && repository !== null && changedPathCount(repository) === 0
@@ -43,14 +49,6 @@ export function GitDetailsSurface({ controller, t }: GitDetailsSurfaceProps): Re
         <div className={css.context}>
           <span className={css.repoName} title={repository.root}>{repoFolderName(repository.root)}</span>
           {branchLabel !== undefined && <span className={css.branchName}>{branchLabel}</span>}
-          <div className={css.actions}>
-            {state.desktopAvailable && (
-              <Button size="sm" variant="ghost" onClick={() => { void controller.reveal() }}>{t('details.reveal')}</Button>
-            )}
-            <Button size="sm" variant="outline" disabled={state.loading} onClick={() => { void controller.refresh() }}>
-              {t('details.refresh')}
-            </Button>
-          </div>
         </div>
       )}
       <nav className={css.tabs} aria-label={t('details.tabs')}>
