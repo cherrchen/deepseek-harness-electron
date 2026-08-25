@@ -118,7 +118,6 @@ export class ShellDetailsService extends Service implements ShellDetailsControll
   private readonly descriptors = new DetailsDescriptorRegistry()
   private readonly sessions = new DetailsSessionStore()
   private takeover: (() => void) | undefined
-  private knownSessionIds = new Set<string>()
 
   /**
    * @param ctx - owning plugin fiber. Takeover registrations ride this fiber
@@ -127,7 +126,6 @@ export class ShellDetailsService extends Service implements ShellDetailsControll
   constructor(ctx: Context) {
     super(ctx, 'shellDetails')
     this.owner = ctx
-    this.knownSessionIds = this.readSessionIds()
     ctx.effect(() => () => {
       this.disposeAllSessions('host-unload')
       this.descriptors.clear()
@@ -429,7 +427,6 @@ export class ShellDetailsService extends Service implements ShellDetailsControll
       }
       this.sessions.delete(sessionId)
     }
-    this.knownSessionIds = live
   }
 
   private recoverAfterSurfaceLoss(
@@ -583,12 +580,6 @@ export class ShellDetailsService extends Service implements ShellDetailsControll
   private currentSessionId(): string {
     const current = this.owner.sessions.list.getSnapshot().current
     return typeof current === 'string' && current.length > 0 ? current : ''
-  }
-
-  private readSessionIds(): Set<string> {
-    const ids = this.owner.sessions.list.getSnapshot().ids
-    if (!Array.isArray(ids)) return new Set()
-    return new Set(ids.map(String))
   }
 
   private rollbackTakeover(): void {
