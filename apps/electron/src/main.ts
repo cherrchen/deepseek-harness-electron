@@ -42,7 +42,6 @@ import {
 import { prepareHostRuntimeOverlay } from './runtime-overlay.ts'
 import {
   ensureRuntimePluginsLinked,
-  discoverManagedPlugins,
   profileModuleLinkPath,
   pluginRuntimeModuleLinkPath,
   ensureSymlink,
@@ -57,6 +56,10 @@ import {
 import { DynamicIncludeCompositionBackend, effectivePluginRoster } from './plugin-runtime-config.ts'
 import { loadPluginState, reconcilePluginState, savePluginState } from './plugin-state.ts'
 import { PluginLifecycleController } from './plugin-lifecycle.ts'
+import { ProfilePluginCatalog } from './plugin-catalog.ts'
+import { PluginMutationCoordinator } from './plugin-mutation.ts'
+import { PluginPackageService, createPluginCommandRunner } from './plugin-install.ts'
+import { preparePluginPackageManager, resolveBundledPnpmBin } from './plugin-package-manager.ts'
 import { RemotePluginInventoryProbe } from './plugin-inventory-probe.ts'
 import {
   trayIconNeedsLogicalLoad,
@@ -75,6 +78,7 @@ let mainWindow: BrowserWindow | undefined
 let tray: Tray | undefined
 let updater: UpdaterController | undefined
 let pluginLifecycle: PluginLifecycleController | undefined
+let pluginPackages: PluginPackageService | undefined
 let inventoryProbe: RemotePluginInventoryProbe | undefined
 let quitting = false
 let stopping = false
@@ -146,6 +150,13 @@ async function startHarness(dshBin: string, harnessHome: string, hostPatch: stri
 
 function logPlugins(message: string, ...details: unknown[]): void {
   console.info('[electron:plugins]', message, ...details)
+}
+
+function readProfileDependencies(profileDir: string): Record<string, string> {
+  const manifestPath = join(profileDir, 'package.json')
+  if (!existsSync(manifestPath)) return {}
+  const manifest = JSON.parse(readFileSync(manifestPath, 'utf8')) as { dependencies?: Record<string, string> }
+  return manifest.dependencies ?? {}
 }
 
 /** Open one hardened desktop window for the Electron-owned renderer. */
@@ -392,24 +403,38 @@ if (!primaryInstance) {
     installRendererProtocol(resolveRendererRoot(app.getAppPath()), transport.harnessProxy)
     const appPath = app.getAppPath()
     const harnessHome = resolveHarnessHome(app.getPath('home'))
-    const managedPlugins = discoverManagedPlugins(appPath)
     ensureRuntimePluginsLinked(appPath, harnessHome)
     const overlay = await prepareHostRuntimeOverlay(appPath, app.getPath('userData'), harnessHome)
     const loadedState = loadPluginState(overlay.pluginStatePath)
     for (const warning of loadedState.warnings) console.warn(warning)
+    if (!existsSync(overlay.pluginStatePath) || loadedState.dirty) {
+      await savePluginState(overlay.pluginStatePath, loadedState.state)
+    }
+    const catalog = new ProfilePluginCatalog(
+      appPath,
+      harnessHome,
+      'web',
+      () => loadPluginState(overlay.pluginStatePath).state,
+    )
+    const catalogPlugins = await catalog.list()
     const reconciled = reconcilePluginState(
       loadedState.state,
-      managedPlugins.filter(plugin => plugin.manageable).map(plugin => plugin.name),
+      catalogPlugins.filter(plugin => plugin.manageable).map(plugin => plugin.name),
+      Object.keys(readProfileDependencies(join(harnessHome, 'profiles', 'web'))),
     )
     if (reconciled.removed.length > 0) {
-      console.warn('[electron:plugins] ignoring stale disabled plugins', reconciled.removed)
-    }
-    const composition = new DynamicIncludeCompositionBackend(overlay.pluginConfigPath)
-    await composition.apply(effectivePluginRoster(managedPlugins, reconciled.state))
-    if (!existsSync(overlay.pluginStatePath)) {
+      console.warn('[electron:plugins] ignoring stale plugin state entries', reconciled.removed)
       await savePluginState(overlay.pluginStatePath, reconciled.state)
     }
-    logPlugins('desired startup roster', effectivePluginRoster(managedPlugins, reconciled.state).map(plugin => plugin.name))
+    const composition = new DynamicIncludeCompositionBackend(overlay.pluginConfigPath)
+    const mutations = new PluginMutationCoordinator()
+    const packageManager = preparePluginPackageManager(
+      harnessHome,
+      process.execPath,
+      resolveBundledPnpmBin(appPath),
+    )
+    await composition.apply(effectivePluginRoster(catalogPlugins, reconciled.state))
+    logPlugins('desired startup roster', effectivePluginRoster(catalogPlugins, reconciled.state).map(plugin => plugin.name))
     installDesktopIpc(
       transport,
       desktop,
@@ -418,6 +443,10 @@ if (!primaryInstance) {
         if (pluginLifecycle === undefined) throw new Error('desktop ipc: plugin lifecycle is unavailable')
         return pluginLifecycle
       },
+      () => {
+        if (pluginPackages === undefined) throw new Error('desktop ipc: plugin package service is unavailable')
+        return pluginPackages
+      },
     )
 
     const started = await startHarness(resolveDshBin(appPath), harnessHome, overlay.patchPath)
@@ -425,7 +454,7 @@ if (!primaryInstance) {
     await transport.start(started.url)
     inventoryProbe = new RemotePluginInventoryProbe(transport)
     pluginLifecycle = new PluginLifecycleController(
-      managedPlugins,
+      catalog,
       reconciled.state,
       overlay.pluginStatePath,
       composition,
@@ -435,6 +464,21 @@ if (!primaryInstance) {
         ensureSymlink(pluginRuntimeModuleLinkPath(harnessHome, plugin.name), plugin.rootPath)
       },
       refreshRendererForPluginLifecycle,
+      {},
+      mutations,
+    )
+    pluginPackages = new PluginPackageService(
+      join(harnessHome, 'profiles', 'web'),
+      overlay.pluginStatePath,
+      createPluginCommandRunner({
+        electronExecutable: process.execPath,
+        dshBin: resolveDshBin(appPath),
+        harnessHome,
+        profile: 'web',
+        envPath: packageManager.envPath,
+      }),
+      pluginLifecycle,
+      mutations,
     )
     harness.once('exit', (code, signal) => {
       if (quitting) return

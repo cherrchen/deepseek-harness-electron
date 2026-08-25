@@ -13,6 +13,8 @@ import {
   type HostStreamHandlers,
   type HostStreamPortMessage,
   type PickDirectoryOptions,
+  type PluginInstallRequest,
+  type PluginInstallWireResult,
   type ThemeState,
 } from '../bridge-types.ts'
 
@@ -152,6 +154,14 @@ const bridge: DeepseekDesktopBridge = {
   },
   plugins: {
     list: () => ipcRenderer.invoke(DesktopIpcChannel.pluginsList),
+    install: async (request: PluginInstallRequest) => {
+      const response = await ipcRenderer.invoke(DesktopIpcChannel.pluginsInstall, request) as PluginInstallWireResult
+      if (response.ok) return response.result
+      const error = new Error(response.error.message) as Error & { code: string; details?: string }
+      error.code = response.error.code
+      if (response.error.details !== undefined) error.details = response.error.details
+      throw error
+    },
     enable: (name: string) => ipcRenderer.invoke(DesktopIpcChannel.pluginsEnable, name),
     disable: (name: string) => ipcRenderer.invoke(DesktopIpcChannel.pluginsDisable, name),
     reload: (name: string) => ipcRenderer.invoke(DesktopIpcChannel.pluginsReload, name),

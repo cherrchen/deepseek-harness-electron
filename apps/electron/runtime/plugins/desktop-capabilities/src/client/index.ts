@@ -10,6 +10,7 @@ export type {
   PluginLifecycleSnapshot,
   PluginRuntimeState,
 } from '../../../../../src/plugin-lifecycle-contract.ts'
+export type { PluginInstallRequest, PluginInstallResult } from '../../../../../src/plugin-install-contract.ts'
 export { createDesktopCapabilities, requireDesktopBridge } from './contract.ts'
 
 declare module '@deepseek-ai/cordis' {
