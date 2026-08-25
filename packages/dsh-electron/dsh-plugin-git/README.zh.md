@@ -36,7 +36,7 @@ GitHub authentication、remotes、fetch／pull／push UX、issues、pull request
 
 使用 Node.js `^22.19` 或 `>=24` 与 pnpm 11。Standalone repository 管理自己的 dependency lockfile，并运行与 DeepSeek Harness subtree 相同的 package tests 和 bundle configuration。
 
-在 `@dsh-electron/dsh-client-ui-details-host@0.1.0` 发布到 npm 之前，本地开发通过 `tests/fixtures/` 下的 pinned fixture tarball 安装 Details Host。公共 artifact 可用后，应把该 dev-only 路径替换为 registry range。
+在 `@dsh-electron/dsh-client-ui-details-host@0.2.0` 发布到 npm 之前，本地开发通过 `tests/fixtures/` 下的 pinned fixture tarball 安装 Details Host。公共 artifact 可用后，应把该 dev-only 路径替换为 registry range。
 
 ```sh
 pnpm install --frozen-lockfile
