@@ -41,7 +41,7 @@ export function renderPluginRuntimeConfig(roster: readonly ManagedPlugin[]): str
   }
   for (const plugin of roster) {
     lines.push(`- id: ${yamlString(plugin.name)}`)
-    lines.push(`  name: ${yamlString(plugin.name)}`)
+    lines.push(`  name: ${yamlString(plugin.runtimeRequest ?? plugin.name)}`)
   }
   return `${lines.join('\n')}\n`
 }

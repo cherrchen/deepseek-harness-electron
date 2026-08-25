@@ -6,13 +6,15 @@ import {
 import type { ManagedPlugin } from '../src/runtime-plugins.ts'
 import type { PluginState } from '../src/plugin-state.ts'
 
+const noPackageActions = { checkUpdates: false, update: false, reinstall: false, remove: false } as const
+
 const desktopAdapter: ManagedPlugin = {
   name: '@dsh-electron/dsh-electron-desktop-capabilities',
   version: '0.1.0',
   directoryName: 'desktop-capabilities',
   rootPath: '/runtime/desktop-capabilities',
   hasClient: true,
-  source: 'desktop-runtime',
+  ownership: 'system', kind: 'runtime-plugin', installSource: 'bundled', activationMode: 'hot', health: 'healthy', packageActions: noPackageActions,
   manageable: false,
   required: true,
 }
@@ -23,7 +25,7 @@ const gitPlugin: ManagedPlugin = {
   directoryName: 'dsh-plugin-git',
   rootPath: '/plugins/dsh-plugin-git',
   hasClient: true,
-  source: 'ecosystem',
+  ownership: 'bundled', kind: 'runtime-plugin', installSource: 'bundled', activationMode: 'hot', health: 'healthy', packageActions: noPackageActions,
   manageable: true,
   required: false,
 }
@@ -34,14 +36,14 @@ const notesPlugin: ManagedPlugin = {
   directoryName: 'dsh-plugin-notes',
   rootPath: '/plugins/dsh-plugin-notes',
   hasClient: false,
-  source: 'ecosystem',
+  ownership: 'bundled', kind: 'runtime-plugin', installSource: 'bundled', activationMode: 'hot', health: 'healthy', packageActions: noPackageActions,
   manageable: true,
   required: false,
 }
 
 describe('plugin runtime config', () => {
   it('includes enabled ecosystem plugins and excludes disabled or required desktop adapters', () => {
-    const state: PluginState = { version: 1, disabled: ['@dsh-electron/dsh-plugin-notes'] }
+    const state: PluginState = { version: 2, disabled: ['@dsh-electron/dsh-plugin-notes'], profileManaged: [] }
     const roster = effectivePluginRoster([desktopAdapter, gitPlugin, notesPlugin], state)
     expect(roster.map(plugin => plugin.name)).toEqual(['@dsh-electron/dsh-plugin-git'])
     const rendered = renderPluginRuntimeConfig(roster)
@@ -54,15 +56,22 @@ describe('plugin runtime config', () => {
   it('preserves distribution order and uses package names as stable ids', () => {
     const roster = effectivePluginRoster(
       [desktopAdapter, notesPlugin, gitPlugin],
-      { version: 1, disabled: [] },
+      { version: 2, disabled: [], profileManaged: [] },
     )
     expect(roster.map(plugin => plugin.name)).toEqual([notesPlugin.name, gitPlugin.name])
     const rendered = renderPluginRuntimeConfig(roster)
     expect(rendered.indexOf(notesPlugin.name)).toBeLessThan(rendered.indexOf(gitPlugin.name))
   })
 
+  it('keeps the package id stable while rendering a cache-busted runtime request', () => {
+    const runtimeRequest = 'file:///profile/plugin/lib/index.js?dsh-electron-revision=2'
+    const rendered = renderPluginRuntimeConfig([{ ...gitPlugin, runtimeRequest }])
+    expect(rendered).toContain(`- id: '${gitPlugin.name}'`)
+    expect(rendered).toContain(`  name: '${runtimeRequest}'`)
+  })
+
   it('is byte-identical for equal input and renders an empty array when no plugin is enabled', () => {
-    const state: PluginState = { version: 1, disabled: [gitPlugin.name, notesPlugin.name] }
+    const state: PluginState = { version: 2, disabled: [gitPlugin.name, notesPlugin.name], profileManaged: [] }
     const roster = effectivePluginRoster([desktopAdapter, gitPlugin, notesPlugin], state)
     const first = renderPluginRuntimeConfig(roster)
     const second = renderPluginRuntimeConfig(roster)

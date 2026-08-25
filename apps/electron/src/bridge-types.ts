@@ -13,6 +13,17 @@ import type {
   DesktopUpdaterSnapshot,
 } from './desktop/index.ts'
 import type { PluginLifecycleSnapshot } from './plugin-lifecycle.ts'
+import type {
+  PluginInstallErrorCode,
+  PluginInstallRequest,
+  PluginInstallResult,
+} from './plugin-install-contract.ts'
+import type {
+  PluginPackageErrorCode,
+  PluginPackageMutationResult,
+  PluginRecoveryState,
+  PluginUpdateInfo,
+} from './plugin-package-contract.ts'
 
 /** Privileged custom scheme that owns the packaged renderer origin. */
 export const RENDERER_SCHEME = 'dsh-electron'
@@ -49,6 +60,11 @@ export const DesktopIpcChannel = {
   windowClose: 'deepseek-desktop:window:close',
   windowGetState: 'deepseek-desktop:window:getState',
   pluginsList: 'deepseek-desktop:plugins:list',
+  pluginsInstall: 'deepseek-desktop:plugins:install',
+  pluginsCheckUpdates: 'deepseek-desktop:plugins:checkUpdates',
+  pluginsUpdate: 'deepseek-desktop:plugins:update',
+  pluginsReinstall: 'deepseek-desktop:plugins:reinstall',
+  pluginsRemove: 'deepseek-desktop:plugins:remove',
   pluginsEnable: 'deepseek-desktop:plugins:enable',
   pluginsDisable: 'deepseek-desktop:plugins:disable',
   pluginsReload: 'deepseek-desktop:plugins:reload',
@@ -188,6 +204,16 @@ export interface DeepseekDesktopBridge {
   plugins: {
     /** Read the bundled plugin lifecycle snapshot. */
     list(): Promise<PluginLifecycleSnapshot>
+    /** Install one package into the active web profile. */
+    install(request: PluginInstallRequest): Promise<PluginInstallResult>
+    /** Check Registry profile dependencies for range-compatible updates. */
+    checkUpdates(): Promise<PluginUpdateInfo[]>
+    /** Update or refresh one profile dependency from its recorded source. */
+    update(name: string): Promise<PluginPackageMutationResult>
+    /** Re-resolve one profile dependency from its recorded requested spec. */
+    reinstall(name: string): Promise<PluginPackageMutationResult>
+    /** Remove one direct profile dependency. */
+    remove(name: string): Promise<PluginPackageMutationResult>
     /** Enable one manageable bundled ecosystem plugin. */
     enable(name: string): Promise<void>
     /** Disable one manageable bundled ecosystem plugin. */
@@ -206,7 +232,22 @@ export type {
   WindowState,
   DesktopUpdaterSnapshot,
   PluginLifecycleSnapshot,
+  PluginInstallRequest,
+  PluginInstallResult,
+  PluginInstallErrorCode,
+  PluginPackageMutationResult,
+  PluginUpdateInfo,
 }
+
+/** Structured IPC response that preserves stable install failure categories. */
+export type PluginInstallWireResult =
+  | { ok: true; result: PluginInstallResult }
+  | { ok: false; error: { code: PluginInstallErrorCode; message: string; details?: string; profileChanged?: true } }
+
+/** Structured IPC response for update, repair, and removal operations. */
+export type PluginPackageWireResult =
+  | { ok: true; result: PluginPackageMutationResult }
+  | { ok: false; error: { code: PluginPackageErrorCode; message: string; recovery: PluginRecoveryState; details?: string } }
 
 declare global {
   interface Window {

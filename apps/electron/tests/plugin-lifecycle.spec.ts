@@ -5,6 +5,8 @@ import type { PluginCompositionBackend } from '../src/plugin-runtime-config.ts'
 import type { ManagedPlugin } from '../src/runtime-plugins.ts'
 import type { PluginInventoryProbe, PluginInventorySnapshot } from '../src/plugin-inventory-probe.ts'
 
+const noPackageActions = { checkUpdates: false, update: false, reinstall: false, remove: false } as const
+
 const lifecycleProbeRoot = fileURLToPath(new URL('./fixtures/plugins/lifecycle-probe', import.meta.url))
 
 const hostOnlyPlugin: ManagedPlugin = {
@@ -14,7 +16,7 @@ const hostOnlyPlugin: ManagedPlugin = {
   directoryName: 'dsh-plugin-host-only',
   rootPath: lifecycleProbeRoot,
   hasClient: false,
-  source: 'ecosystem',
+  ownership: 'bundled', kind: 'runtime-plugin', installSource: 'bundled', activationMode: 'hot', health: 'healthy', packageActions: noPackageActions,
   manageable: true,
   required: false,
 }
@@ -26,7 +28,7 @@ const clientPlugin: ManagedPlugin = {
   directoryName: 'dsh-plugin-client',
   rootPath: lifecycleProbeRoot,
   hasClient: true,
-  source: 'ecosystem',
+  ownership: 'bundled', kind: 'runtime-plugin', installSource: 'bundled', activationMode: 'hot', health: 'healthy', packageActions: noPackageActions,
   manageable: true,
   required: false,
 }
@@ -38,7 +40,7 @@ const requiredPlugin: ManagedPlugin = {
   directoryName: 'desktop-capabilities',
   rootPath: lifecycleProbeRoot,
   hasClient: true,
-  source: 'desktop-runtime',
+  ownership: 'system', kind: 'runtime-plugin', installSource: 'bundled', activationMode: 'hot', health: 'healthy', packageActions: noPackageActions,
   manageable: false,
   required: true,
 }
@@ -84,7 +86,7 @@ describe('plugin lifecycle controller', () => {
     const ensureReady = vi.fn(() => {})
     const controller = new PluginLifecycleController(
       [hostOnlyPlugin],
-      { version: 1, disabled: [hostOnlyPlugin.name] },
+      { version: 2, disabled: [hostOnlyPlugin.name], profileManaged: [] },
       '/tmp/plugin-state.json',
       backend,
       new FakeInventory([absent(), active(hostOnlyPlugin.name)]),
@@ -103,7 +105,7 @@ describe('plugin lifecycle controller', () => {
     const refresh = vi.fn(async () => {})
     const controller = new PluginLifecycleController(
       [clientPlugin],
-      { version: 1, disabled: [] },
+      { version: 2, disabled: [], profileManaged: [] },
       '/tmp/plugin-state.json',
       backend,
       new FakeInventory([active(clientPlugin.name), absent()]),
@@ -121,7 +123,7 @@ describe('plugin lifecycle controller', () => {
     const refresh = vi.fn(async () => {})
     const controller = new PluginLifecycleController(
       [clientPlugin],
-      { version: 1, disabled: [] },
+      { version: 2, disabled: [], profileManaged: [] },
       '/tmp/plugin-state.json',
       backend,
       new FakeInventory([absent(), active(clientPlugin.name)]),
@@ -137,7 +139,7 @@ describe('plugin lifecycle controller', () => {
   it('rejects unknown or unmanageable plugins', async () => {
     const controller = new PluginLifecycleController(
       [requiredPlugin],
-      { version: 1, disabled: [] },
+      { version: 2, disabled: [], profileManaged: [] },
       '/tmp/plugin-state.json',
       new FakeBackend(),
       new FakeInventory([active(requiredPlugin.name)]),
@@ -145,7 +147,7 @@ describe('plugin lifecycle controller', () => {
       async () => {},
       { timeoutMs: 500, pollIntervalMs: 0, hmrQuietMs: 0 },
     )
-    await expect(controller.enable('@missing/plugin')).rejects.toThrow(/unknown bundled plugin/)
+    await expect(controller.enable('@missing/plugin')).rejects.toThrow(/unknown plugin/)
     await expect(controller.disable(requiredPlugin.name)).rejects.toThrow(/cannot be managed/)
   })
 
@@ -153,7 +155,7 @@ describe('plugin lifecycle controller', () => {
     const backend = new FakeBackend()
     const controller = new PluginLifecycleController(
       [clientPlugin],
-      { version: 1, disabled: [clientPlugin.name] },
+      { version: 2, disabled: [clientPlugin.name], profileManaged: [] },
       '/tmp/plugin-state.json',
       backend,
       new FakeInventory([failed(clientPlugin.name), absent()]),
@@ -172,7 +174,7 @@ describe('plugin lifecycle controller', () => {
     }
     const controller = new PluginLifecycleController(
       [plugin],
-      { version: 1, disabled: [plugin.name] },
+      { version: 2, disabled: [plugin.name], profileManaged: [] },
       '/tmp/plugin-state.json',
       new FakeBackend(),
       new FakeInventory([absent()]),
@@ -187,7 +189,7 @@ describe('plugin lifecycle controller', () => {
     const backend = new FakeBackend()
     const controller = new PluginLifecycleController(
       [hostOnlyPlugin],
-      { version: 1, disabled: [hostOnlyPlugin.name] },
+      { version: 2, disabled: [hostOnlyPlugin.name], profileManaged: [] },
       '/tmp/plugin-state.json',
       backend,
       new FakeInventory([absent()]),
@@ -218,7 +220,7 @@ describe('plugin lifecycle controller', () => {
     }
     const controller = new PluginLifecycleController(
       [hostOnlyPlugin],
-      { version: 1, disabled: [hostOnlyPlugin.name] },
+      { version: 2, disabled: [hostOnlyPlugin.name], profileManaged: [] },
       '/tmp/plugin-state.json',
       backend,
       inventory,
@@ -234,13 +236,20 @@ describe('plugin lifecycle controller', () => {
         name: hostOnlyPlugin.name,
         version: hostOnlyPlugin.version,
         description: hostOnlyPlugin.description,
-        source: 'ecosystem',
+        ownership: 'bundled',
+        kind: 'runtime-plugin',
+        installSource: 'bundled',
         hasClient: false,
         manageable: true,
         required: false,
         desiredEnabled: false,
         runtime: 'loading',
+        activationMode: 'hot',
+        health: 'healthy',
+        packageActions: noPackageActions,
       }],
+      pendingRestart: [],
+      activeOperation: { kind: 'enable', plugin: hostOnlyPlugin.name },
     })
     release()
     await enabling
@@ -256,7 +265,7 @@ describe('plugin lifecycle controller', () => {
     release = new Promise<void>((resolve) => { unblock = resolve })
     const controller = new PluginLifecycleController(
       [clientPlugin],
-      { version: 1, disabled: [clientPlugin.name] },
+      { version: 2, disabled: [clientPlugin.name], profileManaged: [] },
       '/tmp/plugin-state.json',
       backend,
       new FakeInventory([active(clientPlugin.name), absent()]),

@@ -3,8 +3,10 @@ import {
   Button,
   DisclosureRow,
   IconCordisPluginOutline14,
+  IconEllipsisOutline16,
   IconSearchOutline16,
   Input,
+  Menu,
   StateDot,
   type StateDotState,
 } from '@deepseek-ai/dsh-client-ui-primitives'
@@ -22,10 +24,13 @@ import {
 } from './plugin-manager-controller.ts'
 import type { PluginManagerLocaleKey } from './locales.ts'
 import css from './PluginManagerTab.module.css'
+import { PluginInstallDialog } from './PluginInstallDialog.tsx'
+import { PluginRemoveDialog } from './PluginRemoveDialog.tsx'
 
 /** Lifecycle capability injected from `ctx.desktop`. */
 export interface PluginManagerTabInjected {
   plugins: DesktopCapabilitiesContract['plugins']
+  dialog: DesktopCapabilitiesContract['dialog']
 }
 
 /** Full props assembled by the upstream Plugins tab renderer. */
@@ -46,12 +51,18 @@ const OPERATION_KEYS = {
   enable: 'enabling',
   disable: 'disabling',
   reload: 'reloading',
+  update: 'updating',
+  reinstall: 'reinstalling',
+  remove: 'removing',
 } satisfies Record<PluginOperationKind, PluginManagerLocaleKey>
 
 const OPERATION_VERBS = {
   enable: 'operationEnable',
   disable: 'operationDisable',
   reload: 'operationReload',
+  update: 'operationUpdate',
+  reinstall: 'operationReinstall',
+  remove: 'operationRemove',
 } satisfies Record<PluginOperationKind, PluginManagerLocaleKey>
 
 const SYSTEM_NAMES: Readonly<Record<string, string>> = {
@@ -93,6 +104,11 @@ function lifecyclePresentation(
   if (activeOperation?.plugin === plugin.name) {
     return { label: t(OPERATION_KEYS[activeOperation.kind]), dot: 'ongoing' }
   }
+  if (plugin.runtime === undefined) {
+    return plugin.health === 'reconcile-required'
+      ? { label: t('installationIncomplete'), dot: 'error' as const }
+      : { label: t(plugin.kind === 'bundle' ? 'packageInstalled' : 'installedDependency') }
+  }
   if (plugin.runtime === 'absent') {
     return plugin.desiredEnabled ? { label: t('notRunning') } : { label: t('disabled') }
   }
@@ -114,23 +130,32 @@ export function availableActions(plugin: PluginLifecycleEntry): PluginOperationK
 }
 
 /** Render one bundled plugin with Host status and permitted commands. */
-function PluginRow({ plugin, state, mutate, t, readOnly = false }: {
+function PluginRow({ plugin, state, mutate, t, readOnly = false, onRemove, updateAvailable }: {
   plugin: PluginLifecycleEntry
   state: PluginManagerState
   mutate: (operation: ActivePluginOperation) => void
   t: PluginManagerTabProps['t']
   readOnly?: boolean
+  onRemove?: (plugin: PluginLifecycleEntry) => void
+  updateAvailable?: string | undefined
 }): ReactNode {
+  const [menuOpen, setMenuOpen] = useState(false)
   const title = pluginDisplayName(plugin)
   const presentation = lifecyclePresentation(plugin, state.activeOperation, t)
   const actions = readOnly ? [] : availableActions(plugin)
-  const globallyLocked = state.activeOperation !== undefined
+  const globallyLocked = state.activeOperation !== undefined || state.snapshot?.activeOperation !== undefined
+  const packageItems = readOnly ? [] : [
+    ...(plugin.packageActions.update === false || updateAvailable !== undefined ? [] : [{ id: 'update', label: t(plugin.packageActions.update === 'registry' ? 'update' : 'refreshSource') }]),
+    ...(plugin.packageActions.reinstall ? [{ id: 'reinstall', label: t(plugin.health === 'reconcile-required' ? 'repair' : 'reinstall') }] : []),
+    ...(plugin.packageActions.remove ? [{ id: 'remove', label: t('remove'), danger: true }] : []),
+  ]
   return (
-    <li className={css.pluginRow} data-runtime={plugin.runtime} data-plugin={plugin.name}>
+    <li className={css.pluginRow} data-runtime={plugin.runtime ?? plugin.health} data-plugin={plugin.name}>
       <div className={css.pluginIdentity}>
         <strong>{title}</strong>
         <code>{plugin.name}</code>
         {plugin.description === undefined ? null : <p>{plugin.description}</p>}
+        {plugin.requestedSpec === undefined ? null : <span className={css.sourceSpec}>{plugin.requestedSpec}</span>}
       </div>
       <div className={css.pluginControl}>
         <div className={css.pluginMeta}>
@@ -140,8 +165,14 @@ function PluginRow({ plugin, state, mutate, t, readOnly = false }: {
           </span>
           <span className={css.version}>v{plugin.version}</span>
         </div>
-        {actions.length === 0 ? null : (
+        {updateAvailable === undefined ? null : <span className={css.updateAvailable}>{t('updateAvailable', { version: updateAvailable })}</span>}
+        {actions.length === 0 && packageItems.length === 0 && updateAvailable === undefined ? null : (
           <div className={css.actions}>
+            {updateAvailable === undefined ? null : (
+              <Button size="sm" variant="primary" disabled={globallyLocked} onClick={() => { mutate({ plugin: plugin.name, kind: 'update' }) }}>
+                {t('update')}
+              </Button>
+            )}
             {actions.map((kind) => {
               const retry = kind === 'reload' && plugin.runtime === 'failed'
               const label = retry ? t('retryPlugin') : t(kind)
@@ -157,6 +188,24 @@ function PluginRow({ plugin, state, mutate, t, readOnly = false }: {
                 </Button>
               )
             })}
+            {packageItems.length === 0 ? null : (
+              <Menu
+                open={menuOpen}
+                onClose={() => { setMenuOpen(false) }}
+                items={packageItems}
+                onSelect={(id) => {
+                  setMenuOpen(false)
+                  if (id === 'remove') onRemove?.(plugin)
+                  else if (id === 'update' || id === 'reinstall') mutate({ plugin: plugin.name, kind: id })
+                }}
+                portal
+                anchor={(
+                  <button type="button" className={css.moreButton} aria-label={t('packageActions', { plugin: title })} disabled={globallyLocked} onClick={() => { setMenuOpen(value => !value) }}>
+                    <IconEllipsisOutline16 aria-hidden="true" />
+                  </button>
+                )}
+              />
+            )}
           </div>
         )}
       </div>
@@ -165,11 +214,14 @@ function PluginRow({ plugin, state, mutate, t, readOnly = false }: {
 }
 
 /** Installed plugin lifecycle view mounted lazily by the upstream Plugins section. */
-export function PluginManagerTab({ plugins, t }: PluginManagerTabProps): ReactNode {
+export function PluginManagerTab({ plugins, dialog, t }: PluginManagerTabProps): ReactNode {
   const controllerRef = useRef<PluginManagerController>()
   const [state, setState] = useState<PluginManagerState>({ status: 'loading' })
   const [query, setQuery] = useState('')
   const [systemOpen, setSystemOpen] = useState(false)
+  const [installOpen, setInstallOpen] = useState(false)
+  const [installPending, setInstallPending] = useState(false)
+  const [removeTarget, setRemoveTarget] = useState<PluginLifecycleEntry>()
 
   useEffect(() => {
     const controller = new PluginManagerController(plugins)
@@ -184,16 +236,17 @@ export function PluginManagerTab({ plugins, t }: PluginManagerTabProps): ReactNo
   }, [plugins])
 
   const snapshot = state.snapshot
-  const manageable = snapshot?.entries.filter(plugin => plugin.manageable) ?? []
-  const system = snapshot?.entries.filter(plugin => !plugin.manageable) ?? []
+  const installed = snapshot?.entries.filter(plugin => plugin.manageable || plugin.ownership === 'profile') ?? []
+  const system = snapshot?.entries.filter(plugin => !plugin.manageable && plugin.ownership !== 'profile') ?? []
   const normalizedQuery = query.trim().toLocaleLowerCase()
   const filtered = useMemo(
-    () => manageable.filter(plugin => matchesPlugin(plugin, normalizedQuery)),
-    [manageable, normalizedQuery],
+    () => installed.filter(plugin => matchesPlugin(plugin, normalizedQuery)),
+    [installed, normalizedQuery],
   )
   const mutate = (operation: ActivePluginOperation): void => {
     void controllerRef.current?.mutate(operation)
   }
+  const updateByName = new Map(state.updateInfo?.map(info => [info.name, info]) ?? [])
   const operationErrorPlugin = state.operationError === undefined
     ? undefined
     : snapshot?.entries.find(plugin => plugin.name === state.operationError?.plugin)
@@ -220,7 +273,13 @@ export function PluginManagerTab({ plugins, t }: PluginManagerTabProps): ReactNo
                   ? state.operationError.plugin
                   : pluginDisplayName(operationErrorPlugin),
               })}</strong>
-              <span>{t('stateRestored')}</span>
+              <span>{state.packageError?.message ?? t('stateRestored')}</span>
+            </div>
+          )}
+          {state.checkError === undefined ? null : (
+            <div className={css.operationFailure} role="alert">
+              <strong>{t('updateCheckFailed')}</strong>
+              <span>{state.checkError}</span>
             </div>
           )}
           <Input
@@ -235,15 +294,55 @@ export function PluginManagerTab({ plugins, t }: PluginManagerTabProps): ReactNo
           <div className={css.headingRow}>
             <h3>{t('installed')}</h3>
             <span>{filtered.length}</span>
+            <span className={css.headingActions}>
+              <Button
+                size="sm"
+                variant="outline"
+                disabled={state.activeOperation !== undefined
+                  || snapshot.activeOperation !== undefined
+                  || state.checkingUpdates === true
+                  || installPending}
+                onClick={() => { void controllerRef.current?.checkUpdates() }}
+              >
+                {t(state.checkingUpdates === true ? 'checkingUpdates' : 'checkUpdates')}
+              </Button>
+              <Button
+                size="sm"
+                variant="primary"
+                className={css.installButton}
+                disabled={state.activeOperation !== undefined || installPending}
+                onClick={() => { setInstallOpen(true) }}
+              >
+                {t('installPlugin')}
+              </Button>
+            </span>
           </div>
-          {manageable.length === 0 ? <p className={css.status}>{t('empty')}</p> : null}
-          {manageable.length > 0 && filtered.length === 0
+          {snapshot.pendingRestart.length === 0 ? null : (
+            <div className={css.restartBanner} role="status">
+              <strong>{t('changesRequireRestart')}</strong>
+              <ul>{snapshot.pendingRestart.map(change => <li key={change.name}>{t(`restart${change.operation[0]?.toUpperCase() ?? ''}${change.operation.slice(1)}` as PluginManagerLocaleKey, { plugin: change.name })}</li>)}</ul>
+              <span>{t('restartInstruction')}</span>
+            </div>
+          )}
+          {installed.length === 0 ? <p className={css.status}>{t('empty')}</p> : null}
+          {installed.length > 0 && filtered.length === 0
             ? <p className={css.status}>{t('emptySearch')}</p>
             : null}
           {filtered.length === 0 ? null : (
             <ul className={css.pluginList}>
               {filtered.map(plugin => (
-                <PluginRow key={plugin.name} plugin={plugin} state={state} mutate={mutate} t={t} />
+                <PluginRow
+                  key={plugin.name}
+                  plugin={plugin}
+                  state={state}
+                  mutate={mutate}
+                  t={t}
+                  readOnly={installPending}
+                  onRemove={setRemoveTarget}
+                  updateAvailable={updateByName.get(plugin.name)?.updateAvailable === true
+                    ? updateByName.get(plugin.name)?.wantedVersion
+                    : undefined}
+                />
               ))}
             </ul>
           )}
@@ -264,6 +363,25 @@ export function PluginManagerTab({ plugins, t }: PluginManagerTabProps): ReactNo
               </ul>
             </DisclosureRow>
           </div>
+          <PluginInstallDialog
+            open={installOpen}
+            plugins={plugins}
+            dialog={dialog}
+            t={t}
+            onClose={() => { setInstallOpen(false) }}
+            onPendingChange={setInstallPending}
+            onInstalled={async () => { await controllerRef.current?.refresh() }}
+          />
+          <PluginRemoveDialog
+            plugin={removeTarget}
+            pending={state.activeOperation?.kind === 'remove' || snapshot.activeOperation?.kind === 'remove'}
+            onClose={() => { setRemoveTarget(undefined) }}
+            onRemove={(name) => {
+              setRemoveTarget(undefined)
+              mutate({ plugin: name, kind: 'remove' })
+            }}
+            t={t}
+          />
         </>
       ) : null}
     </section>

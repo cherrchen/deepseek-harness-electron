@@ -12,6 +12,9 @@ import {
 import { DesktopServices, parsePickDirectoryOptions } from './desktop/services.ts'
 import type { HarnessTransport } from './harness/transport.ts'
 import type { PluginLifecycleController } from './plugin-lifecycle.ts'
+import { PluginInstallError, type PluginInstallRequest } from './plugin-install-contract.ts'
+import type { PluginPackageService } from './plugin-install.ts'
+import { PluginPackageError } from './plugin-package-contract.ts'
 
 const updaterSubscriptions = new WeakMap<WebContents, () => void>()
 const themeSubscriptions = new WeakMap<WebContents, () => void>()
@@ -28,6 +31,7 @@ export function installDesktopIpc(
   desktop: DesktopServices,
   isTrustedContents: (contents: WebContents) => boolean,
   getPluginLifecycle: () => PluginLifecycleController,
+  getPluginPackages: () => PluginPackageService,
 ): void {
   const guard = (event: Electron.IpcMainInvokeEvent): void => {
     if (!isTrustedContents(event.sender)) {
@@ -141,6 +145,62 @@ export function installDesktopIpc(
     guard(event)
     return await getPluginLifecycle().list()
   })
+
+  ipcMain.handle(DesktopIpcChannel.pluginsInstall, async (event, request: PluginInstallRequest) => {
+    guard(event)
+    try {
+      return { ok: true, result: await getPluginPackages().install(request) }
+    } catch (error) {
+      const failure = error instanceof PluginInstallError
+        ? error
+        : new PluginInstallError('package-manager-failed', 'Plugin installation failed.', String(error))
+      return {
+        ok: false,
+        error: {
+          code: failure.code,
+          message: failure.message,
+          ...(failure.details === undefined ? {} : { details: failure.details }),
+          ...(failure.profileChanged ? { profileChanged: true } : {}),
+        },
+      }
+    }
+  })
+
+  ipcMain.handle(DesktopIpcChannel.pluginsCheckUpdates, async (event) => {
+    guard(event)
+    return await getPluginPackages().checkUpdates()
+  })
+
+  const installPackageMutation = (
+    channel: string,
+    operation: 'update' | 'reinstall' | 'remove',
+  ): void => {
+    ipcMain.handle(channel, async (event, name: unknown) => {
+      guard(event)
+      if (typeof name !== 'string' || name.length === 0) {
+        throw new Error(`desktop ipc: plugins.${operation} requires a package name`)
+      }
+      try {
+        return { ok: true, result: await getPluginPackages()[operation](name) }
+      } catch (error) {
+        const failure = error instanceof PluginPackageError
+          ? error
+          : new PluginPackageError(`${operation}-failed`, `Plugin ${operation} failed.`, 'unchanged', String(error))
+        return {
+          ok: false,
+          error: {
+            code: failure.code,
+            message: failure.message,
+            recovery: failure.recovery,
+            ...(failure.details === undefined ? {} : { details: failure.details }),
+          },
+        }
+      }
+    })
+  }
+  installPackageMutation(DesktopIpcChannel.pluginsUpdate, 'update')
+  installPackageMutation(DesktopIpcChannel.pluginsReinstall, 'reinstall')
+  installPackageMutation(DesktopIpcChannel.pluginsRemove, 'remove')
 
   ipcMain.handle(DesktopIpcChannel.pluginsEnable, async (event, name: unknown) => {
     guard(event)

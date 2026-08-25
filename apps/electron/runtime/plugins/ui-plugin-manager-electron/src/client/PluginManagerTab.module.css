@@ -64,6 +64,13 @@
   padding: 0 2px;
 }
 
+.headingActions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-left: auto;
+}
+
 .headingRow h3 {
   font-size: 13px;
   line-height: 20px;
@@ -109,6 +116,16 @@
   display: block;
 }
 
+.sourceSpec {
+  display: block;
+  margin-top: 6px;
+  overflow-wrap: anywhere;
+  color: var(--dsw-alias-label-tertiary);
+  font-family: var(--ds-font-family-code);
+  font-size: 11px;
+  line-height: 17px;
+}
+
 .pluginIdentity strong {
   overflow: hidden;
   font-size: 14px;
@@ -148,6 +165,65 @@
 .actions {
   display: flex;
   align-items: center;
+}
+
+.moreButton {
+  display: inline-grid;
+  width: 30px;
+  height: 30px;
+  border: 0;
+  border-radius: 7px;
+  place-items: center;
+  color: var(--dsw-alias-label-secondary);
+  background: transparent;
+  cursor: pointer;
+}
+
+.moreButton:hover:not(:disabled) {
+  background: var(--dsw-alias-bg-layer-1);
+}
+
+.moreButton:focus-visible {
+  outline: 2px solid var(--dsw-alias-state-business-primary);
+  outline-offset: 1px;
+}
+
+.moreButton:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+
+.updateAvailable {
+  color: var(--dsw-alias-state-success-primary);
+  font-size: 11px;
+  line-height: 17px;
+  font-weight: 600;
+}
+
+.restartBanner {
+  display: grid;
+  gap: 7px;
+  border: 1px solid color-mix(in srgb, var(--dsw-alias-state-warn-primary) 42%, var(--dsw-alias-border-l2));
+  border-radius: 10px;
+  padding: 12px 14px;
+  background: color-mix(in srgb, var(--dsw-alias-state-warn-primary) 9%, var(--dsw-alias-bg-layer-3));
+  font-size: 12px;
+  line-height: 18px;
+}
+
+.restartBanner strong {
+  color: var(--dsw-alias-label-primary);
+  font-size: 13px;
+}
+
+.restartBanner ul {
+  margin: 0;
+  padding-left: 18px;
+  color: var(--dsw-alias-label-secondary);
+}
+
+.restartBanner span {
+  color: var(--dsw-alias-label-tertiary);
 }
 
 .pluginMeta {
@@ -204,5 +280,14 @@
 
   .systemList {
     padding-left: 0;
+  }
+
+  .headingRow {
+    flex-wrap: wrap;
+  }
+
+  .headingActions {
+    width: 100%;
+    margin-left: 0;
   }
 }

@@ -26,7 +26,7 @@ import { createRequire } from 'node:module'
 import {
   existsSync, lstatSync, mkdirSync, readFileSync, readlinkSync, symlinkSync, unlinkSync, writeFileSync,
 } from 'node:fs'
-import { basename, dirname, join } from 'node:path'
+import { basename, dirname, isAbsolute, join, relative, resolve, sep } from 'node:path'
 import type { EntryOptions } from '@deepseek-ai/cordis-plugin-loader'
 import { applyEntryPatches, type PatchOptions } from '@deepseek-ai/cordis-plugin-include'
 import { resolveDshHome } from '@deepseek-ai/dsh-home-paths'
@@ -67,6 +67,93 @@ export interface ProfileManifest {
   dependencies?: Record<string, string>
   peerDependencies?: Record<string, string>
   dsh?: DshManifestSection
+}
+
+/** Installed package result used before adding a direct dependency to a profile bundle stack. */
+export type BundlePackageInspection =
+  | { kind: 'plain' }
+  | { kind: 'bundle'; patchPath: string }
+  | { kind: 'invalid'; reason: string }
+
+interface InstallablePackageManifest extends ProfileManifest {
+  main?: unknown
+  exports?: unknown
+  dsh?: DshManifestSection & { client?: unknown }
+}
+
+/**
+ * Validate a package's declared bundle patch and loadable Host/client entries.
+ * @param binName - Diagnostic prefix for patch parsing failures.
+ * @param packageDir - Absolute installed package directory.
+ * @returns plain, valid bundle, or invalid bundle with a concrete reason.
+ */
+export function inspectBundlePackage(binName: string, packageDir: string): BundlePackageInspection {
+  const manifestPath = join(packageDir, 'package.json')
+  let manifest: InstallablePackageManifest
+  try {
+    manifest = JSON.parse(readFileSync(manifestPath, 'utf8')) as InstallablePackageManifest
+  } catch (error) {
+    return { kind: 'invalid', reason: `cannot read package manifest ${manifestPath}: ${String(error)}` }
+  }
+  const declaredPatch = manifest.dsh?.bundle?.patch
+  if (declaredPatch === undefined) return { kind: 'plain' }
+  if (typeof declaredPatch !== 'string' || declaredPatch.length === 0 || isAbsolute(declaredPatch)) {
+    return { kind: 'invalid', reason: 'dsh.bundle.patch must be a non-empty relative path' }
+  }
+  const patchPath = resolve(packageDir, declaredPatch)
+  if (escapesDirectory(packageDir, patchPath)) {
+    return { kind: 'invalid', reason: `dsh.bundle.patch escapes the package directory: ${declaredPatch}` }
+  }
+  try {
+    loadOverlayPatches(binName, patchPath)
+  } catch (error) {
+    return { kind: 'invalid', reason: String(error) }
+  }
+  const hostEntry = packageExportTarget(manifest, '.')
+  const hostProblem = hostEntry === undefined ? undefined : validateEntryPath(packageDir, hostEntry, 'Host')
+  if (hostProblem !== undefined) {
+    return { kind: 'invalid', reason: hostProblem }
+  }
+  if (manifest.dsh?.client !== undefined) {
+    const clientEntry = packageExportTarget(manifest, './client')
+    if (clientEntry === undefined) {
+      return { kind: 'invalid', reason: 'dsh.client requires a ./client package export' }
+    }
+    const clientProblem = validateEntryPath(packageDir, clientEntry, 'client')
+    if (clientProblem !== undefined) {
+      return { kind: 'invalid', reason: clientProblem }
+    }
+  }
+  return { kind: 'bundle', patchPath }
+}
+
+function validateEntryPath(packageDir: string, entry: string, label: string): string | undefined {
+  const entryPath = resolve(packageDir, entry)
+  if (isAbsolute(entry) || escapesDirectory(packageDir, entryPath)) {
+    return `declared ${label} entry escapes the package directory: ${entry}`
+  }
+  return existsSync(entryPath) ? undefined : `declared ${label} entry does not exist: ${entry}`
+}
+
+function escapesDirectory(rootPath: string, candidatePath: string): boolean {
+  const offset = relative(rootPath, candidatePath)
+  return offset === '..' || offset.startsWith(`..${sep}`) || isAbsolute(offset)
+}
+
+function packageExportTarget(manifest: InstallablePackageManifest, key: '.' | './client'): string | undefined {
+  const selected = key === '.' && typeof manifest.exports === 'string'
+    ? manifest.exports
+    : typeof manifest.exports === 'object' && manifest.exports !== null && key in manifest.exports
+      ? (manifest.exports as Record<string, unknown>)[key]
+      : undefined
+  return conditionalExportTarget(selected) ?? (key === '.' && typeof manifest.main === 'string' ? manifest.main : undefined)
+}
+
+function conditionalExportTarget(value: unknown): string | undefined {
+  if (typeof value === 'string') return value
+  if (typeof value !== 'object' || value === null) return undefined
+  const conditions = value as Record<string, unknown>
+  return conditionalExportTarget(conditions.import ?? conditions.default)
 }
 
 /** One resolved bundle layer of a profile. */
@@ -387,13 +474,14 @@ export function loadProfile(
   const bundles = manifest.dsh?.profile?.bundles ?? []
   const layers = bundles.map((packageName): ProfileLayer => {
     const packageDir = resolveBundleDir(binName, packageName, installAnchor, dir)
-    const bundleManifest = JSON.parse(readFileSync(join(packageDir, 'package.json'), 'utf8')) as ProfileManifest
-    const declared = bundleManifest.dsh?.bundle?.patch
-    if (declared === undefined) {
+    const inspection = inspectBundlePackage(binName, packageDir)
+    if (inspection.kind === 'plain') {
       throw new Error(`${binName}: profile bundle ${JSON.stringify(packageName)} declares no dsh.bundle in its package.json`)
     }
-    const patchPath = join(packageDir, declared)
-    return { packageName, packageDir, patchPath, patches: loadOverlayPatches(binName, patchPath) }
+    if (inspection.kind === 'invalid') {
+      throw new Error(`${binName}: profile bundle ${JSON.stringify(packageName)} is invalid: ${inspection.reason}`)
+    }
+    return { packageName, packageDir, patchPath: inspection.patchPath, patches: loadOverlayPatches(binName, inspection.patchPath) }
   })
   const patchPath = join(dir, PROFILE_PATCH_FILENAME)
   const patches = options.userLayer !== false && existsSync(patchPath)

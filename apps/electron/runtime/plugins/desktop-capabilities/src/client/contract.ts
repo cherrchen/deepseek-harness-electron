@@ -104,8 +104,20 @@ export interface DesktopCapabilitiesContract {
     show(options: DesktopNotificationOptions): Promise<DesktopNotificationResult>
   }
   plugins: {
-    /** Read current lifecycle state for bundled plugins. */
+    /** Read the current profile-aware plugin catalog and runtime state. */
     list(): Promise<import('../../../../../src/plugin-lifecycle-contract.ts').PluginLifecycleSnapshot>
+    /** Install one package into the active Desktop profile. */
+    install(
+      request: import('../../../../../src/plugin-install-contract.ts').PluginInstallRequest,
+    ): Promise<import('../../../../../src/plugin-install-contract.ts').PluginInstallResult>
+    /** Check Registry profile dependencies for updates allowed by their current ranges. */
+    checkUpdates(): Promise<import('../../../../../src/plugin-package-contract.ts').PluginUpdateInfo[]>
+    /** Update or refresh one profile dependency. */
+    update(name: string): Promise<import('../../../../../src/plugin-package-contract.ts').PluginPackageMutationResult>
+    /** Re-resolve one profile dependency from its requested spec. */
+    reinstall(name: string): Promise<import('../../../../../src/plugin-package-contract.ts').PluginPackageMutationResult>
+    /** Remove one direct profile dependency. */
+    remove(name: string): Promise<import('../../../../../src/plugin-package-contract.ts').PluginPackageMutationResult>
     /** Enable one manageable bundled ecosystem plugin. */
     enable(name: string): Promise<void>
     /** Disable one manageable bundled ecosystem plugin. */
@@ -203,6 +215,11 @@ export function createDesktopCapabilities(bridge: DesktopBridge): DesktopCapabil
     },
     plugins: {
       list: () => bridge.plugins.list(),
+      install: request => bridge.plugins.install(request),
+      checkUpdates: () => bridge.plugins.checkUpdates(),
+      update: name => bridge.plugins.update(name),
+      reinstall: name => bridge.plugins.reinstall(name),
+      remove: name => bridge.plugins.remove(name),
       enable: name => bridge.plugins.enable(name),
       disable: name => bridge.plugins.disable(name),
       reload: name => bridge.plugins.reload(name),
