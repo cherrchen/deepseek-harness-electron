@@ -3,12 +3,15 @@ import { mkdtemp, rm } from 'node:fs/promises'
 import { spawnSync } from 'node:child_process'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
+import { fileURLToPath } from 'node:url'
 import { describe, expect, it, vi } from 'vitest'
 import { normalizePluginInstallRequest, PluginInstallError } from '../src/plugin-install-contract.ts'
 import { preparePluginPackageManager, resolveBundledPnpmBin } from '../src/plugin-package-manager.ts'
 import { PluginPackageService } from '../src/plugin-install.ts'
 import { PluginMutationCoordinator } from '../src/plugin-mutation.ts'
 import type { PluginLifecycleController } from '../src/plugin-lifecycle.ts'
+
+const electronRoot = fileURLToPath(new URL('..', import.meta.url))
 
 describe('plugin install request normalization', () => {
   it.each([
@@ -63,7 +66,7 @@ describe('bundled plugin package manager', () => {
       writeFileSync(join(source, 'package.json'), JSON.stringify({ name: '@fixture/local-refresh', version, main: 'index.js' }), 'utf8')
       writeFileSync(join(source, 'index.js'), `export const version = '${version}'\n`, 'utf8')
     }
-    const pnpmBin = resolveBundledPnpmBin(join(process.cwd(), 'apps', 'electron'))
+    const pnpmBin = resolveBundledPnpmBin(electronRoot)
     const refresh = (): ReturnType<typeof spawnSync> => spawnSync(
       process.execPath,
       [pnpmBin, 'add', `file:${source}`, '--force', '--ignore-scripts'],
