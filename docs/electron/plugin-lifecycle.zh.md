@@ -10,27 +10,28 @@
 
 ## 目的
 
-本文描述 Electron 打包生态插件的已实现运行时生命周期。
+本文是 Desktop 插件 catalog、profile 安装路径与运行时生命周期的参考。
 
 Electron 拥有插件的 desired state。DSH Host 拥有实际的 Cordis fiber state。运行时生命周期路径在不重启 Electron Main 与受监督 `dsh web` 进程的前提下桥接这两个事实。
 
 ## 受管理插件类别
 
-Electron 通过 `apps/electron/src/runtime-plugins.ts` 发现两类 bundled 插件：
+`ProfilePluginCatalog` 会刷新并合并三种 ownership class：
 
-* **必需 runtime 插件**（`runtime/plugins/` 下的 Desktop adapter、Electron carrier，以及 Electron 必需的 portable UI 基础设施）在 Host 启动前完成链接，且不允许用户在运行时管理。发现结果仍标记为 `source: desktop-runtime`。
-* **bundled 生态插件** 在 Host 启动前完成链接，允许用户在运行时管理，并通过生成的 include 文件进入组合。
+* `runtime/plugins/` 下的 **system runtime 插件** 在 Host 启动前完成链接，且不允许用户管理。
+* `dshElectron.ecosystemPlugins` 声明的 **bundled ecosystem 插件** 在 Host 启动前完成链接，允许用户管理，并通过 generated include file 进入组合。
+* **Profile package** 是 `$DSH_HOME/profiles/web/package.json` 中通过 Desktop 安装或声明为 profile bundle 的 direct dependency。
 
 链接本身不是启用状态信号。Electron 会把 bundled artifact 同时暴露到 `$DSH_HOME/profiles/node_modules` 与 `$DSH_HOME/electron/node_modules`；运行时启停仅由生成的 Cordis 组合控制。
 
-每个 lifecycle entry 还会携带从 bundled npm `package.json` 读取的 package `version` 与可选 `description`。Electron 不维护单独的插件元数据格式。
+同一真实 package name 重复时，system 与 bundled ownership 优先于 profile ownership。每个 entry 会分离 ownership、package kind（`runtime-plugin`、`bundle` 或 `dependency`）、installation source 与 activation behavior。只有 runtime 插件带有 Host runtime state。
 
 ## 运行时拥有的文件
 
 Electron 在 `$DSH_HOME/electron/` 下写入这些文件：
 
 * `plugins.cordis.yml` 是 manageable 生态插件的生成 desired roster。
-* `plugin-state.json` 仅保存持久化的 disabled package-name 集合。
+* `plugin-state.json` 保存持久化的 disabled runtime package name 与 Desktop-managed profile dependency membership。
 
 Electron 还会在 Electron `userData` 下写入 `electron-host.patch.yml`，并将其传给 `dsh web --patch`。
 
@@ -41,7 +42,7 @@ bootstrap patch 只保留必需 runtime 插件行，为 `plugins.cordis.yml` 打
 Electron Main 以如下顺序启动 Host：
 
 1. 解析 `DSH_HOME`；
-2. 发现 bundled runtime 与 ecosystem 插件 artifact；
+2. 发现 distribution plugin，并刷新 `web` profile catalog；
 3. 修复所有必需 symlink；
 4. 加载 `plugin-state.json`；
 5. 生成初始 `plugins.cordis.yml`；
@@ -52,7 +53,7 @@ Electron Main 以如下顺序启动 Host：
 
 ## 运行时操作
 
-`PluginLifecycleController` 通过一个全局 mutation queue 串行化 `enable(name)`、`disable(name)` 与 `reload(name)`。每次 mutation 都可能重新生成并应用完整的 effective roster，因此不同 plugin name 不使用独立队列。
+`PluginMutationCoordinator` 在 Electron Main 中串行化 install、enable、disable 与 reload。每项 operation 都可能修改 profile state 或重新生成完整 effective roster，因此不同 command 不使用独立 queue。
 
 `list()` 绕过 mutation queue，并发读取当前 Host inventory。因此 Renderer polling 能在 mutation 稳定期间观察 transition phase。在此期间，`desiredEnabled` 保持为最后一次成功持久化的状态；Renderer 会组合 Host runtime state 与当前 operation record，而不会把 desired state 当作进度信号。
 
@@ -70,7 +71,19 @@ preload lifecycle group 通过 `@dsh-electron/dsh-electron-desktop-capabilities`
 
 `@dsh-electron/dsh-electron-ui-plugin-manager` 在 upstream 拥有的 `settings.plugins.tab` slot 中注册 order 为 `20` 的 `installed` contribution。upstream Plugins section 继续拥有 navigation、tab chrome、selection、keyboard behavior 与 mount lifecycle；Electron 不注册另一个 `settings.section`。
 
-“已安装”tab 仅在 mount 后读取第一份 lifecycle snapshot。它在主列表中展示可管理的 ecosystem 插件，并在默认折叠、只读的“系统组件”折叠区中展示必需 runtime 插件。搜索会在 client 侧过滤 package name、display name 与 description。
+“已安装”tab 仅在 mount 后读取第一份 catalog snapshot。它在主列表中展示 manageable plugin、bundle 与 plain dependency，并在默认折叠、只读的“系统组件”折叠区中展示必需 runtime 插件。搜索会在 client 侧过滤 package name、display name 与 description。
+
+## Profile package 安装
+
+“已安装”header 会打开一个包含 Registry、GitHub/Git 与 Local source 的对话框。本地安装使用 Electron native directory picker，并支持 `file:` 或 development `link:` 语义。Renderer 发送 typed request，不会获得 filesystem、child-process、shell-command 或 arbitrary pnpm access。
+
+Electron Main 校验请求，把它转换成一个 pnpm-compatible spec，再调用 `dsh plugin --profile web add <spec>`。上游 dsh 仍负责 profile 初始化与 bundle 协调。Catalog identity 与 package kind 由 installed dependency name 与 manifest 决定，而不是 request text。
+
+打包后的 Desktop 包含仓库 package-manager version 对应的 pnpm。`$DSH_HOME/electron/bin` 下的 generated platform shim 会通过 Electron Node mode 启动 bundled pnpm，Main 把该目录放到 child PATH 最前。用户不需要全局 Node.js、Corepack 或 pnpm。
+
+普通 runtime 插件会进入 `plugins.cordis.yml`，并通过既有 lifecycle controller 热激活。Client-bearing 插件会在 Host 稳定后刷新 Renderer。Bundle 保持在 runtime include 之外并显示**需要重启**；plain dependency 显示**已作为依赖安装**且不提供 lifecycle control。Electron 不会自动重启 Host。
+
+安装会使用 Harness process permission 执行 third-party package 与 plugin code，位于 agent sandbox 之外。对话框会提醒用户只安装可信 package。Stable error category 会区分 invalid request、missing package 或 path、Git failure、blocked install-time build script、profile reconciliation 与 activation failure，同时保留 technical details。
 
 一次 enable、disable 或 reload 命令进行期间，该 view 会短周期轮询 `list()`，并禁用所有插件的 mutation 按钮。搜索、滚动与“系统组件”折叠操作仍可使用。命令稳定后，view 停止轮询，读取一份最终 snapshot，并使用 Main 与 Host 真相替换本地 lifecycle state。命令失败时，界面会报告操作与 rollback，但不会向用户渲染原始 rejection。
 
@@ -88,21 +101,23 @@ Electron 只会在 Host 稳定之后，并且仅当 manageable 插件分发产�
 
 ## 状态文件行为
 
-`plugin-state.json` 保存单一当前格式对象：
+`plugin-state.json` 保存带 version 的当前格式对象：
 
 ```json
 {
-  "version": 1,
-  "disabled": ["@dsh-electron/dsh-plugin-git"]
+  "version": 2,
+  "disabled": ["@dsh-electron/dsh-plugin-git"],
+  "profileManaged": ["@example/dsh-plugin-example"]
 }
 ```
 
 行为规则：
 
-* 缺失文件表示 `disabled: []`；
+* 缺失文件表示空 `disabled` 与 `profileManaged` set；
+* version 1 会迁移到 version 2，且不会丢失 disabled name；
 * 非法 JSON 记录 warning 并回退，不会导致启动崩溃；
 * 重复名称会被去重；
-* 失效名称会在下一次成功写入时被移除。
+* stale disabled 与 profile-managed name 会在协调时移除。
 
 ## 嵌套 include 限制
 
@@ -117,10 +132,13 @@ Electron 只会在 Host 稳定之后，并且仅当 manageable 插件分发产�
 聚焦的 `apps/electron` 覆盖验证：
 
 * runtime overlay 渲染与占位符替换；
-* plugin-state 解析与持久化行为；
+* plugin-state migration、解析、持久化与 stale-name 协调；
+* catalog precedence 与 runtime-plugin/bundle/dependency classification；
+* Registry、Git 与 local request normalization，覆盖 POSIX 与 Windows path；
+* bundled pnpm shim generation 与 install-service reconciliation；
 * runtime config 的确定性生成；
 * lifecycle controller 的成功路径、回滚、串行 mutation、并发读取与 client-refresh 分支；
 * lazy `ctx.desktop.plugins` forwarding 与 Plugin Manager slot redeclaration；
-* mutation polling、cleanup、最终协调、action、全局 locking、本地搜索与只读系统组件；
+* install-dialog source switching、native directory selection、pending state、success 与 failure，以及 lifecycle mutation polling 与 global locking；
 * 通过 fixture 插件与 bundled Git 插件验证真实 Host 的 disable/enable/reload，并确认 PID 保持不变；
 * 针对当前 SlotRegistry 验证 Details Host 空闲启动、dummy surface 接管 `details`、close 后恢复上游 occupant，以及 host unload/reload。

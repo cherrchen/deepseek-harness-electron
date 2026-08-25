@@ -345,7 +345,7 @@ Desktop Capability Provider（`@dsh-electron/dsh-electron-desktop-capabilities`�
 
 品牌插件（`@dsh-electron/dsh-electron-ui-brand`）始终用 DeepSeek Harness 视觉填充 `sidebar.brand.mark`、`sidebar.brand.name` 与 `conversation.hero.brand.mark`，因此 Desktop 产品品牌不依赖上游 `DSH_CLIENT_BUILD_PROFILE=official` client 构建。
 
-Plugin Manager（`@dsh-electron/dsh-electron-ui-plugin-manager`）消费 `ctx.desktop.plugins`，并通过 upstream 拥有的 `settings.plugins.tab` slot 贡献 `installed` view。它只在 mount 期间读取 lifecycle snapshot，并且只在一项全局 lifecycle mutation 进行时轮询；必需的 Desktop runtime 插件保持只读。
+Plugin Manager（`@dsh-electron/dsh-electron-ui-plugin-manager`）消费 `ctx.desktop.plugins`，并通过 upstream 拥有的 `settings.plugins.tab` slot 贡献 `installed` view。它只在 mount 期间读取 refreshable `web` profile catalog，只在一项 global lifecycle mutation 进行时轮询，并通过上游 `dsh plugin` 安装 Registry、Git 或 local package；必需的 Desktop runtime 插件保持只读。
 
 Details Host（`@dsh-electron/dsh-client-ui-details-host`）是必需的 portable UI 基础设施。源码真源是 `cherrchen/dsh-client-ui-details-host`；`apps/electron/runtime/plugins/ui-details-host` 是 git subtree 镜像。Electron 从该源码重新构建 Host 与 Client artifacts。该包在启动时挂载 `ctx.shellDetails`，在消费者调用 `open(id)` 之前不占用 `details`。加载它 MUST 让上游 DetailsPanel 继续作为栏位 winner。
 
