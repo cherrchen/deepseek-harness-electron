@@ -1,6 +1,6 @@
 import { existsSync, readFileSync } from 'node:fs'
 import { join } from 'node:path'
-import type { PluginInstallSource } from './plugin-lifecycle-contract.ts'
+import type { PluginInstallSource, PluginPackageActions } from './plugin-lifecycle-contract.ts'
 import { inspectProfilePackageState } from './plugin-package-inspector.ts'
 import type { PluginState } from './plugin-state.ts'
 import { discoverManagedPlugins, type ManagedPlugin } from './runtime-plugins.ts'
@@ -51,7 +51,27 @@ export class ProfilePluginCatalog implements PluginCatalog {
       if (entries.has(dependencyName)) continue
       const rootPath = join(profileDir, 'node_modules', ...dependencyName.split('/'))
       const manifestPath = join(rootPath, 'package.json')
-      if (!existsSync(manifestPath)) continue
+      if (!existsSync(manifestPath)) {
+        const installSource = classifyInstallSource(requestedSpec)
+        const kind = bundleNames.has(dependencyName) ? 'bundle' : 'dependency'
+        entries.set(dependencyName, {
+          name: dependencyName,
+          version: 'unknown',
+          directoryName: dependencyName.split('/').at(-1) ?? dependencyName,
+          rootPath,
+          hasClient: false,
+          ownership: 'profile',
+          kind,
+          installSource,
+          requestedSpec,
+          manageable: false,
+          required: false,
+          activationMode: kind === 'bundle' ? 'profile-restart' : 'none',
+          health: 'reconcile-required',
+          packageActions: packageActions(installSource, requestedSpec, 'reconcile-required'),
+        })
+        continue
+      }
       const inspected = inspectProfilePackageState(profileDir, dependencyName)
       const incomplete = inspected.entryProblem !== undefined
       const declaredKind = inspected.kind
@@ -59,13 +79,13 @@ export class ProfilePluginCatalog implements PluginCatalog {
       const kind = declaredKind === 'bundle'
         ? 'bundle'
         : declaredKind === 'runtime-plugin' && (managedRuntime || incomplete) ? 'runtime-plugin' : 'dependency'
-      const activation = incomplete
+      const activationMode = kind === 'runtime-plugin'
+        ? 'hot'
+        : kind === 'bundle' ? 'profile-restart' : 'none'
+      const health = incomplete || (kind === 'bundle' && !bundleNames.has(dependencyName))
         ? 'reconcile-required'
-        : kind === 'runtime-plugin'
-          ? 'hot'
-          : kind === 'bundle'
-            ? bundleNames.has(dependencyName) ? 'profile-restart' : 'reconcile-required'
-            : 'none'
+        : 'healthy'
+      const installSource = classifyInstallSource(requestedSpec)
       entries.set(inspected.name, {
         name: inspected.name,
         version: inspected.version,
@@ -75,21 +95,44 @@ export class ProfilePluginCatalog implements PluginCatalog {
         hasClient: inspected.hasClient,
         ownership: 'profile',
         kind,
-        installSource: classifyInstallSource(requestedSpec),
+        installSource,
         requestedSpec,
-        manageable: activation === 'hot',
+        manageable: activationMode === 'hot' && health === 'healthy' && managedRuntime,
         required: false,
-        activation,
+        activationMode,
+        health,
+        packageActions: packageActions(installSource, requestedSpec, health),
       })
     }
     return [...entries.values()]
   }
 }
 
+function packageActions(
+  source: PluginInstallSource,
+  requestedSpec: string,
+  health: 'healthy' | 'reconcile-required',
+): PluginPackageActions {
+  if (source === 'registry') {
+    return { checkUpdates: true, update: 'registry', reinstall: true, remove: true }
+  }
+  if (source === 'git') {
+    return { checkUpdates: false, update: 'source-refresh', reinstall: true, remove: true }
+  }
+  if (source === 'local' && /^file:/i.test(requestedSpec)) {
+    return { checkUpdates: false, update: 'source-refresh', reinstall: true, remove: true }
+  }
+  if (source === 'local') {
+    return { checkUpdates: false, update: false, reinstall: health === 'reconcile-required', remove: true }
+  }
+  return { checkUpdates: false, update: false, reinstall: false, remove: true }
+}
+
 function classifyInstallSource(spec: string): PluginInstallSource {
   if (/^(?:file|link):/i.test(spec)) return 'local'
   if (/^(?:git\+|github:)|github\.com[/:]/i.test(spec)) return 'git'
-  return /^[a-z@]/i.test(spec) ? 'registry' : 'unknown'
+  if (/^(?:https?:|workspace:|portal:|patch:)/i.test(spec)) return 'unknown'
+  return spec.length > 0 ? 'registry' : 'unknown'
 }
 
 function parseJson(path: string, subject: string): unknown {

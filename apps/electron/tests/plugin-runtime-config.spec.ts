@@ -6,13 +6,15 @@ import {
 import type { ManagedPlugin } from '../src/runtime-plugins.ts'
 import type { PluginState } from '../src/plugin-state.ts'
 
+const noPackageActions = { checkUpdates: false, update: false, reinstall: false, remove: false } as const
+
 const desktopAdapter: ManagedPlugin = {
   name: '@dsh-electron/dsh-electron-desktop-capabilities',
   version: '0.1.0',
   directoryName: 'desktop-capabilities',
   rootPath: '/runtime/desktop-capabilities',
   hasClient: true,
-  ownership: 'system', kind: 'runtime-plugin', installSource: 'bundled', activation: 'hot',
+  ownership: 'system', kind: 'runtime-plugin', installSource: 'bundled', activationMode: 'hot', health: 'healthy', packageActions: noPackageActions,
   manageable: false,
   required: true,
 }
@@ -23,7 +25,7 @@ const gitPlugin: ManagedPlugin = {
   directoryName: 'dsh-plugin-git',
   rootPath: '/plugins/dsh-plugin-git',
   hasClient: true,
-  ownership: 'bundled', kind: 'runtime-plugin', installSource: 'bundled', activation: 'hot',
+  ownership: 'bundled', kind: 'runtime-plugin', installSource: 'bundled', activationMode: 'hot', health: 'healthy', packageActions: noPackageActions,
   manageable: true,
   required: false,
 }
@@ -34,7 +36,7 @@ const notesPlugin: ManagedPlugin = {
   directoryName: 'dsh-plugin-notes',
   rootPath: '/plugins/dsh-plugin-notes',
   hasClient: false,
-  ownership: 'bundled', kind: 'runtime-plugin', installSource: 'bundled', activation: 'hot',
+  ownership: 'bundled', kind: 'runtime-plugin', installSource: 'bundled', activationMode: 'hot', health: 'healthy', packageActions: noPackageActions,
   manageable: true,
   required: false,
 }
@@ -59,6 +61,13 @@ describe('plugin runtime config', () => {
     expect(roster.map(plugin => plugin.name)).toEqual([notesPlugin.name, gitPlugin.name])
     const rendered = renderPluginRuntimeConfig(roster)
     expect(rendered.indexOf(notesPlugin.name)).toBeLessThan(rendered.indexOf(gitPlugin.name))
+  })
+
+  it('keeps the package id stable while rendering a cache-busted runtime request', () => {
+    const runtimeRequest = 'file:///profile/plugin/lib/index.js?dsh-electron-revision=2'
+    const rendered = renderPluginRuntimeConfig([{ ...gitPlugin, runtimeRequest }])
+    expect(rendered).toContain(`- id: '${gitPlugin.name}'`)
+    expect(rendered).toContain(`  name: '${runtimeRequest}'`)
   })
 
   it('is byte-identical for equal input and renders an empty array when no plugin is enabled', () => {

@@ -2,6 +2,7 @@ import { spawn } from 'node:child_process'
 import { existsSync, readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import type { PluginLifecycleController } from './plugin-lifecycle.ts'
+import type { PluginCatalog } from './plugin-catalog.ts'
 import {
   normalizePluginInstallRequest,
   PluginInstallError,
@@ -10,6 +11,14 @@ import {
 } from './plugin-install-contract.ts'
 import { inspectProfilePackageState } from './plugin-package-inspector.ts'
 import type { PluginMutationCoordinator } from './plugin-mutation.ts'
+import {
+  parsePluginUpdates,
+  PluginPackageError,
+  type PluginPackageCommand,
+  type PluginPackageMutationResult,
+  type PluginUpdateInfo,
+} from './plugin-package-contract.ts'
+import type { PluginRestartTracker } from './plugin-restart-tracker.ts'
 import { loadPluginState, savePluginState } from './plugin-state.ts'
 
 /** Captured dsh plugin subprocess result. */
@@ -20,7 +29,7 @@ export interface PluginCommandResult {
 }
 
 /** Injectable command executor for the upstream dsh plugin interface. */
-export type PluginCommandRunner = (operation: 'add' | 'remove', spec: string) => Promise<PluginCommandResult>
+export type PluginCommandRunner = (command: PluginPackageCommand) => Promise<PluginCommandResult>
 
 /**
  * Build the packaged `dsh plugin --profile web` command runner.
@@ -34,15 +43,15 @@ export function createPluginCommandRunner(options: {
   profile: string
   envPath: string
 }): PluginCommandRunner {
-  return async (operation, spec) => await new Promise((resolve, reject) => {
+  return async command => await new Promise((resolve, reject) => {
+    const args = pluginCommandArguments(command)
     const child = spawn(options.electronExecutable, [
       '--expose-internals',
       options.dshBin,
       'plugin',
       '--profile',
       options.profile,
-      operation,
-      spec,
+      ...args,
     ], {
       env: {
         ...safeInstallEnvironment(process.env),
@@ -59,6 +68,24 @@ export function createPluginCommandRunner(options: {
     child.once('error', reject)
     child.once('close', (code) => { resolve({ exitCode: code ?? 1, stdout, stderr }) })
   })
+}
+
+/**
+ * Convert a typed package command into arguments understood by every bundled dsh launcher.
+ * @param command - Validated package command.
+ * @returns arguments following `dsh plugin --profile <name>`.
+ */
+export function pluginCommandArguments(command: PluginPackageCommand): string[] {
+  switch (command.kind) {
+    case 'add': return ['add', command.spec, ...(command.force === true ? ['--force'] : [])]
+    case 'remove': return ['remove', command.name]
+    case 'update': return ['update', command.name]
+    case 'outdated': return ['outdated', '--format', 'json']
+    default: {
+      const _exhaustive: never = command
+      return _exhaustive
+    }
+  }
 }
 
 function safeInstallEnvironment(environment: NodeJS.ProcessEnv): NodeJS.ProcessEnv {
@@ -82,6 +109,8 @@ export class PluginPackageService {
     private readonly lifecycle: PluginLifecycleController,
     private readonly mutations: PluginMutationCoordinator,
     private readonly reservedPackageNames: ReadonlySet<string> = new Set(),
+    private readonly catalog?: PluginCatalog,
+    private readonly restartTracker?: PluginRestartTracker,
   ) {}
 
   /**
@@ -90,7 +119,7 @@ export class PluginPackageService {
    * @returns installed package classification.
    */
   install(request: PluginInstallRequest): Promise<PluginInstallResult> {
-    return this.mutations.run(async () => {
+    return this.mutations.run({ kind: 'install' }, async () => {
       const normalized = normalizePluginInstallRequest(request)
       if (normalized.source === 'local') {
         const path = normalized.spec.replace(/^(?:file|link):/, '')
@@ -103,13 +132,14 @@ export class PluginPackageService {
       const before = readDependencies(this.profileDir)
       let command: PluginCommandResult
       try {
-        command = await this.runCommand('add', normalized.spec)
+        command = await this.runCommand({ kind: 'add', spec: normalized.spec })
       } catch (error) {
         throw new PluginInstallError('package-manager-failed', 'The plugin package manager could not start.', String(error))
       }
       const after = readDependencies(this.profileDir)
       const changedDependencies = changedDependencyNames(before, after)
       if (command.exitCode !== 0) {
+        if (changedDependencies.length > 0) await this.reconcileRestart('install')
         throw classifyCommandFailure(command.stderr, changedDependencies)
       }
       let dependencyName: string
@@ -132,7 +162,8 @@ export class PluginPackageService {
         )
       }
       const loaded = loadPluginState(this.statePath)
-      const state = loaded.state.profileManaged.includes(inspected.name)
+      const shouldManage = inspected.kind === 'runtime-plugin'
+      const state = !shouldManage || loaded.state.profileManaged.includes(inspected.name)
         ? loaded.state
         : { ...loaded.state, profileManaged: [...loaded.state.profileManaged, inspected.name] }
       await savePluginState(this.statePath, state)
@@ -149,6 +180,7 @@ export class PluginPackageService {
           )
         }
       }
+      await this.reconcileRestart('install', inspected.name)
       return {
         name: inspected.name,
         version: inspected.version,
@@ -159,6 +191,178 @@ export class PluginPackageService {
         source: normalized.source,
       }
     })
+  }
+
+  /** Check registry-owned profile dependencies without querying Git or local sources. */
+  checkUpdates(): Promise<PluginUpdateInfo[]> {
+    return this.mutations.run({ kind: 'check-updates' }, async () => {
+      const eligible = new Set((await this.requireCatalog().list())
+        .filter(entry => entry.ownership === 'profile' && entry.packageActions.checkUpdates)
+        .map(entry => entry.name))
+      if (eligible.size === 0) return []
+      let command: PluginCommandResult
+      try {
+        command = await this.runCommand({ kind: 'outdated' })
+      } catch (error) {
+        throw new PluginPackageError('update-check-failed', 'Could not check plugins for updates.', 'unchanged', String(error))
+      }
+      if (command.stdout.trim().length === 0 && command.exitCode === 0) return []
+      let updates: PluginUpdateInfo[]
+      try {
+        updates = parsePluginUpdates(command.stdout)
+      } catch (error) {
+        if (error instanceof PluginPackageError && command.stderr.trim().length > 0) {
+          throw new PluginPackageError(error.code, error.message, error.recovery, command.stderr.trim())
+        }
+        throw error
+      }
+      if (command.exitCode !== 0 && updates.length === 0) {
+        throw new PluginPackageError('update-check-failed', 'Could not check plugins for updates.', 'unchanged', command.stderr.trim())
+      }
+      return updates.filter(update => eligible.has(update.name))
+    })
+  }
+
+  /** Update one Registry package or refresh its Git/local source. */
+  update(name: string): Promise<PluginPackageMutationResult> {
+    return this.mutatePackage('update', name)
+  }
+
+  /** Re-resolve one dependency from its current requested spec. */
+  reinstall(name: string): Promise<PluginPackageMutationResult> {
+    return this.mutatePackage('reinstall', name)
+  }
+
+  /** Remove one direct profile dependency after its runtime code becomes quiescent. */
+  remove(name: string): Promise<PluginPackageMutationResult> {
+    return this.mutatePackage('remove', name)
+  }
+
+  private mutatePackage(
+    operation: 'update' | 'reinstall' | 'remove',
+    name: string,
+  ): Promise<PluginPackageMutationResult> {
+    return this.mutations.run({ kind: operation, plugin: name }, async () => {
+      const catalog = this.requireCatalog()
+      const beforeEntries = await catalog.list()
+      const entry = beforeEntries.find(candidate => candidate.name === name)
+      if (entry === undefined || entry.ownership !== 'profile') {
+        throw new PluginPackageError('package-not-manageable', `${name} is not a profile package.`, 'unchanged')
+      }
+      const allowed = operation === 'remove'
+        ? entry.packageActions.remove
+        : operation === 'reinstall' ? entry.packageActions.reinstall : entry.packageActions.update !== false
+      if (!allowed) {
+        throw new PluginPackageError('package-not-manageable', `${name} does not support ${operation}.`, 'unchanged')
+      }
+      const beforeDisk = readPackageDiskSnapshot(this.profileDir, name)
+      let token: Awaited<ReturnType<PluginLifecycleController['quiesceForPackageMutation']>>
+      try {
+        token = await this.lifecycle.quiesceForPackageMutation(name)
+      } catch (error) {
+        throw new PluginPackageError('runtime-quiesce-failed', `${name} could not be unloaded for ${operation}.`, 'unchanged', String(error))
+      }
+      let command: PluginCommandResult
+      try {
+        command = await this.runCommand(operation === 'remove'
+          ? { kind: 'remove', name }
+          : operation === 'update' && entry.installSource !== 'local'
+            ? { kind: 'update', name }
+            : { kind: 'add', spec: entry.requestedSpec ?? name, force: true })
+      } catch (error) {
+        return await this.failMutation(operation, name, token, beforeDisk, String(error))
+      }
+      if (command.exitCode !== 0) {
+        return await this.failMutation(operation, name, token, beforeDisk, command.stderr.trim())
+      }
+      const afterDependencies = readDependencies(this.profileDir)
+      if (operation === 'remove' && afterDependencies[name] !== undefined) {
+        return await this.failMutation(operation, name, token, beforeDisk, 'The dependency remains in the profile manifest.')
+      }
+      if (operation !== 'remove' && afterDependencies[name] === undefined) {
+        return await this.failMutation(operation, name, token, beforeDisk, 'The dependency is missing from the profile manifest.')
+      }
+      if (operation === 'remove') {
+        const loaded = loadPluginState(this.statePath).state
+        await savePluginState(this.statePath, {
+          ...loaded,
+          disabled: loaded.disabled.filter(candidate => candidate !== name),
+          profileManaged: loaded.profileManaged.filter(candidate => candidate !== name),
+        })
+        await this.lifecycle.refreshAfterPackageRemoval(token.hasClient)
+        await this.reconcileRestart('remove', name)
+        return {
+          name,
+          operation,
+          previousVersion: entry.version,
+          restartRequired: this.restartTracker?.list().some(change => change.name === name) ?? false,
+        }
+      }
+      const inspected = inspectProfilePackageState(this.profileDir, name)
+      if (inspected.entryProblem !== undefined) {
+        await this.reconcileRestart(operation, name)
+        throw new PluginPackageError(
+          operation === 'update' ? 'update-failed' : 'reinstall-failed',
+          `${name} is installed but requires repair.`,
+          'profile-changed',
+          inspected.entryProblem,
+        )
+      }
+      const state = loadPluginState(this.statePath).state
+      const startedAsBundle = entry.kind === 'bundle'
+      if (inspected.kind === 'runtime-plugin' && !startedAsBundle && state.profileManaged.includes(name)) {
+        try {
+          await this.lifecycle.activateAfterPackageMutation(name)
+        } catch (error) {
+          await this.reconcileRestart(operation, name)
+          throw new PluginPackageError(
+            'runtime-activation-failed',
+            `${name} was ${operation === 'update' ? 'updated' : 'reinstalled'} but could not be activated.`,
+            'profile-changed',
+            String(error),
+          )
+        }
+      }
+      await this.reconcileRestart(operation, name)
+      return {
+        name,
+        operation,
+        previousVersion: entry.version,
+        version: inspected.version,
+        kind: inspected.kind,
+        restartRequired: this.restartTracker?.list().some(change => change.name === name) ?? false,
+      }
+    })
+  }
+
+  private async failMutation(
+    operation: 'update' | 'reinstall' | 'remove',
+    name: string,
+    token: Awaited<ReturnType<PluginLifecycleController['quiesceForPackageMutation']>>,
+    beforeDisk: PackageDiskSnapshot,
+    details: string,
+  ): Promise<never> {
+    const changed = !sameDiskSnapshot(beforeDisk, readPackageDiskSnapshot(this.profileDir, name))
+    if (changed) {
+      await this.reconcileRestart(operation, name)
+      throw new PluginPackageError(errorCode(operation), `${capitalize(operation)} failed after the profile changed.`, 'profile-changed', details)
+    }
+    try {
+      await this.lifecycle.restoreAfterPackageMutation(token)
+    } catch (error) {
+      throw new PluginPackageError('runtime-restore-failed', `${capitalize(operation)} failed and ${name} could not be restored.`, 'unchanged', `${details}\n${String(error)}`)
+    }
+    throw new PluginPackageError(errorCode(operation), `${capitalize(operation)} failed.`, token.wasActive ? 'restored' : 'unchanged', details)
+  }
+
+  private requireCatalog(): PluginCatalog {
+    if (this.catalog === undefined) throw new Error('plugin package service: profile catalog is unavailable')
+    return this.catalog
+  }
+
+  private async reconcileRestart(operation: 'install' | 'update' | 'remove' | 'reinstall', name?: string): Promise<void> {
+    if (this.restartTracker === undefined || this.catalog === undefined) return
+    this.restartTracker.reconcile(await this.catalog.list(), operation, name)
   }
 
   private async rollbackPackageConflict(
@@ -176,7 +380,7 @@ export class PluginPackageService {
     }
     let rollback: PluginCommandResult
     try {
-      rollback = await this.runCommand('remove', dependencyName)
+      rollback = await this.runCommand({ kind: 'remove', name: dependencyName })
     } catch (error) {
       return new PluginInstallError(
         'package-conflict',
@@ -195,6 +399,14 @@ export class PluginPackageService {
       !restored,
     )
   }
+}
+
+function errorCode(operation: 'update' | 'reinstall' | 'remove'): 'update-failed' | 'reinstall-failed' | 'remove-failed' {
+  return operation === 'update' ? 'update-failed' : operation === 'reinstall' ? 'reinstall-failed' : 'remove-failed'
+}
+
+function capitalize(value: string): string {
+  return `${value[0]?.toUpperCase() ?? ''}${value.slice(1)}`
 }
 
 function registryPackageName(spec: string): string | undefined {
@@ -222,6 +434,28 @@ function readDependencies(profileDir: string): Record<string, string> {
   } catch (error) {
     throw new PluginInstallError('profile-reconcile-failed', `The web profile manifest is invalid: ${path}`, String(error))
   }
+}
+
+interface PackageDiskSnapshot {
+  dependencies: Record<string, string>
+  lockfile?: string
+  installedManifest?: string
+}
+
+function readPackageDiskSnapshot(profileDir: string, name: string): PackageDiskSnapshot {
+  const lockfilePath = join(profileDir, 'pnpm-lock.yaml')
+  const installedManifestPath = join(profileDir, 'node_modules', ...name.split('/'), 'package.json')
+  return {
+    dependencies: readDependencies(profileDir),
+    ...(existsSync(lockfilePath) ? { lockfile: readFileSync(lockfilePath, 'utf8') } : {}),
+    ...(existsSync(installedManifestPath) ? { installedManifest: readFileSync(installedManifestPath, 'utf8') } : {}),
+  }
+}
+
+function sameDiskSnapshot(left: PackageDiskSnapshot, right: PackageDiskSnapshot): boolean {
+  return JSON.stringify(left.dependencies) === JSON.stringify(right.dependencies)
+    && left.lockfile === right.lockfile
+    && left.installedManifest === right.installedManifest
 }
 
 function identifyInstalledDependency(

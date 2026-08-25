@@ -1,5 +1,5 @@
 import { spawn, type ChildProcessByStdio } from 'node:child_process'
-import { existsSync, readFileSync } from 'node:fs'
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { mkdtemp, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
@@ -9,6 +9,8 @@ import { afterEach, describe, expect, it } from 'vitest'
 import { stopHarness } from '../src/harness/process.ts'
 import { HttpHarnessTransport } from '../src/harness/transport.ts'
 import { PluginLifecycleController } from '../src/plugin-lifecycle.ts'
+import { PluginPackageService } from '../src/plugin-install.ts'
+import { PluginMutationCoordinator } from '../src/plugin-mutation.ts'
 import { RemotePluginInventoryProbe } from '../src/plugin-inventory-probe.ts'
 import { DynamicIncludeCompositionBackend, effectivePluginRoster } from '../src/plugin-runtime-config.ts'
 import { savePluginState, type PluginState } from '../src/plugin-state.ts'
@@ -41,11 +43,14 @@ async function startHarnessForPlugins(
   plugins: readonly ManagedPlugin[],
   state: PluginState,
   env: Record<string, string> = {},
+  mutations = new PluginMutationCoordinator(),
 ): Promise<{
   child: HarnessProcess
   controller: PluginLifecycleController
   probe: RemotePluginInventoryProbe
   logs: { stdout: string; stderr: string }
+  harnessHome: string
+  pluginStatePath: string
 }> {
   const scratch = await mkdtemp(join(tmpdir(), 'dsh-electron-hot-plug-'))
   const harnessHome = join(scratch, 'harness-home')
@@ -93,6 +98,7 @@ async function startHarnessForPlugins(
     },
     async () => {},
     { timeoutMs: 20_000, pollIntervalMs: 100, hmrQuietMs: 250 },
+    mutations,
   )
   cleanup.push(async () => {
     await probe.dispose()
@@ -100,7 +106,7 @@ async function startHarnessForPlugins(
     await stopHarness(child)
     await rm(scratch, { recursive: true, force: true })
   })
-  return { child, controller, probe, logs }
+  return { child, controller, probe, logs, harnessHome, pluginStatePath: overlay.pluginStatePath }
 }
 
 async function waitForHarnessUrl(child: HarnessProcess): Promise<string> {
@@ -144,7 +150,7 @@ async function waitForInventoryState(
   const deadline = Date.now() + 10_000
   for (;;) {
     const snapshot = await probe.list()
-    const current = snapshot.entries.find(entry => entry.moduleName === name)?.fiberPhase ?? 'absent'
+    const current = snapshot.entries.find(entry => entry.moduleName === name || entry.entryId.endsWith(`:${name}`))?.fiberPhase ?? 'absent'
     if (current === state) return
     if (Date.now() >= deadline) {
       throw new Error(`timed out waiting for ${JSON.stringify(name)} to reach ${state}; got ${current}`)
@@ -154,6 +160,95 @@ async function waitForInventoryState(
 }
 
 describe('runtime plugin hot plug', () => {
+  it('refreshes and removes a copied local runtime package without changing the Host PID', { timeout: 30_000 }, async () => {
+    const root = await mkdtemp(join(tmpdir(), 'dsh-electron-package-probe-'))
+    cleanup.push(async () => { await rm(root, { recursive: true, force: true }) })
+    const name = '@dsh-electron/dsh-plugin-lifecycle-probe'
+    const logPath = join(root, 'probe.log')
+    const writeVersion = (version: string): void => {
+      mkdirSync(join(root, 'lib'), { recursive: true })
+      writeFileSync(join(root, 'package.json'), JSON.stringify({ name, version, type: 'module', main: './lib/index.js' }), 'utf8')
+      writeFileSync(join(root, 'lib', 'index.js'), `
+import { appendFileSync } from 'node:fs'
+export function apply(ctx) {
+  appendFileSync(process.env.DSH_ELECTRON_LIFECYCLE_PROBE_LOG, 'APPLY_${version}\\n', 'utf8')
+  ctx.effect(() => () => appendFileSync(process.env.DSH_ELECTRON_LIFECYCLE_PROBE_LOG, 'DISPOSE_${version}\\n', 'utf8'))
+}
+`, 'utf8')
+    }
+    writeVersion('1.0.0')
+    const plugin: ManagedPlugin = {
+      name,
+      version: '1.0.0',
+      directoryName: 'lifecycle-probe',
+      rootPath: root,
+      hasClient: false,
+      ownership: 'profile',
+      kind: 'runtime-plugin',
+      installSource: 'local',
+      requestedSpec: `file:${root}`,
+      activationMode: 'hot',
+      health: 'healthy',
+      packageActions: { checkUpdates: false, update: 'source-refresh', reinstall: true, remove: true },
+      manageable: true,
+      required: false,
+    }
+    const mutations = new PluginMutationCoordinator()
+    const started = await startHarnessForPlugins(
+      [plugin],
+      { version: 2, disabled: [], profileManaged: [name] },
+      { DSH_ELECTRON_LIFECYCLE_PROBE_LOG: logPath },
+      mutations,
+    )
+    const profileDir = join(started.harnessHome, 'profiles', 'web')
+    mkdirSync(profileDir, { recursive: true })
+    ensureSymlink(join(profileDir, 'node_modules', ...name.split('/')), root)
+    const writeDependencies = (present: boolean): void => {
+      writeFileSync(join(profileDir, 'package.json'), JSON.stringify({
+        dependencies: present ? { [name]: `file:${root}` } : {},
+      }), 'utf8')
+    }
+    writeDependencies(true)
+    const catalog = {
+      list: async (): Promise<ManagedPlugin[]> => {
+        const manifest = JSON.parse(readFileSync(join(profileDir, 'package.json'), 'utf8')) as { dependencies?: object }
+        if (!(name in (manifest.dependencies ?? {}))) return []
+        const installed = JSON.parse(readFileSync(join(root, 'package.json'), 'utf8')) as { version: string }
+        return [{ ...plugin, version: installed.version }]
+      },
+    }
+    const service = new PluginPackageService(
+      profileDir,
+      started.pluginStatePath,
+      async (command) => {
+        if (command.kind === 'remove') writeDependencies(false)
+        else writeVersion('2.0.0')
+        return { exitCode: 0, stdout: '', stderr: '' }
+      },
+      started.controller,
+      mutations,
+      new Set(),
+      catalog,
+    )
+    await waitForProbeLog(logPath, ['APPLY_1.0.0'])
+    const pid = started.child.pid
+
+    try {
+      await service.update(name)
+    } catch (error) {
+      const failure = error as Error & { details?: string }
+      const inventory = await started.probe.list()
+      const lifecycleLog = existsSync(logPath) ? readFileSync(logPath, 'utf8') : ''
+      throw new Error(`${failure.message}\n${failure.details ?? ''}\ninventory:\n${JSON.stringify(inventory)}\nlog:\n${lifecycleLog}\nstdout:\n${started.logs.stdout}\nstderr:\n${started.logs.stderr}`)
+    }
+    await waitForProbeLog(logPath, ['APPLY_1.0.0', 'DISPOSE_1.0.0', 'APPLY_2.0.0'])
+    expect(started.child.pid).toBe(pid)
+
+    await service.remove(name)
+    await waitForInventoryState(started.probe, name, 'absent')
+    expect(started.child.pid).toBe(pid)
+  })
+
   it('hot-disables, hot-enables, and hot-reloads a fixture plugin without changing the Host PID', { timeout: 30_000 }, async () => {
     const plugin: ManagedPlugin = {
       name: '@dsh-electron/dsh-plugin-lifecycle-probe',
@@ -162,7 +257,7 @@ describe('runtime plugin hot plug', () => {
       directoryName: 'lifecycle-probe',
       rootPath: lifecycleProbeRoot,
       hasClient: false,
-      ownership: 'bundled', kind: 'runtime-plugin', installSource: 'bundled', activation: 'hot',
+      ownership: 'bundled', kind: 'runtime-plugin', installSource: 'bundled', activationMode: 'hot', health: 'healthy', packageActions: { checkUpdates: false, update: false, reinstall: false, remove: false },
       manageable: true,
       required: false,
     }

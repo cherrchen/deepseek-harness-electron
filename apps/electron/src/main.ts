@@ -59,6 +59,7 @@ import { PluginLifecycleController } from './plugin-lifecycle.ts'
 import { ProfilePluginCatalog } from './plugin-catalog.ts'
 import { PluginMutationCoordinator } from './plugin-mutation.ts'
 import { PluginPackageService, createPluginCommandRunner } from './plugin-install.ts'
+import { PluginRestartTracker } from './plugin-restart-tracker.ts'
 import { preparePluginPackageManager, resolveBundledPnpmBin } from './plugin-package-manager.ts'
 import { RemotePluginInventoryProbe } from './plugin-inventory-probe.ts'
 import {
@@ -417,6 +418,7 @@ if (!primaryInstance) {
       () => loadPluginState(overlay.pluginStatePath).state,
     )
     const catalogPlugins = await catalog.list()
+    const restartTracker = new PluginRestartTracker(catalogPlugins)
     const reconciled = reconcilePluginState(
       loadedState.state,
       catalogPlugins.filter(plugin => plugin.manageable).map(plugin => plugin.name),
@@ -466,6 +468,7 @@ if (!primaryInstance) {
       refreshRendererForPluginLifecycle,
       {},
       mutations,
+      restartTracker,
     )
     pluginPackages = new PluginPackageService(
       join(harnessHome, 'profiles', 'web'),
@@ -480,6 +483,8 @@ if (!primaryInstance) {
       pluginLifecycle,
       mutations,
       new Set(catalogPlugins.filter(plugin => plugin.ownership !== 'profile').map(plugin => plugin.name)),
+      catalog,
+      restartTracker,
     )
     harness.once('exit', (code, signal) => {
       if (quitting) return

@@ -1,10 +1,11 @@
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { mkdtemp, rm } from 'node:fs/promises'
+import { spawnSync } from 'node:child_process'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { describe, expect, it, vi } from 'vitest'
 import { normalizePluginInstallRequest, PluginInstallError } from '../src/plugin-install-contract.ts'
-import { preparePluginPackageManager } from '../src/plugin-package-manager.ts'
+import { preparePluginPackageManager, resolveBundledPnpmBin } from '../src/plugin-package-manager.ts'
 import { PluginPackageService } from '../src/plugin-install.ts'
 import { PluginMutationCoordinator } from '../src/plugin-mutation.ts'
 import type { PluginLifecycleController } from '../src/plugin-lifecycle.ts'
@@ -42,11 +43,46 @@ describe('bundled plugin package manager', () => {
       expect(posix.envPath.startsWith(posix.binDirectory)).toBe(true)
       expect(readFileSync(join(posix.binDirectory, 'pnpm'), 'utf8')).toContain('ELECTRON_RUN_AS_NODE=1 exec')
       const windows = preparePluginPackageManager(root, 'C:\\Program Files\\DeepSeek Harness.exe', pnpmBin, 'C:\\Windows', 'win32')
-      expect(readFileSync(join(windows.binDirectory, 'pnpm.cmd'), 'utf8')).toContain('ELECTRON_RUN_AS_NODE=1')
+      const windowsShim = readFileSync(join(windows.binDirectory, 'pnpm.cmd'), 'utf8')
+      expect(windowsShim).toContain('ELECTRON_RUN_AS_NODE=1')
+      expect(windowsShim).toContain('"C:\\Program Files\\DeepSeek Harness.exe"')
+      expect(windowsShim).toContain(' %*')
     } finally {
       await rm(root, { recursive: true, force: true })
     }
   })
+
+  it('refreshes a copied local package with the pinned pnpm and paths containing spaces', async () => {
+    const root = await mkdtemp(join(tmpdir(), 'dsh electron local refresh-'))
+    const source = join(root, 'source plugin')
+    const profile = join(root, 'web profile')
+    mkdirSync(source, { recursive: true })
+    mkdirSync(profile, { recursive: true })
+    writeFileSync(join(profile, 'package.json'), JSON.stringify({ private: true }), 'utf8')
+    const writeSource = (version: string): void => {
+      writeFileSync(join(source, 'package.json'), JSON.stringify({ name: '@fixture/local-refresh', version, main: 'index.js' }), 'utf8')
+      writeFileSync(join(source, 'index.js'), `export const version = '${version}'\n`, 'utf8')
+    }
+    const pnpmBin = resolveBundledPnpmBin(join(process.cwd(), 'apps', 'electron'))
+    const refresh = (): ReturnType<typeof spawnSync> => spawnSync(
+      process.execPath,
+      [pnpmBin, 'add', `file:${source}`, '--force', '--ignore-scripts'],
+      { cwd: profile, encoding: 'utf8', env: { ...process.env, CI: 'true' } },
+    )
+    try {
+      writeSource('1.0.0')
+      const initial = refresh()
+      if (initial.status !== 0) throw new Error(`pinned pnpm local install failed:\n${initial.stderr}${initial.stdout}`)
+      writeSource('2.0.0')
+      const result = refresh()
+      expect(result.stderr).not.toContain('ERR_')
+      expect(result.status).toBe(0)
+      expect(JSON.parse(readFileSync(join(profile, 'node_modules', '@fixture', 'local-refresh', 'package.json'), 'utf8')))
+        .toMatchObject({ version: '2.0.0' })
+    } finally {
+      await rm(root, { recursive: true, force: true })
+    }
+  }, 20_000)
 })
 
 describe('plugin package service', () => {
@@ -272,8 +308,8 @@ describe('plugin package service', () => {
     mkdirSync(join(statePath, '..'), { recursive: true })
     writeFileSync(join(profileDir, 'package.json'), JSON.stringify({ dependencies: {} }), 'utf8')
     writeFileSync(statePath, JSON.stringify({ version: 2, disabled: [], profileManaged: [] }), 'utf8')
-    const runner = vi.fn(async (operation: 'add' | 'remove') => {
-      if (operation === 'add') {
+    const runner = vi.fn(async (command: { kind: string }) => {
+      if (command.kind === 'add') {
         mkdirSync(join(packageRoot, 'lib'), { recursive: true })
         writeFileSync(join(profileDir, 'package.json'), JSON.stringify({
           dependencies: { [packageName]: 'github:cherrchen/dsh-client-ui-details-host' },
@@ -304,8 +340,8 @@ describe('plugin package service', () => {
       expect(failure.code).toBe('package-conflict')
       expect(failure.profileChanged).toBe(false)
       expect(runner.mock.calls).toEqual([
-        ['add', 'github:cherrchen/dsh-client-ui-details-host'],
-        ['remove', packageName],
+        [{ kind: 'add', spec: 'github:cherrchen/dsh-client-ui-details-host' }],
+        [{ kind: 'remove', name: packageName }],
       ])
       expect(JSON.parse(readFileSync(join(profileDir, 'package.json'), 'utf8'))).toEqual({ dependencies: {} })
     } finally {
