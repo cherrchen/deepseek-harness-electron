@@ -22,6 +22,11 @@ export interface InspectedPluginPackage {
   hasClient: boolean
 }
 
+/** Catalog inspection that preserves a package with unloadable declared entries. */
+export interface ProfilePackageInspection extends InspectedPluginPackage {
+  entryProblem?: string
+}
+
 /**
  * Inspect one direct dependency through the active profile's node_modules tree.
  * @param profileDir - Absolute active profile directory.
@@ -29,6 +34,25 @@ export interface InspectedPluginPackage {
  * @returns validated installed package facts.
  */
 export function inspectProfilePackage(profileDir: string, dependencyName: string): InspectedPluginPackage {
+  const inspection = inspectProfilePackageState(profileDir, dependencyName)
+  if (inspection.entryProblem !== undefined) {
+    throw new PluginInstallError(
+      'invalid-package',
+      `Installed package ${inspection.name} is invalid.`,
+      inspection.entryProblem,
+    )
+  }
+  const { entryProblem: _entryProblem, ...installed } = inspection
+  return installed
+}
+
+/**
+ * Inspect package metadata while reporting unloadable entries to the profile catalog.
+ * @param profileDir - Absolute active profile directory.
+ * @param dependencyName - Real dependency key written by pnpm.
+ * @returns installed package facts and an optional entry validation problem.
+ */
+export function inspectProfilePackageState(profileDir: string, dependencyName: string): ProfilePackageInspection {
   const rootPath = join(profileDir, 'node_modules', ...dependencyName.split('/'))
   const manifestPath = join(rootPath, 'package.json')
   if (!existsSync(manifestPath)) {
@@ -43,15 +67,12 @@ export function inspectProfilePackage(profileDir: string, dependencyName: string
   if (typeof manifest.name !== 'string' || manifest.name.length === 0 || typeof manifest.version !== 'string' || manifest.version.length === 0) {
     throw new PluginInstallError('invalid-package', `Installed package manifest must declare name and version: ${manifestPath}`)
   }
-  const bundleProblem = validateBundleEntries(rootPath, manifest)
-  if (bundleProblem !== undefined) {
-    throw new PluginInstallError('invalid-package', `Installed bundle ${manifest.name} is invalid.`, bundleProblem)
-  }
   const kind = manifest.dsh?.bundle?.patch !== undefined
     ? 'bundle'
     : typeof manifest.main === 'string' || hasRootExport(manifest.exports)
       ? 'runtime-plugin'
       : 'dependency'
+  const entryProblem = validatePackageEntries(rootPath, manifest, kind)
   return {
     name: manifest.name,
     version: manifest.version,
@@ -59,19 +80,28 @@ export function inspectProfilePackage(profileDir: string, dependencyName: string
     rootPath,
     kind,
     hasClient: manifest.dsh?.client !== undefined,
+    ...(entryProblem === undefined ? {} : { entryProblem }),
   }
 }
 
-function validateBundleEntries(rootPath: string, manifest: PackageManifest): string | undefined {
+function validatePackageEntries(
+  rootPath: string,
+  manifest: PackageManifest,
+  kind: PluginPackageKind,
+): string | undefined {
   const declaredPatch = manifest.dsh?.bundle?.patch
-  if (declaredPatch === undefined) return undefined
-  if (typeof declaredPatch !== 'string' || declaredPatch.length === 0 || isAbsolute(declaredPatch)) {
-    return 'dsh.bundle.patch must be a non-empty relative path'
+  if (declaredPatch !== undefined) {
+    if (typeof declaredPatch !== 'string' || declaredPatch.length === 0 || isAbsolute(declaredPatch)) {
+      return 'dsh.bundle.patch must be a non-empty relative path'
+    }
+    const patchPath = resolve(rootPath, declaredPatch)
+    if (escapesDirectory(rootPath, patchPath)) return `dsh.bundle.patch escapes the package directory: ${declaredPatch}`
+    if (!existsSync(patchPath)) return `declared bundle patch does not exist: ${declaredPatch}`
   }
-  const patchPath = resolve(rootPath, declaredPatch)
-  if (escapesDirectory(rootPath, patchPath)) return `dsh.bundle.patch escapes the package directory: ${declaredPatch}`
-  if (!existsSync(patchPath)) return `declared bundle patch does not exist: ${declaredPatch}`
   const hostEntry = packageExportTarget(manifest, '.')
+  if (kind === 'runtime-plugin' && hostEntry === undefined) {
+    return 'runtime plugin requires a root package export or main entry with an importable target'
+  }
   const hostProblem = hostEntry === undefined ? undefined : validateEntryPath(rootPath, hostEntry, 'Host')
   if (hostProblem !== undefined) return hostProblem
   if (manifest.dsh?.client !== undefined) {
@@ -99,8 +129,10 @@ function escapesDirectory(rootPath: string, candidatePath: string): boolean {
 function packageExportTarget(manifest: PackageManifest, key: '.' | './client'): string | undefined {
   const selected = key === '.' && typeof manifest.exports === 'string'
     ? manifest.exports
-    : typeof manifest.exports === 'object' && manifest.exports !== null && key in manifest.exports
-      ? (manifest.exports as Record<string, unknown>)[key]
+    : typeof manifest.exports === 'object' && manifest.exports !== null
+      ? key in manifest.exports
+        ? (manifest.exports as Record<string, unknown>)[key]
+        : key === '.' ? manifest.exports : undefined
       : undefined
   return conditionalExportTarget(selected) ?? (key === '.' && typeof manifest.main === 'string' ? manifest.main : undefined)
 }

@@ -12,7 +12,7 @@ Electron Plugin Manager 只能控制应用启动时组装的、由发行版拥�
 
 Electron 将 profile 插件安装暴露为类型化 Desktop capability，同时保留 [profile 插件组合包](2026-08-05-profile-plugin-bundles.zh.md)规定的上游 profile 与 bundle 模型。
 
-`ProfilePluginCatalog` 是当前 inventory authority。每次读取都会合并 Electron 必需 runtime 插件、bundled ecosystem 插件和安装在 `$DSH_HOME/profiles/web` 中的直接依赖，并由 system 与 bundled entry 按真实 package name 取得优先权。Catalog entry 分离 ownership、package kind、installation source、activation behavior 与可选 Host runtime state。普通 runtime 插件使用热激活，已协调的 `dsh.bundle` 包需要下一次 profile 启动，没有可加载 root entry 的包则作为 plain dependency 保持可见但不提供 lifecycle control。位于 Desktop 管理与 profile bundle stack 之外的直接依赖会显示为安装未完成，而不会从 catalog 消失。
+`ProfilePluginCatalog` 是当前 inventory authority。每次读取都会合并 Electron 必需 runtime 插件、bundled ecosystem 插件和安装在 `$DSH_HOME/profiles/web` 中的直接依赖，并由 system 与 bundled entry 按真实 package name 取得优先权。Catalog entry 分离 ownership、package kind、installation source、activation behavior 与可选 Host runtime state。普通 runtime 插件使用热激活，已协调的 `dsh.bundle` 包需要下一次 profile 启动，没有 runtime declaration 的包则作为 plain dependency 保持可见但不提供 lifecycle control。位于 Desktop 管理之外，或带有无法加载的声明 entry 的直接依赖会显示为安装未完成，而不会从 catalog 消失或进入 startup roster。
 
 `plugin-state.json` version 2 保存 disabled runtime package name，并记录哪些 profile direct dependency 属于 Desktop 管理。Version 1 会在不丢失 disabled set 的情况下迁移。依赖 spec 仍以 profile `package.json` 为真源；Electron 不会把它复制到自身 state file。
 
@@ -20,7 +20,9 @@ Renderer 发送三种 closed request 之一：registry package 加可选 version
 
 `PluginPackageService` 调用上游 `dsh plugin --profile web add <spec>` 接口。它不会直接运行 `pnpm add`，因为上游命令拥有 profile 初始化和 `dsh.profile.bundles` 协调。Electron 在更新 Desktop state 或选择 activation behavior 前，会检查 pnpm 写入的真实 dependency name 与 installed manifest；用户输入绝不会被当作 installed package identity。未指定版本的 Registry 请求会规范化为 `@latest`，使 pnpm 替换已有 Git 或 local source。重复提交的 Git 或 local 请求则通过未变化的 dependency spec 识别 installed package。
 
-上游 bundle reconciliation 会在把直接依赖加入 `dsh.profile.bundles` 前调用 `inspectBundlePackage`。相对 patch 必须能够解析，manifest 声明的每个 Host 或 `dsh.client` package export 也必须存在。无效源码包会继续作为直接依赖保留，但无法进入下一次 profile composition。Electron 会在报告成功前重复执行 installed-file 检查，使对话框立即指出无效 package。
+上游 bundle reconciliation 会在把直接依赖加入 `dsh.profile.bundles` 前调用 `inspectBundlePackage`。相对 patch 必须能够解析，manifest 声明的每个 Host 或 `dsh.client` package export 也必须存在。无效源码包会继续作为直接依赖保留，但无法进入下一次 profile composition。Electron 在报告成功前，除 bundle entry 外还会校验普通 runtime 插件已安装的 Host 与 client target；无效 package 会保持为安装未完成，并且不能进入 `plugins.cordis.yml`。
+
+Distribution-owned package name 是 reserved name，因为 profile direct dependency 会优先参与 bare-package resolution，从而可能遮蔽应用必需代码。Registry conflict 会在 pnpm 运行前失败。Git 与 local source 只能在安装后暴露真实 package name，因此 Electron 会在报告冲突前移除新加入的冲突依赖；若移除失败，则把它报告为残留 profile change。
 
 打包后的 Electron 携带仓库 package-manager version 对应的 pnpm。Main 在 `$DSH_HOME/electron/bin` 下写入平台专用 `pnpm`/`pnpm.cmd` shim，通过 Node mode 下的 packaged Electron executable 启动 bundled pnpm entrypoint，再把该目录放到 child PATH 最前。上游 dsh 继续通过既有接口调用 `pnpm`，Desktop 安装则不依赖全局 Node.js、Corepack、pnpm 或用户 PATH 顺序。
 

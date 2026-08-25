@@ -49,6 +49,7 @@ export type PluginInstallErrorCode =
   | 'git-unavailable'
   | 'git-auth-failed'
   | 'local-path-missing'
+  | 'package-conflict'
   | 'invalid-package'
   | 'package-manager-failed'
   | 'build-script-blocked'

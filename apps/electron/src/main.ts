@@ -479,6 +479,7 @@ if (!primaryInstance) {
       }),
       pluginLifecycle,
       mutations,
+      new Set(catalogPlugins.filter(plugin => plugin.ownership !== 'profile').map(plugin => plugin.name)),
     )
     harness.once('exit', (code, signal) => {
       if (quitting) return

@@ -8,7 +8,7 @@ import {
   type PluginInstallRequest,
   type PluginInstallResult,
 } from './plugin-install-contract.ts'
-import { inspectProfilePackage } from './plugin-package-inspector.ts'
+import { inspectProfilePackageState } from './plugin-package-inspector.ts'
 import type { PluginMutationCoordinator } from './plugin-mutation.ts'
 import { loadPluginState, savePluginState } from './plugin-state.ts'
 
@@ -20,10 +20,10 @@ export interface PluginCommandResult {
 }
 
 /** Injectable command executor for the upstream dsh plugin interface. */
-export type PluginCommandRunner = (spec: string) => Promise<PluginCommandResult>
+export type PluginCommandRunner = (operation: 'add' | 'remove', spec: string) => Promise<PluginCommandResult>
 
 /**
- * Build the packaged `dsh plugin --profile web add` command runner.
+ * Build the packaged `dsh plugin --profile web` command runner.
  * @param options - Executable, profile, Harness home, and controlled PATH values.
  * @returns command runner that captures upstream diagnostics.
  */
@@ -34,14 +34,14 @@ export function createPluginCommandRunner(options: {
   profile: string
   envPath: string
 }): PluginCommandRunner {
-  return async spec => await new Promise((resolve, reject) => {
+  return async (operation, spec) => await new Promise((resolve, reject) => {
     const child = spawn(options.electronExecutable, [
       '--expose-internals',
       options.dshBin,
       'plugin',
       '--profile',
       options.profile,
-      'add',
+      operation,
       spec,
     ], {
       env: {
@@ -73,6 +73,7 @@ export class PluginPackageService {
    * @param runCommand - Upstream dsh plugin command executor.
    * @param lifecycle - Runtime activation controller.
    * @param mutations - Coordinator shared with lifecycle actions.
+   * @param reservedPackageNames - Distribution-owned package names that profile dependencies cannot shadow.
    */
   constructor(
     private readonly profileDir: string,
@@ -80,6 +81,7 @@ export class PluginPackageService {
     private readonly runCommand: PluginCommandRunner,
     private readonly lifecycle: PluginLifecycleController,
     private readonly mutations: PluginMutationCoordinator,
+    private readonly reservedPackageNames: ReadonlySet<string> = new Set(),
   ) {}
 
   /**
@@ -94,10 +96,14 @@ export class PluginPackageService {
         const path = normalized.spec.replace(/^(?:file|link):/, '')
         if (!existsSync(path)) throw new PluginInstallError('local-path-missing', `Local plugin path does not exist: ${path}`)
       }
+      const registryName = normalized.source === 'registry' ? registryPackageName(normalized.spec) : undefined
+      if (registryName !== undefined && this.reservedPackageNames.has(registryName)) {
+        throw packageConflict(registryName)
+      }
       const before = readDependencies(this.profileDir)
       let command: PluginCommandResult
       try {
-        command = await this.runCommand(normalized.spec)
+        command = await this.runCommand('add', normalized.spec)
       } catch (error) {
         throw new PluginInstallError('package-manager-failed', 'The plugin package manager could not start.', String(error))
       }
@@ -107,12 +113,23 @@ export class PluginPackageService {
         throw classifyCommandFailure(command.stderr, changedDependencies)
       }
       let dependencyName: string
-      let inspected: ReturnType<typeof inspectProfilePackage>
+      let inspected: ReturnType<typeof inspectProfilePackageState>
       try {
         dependencyName = identifyInstalledDependency(before, after, normalized.spec)
-        inspected = inspectProfilePackage(this.profileDir, dependencyName)
+        inspected = inspectProfilePackageState(this.profileDir, dependencyName)
       } catch (error) {
         throw markProfileChanged(error, changedDependencies.length > 0)
+      }
+      if (this.reservedPackageNames.has(inspected.name)) {
+        throw await this.rollbackPackageConflict(inspected.name, dependencyName, before[dependencyName])
+      }
+      if (inspected.entryProblem !== undefined) {
+        throw new PluginInstallError(
+          'invalid-package',
+          `Installed package ${inspected.name} is invalid.`,
+          inspected.entryProblem,
+          changedDependencies.length > 0,
+        )
       }
       const loaded = loadPluginState(this.statePath)
       const state = loaded.state.profileManaged.includes(inspected.name)
@@ -143,6 +160,52 @@ export class PluginPackageService {
       }
     })
   }
+
+  private async rollbackPackageConflict(
+    packageName: string,
+    dependencyName: string,
+    previousSpec: string | undefined,
+  ): Promise<PluginInstallError> {
+    if (previousSpec !== undefined) {
+      return new PluginInstallError(
+        'package-conflict',
+        packageConflict(packageName).message,
+        `The conflicting dependency already existed with spec ${previousSpec}; remove ${dependencyName} from the web profile before restarting Desktop.`,
+        true,
+      )
+    }
+    let rollback: PluginCommandResult
+    try {
+      rollback = await this.runCommand('remove', dependencyName)
+    } catch (error) {
+      return new PluginInstallError(
+        'package-conflict',
+        packageConflict(packageName).message,
+        `Automatic removal could not start: ${String(error)}`,
+        true,
+      )
+    }
+    const restored = rollback.exitCode === 0 && readDependencies(this.profileDir)[dependencyName] === undefined
+    return new PluginInstallError(
+      'package-conflict',
+      packageConflict(packageName).message,
+      restored
+        ? 'The newly added conflicting dependency was removed from the web profile.'
+        : `Automatic removal failed. Remove ${dependencyName} from the web profile before restarting Desktop.\n${rollback.stderr.trim()}`,
+      !restored,
+    )
+  }
+}
+
+function registryPackageName(spec: string): string | undefined {
+  return /^(?<name>(?:@[^/@]+\/)?[^/@]+)@/.exec(spec)?.groups?.name
+}
+
+function packageConflict(packageName: string): PluginInstallError {
+  return new PluginInstallError(
+    'package-conflict',
+    `${packageName} is provided by Desktop and cannot be installed into the web profile because it would shadow required application code.`,
+  )
 }
 
 function markProfileChanged(error: unknown, profileChanged: boolean): unknown {

@@ -205,7 +205,7 @@ export class PluginLifecycleController {
         hasClient: plugin.hasClient,
         manageable: plugin.manageable,
         required: plugin.required,
-        ...(plugin.kind === 'runtime-plugin' ? {
+        ...(plugin.activation === 'hot' ? {
           desiredEnabled: plugin.required || !currentState.disabled.includes(plugin.name),
           runtime: runtimeByName.get(plugin.name) ?? 'absent',
         } : {}),

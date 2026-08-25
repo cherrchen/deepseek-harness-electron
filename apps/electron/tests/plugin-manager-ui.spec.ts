@@ -201,7 +201,7 @@ describe('Electron Plugin Manager view', () => {
     const incomplete = plugin({
       name: 'dsh-context',
       ownership: 'profile',
-      kind: 'bundle',
+      kind: 'runtime-plugin',
       installSource: 'git',
       activation: 'reconcile-required',
       manageable: false,

@@ -1,6 +1,7 @@
 import { existsSync, readFileSync } from 'node:fs'
 import { join } from 'node:path'
-import type { PluginInstallSource, PluginPackageKind } from './plugin-lifecycle-contract.ts'
+import type { PluginInstallSource } from './plugin-lifecycle-contract.ts'
+import { inspectProfilePackageState } from './plugin-package-inspector.ts'
 import type { PluginState } from './plugin-state.ts'
 import { discoverManagedPlugins, type ManagedPlugin } from './runtime-plugins.ts'
 
@@ -13,15 +14,6 @@ export interface PluginCatalog {
 interface ProfileManifest {
   dependencies?: Record<string, string>
   dsh?: { profile?: { bundles?: string[] } }
-}
-
-interface InstalledPackageManifest {
-  name?: string
-  version?: string
-  description?: string
-  main?: string
-  exports?: unknown
-  dsh?: { client?: unknown; bundle?: { patch?: unknown } }
 }
 
 /** Filesystem-backed catalog for the Desktop's active profile. */
@@ -60,52 +52,38 @@ export class ProfilePluginCatalog implements PluginCatalog {
       const rootPath = join(profileDir, 'node_modules', ...dependencyName.split('/'))
       const manifestPath = join(rootPath, 'package.json')
       if (!existsSync(manifestPath)) continue
-      const manifest = parseJson(manifestPath, 'profile catalog') as InstalledPackageManifest
-      if (typeof manifest.name !== 'string' || manifest.name.length === 0) {
-        throw new Error(`profile catalog: package name missing in ${manifestPath}`)
-      }
-      if (typeof manifest.version !== 'string' || manifest.version.length === 0) {
-        throw new Error(`profile catalog: package version missing in ${manifestPath}`)
-      }
-      const declaredKind = classifyPackage(manifest)
-      const managedRuntime = declaredKind === 'runtime-plugin' && managedNames.has(dependencyName)
-      const kind = declaredKind === 'bundle' ? 'bundle' : managedRuntime ? 'runtime-plugin' : 'dependency'
-      const activation = kind === 'runtime-plugin'
-        ? 'hot'
-        : kind === 'bundle'
-          ? bundleNames.has(dependencyName) ? 'profile-restart' : 'reconcile-required'
-          : 'none'
-      entries.set(manifest.name, {
-        name: manifest.name,
-        version: manifest.version,
-        ...(typeof manifest.description === 'string' ? { description: manifest.description } : {}),
-        directoryName: manifest.name.split('/').at(-1) ?? manifest.name,
-        rootPath,
-        hasClient: manifest.dsh?.client !== undefined,
+      const inspected = inspectProfilePackageState(profileDir, dependencyName)
+      const incomplete = inspected.entryProblem !== undefined
+      const declaredKind = inspected.kind
+      const managedRuntime = !incomplete && declaredKind === 'runtime-plugin' && managedNames.has(dependencyName)
+      const kind = declaredKind === 'bundle'
+        ? 'bundle'
+        : declaredKind === 'runtime-plugin' && (managedRuntime || incomplete) ? 'runtime-plugin' : 'dependency'
+      const activation = incomplete
+        ? 'reconcile-required'
+        : kind === 'runtime-plugin'
+          ? 'hot'
+          : kind === 'bundle'
+            ? bundleNames.has(dependencyName) ? 'profile-restart' : 'reconcile-required'
+            : 'none'
+      entries.set(inspected.name, {
+        name: inspected.name,
+        version: inspected.version,
+        ...(inspected.description === undefined ? {} : { description: inspected.description }),
+        directoryName: inspected.name.split('/').at(-1) ?? inspected.name,
+        rootPath: inspected.rootPath,
+        hasClient: inspected.hasClient,
         ownership: 'profile',
         kind,
         installSource: classifyInstallSource(requestedSpec),
         requestedSpec,
-        manageable: kind === 'runtime-plugin',
+        manageable: activation === 'hot',
         required: false,
         activation,
       })
     }
     return [...entries.values()]
   }
-}
-
-function classifyPackage(manifest: InstalledPackageManifest): PluginPackageKind {
-  if (manifest.dsh?.bundle?.patch !== undefined) return 'bundle'
-  if (typeof manifest.main === 'string' || hasRootExport(manifest.exports)) return 'runtime-plugin'
-  return 'dependency'
-}
-
-function hasRootExport(exportsField: unknown): boolean {
-  if (typeof exportsField === 'string') return true
-  return typeof exportsField === 'object' && exportsField !== null && (
-    '.' in exportsField || 'default' in exportsField || 'import' in exportsField
-  )
 }
 
 function classifyInstallSource(spec: string): PluginInstallSource {

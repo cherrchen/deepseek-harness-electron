@@ -81,7 +81,9 @@ Electron Main 校验请求，把它转换成一个 pnpm-compatible spec，再调
 
 打包后的 Desktop 包含仓库 package-manager version 对应的 pnpm。`$DSH_HOME/electron/bin` 下的 generated platform shim 会通过 Electron Node mode 启动 bundled pnpm，Main 把该目录放到 child PATH 最前。用户不需要全局 Node.js、Corepack 或 pnpm。
 
-普通 runtime 插件会进入 `plugins.cordis.yml`，并通过既有 lifecycle controller 热激活。Client-bearing 插件会在 Host 稳定后刷新 Renderer。Bundle 保持在 runtime include 之外并显示**需要重启**；plain dependency 显示**已作为依赖安装**且不提供 lifecycle control。只有 patch 能够解析，并且 manifest 声明的 Host 与 client package export 都存在时，上游协调才会把 Bundle 加入 profile stack。pnpm 失败后留下的 direct dependency，以及因无效而未进入 profile stack 的 Bundle，都会显示为**安装未完成**，且不提供 lifecycle control。Electron 不会自动重启 Host。
+普通 runtime 插件会进入 `plugins.cordis.yml`，并通过既有 lifecycle controller 热激活。Client-bearing 插件会在 Host 稳定后刷新 Renderer。Bundle 保持在 runtime include 之外并显示**需要重启**；plain dependency 显示**已作为依赖安装**且不提供 lifecycle control。只有 patch 能够解析，并且 manifest 声明的 Host 与 client package export 都存在时，上游协调才会把 Bundle 加入 profile stack。Electron 还会在激活前校验普通 runtime 的 Host 与 client target。pnpm 失败后留下的 direct dependency、因无效而未进入 profile stack 的 Bundle，以及缺少声明产物的 runtime 插件，都会显示为**安装未完成**，且不提供 lifecycle control 或 startup-roster membership。Electron 不会自动重启 Host。
+
+System 与 bundled package name 是 reserved name，因为 Host 解析 package 时 profile 的 `node_modules` tree 具有优先权。针对这些名称的 Registry request 会在安装前失败。如果 Git 或 local source 解析为 reserved name，Electron 会在报告冲突前移除新加入的依赖。Profile 中已存在的冲突依赖必须先通过 `dsh plugin --profile web remove <package-name>` 移除，Desktop 才能启动。
 
 安装会使用 Harness process permission 执行 third-party package 与 plugin code，位于 agent sandbox 之外。对话框会提醒用户只安装可信 package。Stable error category 会区分 invalid request、missing package 或 path、Git failure、blocked install-time build script、profile reconciliation 与 activation failure，同时保留 technical details。Blocked-build 诊断会列出从 pnpm 输出解析出的实际 package，不会把已有 dependency 的脚本归因给本次请求的插件。如果 pnpm 在失败前改写了 profile dependencies，错误会记录这一事实，Renderer 也会刷新 catalog，而不会声称已回滚。
 
