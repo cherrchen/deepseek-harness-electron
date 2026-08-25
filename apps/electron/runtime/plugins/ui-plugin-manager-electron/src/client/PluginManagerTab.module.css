@@ -64,6 +64,8 @@
   padding: 0 2px;
 }
 
+.installButton { margin-left: auto; }
+
 .headingRow h3 {
   font-size: 13px;
   line-height: 20px;

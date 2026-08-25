@@ -90,17 +90,17 @@ describe('runtime plugin discovery', () => {
     const plugins = discoverManagedPlugins(electronRoot)
     expect(plugins.some(plugin =>
       plugin.name === '@dsh-electron/dsh-electron-desktop-capabilities'
-      && plugin.source === 'desktop-runtime'
+      && plugin.ownership === 'system'
       && plugin.required
       && !plugin.manageable)).toBe(true)
     expect(plugins.some(plugin =>
       plugin.name === '@dsh-electron/dsh-client-ui-details-host'
-      && plugin.source === 'desktop-runtime'
+      && plugin.ownership === 'system'
       && plugin.required
       && !plugin.manageable)).toBe(true)
     expect(plugins.some(plugin =>
       plugin.name === '@dsh-electron/dsh-plugin-git'
-      && plugin.source === 'ecosystem'
+      && plugin.ownership === 'bundled'
       && !plugin.required
       && plugin.manageable)).toBe(true)
     const appManifest = JSON.parse(readFileSync(join(electronRoot, 'package.json'), 'utf8')) as {

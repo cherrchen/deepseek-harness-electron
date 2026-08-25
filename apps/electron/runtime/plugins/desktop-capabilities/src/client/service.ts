@@ -39,6 +39,7 @@ function createLazyDesktopCapabilities(): DesktopCapabilitiesContract {
     },
     plugins: {
       list: async () => resolve().plugins.list(),
+      install: async request => resolve().plugins.install(request),
       enable: async name => resolve().plugins.enable(name),
       disable: async name => resolve().plugins.disable(name),
       reload: async name => resolve().plugins.reload(name),

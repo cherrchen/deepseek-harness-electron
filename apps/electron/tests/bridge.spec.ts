@@ -41,6 +41,7 @@ describe('desktop bridge constants', () => {
       'deepseek-desktop:window:close',
       'deepseek-desktop:window:getState',
       'deepseek-desktop:plugins:list',
+      'deepseek-desktop:plugins:install',
       'deepseek-desktop:plugins:enable',
       'deepseek-desktop:plugins:disable',
       'deepseek-desktop:plugins:reload',

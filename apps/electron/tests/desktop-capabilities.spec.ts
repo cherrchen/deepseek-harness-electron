@@ -38,6 +38,7 @@ describe('desktop capability provider contract', () => {
       },
       plugins: {
         list: async () => { calls.push('plugins.list'); return { entries: [] } },
+        install: async () => { calls.push('plugins.install'); return { name: '@example/plugin', version: '1.0.0', kind: 'runtime-plugin' as const, activation: 'activated' as const, source: 'registry' as const } },
         enable: async (name: string) => { calls.push(`plugins.enable:${name}`) },
         disable: async (name: string) => { calls.push(`plugins.disable:${name}`) },
         reload: async (name: string) => { calls.push(`plugins.reload:${name}`) },
@@ -79,6 +80,7 @@ describe('desktop capability provider contract', () => {
     await desktop.clipboard.writeText('hello')
     desktop.updater.subscribe(() => {})
     expect(await desktop.plugins.list()).toEqual({ entries: [] })
+    await desktop.plugins.install({ source: 'registry', packageName: '@example/plugin' })
     await desktop.plugins.enable('@example/plugin')
     await desktop.plugins.disable('@example/plugin')
     await desktop.plugins.reload('@example/plugin')
@@ -86,6 +88,7 @@ describe('desktop capability provider contract', () => {
     expect(calls).toContain('clipboard.writeText:hello')
     expect(calls).toContain('updater.subscribe')
     expect(calls).toContain('plugins.list')
+    expect(calls).toContain('plugins.install')
     expect(calls).toContain('plugins.enable:@example/plugin')
     expect(calls).toContain('plugins.disable:@example/plugin')
     expect(calls).toContain('plugins.reload:@example/plugin')

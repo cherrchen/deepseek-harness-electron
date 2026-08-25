@@ -1,0 +1,14 @@
+.dialog { width: min(560px, calc(100vw - 32px)); }
+.tabs { display: flex; gap: 6px; border-bottom: 1px solid var(--dsw-alias-border-l2); padding-bottom: 10px; }
+.form { display: flex; flex-direction: column; gap: 16px; margin: 18px 0 0; border: 0; padding: 0; }
+.field { display: flex; flex-direction: column; gap: 7px; color: var(--dsw-alias-label-secondary); font-size: 12px; line-height: 18px; }
+.pathRow { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 8px; }
+.radio { display: flex; align-items: flex-start; gap: 8px; border: 1px solid var(--dsw-alias-border-l2); border-radius: 8px; padding: 10px; }
+.radio span, .success, .failure { display: flex; flex-direction: column; gap: 3px; }
+.radio small { color: var(--dsw-alias-label-tertiary); }
+.progress { margin: 16px 0 0; color: var(--dsw-alias-label-secondary); font-size: 13px; }
+.success, .failure { margin-top: 18px; border-radius: 8px; padding: 12px; font-size: 13px; line-height: 19px; }
+.success { background: color-mix(in srgb, var(--dsw-alias-state-success-primary) 10%, transparent); }
+.failure { background: color-mix(in srgb, var(--dsw-alias-state-error-primary) 8%, transparent); }
+.failure strong { color: var(--dsw-alias-state-error-primary); }
+.failure pre { max-height: 180px; overflow: auto; white-space: pre-wrap; font-size: 11px; }

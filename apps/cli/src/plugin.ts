@@ -16,6 +16,7 @@ import { join, resolve } from 'node:path'
 import {
   DEFAULT_PROFILE_BUNDLES,
   initProfile,
+  inspectBundlePackage,
   PROFILE_TEMPLATES,
   readProfileManifest,
   resolveBundleDir,
@@ -33,15 +34,18 @@ const NAME = 'dsh'
  * @param profileDir - the profile directory (resolution anchor).
  * @returns true when the package manifest declares `dsh.bundle`.
  */
-function exportsPatch(packageName: string, profileDir: string): boolean {
+function installedPackageKind(packageName: string, profileDir: string): 'plain' | 'bundle' | 'invalid' {
   let dir: string
   try {
     dir = resolveBundleDir(NAME, packageName, INSTALL_ANCHOR, profileDir)
   } catch {
-    return false // pnpm reported success yet the package is unresolvable — treat as plain
+    return 'plain' // pnpm reported success yet the package is unresolvable — treat as plain
   }
-  const manifest = readProfileManifest(NAME, dir)
-  return manifest.dsh?.bundle?.patch !== undefined
+  const inspection = inspectBundlePackage(NAME, dir)
+  if (inspection.kind === 'invalid') {
+    process.stderr.write(`${NAME}: warning: ${packageName} declares an invalid dsh.bundle — ${inspection.reason}\n`)
+  }
+  return inspection.kind
 }
 
 /**
@@ -61,13 +65,22 @@ function reconcilePlugins(before: ProfileManifest, profileDir: string): void {
   const beforeDeps = new Set(Object.keys(before.dependencies ?? {}))
   const dependencies = Object.keys(after.dependencies ?? {})
   const plugins = after.dsh?.profile?.bundles ?? []
+  const installedKinds = new Map<string, ReturnType<typeof installedPackageKind>>()
+  const kindOf = (packageName: string): ReturnType<typeof installedPackageKind> => {
+    const cached = installedKinds.get(packageName)
+    if (cached !== undefined) return cached
+    const kind = installedPackageKind(packageName, profileDir)
+    installedKinds.set(packageName, kind)
+    return kind
+  }
   let changed = false
   for (const packageName of dependencies) {
-    const isBundle = exportsPatch(packageName, profileDir)
+    const packageKind = kindOf(packageName)
+    const isBundle = packageKind === 'bundle'
     if (isBundle && !plugins.includes(packageName)) {
       plugins.push(packageName)
       changed = true
-    } else if (!isBundle && !beforeDeps.has(packageName)) {
+    } else if (packageKind === 'plain' && !beforeDeps.has(packageName)) {
       process.stderr.write(
         `${NAME}: warning: ${packageName} declares no dsh.bundle — installed as a plain dependency, not a profile layer `
         + '(a later update that gains one activates it automatically)\n',
@@ -79,7 +92,7 @@ function reconcilePlugins(before: ProfileManifest, profileDir: string): void {
     // Only dependency-managed entries are subject to removal; template
     // bundles (dsh-base and friends) are not dependencies.
     const wasDependency = beforeDeps.has(packageName) || dependencySet.has(packageName)
-    const stillBundle = dependencySet.has(packageName) && exportsPatch(packageName, profileDir)
+    const stillBundle = dependencySet.has(packageName) && kindOf(packageName) === 'bundle'
     if (wasDependency && !stillBundle) {
       plugins.splice(plugins.indexOf(packageName), 1)
       changed = true
@@ -149,8 +162,8 @@ export function runPlugin(profile: string, args: readonly string[]): number {
     process.stderr.write(`${NAME}: pnpm failed in profile directory ${dir}\n`)
     if (args.some(argument => /^git\+|^github:|\.git(?:#|$)/.test(argument))) {
       process.stderr.write(
-        `${NAME}: git-hosted plugins build on install via their prepare script, which pnpm blocks until allowed — `
-        + `add the exact key pnpm printed above under allowBuilds in ${join(dir, 'pnpm-workspace.yaml')}, then re-run\n`,
+        `${NAME}: git package installation did not complete; if pnpm named a blocked script above, `
+        + `review that package before adding its exact key under allowBuilds in ${join(dir, 'pnpm-workspace.yaml')}\n`,
       )
     }
   }

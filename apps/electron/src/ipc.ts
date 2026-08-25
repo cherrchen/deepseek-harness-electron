@@ -12,6 +12,8 @@ import {
 import { DesktopServices, parsePickDirectoryOptions } from './desktop/services.ts'
 import type { HarnessTransport } from './harness/transport.ts'
 import type { PluginLifecycleController } from './plugin-lifecycle.ts'
+import { PluginInstallError, type PluginInstallRequest } from './plugin-install-contract.ts'
+import type { PluginPackageService } from './plugin-install.ts'
 
 const updaterSubscriptions = new WeakMap<WebContents, () => void>()
 const themeSubscriptions = new WeakMap<WebContents, () => void>()
@@ -28,6 +30,7 @@ export function installDesktopIpc(
   desktop: DesktopServices,
   isTrustedContents: (contents: WebContents) => boolean,
   getPluginLifecycle: () => PluginLifecycleController,
+  getPluginPackages: () => PluginPackageService,
 ): void {
   const guard = (event: Electron.IpcMainInvokeEvent): void => {
     if (!isTrustedContents(event.sender)) {
@@ -140,6 +143,26 @@ export function installDesktopIpc(
   ipcMain.handle(DesktopIpcChannel.pluginsList, async (event) => {
     guard(event)
     return await getPluginLifecycle().list()
+  })
+
+  ipcMain.handle(DesktopIpcChannel.pluginsInstall, async (event, request: PluginInstallRequest) => {
+    guard(event)
+    try {
+      return { ok: true, result: await getPluginPackages().install(request) }
+    } catch (error) {
+      const failure = error instanceof PluginInstallError
+        ? error
+        : new PluginInstallError('package-manager-failed', 'Plugin installation failed.', String(error))
+      return {
+        ok: false,
+        error: {
+          code: failure.code,
+          message: failure.message,
+          ...(failure.details === undefined ? {} : { details: failure.details }),
+          ...(failure.profileChanged ? { profileChanged: true } : {}),
+        },
+      }
+    }
   })
 
   ipcMain.handle(DesktopIpcChannel.pluginsEnable, async (event, name: unknown) => {

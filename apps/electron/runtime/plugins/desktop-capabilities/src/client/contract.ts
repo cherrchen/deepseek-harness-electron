@@ -104,8 +104,12 @@ export interface DesktopCapabilitiesContract {
     show(options: DesktopNotificationOptions): Promise<DesktopNotificationResult>
   }
   plugins: {
-    /** Read current lifecycle state for bundled plugins. */
+    /** Read the current profile-aware plugin catalog and runtime state. */
     list(): Promise<import('../../../../../src/plugin-lifecycle-contract.ts').PluginLifecycleSnapshot>
+    /** Install one package into the active Desktop profile. */
+    install(
+      request: import('../../../../../src/plugin-install-contract.ts').PluginInstallRequest,
+    ): Promise<import('../../../../../src/plugin-install-contract.ts').PluginInstallResult>
     /** Enable one manageable bundled ecosystem plugin. */
     enable(name: string): Promise<void>
     /** Disable one manageable bundled ecosystem plugin. */
@@ -203,6 +207,7 @@ export function createDesktopCapabilities(bridge: DesktopBridge): DesktopCapabil
     },
     plugins: {
       list: () => bridge.plugins.list(),
+      install: request => bridge.plugins.install(request),
       enable: name => bridge.plugins.enable(name),
       disable: name => bridge.plugins.disable(name),
       reload: name => bridge.plugins.reload(name),

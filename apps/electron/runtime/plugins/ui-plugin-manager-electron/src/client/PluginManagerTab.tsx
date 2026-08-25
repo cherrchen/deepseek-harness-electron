@@ -22,10 +22,12 @@ import {
 } from './plugin-manager-controller.ts'
 import type { PluginManagerLocaleKey } from './locales.ts'
 import css from './PluginManagerTab.module.css'
+import { PluginInstallDialog } from './PluginInstallDialog.tsx'
 
 /** Lifecycle capability injected from `ctx.desktop`. */
 export interface PluginManagerTabInjected {
   plugins: DesktopCapabilitiesContract['plugins']
+  dialog: DesktopCapabilitiesContract['dialog']
 }
 
 /** Full props assembled by the upstream Plugins tab renderer. */
@@ -93,6 +95,14 @@ function lifecyclePresentation(
   if (activeOperation?.plugin === plugin.name) {
     return { label: t(OPERATION_KEYS[activeOperation.kind]), dot: 'ongoing' }
   }
+  if (plugin.runtime === undefined) {
+    return {
+      label: t(plugin.activation === 'profile-restart'
+        ? 'restartRequired'
+        : plugin.activation === 'reconcile-required' ? 'installationIncomplete' : 'installedDependency'),
+      ...(plugin.activation === 'reconcile-required' ? { dot: 'error' as const } : {}),
+    }
+  }
   if (plugin.runtime === 'absent') {
     return plugin.desiredEnabled ? { label: t('notRunning') } : { label: t('disabled') }
   }
@@ -126,7 +136,7 @@ function PluginRow({ plugin, state, mutate, t, readOnly = false }: {
   const actions = readOnly ? [] : availableActions(plugin)
   const globallyLocked = state.activeOperation !== undefined
   return (
-    <li className={css.pluginRow} data-runtime={plugin.runtime} data-plugin={plugin.name}>
+    <li className={css.pluginRow} data-runtime={plugin.runtime ?? plugin.activation} data-plugin={plugin.name}>
       <div className={css.pluginIdentity}>
         <strong>{title}</strong>
         <code>{plugin.name}</code>
@@ -165,11 +175,13 @@ function PluginRow({ plugin, state, mutate, t, readOnly = false }: {
 }
 
 /** Installed plugin lifecycle view mounted lazily by the upstream Plugins section. */
-export function PluginManagerTab({ plugins, t }: PluginManagerTabProps): ReactNode {
+export function PluginManagerTab({ plugins, dialog, t }: PluginManagerTabProps): ReactNode {
   const controllerRef = useRef<PluginManagerController>()
   const [state, setState] = useState<PluginManagerState>({ status: 'loading' })
   const [query, setQuery] = useState('')
   const [systemOpen, setSystemOpen] = useState(false)
+  const [installOpen, setInstallOpen] = useState(false)
+  const [installPending, setInstallPending] = useState(false)
 
   useEffect(() => {
     const controller = new PluginManagerController(plugins)
@@ -184,12 +196,12 @@ export function PluginManagerTab({ plugins, t }: PluginManagerTabProps): ReactNo
   }, [plugins])
 
   const snapshot = state.snapshot
-  const manageable = snapshot?.entries.filter(plugin => plugin.manageable) ?? []
-  const system = snapshot?.entries.filter(plugin => !plugin.manageable) ?? []
+  const installed = snapshot?.entries.filter(plugin => plugin.manageable || plugin.ownership === 'profile') ?? []
+  const system = snapshot?.entries.filter(plugin => !plugin.manageable && plugin.ownership !== 'profile') ?? []
   const normalizedQuery = query.trim().toLocaleLowerCase()
   const filtered = useMemo(
-    () => manageable.filter(plugin => matchesPlugin(plugin, normalizedQuery)),
-    [manageable, normalizedQuery],
+    () => installed.filter(plugin => matchesPlugin(plugin, normalizedQuery)),
+    [installed, normalizedQuery],
   )
   const mutate = (operation: ActivePluginOperation): void => {
     void controllerRef.current?.mutate(operation)
@@ -235,15 +247,24 @@ export function PluginManagerTab({ plugins, t }: PluginManagerTabProps): ReactNo
           <div className={css.headingRow}>
             <h3>{t('installed')}</h3>
             <span>{filtered.length}</span>
+            <Button
+              size="sm"
+              variant="primary"
+              className={css.installButton}
+              disabled={state.activeOperation !== undefined || installPending}
+              onClick={() => { setInstallOpen(true) }}
+            >
+              {t('installPlugin')}
+            </Button>
           </div>
-          {manageable.length === 0 ? <p className={css.status}>{t('empty')}</p> : null}
-          {manageable.length > 0 && filtered.length === 0
+          {installed.length === 0 ? <p className={css.status}>{t('empty')}</p> : null}
+          {installed.length > 0 && filtered.length === 0
             ? <p className={css.status}>{t('emptySearch')}</p>
             : null}
           {filtered.length === 0 ? null : (
             <ul className={css.pluginList}>
               {filtered.map(plugin => (
-                <PluginRow key={plugin.name} plugin={plugin} state={state} mutate={mutate} t={t} />
+                <PluginRow key={plugin.name} plugin={plugin} state={state} mutate={mutate} t={t} readOnly={installPending} />
               ))}
             </ul>
           )}
@@ -264,6 +285,15 @@ export function PluginManagerTab({ plugins, t }: PluginManagerTabProps): ReactNo
               </ul>
             </DisclosureRow>
           </div>
+          <PluginInstallDialog
+            open={installOpen}
+            plugins={plugins}
+            dialog={dialog}
+            t={t}
+            onClose={() => { setInstallOpen(false) }}
+            onPendingChange={setInstallPending}
+            onInstalled={async () => { await controllerRef.current?.refresh() }}
+          />
         </>
       ) : null}
     </section>

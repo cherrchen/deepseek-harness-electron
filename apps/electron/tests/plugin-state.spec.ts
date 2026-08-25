@@ -20,7 +20,7 @@ describe('plugin state', () => {
     const root = await mkdtemp(join(tmpdir(), 'dsh-electron-plugin-state-'))
     try {
       expect(loadPluginState(statePath(root))).toEqual({
-        state: { version: 1, disabled: [] },
+        state: { version: 2, disabled: [], profileManaged: [] },
         dirty: false,
         warnings: [],
       })
@@ -31,7 +31,11 @@ describe('plugin state', () => {
 
   it('round-trips a valid disabled set through disk', async () => {
     const root = await mkdtemp(join(tmpdir(), 'dsh-electron-plugin-state-'))
-    const state: PluginState = { version: PLUGIN_STATE_VERSION, disabled: ['@dsh-electron/dsh-plugin-git'] }
+    const state: PluginState = {
+      version: PLUGIN_STATE_VERSION,
+      disabled: ['@dsh-electron/dsh-plugin-git'],
+      profileManaged: ['@example/profile-plugin'],
+    }
     try {
       await savePluginState(statePath(root), state)
       expect(loadPluginState(statePath(root))).toEqual({
@@ -54,6 +58,11 @@ describe('plugin state', () => {
       const loaded = loadPluginState(statePath(root))
       expect(loaded.state.disabled).toEqual(['@dsh-electron/dsh-plugin-git', '@old/plugin'])
       expect(loaded.dirty).toBe(true)
+      expect(loaded.state).toEqual({
+        version: 2,
+        disabled: ['@dsh-electron/dsh-plugin-git', '@old/plugin'],
+        profileManaged: [],
+      })
       const reconciled = reconcilePluginState(loaded.state, ['@dsh-electron/dsh-plugin-git'])
       expect(reconciled.state.disabled).toEqual(['@dsh-electron/dsh-plugin-git'])
       expect(reconciled.removed).toEqual(['@old/plugin'])
@@ -67,7 +76,7 @@ describe('plugin state', () => {
     try {
       writeFileSync(statePath(root), '{"version":1,"disabled":[', 'utf8')
       const loaded = loadPluginState(statePath(root))
-      expect(loaded.state).toEqual({ version: 1, disabled: [] })
+      expect(loaded.state).toEqual({ version: 2, disabled: [], profileManaged: [] })
       expect(loaded.warnings[0]).toContain('failed to parse')
       expect(readFileSync(statePath(root), 'utf8')).toBe('{"version":1,"disabled":[')
     } finally {
@@ -80,7 +89,7 @@ describe('plugin state', () => {
     try {
       writeFileSync(statePath(root), JSON.stringify({ version: 99, disabled: ['@dsh-electron/dsh-plugin-git'] }), 'utf8')
       const loaded = loadPluginState(statePath(root))
-      expect(loaded.state).toEqual({ version: 1, disabled: [] })
+      expect(loaded.state).toEqual({ version: 2, disabled: [], profileManaged: [] })
       expect(loaded.warnings[0]).toContain('unsupported version 99')
     } finally {
       await rm(root, { recursive: true, force: true })

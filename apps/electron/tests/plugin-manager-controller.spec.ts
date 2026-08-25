@@ -13,7 +13,7 @@ function entry(runtime: PluginLifecycleEntry['runtime'], desiredEnabled = true):
     name: PLUGIN,
     version: '0.2.0',
     description: 'Git integration',
-    source: 'ecosystem',
+    ownership: 'bundled', kind: 'runtime-plugin', installSource: 'bundled', activation: 'hot',
     hasClient: true,
     manageable: true,
     required: false,
@@ -44,6 +44,7 @@ function capabilities(): DesktopCapabilitiesContract['plugins'] & {
 } {
   return {
     list: vi.fn<DesktopCapabilitiesContract['plugins']['list']>(),
+    install: vi.fn<DesktopCapabilitiesContract['plugins']['install']>(),
     enable: vi.fn<DesktopCapabilitiesContract['plugins']['enable']>(),
     disable: vi.fn<DesktopCapabilitiesContract['plugins']['disable']>(),
     reload: vi.fn<DesktopCapabilitiesContract['plugins']['reload']>(),

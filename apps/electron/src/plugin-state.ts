@@ -2,14 +2,16 @@ import { existsSync, readFileSync } from 'node:fs'
 import { writeTextFileAtomic } from './text-file.ts'
 
 /** Current on-disk version of Electron's plugin preference file. */
-export const PLUGIN_STATE_VERSION = 1
+export const PLUGIN_STATE_VERSION = 2
 
-/** Persisted user preferences for bundled ecosystem plugin enablement. */
+/** Persisted user preferences and Desktop-owned profile plugin membership. */
 export interface PluginState {
   /** File-format version for future migrations. */
   version: typeof PLUGIN_STATE_VERSION
-  /** Distribution plugin package names explicitly disabled by the user. */
+  /** Runtime plugin package names explicitly disabled by the user. */
   disabled: string[]
+  /** Profile dependencies installed through the Desktop Plugin Manager. */
+  profileManaged: string[]
 }
 
 /** Parsed state plus normalization diagnostics. */
@@ -54,14 +56,16 @@ export function loadPluginState(path: string): LoadedPluginState {
 }
 
 /**
- * Remove disabled names absent from the current distribution inventory.
+ * Remove state names absent from the current plugin catalog or profile dependencies.
  * @param state - Parsed persisted state.
- * @param availableNames - Current bundled ecosystem package names.
+ * @param availableNames - Current lifecycle-manageable runtime plugin names.
+ * @param profileDependencyNames - Current direct profile dependency names.
  * @returns Reconciled state plus removed stale names.
  */
 export function reconcilePluginState(
   state: PluginState,
   availableNames: readonly string[],
+  profileDependencyNames: readonly string[] = state.profileManaged,
 ): { state: PluginState; removed: string[] } {
   const available = new Set(availableNames)
   const kept: string[] = []
@@ -70,12 +74,16 @@ export function reconcilePluginState(
     if (available.has(name)) kept.push(name)
     else removed.push(name)
   }
+  const profileDependencies = new Set(profileDependencyNames)
+  const profileManaged = state.profileManaged.filter(name => profileDependencies.has(name))
+  const removedManaged = state.profileManaged.filter(name => !profileDependencies.has(name))
   return {
     state: {
       version: PLUGIN_STATE_VERSION,
       disabled: kept,
+      profileManaged,
     },
-    removed,
+    removed: [...removed, ...removedManaged],
   }
 }
 
@@ -94,6 +102,7 @@ function emptyPluginState(): PluginState {
   return {
     version: PLUGIN_STATE_VERSION,
     disabled: [],
+    profileManaged: [],
   }
 }
 
@@ -105,8 +114,8 @@ function normalizePluginState(value: unknown): LoadedPluginState {
       warnings: ['top-level JSON value must be an object; using defaults'],
     }
   }
-  const record = value as { version?: unknown; disabled?: unknown }
-  if (record.version !== PLUGIN_STATE_VERSION) {
+  const record = value as { version?: unknown; disabled?: unknown; profileManaged?: unknown }
+  if (record.version !== 1 && record.version !== PLUGIN_STATE_VERSION) {
     return {
       state: emptyPluginState(),
       dirty: false,
@@ -114,30 +123,39 @@ function normalizePluginState(value: unknown): LoadedPluginState {
     }
   }
   const warnings: string[] = []
-  const seen = new Set<string>()
-  const disabled: string[] = []
-  if (!Array.isArray(record.disabled)) {
-    warnings.push('disabled must be an array; using defaults')
-  } else {
-    for (const item of record.disabled) {
-      if (typeof item !== 'string' || item.length === 0) {
-        warnings.push('disabled contains a non-string entry; dropping it')
-        continue
-      }
-      if (seen.has(item)) {
-        warnings.push(`disabled repeats ${JSON.stringify(item)}; deduplicating`)
-        continue
-      }
-      seen.add(item)
-      disabled.push(item)
-    }
-  }
+  const disabled = normalizeNameList(record.disabled, 'disabled', warnings)
+  const profileManaged = record.version === 1
+    ? []
+    : normalizeNameList(record.profileManaged, 'profileManaged', warnings)
   return {
     state: {
       version: PLUGIN_STATE_VERSION,
       disabled,
+      profileManaged,
     },
-    dirty: warnings.length > 0,
+    dirty: record.version === 1 || warnings.length > 0,
     warnings,
   }
+}
+
+function normalizeNameList(value: unknown, field: string, warnings: string[]): string[] {
+  if (!Array.isArray(value)) {
+    warnings.push(`${field} must be an array; using defaults`)
+    return []
+  }
+  const seen = new Set<string>()
+  const names: string[] = []
+  for (const item of value) {
+    if (typeof item !== 'string' || item.length === 0) {
+      warnings.push(`${field} contains a non-string entry; dropping it`)
+      continue
+    }
+    if (seen.has(item)) {
+      warnings.push(`${field} repeats ${JSON.stringify(item)}; deduplicating`)
+      continue
+    }
+    seen.add(item)
+    names.push(item)
+  }
+  return names
 }

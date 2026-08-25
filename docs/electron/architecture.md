@@ -345,7 +345,7 @@ The directory picker (`@dsh-electron/dsh-electron-ui-directory-picker`) is the f
 
 The brand plugin (`@dsh-electron/dsh-electron-ui-brand`) always fills `sidebar.brand.mark`, `sidebar.brand.name`, and `conversation.hero.brand.mark` with DeepSeek Harness artwork, so Desktop does not depend on the upstream `DSH_CLIENT_BUILD_PROFILE=official` client build for product branding.
 
-The Plugin Manager (`@dsh-electron/dsh-electron-ui-plugin-manager`) consumes `ctx.desktop.plugins` and contributes the `installed` view through the upstream-owned `settings.plugins.tab` slot. It reads lifecycle snapshots only while mounted and polls only while one global lifecycle mutation is active; required Desktop runtime plugins remain read-only.
+The Plugin Manager (`@dsh-electron/dsh-electron-ui-plugin-manager`) consumes `ctx.desktop.plugins` and contributes the `installed` view through the upstream-owned `settings.plugins.tab` slot. It reads the refreshable `web` profile catalog only while mounted, polls only while one global lifecycle mutation is active, and installs Registry, Git, or local packages through upstream `dsh plugin`; required Desktop runtime plugins remain read-only.
 
 Details Host (`@dsh-electron/dsh-client-ui-details-host`) is required portable UI infrastructure. Canonical source is `cherrchen/dsh-client-ui-details-host`; `apps/electron/runtime/plugins/ui-details-host` is the git subtree mirror. Electron rebuilds Host and Client artifacts from that source. The package mounts `ctx.shellDetails` at boot and does not occupy `details` until a consumer calls `open(id)`. Loading it MUST leave the upstream DetailsPanel as the column winner.
 

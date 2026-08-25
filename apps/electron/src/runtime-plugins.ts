@@ -9,9 +9,12 @@ import {
   unlinkSync,
 } from 'node:fs'
 import { dirname, join } from 'node:path'
-import type { ManagedPluginSource } from './plugin-lifecycle-contract.ts'
-
-export type { ManagedPluginSource } from './plugin-lifecycle-contract.ts'
+import type {
+  PluginActivation,
+  PluginInstallSource,
+  PluginOwnership,
+  PluginPackageKind,
+} from './plugin-lifecycle-contract.ts'
 
 /** Relative path from the Electron application root to bundled runtime plugins. */
 export const RUNTIME_PLUGINS_RELATIVE = join('runtime', 'plugins')
@@ -34,12 +37,20 @@ export interface RuntimePluginManifest {
 
 /** Runtime plugin plus lifecycle-management policy owned by Electron Main. */
 export interface ManagedPlugin extends RuntimePluginManifest {
-  /** Whether this artifact comes from runtime/plugins or ecosystem inventory. */
-  source: ManagedPluginSource
+  /** Authority that owns the package's catalog membership. */
+  ownership: PluginOwnership
+  /** Installed package behavior. */
+  kind: PluginPackageKind
+  /** Package acquisition origin. */
+  installSource: PluginInstallSource
+  /** Direct dependency spec written to the profile manifest. */
+  requestedSpec?: string
   /** Whether users may enable, disable, or reload this plugin at runtime. */
   manageable: boolean
   /** Whether the desktop shell requires the plugin in static bootstrap composition. */
   required: boolean
+  /** Runtime activation behavior. */
+  activation: PluginActivation
 }
 
 interface ElectronPluginInventoryManifest {
@@ -146,15 +157,21 @@ interface PackageManifest {
 export function discoverManagedPlugins(appPath: string): ManagedPlugin[] {
   const runtime = discoverRuntimePlugins(appPath).map<ManagedPlugin>(plugin => ({
     ...plugin,
-    source: 'desktop-runtime',
+    ownership: 'system',
+    kind: 'runtime-plugin',
+    installSource: 'bundled',
     manageable: false,
     required: true,
+    activation: 'hot',
   }))
   const ecosystem = discoverEcosystemPlugins(appPath).map<ManagedPlugin>(plugin => ({
     ...plugin,
-    source: 'ecosystem',
+    ownership: 'bundled',
+    kind: 'runtime-plugin',
+    installSource: 'bundled',
     manageable: true,
     required: false,
+    activation: 'hot',
   }))
   return [...runtime, ...ecosystem]
 }
