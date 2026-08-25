@@ -162,7 +162,7 @@ describe('runtime plugin hot plug', () => {
       directoryName: 'lifecycle-probe',
       rootPath: lifecycleProbeRoot,
       hasClient: false,
-      source: 'ecosystem',
+      ownership: 'bundled', kind: 'runtime-plugin', installSource: 'bundled', activation: 'hot',
       manageable: true,
       required: false,
     }
@@ -170,7 +170,7 @@ describe('runtime plugin hot plug', () => {
     cleanup.push(async () => { await rm(join(logPath, '..'), { recursive: true, force: true }) })
     const { child, controller, probe, logs } = await startHarnessForPlugins(
       [plugin],
-      { version: 1, disabled: [] },
+      { version: 2, disabled: [], profileManaged: [] },
       { DSH_ELECTRON_LIFECYCLE_PROBE_LOG: logPath },
     )
     expect(child.pid).toBeTypeOf('number')
@@ -204,7 +204,7 @@ describe('runtime plugin hot plug', () => {
     if (plugin === undefined) throw new Error('bundled Git plugin is missing from ecosystem inventory')
     const { controller, probe, logs } = await startHarnessForPlugins(
       [plugin],
-      { version: 1, disabled: [] },
+      { version: 2, disabled: [], profileManaged: [] },
     )
 
     await waitForInventoryState(probe, plugin.name, 'active')
