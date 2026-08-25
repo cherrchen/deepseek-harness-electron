@@ -29,13 +29,6 @@
   font-size: 11px;
 }
 
-.actions {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 6px;
-}
-
 .tabs {
   display: flex;
   flex: none;

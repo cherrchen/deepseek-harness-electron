@@ -29,6 +29,7 @@
     "src/client/path-display.ts",
     "src/client/ComposerToolTrigger.tsx",
     "src/client/GitBranchControl.tsx",
+    "src/client/GitDetailsHeaderActions.tsx",
     "src/client/GitDetailsSurface.tsx",
     "src/client/details/ChangesTab.tsx",
     "src/client/details/CommitTab.tsx",
