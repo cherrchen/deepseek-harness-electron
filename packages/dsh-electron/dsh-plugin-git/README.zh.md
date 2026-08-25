@@ -33,13 +33,7 @@ dsh plugin --profile web add /path/to/dsh-client-ui-details-host
 dsh plugin --profile web add /path/to/dsh-plugin-git
 ```
 
-在 `cordis.yml`（或 profile patch 层）中挂载两个 package，Details Host 排在 Git 之前：
-
-```yaml
-plugins:
-  - name: '@dsh-electron/dsh-client-ui-details-host'
-  - name: '@dsh-electron/dsh-plugin-git'
-```
+每次 `dsh plugin add` 都会激活 package 自带的 `cordis.patch.yml` 层。请先安装 Details Host，再安装 Git，以便 Git client 加载时 `ctx.shellDetails` 已可用。
 
 在 `@dsh-electron/dsh-client-ui-details-host` 上线 npm 之前，本仓库本地开发通过 `tests/fixtures/` 下的 pinned fixture tarball 安装 Details Host。
 

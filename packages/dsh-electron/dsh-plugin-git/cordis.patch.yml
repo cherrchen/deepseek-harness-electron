@@ -1,0 +1,4 @@
+# Profile bundle: mount the portable Git service and client UI.
+- insert:
+    - id: dsh-plugin-git
+      name: '@dsh-electron/dsh-plugin-git'
