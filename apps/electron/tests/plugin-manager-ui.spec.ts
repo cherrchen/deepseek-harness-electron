@@ -197,6 +197,55 @@ describe('Electron Plugin Manager view', () => {
     expect(screen.getByText('Review')).toBeTruthy()
   })
 
+  it('keeps an incomplete profile dependency visible without lifecycle controls', async () => {
+    const incomplete = plugin({
+      name: 'dsh-context',
+      ownership: 'profile',
+      kind: 'bundle',
+      installSource: 'git',
+      activation: 'reconcile-required',
+      manageable: false,
+      desiredEnabled: undefined,
+      runtime: undefined,
+    })
+    const plugins = capabilities(snapshot(incomplete))
+    const view = render(createElement(PluginManagerTab, { plugins, dialog, t }))
+
+    expect(await screen.findByText('Installation incomplete')).toBeTruthy()
+    const row = view.container.querySelector('[data-plugin="dsh-context"]')
+    if (row === null) throw new Error('incomplete dependency row missing')
+    expect(within(row).queryByRole('button')).toBeNull()
+  })
+
+  it('refreshes the installed list when failed pnpm changed the profile', async () => {
+    const incomplete = plugin({
+      name: 'dsh-context',
+      ownership: 'profile',
+      kind: 'bundle',
+      installSource: 'git',
+      activation: 'reconcile-required',
+      manageable: false,
+      desiredEnabled: undefined,
+      runtime: undefined,
+    })
+    const plugins = capabilities(snapshot())
+    plugins.list.mockResolvedValueOnce(snapshot()).mockResolvedValue(snapshot(incomplete))
+    const error = Object.assign(new Error('Profile dependencies changed before pnpm stopped.'), {
+      code: 'build-script-blocked',
+      profileChanged: true,
+    })
+    plugins.install.mockRejectedValueOnce(error)
+    render(createElement(PluginManagerTab, { plugins, dialog, t }))
+    await screen.findByText('Installed plugins')
+    fireEvent.click(screen.getByRole('button', { name: 'Install Plugin' }))
+    fireEvent.change(screen.getByLabelText('Package'), { target: { value: 'dsh-context' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Install' }))
+
+    expect(await screen.findByText('Installation incomplete')).toBeTruthy()
+    expect(screen.getByText('Profile dependencies changed before pnpm stopped.')).toBeTruthy()
+    expect(plugins.list).toHaveBeenCalledTimes(2)
+  })
+
   it('shows operation intent, globally locks commands, and reconciles failure', async () => {
     let rejectReload!: (error: Error) => void
     const reload = new Promise<void>((_resolve, reject) => { rejectReload = reject })

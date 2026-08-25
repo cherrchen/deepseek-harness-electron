@@ -101,10 +101,19 @@ export class PluginPackageService {
       } catch (error) {
         throw new PluginInstallError('package-manager-failed', 'The plugin package manager could not start.', String(error))
       }
-      if (command.exitCode !== 0) throw classifyCommandFailure(command.stderr)
       const after = readDependencies(this.profileDir)
-      const dependencyName = identifyInstalledDependency(before, after, normalized.spec)
-      const inspected = inspectProfilePackage(this.profileDir, dependencyName)
+      const changedDependencies = changedDependencyNames(before, after)
+      if (command.exitCode !== 0) {
+        throw classifyCommandFailure(command.stderr, changedDependencies)
+      }
+      let dependencyName: string
+      let inspected: ReturnType<typeof inspectProfilePackage>
+      try {
+        dependencyName = identifyInstalledDependency(before, after, normalized.spec)
+        inspected = inspectProfilePackage(this.profileDir, dependencyName)
+      } catch (error) {
+        throw markProfileChanged(error, changedDependencies.length > 0)
+      }
       const loaded = loadPluginState(this.statePath)
       const state = loaded.state.profileManaged.includes(inspected.name)
         ? loaded.state
@@ -119,6 +128,7 @@ export class PluginPackageService {
             'activation-failed',
             `${inspected.name} was installed but could not be activated.`,
             String(error),
+            true,
           )
         }
       }
@@ -133,6 +143,11 @@ export class PluginPackageService {
       }
     })
   }
+}
+
+function markProfileChanged(error: unknown, profileChanged: boolean): unknown {
+  if (!profileChanged || !(error instanceof PluginInstallError) || error.profileChanged) return error
+  return new PluginInstallError(error.code, error.message, error.details, true)
 }
 
 function readDependencies(profileDir: string): Record<string, string> {
@@ -156,22 +171,45 @@ function identifyInstalledDependency(
   if (changedName !== undefined && changed.length === 1) return changedName
   const registryName = /^(?<name>(?:@[^/@]+\/)?[^/@]+)(?:@.+)?$/.exec(requestedSpec)?.groups?.name
   if (registryName !== undefined && after[registryName] !== undefined) return registryName
+  const matchingSpecs = Object.keys(after).filter(name => after[name] === requestedSpec)
+  if (matchingSpecs.length === 1 && matchingSpecs[0] !== undefined) return matchingSpecs[0]
   throw new PluginInstallError('profile-reconcile-failed', 'The installed package could not be identified in the web profile.')
 }
 
-function classifyCommandFailure(stderr: string): PluginInstallError {
+function changedDependencyNames(before: Record<string, string>, after: Record<string, string>): string[] {
+  return [...new Set([...Object.keys(before), ...Object.keys(after)])]
+    .filter(name => before[name] !== after[name])
+}
+
+function classifyCommandFailure(stderr: string, changedDependencies: readonly string[]): PluginInstallError {
   const details = stderr.trim()
-  if (/allowBuilds|approve-builds|ignored build scripts|prepare script/i.test(stderr)) {
-    return new PluginInstallError('build-script-blocked', 'pnpm blocked this plugin\'s install-time build script. Review the package before allowing it.', details)
+  const residue = changedDependencies.length === 0
+    ? ''
+    : ` Profile dependencies changed before pnpm stopped: ${changedDependencies.join(', ')}. The resulting packages remain installed but inactive.`
+  if (/allowBuilds|approve-builds|ignored build scripts/i.test(stderr)) {
+    const blocked = blockedBuildPackages(stderr)
+    const subject = blocked.length === 0 ? 'one or more packages' : blocked.join(', ')
+    return new PluginInstallError(
+      'build-script-blocked',
+      `pnpm blocked install-time build scripts required by the current web profile: ${subject}. Review those packages before allowing them.${residue}`,
+      details,
+      changedDependencies.length > 0,
+    )
   }
   if (/ERR_PNPM_FETCH_404|404 Not Found/i.test(stderr)) {
-    return new PluginInstallError('package-not-found', 'The requested plugin package was not found.', details)
+    return new PluginInstallError('package-not-found', `The requested plugin package was not found.${residue}`, details, changedDependencies.length > 0)
   }
   if (/authentication failed|permission denied \(publickey\)|repository not found/i.test(stderr)) {
-    return new PluginInstallError('git-auth-failed', 'Git could not authenticate to the repository.', details)
+    return new PluginInstallError('git-auth-failed', `Git could not authenticate to the repository.${residue}`, details, changedDependencies.length > 0)
   }
   if (/git.*(?:not found|ENOENT)/i.test(stderr)) {
-    return new PluginInstallError('git-unavailable', 'Git is unavailable on this system.', details)
+    return new PluginInstallError('git-unavailable', `Git is unavailable on this system.${residue}`, details, changedDependencies.length > 0)
   }
-  return new PluginInstallError('package-manager-failed', 'Plugin installation failed.', details)
+  return new PluginInstallError('package-manager-failed', `Plugin installation failed.${residue}`, details, changedDependencies.length > 0)
+}
+
+function blockedBuildPackages(stderr: string): string[] {
+  const plain = stderr.replaceAll(/\u001B\[[0-?]*[ -/]*[@-~]/g, '')
+  const list = /Ignored build scripts?:\s*([^\n]+)/i.exec(plain)?.[1]
+  return list === undefined ? [] : list.split(',').map(value => value.trim()).filter(Boolean)
 }

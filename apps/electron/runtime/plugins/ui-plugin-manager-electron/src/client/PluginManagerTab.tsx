@@ -96,7 +96,12 @@ function lifecyclePresentation(
     return { label: t(OPERATION_KEYS[activeOperation.kind]), dot: 'ongoing' }
   }
   if (plugin.runtime === undefined) {
-    return { label: t(plugin.activation === 'profile-restart' ? 'restartRequired' : 'installedDependency') }
+    return {
+      label: t(plugin.activation === 'profile-restart'
+        ? 'restartRequired'
+        : plugin.activation === 'reconcile-required' ? 'installationIncomplete' : 'installedDependency'),
+      ...(plugin.activation === 'reconcile-required' ? { dot: 'error' as const } : {}),
+    }
   }
   if (plugin.runtime === 'absent') {
     return plugin.desiredEnabled ? { label: t('notRunning') } : { label: t('disabled') }
@@ -191,12 +196,12 @@ export function PluginManagerTab({ plugins, dialog, t }: PluginManagerTabProps):
   }, [plugins])
 
   const snapshot = state.snapshot
-  const manageable = snapshot?.entries.filter(plugin => plugin.manageable) ?? []
-  const system = snapshot?.entries.filter(plugin => !plugin.manageable) ?? []
+  const installed = snapshot?.entries.filter(plugin => plugin.manageable || plugin.ownership === 'profile') ?? []
+  const system = snapshot?.entries.filter(plugin => !plugin.manageable && plugin.ownership !== 'profile') ?? []
   const normalizedQuery = query.trim().toLocaleLowerCase()
   const filtered = useMemo(
-    () => manageable.filter(plugin => matchesPlugin(plugin, normalizedQuery)),
-    [manageable, normalizedQuery],
+    () => installed.filter(plugin => matchesPlugin(plugin, normalizedQuery)),
+    [installed, normalizedQuery],
   )
   const mutate = (operation: ActivePluginOperation): void => {
     void controllerRef.current?.mutate(operation)
@@ -252,8 +257,8 @@ export function PluginManagerTab({ plugins, dialog, t }: PluginManagerTabProps):
               {t('installPlugin')}
             </Button>
           </div>
-          {manageable.length === 0 ? <p className={css.status}>{t('empty')}</p> : null}
-          {manageable.length > 0 && filtered.length === 0
+          {installed.length === 0 ? <p className={css.status}>{t('empty')}</p> : null}
+          {installed.length > 0 && filtered.length === 0
             ? <p className={css.status}>{t('emptySearch')}</p>
             : null}
           {filtered.length === 0 ? null : (

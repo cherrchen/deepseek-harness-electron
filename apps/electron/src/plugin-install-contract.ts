@@ -61,6 +61,7 @@ export class PluginInstallError extends Error {
     readonly code: PluginInstallErrorCode,
     message: string,
     readonly details?: string,
+    readonly profileChanged = false,
   ) {
     super(message)
     this.name = 'PluginInstallError'
@@ -93,7 +94,7 @@ function normalizeRegistry(value: Record<string, unknown>): NormalizedPluginInst
   }
   const version = typeof value.version === 'string' ? value.version.trim() : ''
   if (/\s|[/\\#]/.test(version)) throw invalid('Registry version or tag is invalid.')
-  return { source: 'registry', spec: version.length === 0 ? name : `${name}@${version}` }
+  return { source: 'registry', spec: `${name}@${version.length === 0 ? 'latest' : version}` }
 }
 
 function normalizeGit(value: Record<string, unknown>): NormalizedPluginInstallRequest {

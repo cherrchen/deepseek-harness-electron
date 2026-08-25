@@ -222,7 +222,7 @@ export type {
 /** Structured IPC response that preserves stable install failure categories. */
 export type PluginInstallWireResult =
   | { ok: true; result: PluginInstallResult }
-  | { ok: false; error: { code: PluginInstallErrorCode; message: string; details?: string } }
+  | { ok: false; error: { code: PluginInstallErrorCode; message: string; details?: string; profileChanged?: true } }
 
 declare global {
   interface Window {

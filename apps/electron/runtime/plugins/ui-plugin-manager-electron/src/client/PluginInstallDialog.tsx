@@ -63,8 +63,16 @@ export function PluginInstallDialog({ open, plugins, dialog, onClose, onInstalle
       setResult(installed)
       setStatus('success')
     } catch (error) {
-      const value = error as Error & { details?: string }
-      setFailure({ message: value.message, ...(value.details === undefined ? {} : { details: value.details }) })
+      const value = error as Error & { details?: string; profileChanged?: boolean }
+      let details = value.details
+      if (value.profileChanged === true) {
+        try {
+          await onInstalled()
+        } catch (refreshError) {
+          details = [details, `Catalog refresh failed: ${String(refreshError)}`].filter(Boolean).join('\n\n')
+        }
+      }
+      setFailure({ message: value.message, ...(details === undefined ? {} : { details }) })
       setStatus('error')
     }
   }

@@ -157,9 +157,10 @@ const bridge: DeepseekDesktopBridge = {
     install: async (request: PluginInstallRequest) => {
       const response = await ipcRenderer.invoke(DesktopIpcChannel.pluginsInstall, request) as PluginInstallWireResult
       if (response.ok) return response.result
-      const error = new Error(response.error.message) as Error & { code: string; details?: string }
+      const error = new Error(response.error.message) as Error & { code: string; details?: string; profileChanged?: boolean }
       error.code = response.error.code
       if (response.error.details !== undefined) error.details = response.error.details
+      if (response.error.profileChanged === true) error.profileChanged = true
       throw error
     },
     enable: (name: string) => ipcRenderer.invoke(DesktopIpcChannel.pluginsEnable, name),

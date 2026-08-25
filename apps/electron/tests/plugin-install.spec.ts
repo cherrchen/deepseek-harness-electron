@@ -11,7 +11,7 @@ import type { PluginLifecycleController } from '../src/plugin-lifecycle.ts'
 
 describe('plugin install request normalization', () => {
   it.each([
-    [{ source: 'registry', packageName: 'dsh-plugin-demo' }, 'dsh-plugin-demo'],
+    [{ source: 'registry', packageName: 'dsh-plugin-demo' }, 'dsh-plugin-demo@latest'],
     [{ source: 'registry', packageName: '@scope/dsh-plugin-demo', version: 'beta' }, '@scope/dsh-plugin-demo@beta'],
     [{ source: 'git', repository: 'owner/repository', ref: 'v1.0.0' }, 'github:owner/repository#v1.0.0'],
     [{ source: 'git', repository: 'https://github.com/owner/repository.git' }, 'github:owner/repository'],
@@ -65,6 +65,7 @@ describe('plugin package service', () => {
       const packageRoot = join(profileDir, 'node_modules', '@fixture', 'plugin')
       mkdirSync(packageRoot, { recursive: true })
       writeFileSync(join(packageRoot, 'package.json'), JSON.stringify({ name: '@fixture/plugin', version: '1.2.3', main: 'index.js' }), 'utf8')
+      writeFileSync(join(packageRoot, 'index.js'), '', 'utf8')
       return { exitCode: 0, stdout: '', stderr: '' }
     })
     try {
@@ -74,6 +75,127 @@ describe('plugin package service', () => {
       })
       expect(activateInstalled).toHaveBeenCalledWith('@fixture/plugin')
       expect(JSON.parse(readFileSync(statePath, 'utf8'))).toMatchObject({ profileManaged: ['@fixture/plugin'] })
+    } finally {
+      await rm(root, { recursive: true, force: true })
+    }
+  })
+
+  it('names the blocked dependency and reports a profile change left by failed pnpm', async () => {
+    const root = await mkdtemp(join(tmpdir(), 'dsh-electron-partial-install-'))
+    const profileDir = join(root, 'profiles', 'web')
+    const statePath = join(root, 'electron', 'plugin-state.json')
+    mkdirSync(profileDir, { recursive: true })
+    mkdirSync(join(statePath, '..'), { recursive: true })
+    writeFileSync(join(profileDir, 'package.json'), JSON.stringify({ dependencies: {} }), 'utf8')
+    writeFileSync(statePath, JSON.stringify({ version: 2, disabled: [], profileManaged: [] }), 'utf8')
+    const runner = vi.fn(async () => {
+      writeFileSync(join(profileDir, 'package.json'), JSON.stringify({ dependencies: { 'dsh-context': 'github:owner/context' } }), 'utf8')
+      return {
+        exitCode: 1,
+        stdout: '',
+        stderr: '[ERR_PNPM_IGNORED_BUILDS] Ignored build scripts: node-pty@1.1.0\nRun "pnpm approve-builds"',
+      }
+    })
+    const lifecycle = {} as PluginLifecycleController
+    try {
+      const service = new PluginPackageService(profileDir, statePath, runner, lifecycle, new PluginMutationCoordinator())
+      const failure = await service.install({ source: 'git', repository: 'owner/context' }).catch((error: unknown) => error)
+      expect(failure).toBeInstanceOf(PluginInstallError)
+      if (!(failure instanceof PluginInstallError)) throw new Error('expected PluginInstallError')
+      expect(failure.code).toBe('build-script-blocked')
+      expect(failure.profileChanged).toBe(true)
+      expect(failure.message).toContain('node-pty@1.1.0')
+      expect(failure.message).toContain('dsh-context')
+    } finally {
+      await rm(root, { recursive: true, force: true })
+    }
+  })
+
+  it('does not attribute an ordinary prepare failure to pnpm build approval', async () => {
+    const root = await mkdtemp(join(tmpdir(), 'dsh-electron-prepare-failure-'))
+    const profileDir = join(root, 'profiles', 'web')
+    const statePath = join(root, 'electron', 'plugin-state.json')
+    mkdirSync(profileDir, { recursive: true })
+    writeFileSync(join(profileDir, 'package.json'), JSON.stringify({ dependencies: {} }), 'utf8')
+    try {
+      const service = new PluginPackageService(
+        profileDir,
+        statePath,
+        async () => ({ exitCode: 1, stdout: '', stderr: 'prepare script failed: TypeScript compilation error' }),
+        {} as PluginLifecycleController,
+        new PluginMutationCoordinator(),
+      )
+      const failure = await service.install({ source: 'git', repository: 'owner/context' }).catch((error: unknown) => error)
+      expect(failure).toBeInstanceOf(PluginInstallError)
+      if (!(failure instanceof PluginInstallError)) throw new Error('expected PluginInstallError')
+      expect(failure.code).toBe('package-manager-failed')
+      expect(failure.profileChanged).toBe(false)
+    } finally {
+      await rm(root, { recursive: true, force: true })
+    }
+  })
+
+  it('identifies an unchanged Git dependency when retrying the same source', async () => {
+    const root = await mkdtemp(join(tmpdir(), 'dsh-electron-git-retry-'))
+    const profileDir = join(root, 'profiles', 'web')
+    const statePath = join(root, 'electron', 'plugin-state.json')
+    const packageRoot = join(profileDir, 'node_modules', 'dsh-context')
+    mkdirSync(packageRoot, { recursive: true })
+    mkdirSync(join(statePath, '..'), { recursive: true })
+    writeFileSync(join(profileDir, 'package.json'), JSON.stringify({ dependencies: { 'dsh-context': 'github:owner/context' } }), 'utf8')
+    writeFileSync(join(packageRoot, 'package.json'), JSON.stringify({
+      name: 'dsh-context', version: '1.0.0', dsh: { bundle: { patch: './cordis.patch.yml' } },
+    }), 'utf8')
+    writeFileSync(join(packageRoot, 'cordis.patch.yml'), '[]\n', 'utf8')
+    writeFileSync(statePath, JSON.stringify({ version: 2, disabled: [], profileManaged: [] }), 'utf8')
+    const lifecycle = {} as PluginLifecycleController
+    try {
+      const service = new PluginPackageService(
+        profileDir,
+        statePath,
+        async () => ({ exitCode: 0, stdout: '', stderr: '' }),
+        lifecycle,
+        new PluginMutationCoordinator(),
+      )
+      await expect(service.install({ source: 'git', repository: 'owner/context' })).resolves.toMatchObject({
+        name: 'dsh-context', kind: 'bundle', activation: 'restart-required',
+      })
+    } finally {
+      await rm(root, { recursive: true, force: true })
+    }
+  })
+
+  it('rejects a bundle whose declared Host entry is missing', async () => {
+    const root = await mkdtemp(join(tmpdir(), 'dsh-electron-invalid-bundle-'))
+    const profileDir = join(root, 'profiles', 'web')
+    const statePath = join(root, 'electron', 'plugin-state.json')
+    const packageRoot = join(profileDir, 'node_modules', 'dsh-context')
+    mkdirSync(packageRoot, { recursive: true })
+    mkdirSync(join(statePath, '..'), { recursive: true })
+    writeFileSync(join(profileDir, 'package.json'), JSON.stringify({ dependencies: {} }), 'utf8')
+    writeFileSync(join(packageRoot, 'package.json'), JSON.stringify({
+      name: 'dsh-context', version: '1.0.0', main: 'lib/index.js', dsh: { bundle: { patch: './cordis.patch.yml' } },
+    }), 'utf8')
+    writeFileSync(join(packageRoot, 'cordis.patch.yml'), '[]\n', 'utf8')
+    writeFileSync(statePath, JSON.stringify({ version: 2, disabled: [], profileManaged: [] }), 'utf8')
+    const lifecycle = {} as PluginLifecycleController
+    try {
+      const service = new PluginPackageService(
+        profileDir,
+        statePath,
+        async () => {
+          writeFileSync(join(profileDir, 'package.json'), JSON.stringify({ dependencies: { 'dsh-context': 'github:owner/context' } }), 'utf8')
+          return { exitCode: 0, stdout: '', stderr: '' }
+        },
+        lifecycle,
+        new PluginMutationCoordinator(),
+      )
+      const failure = await service.install({ source: 'git', repository: 'owner/context' }).catch((error: unknown) => error)
+      expect(failure).toBeInstanceOf(PluginInstallError)
+      if (!(failure instanceof PluginInstallError)) throw new Error('expected PluginInstallError')
+      expect(failure.code).toBe('invalid-package')
+      expect(failure.details).toContain('lib/index.js')
+      expect(failure.profileChanged).toBe(true)
     } finally {
       await rm(root, { recursive: true, force: true })
     }

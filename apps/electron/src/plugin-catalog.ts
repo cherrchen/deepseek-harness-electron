@@ -56,7 +56,6 @@ export class ProfilePluginCatalog implements PluginCatalog {
     const managedNames = new Set(this.getState().profileManaged)
 
     for (const [dependencyName, requestedSpec] of Object.entries(dependencies)) {
-      if (!bundleNames.has(dependencyName) && !managedNames.has(dependencyName)) continue
       if (entries.has(dependencyName)) continue
       const rootPath = join(profileDir, 'node_modules', ...dependencyName.split('/'))
       const manifestPath = join(rootPath, 'package.json')
@@ -68,7 +67,14 @@ export class ProfilePluginCatalog implements PluginCatalog {
       if (typeof manifest.version !== 'string' || manifest.version.length === 0) {
         throw new Error(`profile catalog: package version missing in ${manifestPath}`)
       }
-      const kind = classifyPackage(manifest)
+      const declaredKind = classifyPackage(manifest)
+      const managedRuntime = declaredKind === 'runtime-plugin' && managedNames.has(dependencyName)
+      const kind = declaredKind === 'bundle' ? 'bundle' : managedRuntime ? 'runtime-plugin' : 'dependency'
+      const activation = kind === 'runtime-plugin'
+        ? 'hot'
+        : kind === 'bundle'
+          ? bundleNames.has(dependencyName) ? 'profile-restart' : 'reconcile-required'
+          : 'none'
       entries.set(manifest.name, {
         name: manifest.name,
         version: manifest.version,
@@ -80,9 +86,9 @@ export class ProfilePluginCatalog implements PluginCatalog {
         kind,
         installSource: classifyInstallSource(requestedSpec),
         requestedSpec,
-        manageable: kind === 'runtime-plugin' && managedNames.has(dependencyName),
+        manageable: kind === 'runtime-plugin',
         required: false,
-        activation: kind === 'runtime-plugin' ? 'hot' : kind === 'bundle' ? 'profile-restart' : 'none',
+        activation,
       })
     }
     return [...entries.values()]

@@ -159,6 +159,7 @@ export function installDesktopIpc(
           code: failure.code,
           message: failure.message,
           ...(failure.details === undefined ? {} : { details: failure.details }),
+          ...(failure.profileChanged ? { profileChanged: true } : {}),
         },
       }
     }

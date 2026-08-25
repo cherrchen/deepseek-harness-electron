@@ -8,7 +8,7 @@ export type PluginPackageKind = 'runtime-plugin' | 'bundle' | 'dependency'
 export type PluginInstallSource = 'registry' | 'git' | 'local' | 'bundled' | 'unknown'
 
 /** Activation behavior for one catalog entry. */
-export type PluginActivation = 'hot' | 'profile-restart' | 'none'
+export type PluginActivation = 'hot' | 'profile-restart' | 'reconcile-required' | 'none'
 
 /** Host lifecycle phases exposed to the Electron renderer. */
 export type PluginRuntimeState =
