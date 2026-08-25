@@ -1,58 +1,126 @@
-# DeepSeek Harness Desktop
+# dsh-client-ui-details-host
 
 [English](README.md) | 中文
 
-DeepSeek Harness Desktop 将 [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness) 打包为适用于 macOS、Windows 和 Linux 的原生桌面应用。它保留上游 Web 应用、智能体运行时、profile 和工作区流程，并提供操作系统窗口与桌面安装包。
+可移植 DSH/Cordis Client 插件，在 AppFrame 详情栏中承载一个活动详情 surface。该包是 `platform:web` UI 基础设施，不依赖 Electron、Node 或 Desktop。npm scope `@dsh-electron/` 标识发布者，不是运行时要求。
 
-## 状态
-
-本项目及其上游运行时均处于开发者预览阶段。发布版本可能包含破坏兼容性的变更。
+本仓库是源码真源。[DeepSeek Harness Desktop](https://github.com/cherrchen/deepseek-harness-electron) 通过 git subtree 镜像它，并将 Details Host 作为必需内置基础设施挂载。同一 package 可在 DeepSeek Harness Desktop 与标准 DSH Web host 中原样运行。
 
 ## 安装
 
-请从[最新发布版本](https://github.com/cherrchen/deepseek-harness-electron/releases/latest)下载对应平台的安装包：
+本包处于试验开发阶段，计划以 `@dsh-electron/dsh-client-ui-details-host` 发布到 npm；在此之前请从本仓库安装。
 
-- macOS：适用于 Apple Silicon 和 Intel Mac 的 DMG 或 ZIP
-- Windows：适用于 x64 和 ARM64 的 NSIS 安装程序
-- Linux：适用于 x64 和 ARM64 的 AppImage 或 DEB 包
+**DeepSeek Harness Desktop** — Details Host 始终启用，无需单独安装。
 
-打开已安装的应用，在开始智能体会话前通过 Harness UI 完成提供方设置。
-
-<a id="run"></a><a id="run-from-source"></a>
-
-## 从源码运行
-
-安装受支持的 Node.js 版本（`^22.19.0` 或 `>=24`）和 pnpm，然后构建 Harness 运行时并启动 Electron：
+**DSH Web** — 构建 `lib/` 后将其加入 profile：
 
 ```sh
-git clone https://github.com/cherrchen/deepseek-harness-electron.git
-cd deepseek-harness-electron
 pnpm install
-pnpm run build
-pnpm --filter @dsh-electron/dsh-electron start
+pnpm build
+dsh plugin --profile web add .
 ```
 
-## 运行时与数据
+或直接从 GitHub 安装：
 
-Electron 在随机 `127.0.0.1` 端口启动 DeepSeek Harness，并在沙箱窗口中打开其就绪 URL。渲染进程未启用 Node.js 集成，使用上下文隔离和 Chromium 沙箱；请求的 HTTP 和 HTTPS 链接会在系统浏览器中打开。
+```sh
+dsh plugin --profile web add github:cherrchen/dsh-client-ui-details-host
+```
 
-Harness profile 和状态存储在对应平台的应用数据目录。智能体 shell 命令从当前用户主目录开始；需要时可在 Harness UI 中选择其他工作区。
+在 `cordis.yml`（或负责 Web 组合的 profile patch 层）中挂载 Host 与 Client 两半：
+
+```yaml
+plugins:
+  - name: '@dsh-electron/dsh-client-ui-details-host'
+```
+
+Client 半通过 package 的 `exports["./client"]` 入口解析。Peer 依赖（`@deepseek-ai/dsh-client-runtime`、`@deepseek-ai/dsh-client-ui-layout`、`@deepseek-ai/dsh-client-ui-slots` 与 React）必须已存在于 host 组合中。
+
+## 用户体验
+
+加载 Details Host 不会打开详情栏。在 feature 插件调用 `ctx.shellDetails.open()` 之前，上游 DetailsPanel 仍保持可见。
+
+终端用户只有在某个 feature 插件打开已注册的 `shell.details.surface` 后，才会看到 AppFrame 第三栏。Details Host 提供栏位 chrome（resize handle、关闭控件、header actions）并路由活动 surface 主体。关闭栏位后，控制权交回上游 DetailsPanel。
+
+## 公共 API
+
+### `ctx.shellDetails`
+
+Client 插件提供 `ctx.shellDetails`，即带 `apiVersion` `2` 与完整 P2 `features` 集合的 `ShellDetailsController`。类型与常量从 `@dsh-electron/dsh-client-ui-details-host/client` 导入。
+
+| 方法 / 属性 | 作用 |
+|---|---|
+| `open(id)` | 按 id 打开已注册 surface（兼容重载）。 |
+| `open({ surfaceId, payload?, navigation? })` | surface 需要参数或导航模式时的首选形式。 |
+| `close()` | 关闭栏位、清除 session 导航并恢复上游占位者。幂等。 |
+| `back()` / `canGoBack()` | 从 session back stack 恢复上一个 instance。 |
+| `toggle(id)` | 未激活时打开；已激活时关闭。 |
+| `registerSurface(descriptor)` | 为 surface id 注册可选生命周期与 dedupe 元数据。 |
+| `getSnapshot()` / `subscribe()` | 供 `useSyncExternalStore` 使用的响应式状态。 |
+
+关键 slot 常量：`DETAILS_SURFACE_SLOT`（`shell.details.surface`）与 `DETAILS_HEADER_ACTIONS_SLOT`（`shell.details.header.actions`）。
+
+### Surface 贡献
+
+其他 Client 插件通过声明感知的 injection 注册可渲染 surface：
+
+```ts
+ctx.slots.inject('shell.details.surface', () =>
+  ctx.slots.register({
+    name: 'shell.details.surface',
+    id: 'example.alpha',
+    label: 'Example Alpha',
+  }, ExampleSurface))
+
+// ExampleSurface props include detailsInstance from PropsRuntime<'shell.details.surface'>
+```
+
+可选 payload 类型通过对 Client 入口做 declaration merging：
+
+```ts
+declare module '@dsh-electron/dsh-client-ui-details-host/client' {
+  interface DetailsSurfacePayloadMap {
+    'example.alpha': { tab?: string }
+  }
+}
+```
+
+未做 augmentation 的外部 surface 与未知 payload 仍然受支持。
+
+### 组合规则
+
+Host 插件是空的 Loader 席位。Client 插件需要 `slots`、`layout` 与 `sessions`。
+
+`open()` 会先校验 surface，创建 surface instance，以低于上游占位者的 shadowing priority 把 DetailsHost 注册进单一 `details` slot，确认 DetailsHost 赢得该 cell，提交 instance，然后调用 `ctx.layout.openDetails()`。缺少或重复的 surface id，以及 takeover 冲突，都会抛出类型化错误并回滚。切换到另一个已注册 id 时 DetailsHost 保持 mounted，并且不会关闭该栏。
+
+每个 session 在内存中保留独立的 active instance 与有界 back stack（默认 push，可选 replace，支持 `back()` / dedupe）。面板几何仍由 `ctx.layout` 负责；本包只在 surface 打开期间占用 `details`。
+
+卸载活动 surface、切换当前 session、surface 渲染崩溃或卸载 Details Host，都会关闭 takeover 并恢复上游占位者。
+
+## npm 发布
+
+本包将以 `@dsh-electron/dsh-client-ui-details-host` 发布到 npm。当前尚未公开发布；请将 API 与版本视为 pre-release。
 
 ## 开发
 
-使用以下命令运行桌面应用的聚焦检查：
+使用 Node.js `^22.19` 或 `>=24` 以及 pnpm 11。
 
 ```sh
-pnpm --filter @dsh-electron/dsh-electron test
-pnpm --filter @dsh-electron/dsh-electron build
+pnpm install --frozen-lockfile
+pnpm typecheck
+pnpm test
+pnpm build
+pnpm pack --dry-run
 ```
 
-有关仓库细节，请参阅[桌面应用指南](apps/electron/README.zh.md)、[开发指南](docs/development.zh.md)和[架构文档](docs/architecture.zh.md)。
+## Model Experience
 
-## 贡献
+无。本包贡献面向人的 Client UI 基础设施，不注册模型工具或 prompt 内容。
 
-参阅 [CONTRIBUTING.md](CONTRIBUTING.zh.md)。此 fork 跟随上游 DeepSeek Harness 的开发，同时维护其桌面端打包。
+#### KV Cache effect
 
-## 许可证
+无。本包不添加、替换或保留模型请求 token。
 
-[MIT](LICENSE)。第三方依赖声明位于 [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md)。
+## Known Limitations and Deferred Work
+
+- **单一活动 surface** — 同一时间只渲染一个 `shell.details.surface` instance；不实现 split、stacked 或 pinned 详情栏。
+- **仅内存 session 状态** — 进程重启后导航历史清空；不做 localStorage / IndexedDB / 文件持久化。
