@@ -16,6 +16,16 @@
   border-bottom: 1px solid var(--dsw-alias-border-l2);
 }
 
+/*
+ * Desktop stamps data-dsh-desktop-platform on :root. On Windows the details
+ * column shares the top-right corner with the Window Controls Overlay, so the
+ * header needs the same native control-row clearance as the main chrome.
+ */
+:global(:root[data-dsh-desktop-platform='win32']) .header {
+  box-sizing: border-box;
+  padding-top: max(14px, var(--dsh-native-control-row-height, 40px));
+}
+
 .headerLeading {
   display: flex;
   min-width: 0;

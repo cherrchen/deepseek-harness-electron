@@ -1,4 +1,6 @@
 // @vitest-environment jsdom
+import { readFileSync } from 'node:fs'
+import { join } from 'node:path'
 import { cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { DETAILS_HEADER_ACTIONS_SLOT, DETAILS_SURFACE_SLOT } from '../src/client/contract.ts'
@@ -105,3 +107,13 @@ describe('DetailsHost', () => {
     expect(back).toHaveBeenCalledTimes(1)
   })
 })
+
+describe('DetailsHost Windows Desktop chrome', () => {
+  it('clears the caption row when Desktop stamps win32 on the document root', () => {
+    const source = readFileSync(join(process.cwd(), 'src/client/DetailsHost.module.css'), 'utf8')
+    expect(source).toContain("data-dsh-desktop-platform='win32'")
+    expect(source).toContain('--dsh-native-control-row-height')
+    expect(source).toContain('padding-top: max(14px, var(--dsh-native-control-row-height, 40px))')
+  })
+})
+
