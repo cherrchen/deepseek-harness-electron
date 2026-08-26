@@ -45,6 +45,7 @@ DeepSeek Harness Desktop ships two portable DSH plugins from standalone canonica
 | Plugin | Desktop role | Summary |
 |---|---|---|
 | [dsh-client-ui-details-host](https://github.com/cherrchen/dsh-client-ui-details-host) | Required built-in | Hosts one active details surface in the AppFrame third column through `ctx.shellDetails`. |
+| [dsh-theme-studio](https://github.com/cherrchen/dsh-theme-studio) | Required built-in | Builtin color themes under **Settings → General → Themes**, overlaid on official Light / Dark / System Appearance. |
 | [dsh-plugin-git](https://github.com/cherrchen/dsh-plugin-git) | Pre-installed (disable in **Settings → Plugins**) | Local Git status, diffs, staging, commits, and branch controls in the composer and details column. Requires Details Host. |
 
 Canonical development happens in those repositories; this monorepo mirrors them with git subtree.

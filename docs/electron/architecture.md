@@ -349,6 +349,8 @@ The Plugin Manager (`@dsh-electron/dsh-electron-ui-plugin-manager`) consumes `ct
 
 Details Host (`@dsh-electron/dsh-client-ui-details-host`) is required portable UI infrastructure. Canonical source is `cherrchen/dsh-client-ui-details-host`; `apps/electron/runtime/plugins/ui-details-host` is the git subtree mirror. Electron rebuilds Host and Client artifacts from that source. The package mounts `ctx.shellDetails` at boot and does not occupy `details` until a consumer calls `open()`. Loading it MUST leave the upstream DetailsPanel as the column winner. `open(id)` remains supported; prefer `open({ surfaceId, payload })` when the surface needs arguments. Each session keeps an in-memory active instance and bounded back stack.
 
+Theme Studio (`@dsh-electron/dsh-theme-studio`) is required portable UI for builtin color overlays. Canonical source is `cherrchen/dsh-theme-studio`; `apps/electron/runtime/plugins/dsh-theme-studio` is the git subtree mirror. Electron rebuilds Host and Client artifacts from that source. The package registers **Settings → General → Themes** and calls `ctx.theme.overrideTokens()`; it does not replace official Appearance or present CSS itself.
+
 ```text
 Feature Plugin
      │
@@ -614,7 +616,8 @@ apps/electron/runtime/plugins/
 ├─ ui-directory-picker-electron/  Desktop-required adapter
 ├─ ui-brand-electron/             Electron carrier plugin
 ├─ ui-plugin-manager-electron/    Electron carrier plugin
-└─ ui-details-host/               Electron-required portable UI infrastructure (subtree)
+├─ ui-details-host/               Electron-required portable UI infrastructure (subtree)
+└─ dsh-theme-studio/              portable theme overlay (subtree)
 
 packages/dsh-electron/
 └─ dsh-plugin-<feature>/           portable or Desktop-aware public DSH plugin

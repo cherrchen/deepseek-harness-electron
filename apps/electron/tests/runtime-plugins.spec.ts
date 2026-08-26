@@ -63,6 +63,7 @@ describe('runtime plugin discovery', () => {
     expect(names).toContain('@dsh-electron/dsh-electron-ui-directory-picker')
     expect(names).toContain('@dsh-electron/dsh-electron-ui-brand')
     expect(names).toContain('@dsh-electron/dsh-electron-ui-plugin-manager')
+    expect(names).toContain('@dsh-electron/dsh-theme-studio')
     expect(plugins.every(plugin => plugin.version.length > 0)).toBe(true)
     expect(plugins.find(plugin => plugin.name === '@dsh-electron/dsh-electron-desktop-capabilities')?.description)
       .toBe('Desktop capability provider for Electron feature plugins')
@@ -71,6 +72,7 @@ describe('runtime plugin discovery', () => {
   it('discovers prebuilt ecosystem plugins without routing them through the Desktop builder', () => {
     const plugins = discoverEcosystemPlugins(electronRoot)
     expect(plugins.map(plugin => plugin.name)).toContain('@dsh-electron/dsh-plugin-git')
+    expect(plugins.map(plugin => plugin.name)).not.toContain('@dsh-electron/dsh-theme-studio')
     expect(readFileSync(buildScript, 'utf8')).not.toContain('packages/dsh-electron')
   })
 
@@ -84,6 +86,24 @@ describe('runtime plugin discovery', () => {
     expect(manifest.dsh?.client?.external).toEqual([
       '@dsh-electron/dsh-client-ui-details-host/client',
     ])
+  })
+
+  it('declares Theme Studio as a portable web plugin with no Electron dependency', () => {
+    const studio = discoverRuntimePlugins(electronRoot)
+      .find(plugin => plugin.name === '@dsh-electron/dsh-theme-studio')
+    if (studio === undefined) throw new Error('Theme Studio runtime plugin is missing')
+    const manifest = JSON.parse(readFileSync(join(studio.rootPath, 'package.json'), 'utf8')) as {
+      dependencies?: Record<string, string>
+      peerDependencies?: Record<string, string>
+      dsh?: { client?: { platform?: string } }
+    }
+    expect(manifest.dsh?.client?.platform).toBe('web')
+    expect(Object.keys({ ...manifest.dependencies, ...manifest.peerDependencies }))
+      .not.toContain('electron')
+    const client = readFileSync(join(studio.rootPath, 'src', 'client', 'index.ts'), 'utf8')
+    expect(client).not.toContain('ipcRenderer')
+    expect(client).not.toContain('deepseekDesktop')
+    expect(client).not.toMatch(/from ['"]electron['"]/)
   })
 
   it('classifies runtime adapters and ecosystem plugins for lifecycle management', () => {
@@ -103,11 +123,17 @@ describe('runtime plugin discovery', () => {
       && plugin.ownership === 'bundled'
       && !plugin.required
       && plugin.manageable)).toBe(true)
+    expect(plugins.some(plugin =>
+      plugin.name === '@dsh-electron/dsh-theme-studio'
+      && plugin.ownership === 'system'
+      && plugin.required
+      && !plugin.manageable)).toBe(true)
     const appManifest = JSON.parse(readFileSync(join(electronRoot, 'package.json'), 'utf8')) as {
       dshElectron?: { ecosystemPlugins?: string[] }
     }
     expect(appManifest.dshElectron?.ecosystemPlugins).toContain('@dsh-electron/dsh-plugin-git')
     expect(appManifest.dshElectron?.ecosystemPlugins).not.toContain('@dsh-electron/dsh-client-ui-details-host')
+    expect(appManifest.dshElectron?.ecosystemPlugins).not.toContain('@dsh-electron/dsh-theme-studio')
   })
 
   it('ignores non-plugin files under runtime/plugins', async () => {

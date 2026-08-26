@@ -35,7 +35,7 @@ Electron 在 `$DSH_HOME/electron/` 下写入这些文件：
 
 Electron 还会在 Electron `userData` 下写入 `electron-host.patch.yml`，并将其传给 `dsh web --patch`。
 
-bootstrap patch 只保留必需 runtime 插件行，为 `plugins.cordis.yml` 打开窄 HMR，并安装一个稳定的 `cordis:include` seat 指向该生成文件。bootstrap overlay 不列出各个生态插件。Details Host 是必需行：它不得进入 `dshElectron.ecosystemPlugins`。
+bootstrap patch 只保留必需 runtime 插件行，为 `plugins.cordis.yml` 打开窄 HMR，并安装一个稳定的 `cordis:include` seat 指向该生成文件。bootstrap overlay 不列出各个生态插件。Details Host 与 Theme Studio 是必需行：它们不得进入 `dshElectron.ecosystemPlugins`。
 
 ## 启动顺序
 

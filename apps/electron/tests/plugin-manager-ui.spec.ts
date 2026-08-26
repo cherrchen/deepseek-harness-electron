@@ -402,6 +402,7 @@ describe('Electron Plugin Manager view', () => {
     expect(availableActions(plugin({ runtime: 'absent', desiredEnabled: false }))).toEqual(['enable'])
     expect(pluginDisplayName(plugin())).toBe('Git')
     expect(pluginDisplayName(plugin({ name: '@dsh-electron/dsh-client-ui-details-host' }))).toBe('Details Host')
+    expect(pluginDisplayName(plugin({ name: '@dsh-electron/dsh-theme-studio' }))).toBe('Theme Studio')
     expect(matchesPlugin(plugin(), 'integration')).toBe(true)
   })
 })

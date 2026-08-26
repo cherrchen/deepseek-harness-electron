@@ -86,6 +86,28 @@ describe('details host portable runtime plugin regression', () => {
   })
 })
 
+describe('theme studio portable runtime plugin regression', () => {
+  it('declares a public web client and does not import Electron or desktop', () => {
+    const manifest = JSON.parse(
+      readFileSync(join(electronRoot, 'runtime', 'plugins', 'dsh-theme-studio', 'package.json'), 'utf8'),
+    ) as {
+      name?: string
+      dsh?: { client?: { platform?: string } }
+    }
+    expect(manifest.name).toBe('@dsh-electron/dsh-theme-studio')
+    expect(manifest.dsh?.client?.platform).toBe('web')
+    const clientRoot = join(electronRoot, 'runtime', 'plugins', 'dsh-theme-studio', 'src', 'client')
+    for (const file of readdirSync(clientRoot)) {
+      if (!file.endsWith('.ts') && !file.endsWith('.tsx')) continue
+      const source = readFileSync(join(clientRoot, file), 'utf8')
+      expect(source).not.toContain('window.deepseekDesktop')
+      expect(source).not.toContain('ipcRenderer')
+      expect(source).not.toContain("from 'electron'")
+      expect(source).not.toContain('ctx.desktop')
+    }
+  })
+})
+
 describe('desktop plugin manager feature plugin regression', () => {
   it('depends on canonical Settings contracts and keeps primitives external', () => {
     const manifest = JSON.parse(
