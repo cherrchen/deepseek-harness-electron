@@ -81,7 +81,7 @@ AppFrame details geometry, resize handle, and close button are owned by Details 
 
 ## User experience
 
-In the conversation composer, Git contributes a branch selector and a changed-files indicator on the left of the input area. Clicking either control opens the Git details surface in the third column.
+In the conversation composer, Git contributes a branch selector and a changed-files indicator on the left of the input area. Clicking either control opens the Git details surface in the third column. Creating a branch opens a shared conversation Modal; after `git init` with no commits (unborn HEAD), the menu shows the symbolic default branch as disabled, explains that the first commit is required, and disables create until HEAD exists.
 
 Inside the panel, users can review staged, unstaged, and untracked changes, inspect diffs, stage or unstage paths, write commit messages, and switch or create local branches. On Electron, optional Desktop enhancement adds reveal-in-folder and open-path actions when the Desktop provider is present.
 
