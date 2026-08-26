@@ -112,5 +112,6 @@ describe('desktop capability provider contract', () => {
     if (desktop === undefined) throw new Error('desktop capability service was not registered')
     await expect(desktop.dialog.pickDirectory()).rejects.toThrow(/window\.deepseekDesktop is unavailable/)
     await expect(desktop.plugins.list()).rejects.toThrow(/window\.deepseekDesktop is unavailable/)
+    await expect(desktop.app.relaunch()).rejects.toThrow(/window\.deepseekDesktop is unavailable/)
   })
 })

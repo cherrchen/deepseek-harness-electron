@@ -91,7 +91,11 @@ export function PluginInstallDialog({ open, plugins, dialog, app, onClose, onIns
         <>
           <Button variant="outline" disabled={pending} onClick={close}>{t(status === 'success' ? 'done' : 'cancel')}</Button>
           {needsRestart ? (
-            <Button variant="primary" onClick={() => { void app.relaunch() }}>{t('restartNow')}</Button>
+            <Button variant="primary" onClick={() => {
+              void app.relaunch().catch((error) => {
+                console.error('plugin manager: relaunch failed', error)
+              })
+            }}>{t('restartNow')}</Button>
           ) : status === 'success' ? null : (
             <Button variant="primary" disabled={pending} onClick={() => { void install() }}>{pending ? t('installing') : t('install')}</Button>
           )}

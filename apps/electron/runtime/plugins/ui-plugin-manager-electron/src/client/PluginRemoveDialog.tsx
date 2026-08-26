@@ -92,7 +92,11 @@ export function PluginRemoveDialog({ plugin, plugins, app, onClose, onRemoved, o
             {t(status === 'success' || status === 'error' ? 'done' : 'cancel')}
           </Button>
           {status === 'success' ? (
-            <Button variant="primary" onClick={() => { void app.relaunch() }}>{t('restartNow')}</Button>
+            <Button variant="primary" onClick={() => {
+              void app.relaunch().catch((error) => {
+                console.error('plugin manager: relaunch failed', error)
+              })
+            }}>{t('restartNow')}</Button>
           ) : status === 'error' ? null : (
             <Button variant="primary" disabled={pending || plugin === undefined} onClick={() => { void remove() }}>
               {pending ? t('removing') : t('remove')}

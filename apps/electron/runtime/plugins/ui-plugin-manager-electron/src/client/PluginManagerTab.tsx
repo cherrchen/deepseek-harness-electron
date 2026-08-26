@@ -328,7 +328,11 @@ export function PluginManagerTab({ plugins, dialog, app, t }: PluginManagerTabPr
                 <ul>{snapshot.pendingRestart.map(change => <li key={change.name}>{t(`restart${change.operation[0]?.toUpperCase() ?? ''}${change.operation.slice(1)}` as PluginManagerLocaleKey, { plugin: change.name })}</li>)}</ul>
                 <span>{t('restartInstruction')}</span>
               </div>
-              <Button size="sm" variant="primary" className={css.restartButton} onClick={() => { void app.relaunch() }}>
+              <Button size="sm" variant="primary" className={css.restartButton} onClick={() => {
+                void app.relaunch().catch((error) => {
+                  console.error('plugin manager: relaunch failed', error)
+                })
+              }}>
                 {t('restartNow')}
               </Button>
             </div>

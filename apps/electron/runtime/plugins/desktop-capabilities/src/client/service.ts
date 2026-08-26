@@ -21,6 +21,7 @@ function createLazyDesktopCapabilities(): DesktopCapabilitiesContract {
     app: {
       getVersion: async () => resolve().app.getVersion(),
       getPlatform: async () => resolve().app.getPlatform(),
+      relaunch: async () => resolve().app.relaunch(),
     },
     dialog: {
       pickDirectory: async options => resolve().dialog.pickDirectory(options),

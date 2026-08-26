@@ -246,8 +246,12 @@ async function prepareToInstall(): Promise<void> {
 
 /** Stop Host cleanly, then relaunch this Desktop process. */
 async function relaunchDesktop(): Promise<void> {
-  await prepareToInstall()
   app.relaunch()
+  try {
+    await prepareToInstall()
+  } catch (error) {
+    console.error('desktop relaunch: failed to drain Host before exit', error)
+  }
   app.exit(0)
 }
 
