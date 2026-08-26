@@ -181,7 +181,9 @@ describe('Electron Plugin Manager view', () => {
     await vi.waitFor(() => {
       expect(screen.getAllByRole('status').some(node => node.textContent?.includes('Installation succeeded'))).toBe(true)
     })
-    fireEvent.click(screen.getAllByRole('button', { name: 'Restart Now' })[0]!)
+    const installRestart = screen.getAllByRole('button', { name: 'Restart Now' })[0]
+    expect(installRestart).toBeTruthy()
+    fireEvent.click(installRestart)
     await vi.waitFor(() => { expect(app.relaunch).toHaveBeenCalled() })
   })
 
@@ -361,7 +363,9 @@ describe('Electron Plugin Manager view', () => {
     await vi.waitFor(() => {
       expect(screen.getAllByRole('status').some(node => node.textContent?.includes('Removal succeeded'))).toBe(true)
     })
-    fireEvent.click(screen.getAllByRole('button', { name: 'Restart Now' })[0]!)
+    const removeRestart = screen.getAllByRole('button', { name: 'Restart Now' })[0]
+    expect(removeRestart).toBeTruthy()
+    fireEvent.click(removeRestart)
     await vi.waitFor(() => { expect(app.relaunch).toHaveBeenCalled() })
     fireEvent.click(screen.getByRole('button', { name: 'Done' }))
     expect(await screen.findByText('Plugin changes require restart')).toBeTruthy()
