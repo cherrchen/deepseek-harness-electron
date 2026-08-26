@@ -191,7 +191,7 @@ describe('GitBranchControl', () => {
       error: undefined,
       desktopAvailable: false,
     })
-    ;(controller as { createBranch: typeof createBranch }).createBranch = createBranch
+    ;(controller as unknown as { createBranch: typeof createBranch }).createBranch = createBranch
     const list = sessionsOf({ [SESSION_A]: '/projects/alpha' })
     render(<GitBranchControl {...baseProps(controller, list)} sessionId={SESSION_A} />)
     fireEvent.click(screen.getByRole('button', { name: 'main' }))
