@@ -20,6 +20,7 @@ describe('desktop capability provider contract', () => {
       app: {
         getVersion: async () => { calls.push('app.getVersion'); return '1.0.0' },
         getPlatform: async () => { calls.push('app.getPlatform'); return 'darwin' },
+        relaunch: async () => { calls.push('app.relaunch') },
       },
       dialog: {
         pickDirectory: async () => { calls.push('dialog.pickDirectory'); return { path: '/tmp' } },
@@ -84,6 +85,7 @@ describe('desktop capability provider contract', () => {
     await desktop.clipboard.writeText('hello')
     desktop.updater.subscribe(() => {})
     expect(await desktop.plugins.list()).toEqual({ entries: [], pendingRestart: [] })
+    await desktop.app.relaunch()
     await desktop.plugins.install({ source: 'registry', packageName: '@example/plugin' })
     await desktop.plugins.enable('@example/plugin')
     await desktop.plugins.disable('@example/plugin')
@@ -92,6 +94,7 @@ describe('desktop capability provider contract', () => {
     expect(calls).toContain('clipboard.writeText:hello')
     expect(calls).toContain('updater.subscribe')
     expect(calls).toContain('plugins.list')
+    expect(calls).toContain('app.relaunch')
     expect(calls).toContain('plugins.install')
     expect(calls).toContain('plugins.enable:@example/plugin')
     expect(calls).toContain('plugins.disable:@example/plugin')
@@ -109,5 +112,6 @@ describe('desktop capability provider contract', () => {
     if (desktop === undefined) throw new Error('desktop capability service was not registered')
     await expect(desktop.dialog.pickDirectory()).rejects.toThrow(/window\.deepseekDesktop is unavailable/)
     await expect(desktop.plugins.list()).rejects.toThrow(/window\.deepseekDesktop is unavailable/)
+    await expect(desktop.app.relaunch()).rejects.toThrow(/window\.deepseekDesktop is unavailable/)
   })
 })

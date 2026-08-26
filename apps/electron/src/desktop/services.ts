@@ -40,6 +40,8 @@ export interface DesktopServicesOptions {
   getUpdater: () => UpdaterController | undefined
   /** Focus and restore the main window (notification click, tray). */
   showMainWindow: () => void
+  /** Drain Host and relaunch the packaged Desktop process. */
+  relaunch: () => Promise<void>
 }
 
 type ThemeListener = (state: ThemeState) => void
@@ -57,6 +59,11 @@ export class DesktopServices {
    */
   constructor(options: DesktopServicesOptions) {
     this.options = options
+  }
+
+  /** Drain Host and relaunch Desktop so pending plugin composition applies. */
+  relaunch(): Promise<void> {
+    return this.options.relaunch()
   }
 
   /** Open the OS directory chooser. */

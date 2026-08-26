@@ -56,6 +56,7 @@ describe('Electron renderer source structure', () => {
   it('exposes desktopApp.getPlatform in the renderer facade', () => {
     const facade = readFileSync(join(electronRoot, 'src', 'renderer', 'desktop', 'index.ts'), 'utf8')
     expect(facade).toContain('getPlatform')
+    expect(facade).toContain('relaunch')
     expect(facade).toContain('desktopApp')
   })
 })

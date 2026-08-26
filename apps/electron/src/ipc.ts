@@ -61,6 +61,11 @@ export function installDesktopIpc(
     return process.platform
   })
 
+  ipcMain.handle(DesktopIpcChannel.relaunch, async (event) => {
+    guard(event)
+    await desktop.relaunch()
+  })
+
   ipcMain.handle(DesktopIpcChannel.pickDirectory, async (event, options: unknown) => {
     guard(event)
     return await desktop.pickDirectory(parsePickDirectoryOptions(options))

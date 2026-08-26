@@ -93,7 +93,7 @@ The Renderer requests package lifecycle operations by direct dependency name onl
 
 Update checks run only when the user selects **Check for Updates**. Main invokes the bundled pnpm through `dsh plugin --profile web outdated --format json`, filters results to Registry-owned direct dependencies, and keeps `wanted` distinct from `latest`. Registry and Git update invoke `dsh plugin --profile web update <name>`; the Registry dependency range therefore selects the target without opting into a new major version. Copied local packages and explicit reinstall invoke `add <requestedSpec> --force`, while remove invokes `remove <name>` through the same upstream interface. Upstream dsh remains the sole owner of `dsh.profile.bundles` reconciliation.
 
-Before update, reinstall, or removal changes package files, `PluginLifecycleController.quiesceForPackageMutation()` removes an active hot plugin from the generated roster and waits until Host inventory reports it absent. This temporary quiescence does not edit the persisted disabled preference. If the package command fails without changing the dependency manifest, lockfile, or installed package manifest, the controller restores the prior runtime. If any captured disk state changes, Electron leaves the plugin unloaded, refreshes the catalog, and reports `profile-changed`; it does not execute a possibly partial artifact. Successful removal deletes the package name from both `profileManaged` and `disabled`.
+Before update, reinstall, or removal changes package files, `PluginLifecycleController.quiesceForPackageMutation()` removes an active hot plugin from the generated roster and waits until Host inventory reports it absent. This temporary quiescence does not edit the persisted disabled preference. If the package command fails without changing the dependency manifest, lockfile, or installed package manifest, the controller restores the prior runtime. If any captured disk state changes, Electron leaves the plugin unloaded, refreshes the catalog, and reports `profile-changed`; it does not execute a possibly partial artifact. Successful removal deletes the package name from both `profileManaged` and `disabled`. Electron soft-refreshes the Renderer after removing a hot-activated client-bearing package because Host no longer references it. Removing a `profile-restart` package never soft-refreshes: Host still holds the startup bundle composition until Desktop relaunches, and a reload would attempt to fetch deleted client scripts.
 
 Package kind is inspected again after every successful update or reinstall. A managed runtime package hot-activates unless its startup kind was a bundle. A transition from a running bundle never hot-loads the new runtime entry because the Host still contains the startup bundle composition. Any transition into or out of a bundle instead creates a pending restart change.
 
@@ -105,15 +105,16 @@ During one mutation, the view polls `list()` at a short interval and disables co
 
 ## Renderer refresh boundary
 
-Electron refreshes the BrowserWindow only after Host settle, and only for manageable plugins whose distribution artifact has a client half (`hasClient === true`).
+Electron refreshes the BrowserWindow only after Host settle, and only for manageable hot-activated plugins whose distribution artifact has a client half (`hasClient === true`).
 
-Host-only plugins do not reload the Renderer.
+Host-only plugins do not reload the Renderer. Profile-restart packages do not reload the Renderer after install, update, reinstall, or removal; Desktop exposes `ctx.desktop.app.relaunch()` so the Installed tab can relaunch the process and apply pending composition.
 
 The refresh boundary is deliberate:
 
 * Host plugin lifecycle remains a true Cordis hot plug.
 * Renderer plugin graph reconciliation is still a full-page reload, owned by Electron.
 * Electron does not attempt client-side hot reconciliation of the upstream module graph.
+* Bundle composition changes require a full Desktop relaunch, not a soft Renderer reload.
 
 ## State-file behavior
 

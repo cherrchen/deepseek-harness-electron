@@ -155,7 +155,7 @@ export class PluginLifecycleController {
     if (plugin.hasClient) await this.refreshRenderer()
   }
 
-  /** Refresh the renderer after removal of a client-bearing package. */
+  /** Refresh the renderer after removal of a hot-activated client-bearing package. */
   async refreshAfterPackageRemoval(hasClient: boolean): Promise<void> {
     if (hasClient) await this.refreshRenderer()
   }

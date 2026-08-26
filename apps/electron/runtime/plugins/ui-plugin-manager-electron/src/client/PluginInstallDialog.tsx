@@ -12,10 +12,11 @@ type InstallSource = PluginInstallRequest['source']
 type InstallState = 'idle' | 'validating' | 'installing' | 'reconciling' | 'activating' | 'success' | 'error'
 
 /** Registry, Git, and local package installation dialog. */
-export function PluginInstallDialog({ open, plugins, dialog, onClose, onInstalled, onPendingChange, t }: {
+export function PluginInstallDialog({ open, plugins, dialog, app, onClose, onInstalled, onPendingChange, t }: {
   open: boolean
   plugins: DesktopCapabilitiesContract['plugins']
   dialog: DesktopCapabilitiesContract['dialog']
+  app: DesktopCapabilitiesContract['app']
   onClose: () => void
   onInstalled: () => Promise<void>
   onPendingChange: (pending: boolean) => void
@@ -76,6 +77,7 @@ export function PluginInstallDialog({ open, plugins, dialog, onClose, onInstalle
       setStatus('error')
     }
   }
+  const needsRestart = status === 'success' && result?.activation === 'restart-required'
 
   return (
     <Modal
@@ -88,7 +90,15 @@ export function PluginInstallDialog({ open, plugins, dialog, onClose, onInstalle
       footer={(
         <>
           <Button variant="outline" disabled={pending} onClick={close}>{t(status === 'success' ? 'done' : 'cancel')}</Button>
-          {status === 'success' ? null : <Button variant="primary" disabled={pending} onClick={() => { void install() }}>{pending ? t('installing') : t('install')}</Button>}
+          {needsRestart ? (
+            <Button variant="primary" onClick={() => {
+              void app.relaunch().catch((error) => {
+                console.error('plugin manager: relaunch failed', error)
+              })
+            }}>{t('restartNow')}</Button>
+          ) : status === 'success' ? null : (
+            <Button variant="primary" disabled={pending} onClick={() => { void install() }}>{pending ? t('installing') : t('install')}</Button>
+          )}
         </>
       )}
     >

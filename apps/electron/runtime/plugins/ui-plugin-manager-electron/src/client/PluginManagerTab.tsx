@@ -31,6 +31,7 @@ import { PluginRemoveDialog } from './PluginRemoveDialog.tsx'
 export interface PluginManagerTabInjected {
   plugins: DesktopCapabilitiesContract['plugins']
   dialog: DesktopCapabilitiesContract['dialog']
+  app: DesktopCapabilitiesContract['app']
 }
 
 /** Full props assembled by the upstream Plugins tab renderer. */
@@ -215,13 +216,14 @@ function PluginRow({ plugin, state, mutate, t, readOnly = false, onRemove, updat
 }
 
 /** Installed plugin lifecycle view mounted lazily by the upstream Plugins section. */
-export function PluginManagerTab({ plugins, dialog, t }: PluginManagerTabProps): ReactNode {
+export function PluginManagerTab({ plugins, dialog, app, t }: PluginManagerTabProps): ReactNode {
   const controllerRef = useRef<PluginManagerController>()
   const [state, setState] = useState<PluginManagerState>({ status: 'loading' })
   const [query, setQuery] = useState('')
   const [systemOpen, setSystemOpen] = useState(false)
   const [installOpen, setInstallOpen] = useState(false)
   const [installPending, setInstallPending] = useState(false)
+  const [removePending, setRemovePending] = useState(false)
   const [removeTarget, setRemoveTarget] = useState<PluginLifecycleEntry>()
 
   useEffect(() => {
@@ -251,6 +253,7 @@ export function PluginManagerTab({ plugins, dialog, t }: PluginManagerTabProps):
   const operationErrorPlugin = state.operationError === undefined
     ? undefined
     : snapshot?.entries.find(plugin => plugin.name === state.operationError?.plugin)
+  const packageBusy = installPending || removePending
 
   return (
     <section className={css.section} aria-busy={state.status === 'loading'}>
@@ -302,7 +305,7 @@ export function PluginManagerTab({ plugins, dialog, t }: PluginManagerTabProps):
                 disabled={state.activeOperation !== undefined
                   || snapshot.activeOperation !== undefined
                   || state.checkingUpdates === true
-                  || installPending}
+                  || packageBusy}
                 onClick={() => { void controllerRef.current?.checkUpdates() }}
               >
                 {t(state.checkingUpdates === true ? 'checkingUpdates' : 'checkUpdates')}
@@ -311,7 +314,7 @@ export function PluginManagerTab({ plugins, dialog, t }: PluginManagerTabProps):
                 size="sm"
                 variant="primary"
                 className={css.installButton}
-                disabled={state.activeOperation !== undefined || installPending}
+                disabled={state.activeOperation !== undefined || packageBusy}
                 onClick={() => { setInstallOpen(true) }}
               >
                 {t('installPlugin')}
@@ -320,9 +323,18 @@ export function PluginManagerTab({ plugins, dialog, t }: PluginManagerTabProps):
           </div>
           {snapshot.pendingRestart.length === 0 ? null : (
             <div className={css.restartBanner} role="status">
-              <strong>{t('changesRequireRestart')}</strong>
-              <ul>{snapshot.pendingRestart.map(change => <li key={change.name}>{t(`restart${change.operation[0]?.toUpperCase() ?? ''}${change.operation.slice(1)}` as PluginManagerLocaleKey, { plugin: change.name })}</li>)}</ul>
-              <span>{t('restartInstruction')}</span>
+              <div className={css.restartBannerBody}>
+                <strong>{t('changesRequireRestart')}</strong>
+                <ul>{snapshot.pendingRestart.map(change => <li key={change.name}>{t(`restart${change.operation[0]?.toUpperCase() ?? ''}${change.operation.slice(1)}` as PluginManagerLocaleKey, { plugin: change.name })}</li>)}</ul>
+                <span>{t('restartInstruction')}</span>
+              </div>
+              <Button size="sm" variant="primary" className={css.restartButton} onClick={() => {
+                void app.relaunch().catch((error) => {
+                  console.error('plugin manager: relaunch failed', error)
+                })
+              }}>
+                {t('restartNow')}
+              </Button>
             </div>
           )}
           {installed.length === 0 ? <p className={css.status}>{t('empty')}</p> : null}
@@ -338,7 +350,7 @@ export function PluginManagerTab({ plugins, dialog, t }: PluginManagerTabProps):
                   state={state}
                   mutate={mutate}
                   t={t}
-                  readOnly={installPending}
+                  readOnly={packageBusy}
                   onRemove={setRemoveTarget}
                   updateAvailable={updateByName.get(plugin.name)?.updateAvailable === true
                     ? updateByName.get(plugin.name)?.wantedVersion
@@ -368,6 +380,7 @@ export function PluginManagerTab({ plugins, dialog, t }: PluginManagerTabProps):
             open={installOpen}
             plugins={plugins}
             dialog={dialog}
+            app={app}
             t={t}
             onClose={() => { setInstallOpen(false) }}
             onPendingChange={setInstallPending}
@@ -375,12 +388,11 @@ export function PluginManagerTab({ plugins, dialog, t }: PluginManagerTabProps):
           />
           <PluginRemoveDialog
             plugin={removeTarget}
-            pending={state.activeOperation?.kind === 'remove' || snapshot.activeOperation?.kind === 'remove'}
+            plugins={plugins}
+            app={app}
             onClose={() => { setRemoveTarget(undefined) }}
-            onRemove={(name) => {
-              setRemoveTarget(undefined)
-              mutate({ plugin: name, kind: 'remove' })
-            }}
+            onPendingChange={setRemovePending}
+            onRemoved={async () => { await controllerRef.current?.refresh() }}
             t={t}
           />
         </>

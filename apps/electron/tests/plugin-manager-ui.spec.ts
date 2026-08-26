@@ -23,6 +23,7 @@ import { en } from '../runtime/plugins/ui-plugin-manager-electron/src/client/loc
 const GIT = '@dsh-electron/dsh-plugin-git'
 const SYSTEM = '@dsh-electron/dsh-electron-desktop-capabilities'
 const dialog = { pickDirectory: vi.fn().mockResolvedValue(null) }
+const app = { getVersion: vi.fn().mockResolvedValue('1.0.0'), getPlatform: vi.fn().mockResolvedValue('darwin'), relaunch: vi.fn().mockResolvedValue(undefined) }
 
 function plugin(overrides: Partial<PluginLifecycleEntry> = {}): PluginLifecycleEntry {
   return {
@@ -143,7 +144,7 @@ describe('Electron Plugin Manager view', () => {
   it('installs from registry and exposes Git and local repository forms', async () => {
     const plugins = capabilities(snapshot(plugin()))
     const pickDirectory = vi.fn().mockResolvedValue({ path: '/tmp/local plugin' })
-    render(createElement(PluginManagerTab, { plugins, dialog: { pickDirectory }, t }))
+    render(createElement(PluginManagerTab, { plugins, dialog: { pickDirectory }, app, t }))
     await screen.findByText('Git')
     fireEvent.click(screen.getByRole('button', { name: 'Install Plugin' }))
     expect(screen.getByText(/Only install plugins you trust/)).toBeTruthy()
@@ -159,6 +160,31 @@ describe('Electron Plugin Manager view', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Install' }))
     await screen.findByText('Installation succeeded')
     expect(plugins.install).toHaveBeenCalledWith({ source: 'registry', packageName: '@fixture/plugin' })
+  })
+
+  it('offers Restart Now after a Bundle install that requires relaunch', async () => {
+    const plugins = capabilities(snapshot(plugin()))
+    plugins.install.mockResolvedValue({
+      name: 'dsh-context', version: '0.32.0', kind: 'bundle', activation: 'restart-required', source: 'registry',
+    })
+    plugins.list
+      .mockResolvedValueOnce(snapshot(plugin()))
+      .mockResolvedValue({
+        entries: [plugin()],
+        pendingRestart: [{ name: 'dsh-context', operation: 'install', targetVersion: '0.32.0' }],
+      })
+    render(createElement(PluginManagerTab, { plugins, dialog, app, t }))
+    await screen.findByText('Git')
+    fireEvent.click(screen.getByRole('button', { name: 'Install Plugin' }))
+    fireEvent.change(screen.getByLabelText('Package'), { target: { value: 'dsh-context' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Install' }))
+    await vi.waitFor(() => {
+      expect(screen.getAllByRole('status').some(node => node.textContent?.includes('Installation succeeded'))).toBe(true)
+    })
+    const installRestart = screen.getAllByRole('button', { name: 'Restart Now' })[0]
+    expect(installRestart).toBeTruthy()
+    fireEvent.click(installRestart)
+    await vi.waitFor(() => { expect(app.relaunch).toHaveBeenCalled() })
   })
 
   it('renders lifecycle actions, filters locally, and keeps system components read-only', async () => {
@@ -182,7 +208,7 @@ describe('Electron Plugin Manager view', () => {
       required: true,
     })
     const plugins = capabilities(snapshot(active, disabled, failed, system))
-    const view = render(createElement(PluginManagerTab, { plugins, dialog, t }))
+    const view = render(createElement(PluginManagerTab, { plugins, dialog, app, t }))
 
     await screen.findByText('Git')
     expect(screen.getByRole('button', { name: 'Reload' }).disabled).toBe(false)
@@ -218,7 +244,7 @@ describe('Electron Plugin Manager view', () => {
       runtime: undefined,
     })
     const plugins = capabilities(snapshot(incomplete))
-    const view = render(createElement(PluginManagerTab, { plugins, dialog, t }))
+    const view = render(createElement(PluginManagerTab, { plugins, dialog, app, t }))
 
     expect(await screen.findByText('Installation incomplete')).toBeTruthy()
     const row = view.container.querySelector('[data-plugin="dsh-context"]')
@@ -246,7 +272,7 @@ describe('Electron Plugin Manager view', () => {
       profileChanged: true,
     })
     plugins.install.mockRejectedValueOnce(error)
-    render(createElement(PluginManagerTab, { plugins, dialog, t }))
+    render(createElement(PluginManagerTab, { plugins, dialog, app, t }))
     await screen.findByText('Installed plugins')
     fireEvent.click(screen.getByRole('button', { name: 'Install Plugin' }))
     fireEvent.change(screen.getByLabelText('Package'), { target: { value: 'dsh-context' } })
@@ -267,7 +293,7 @@ describe('Electron Plugin Manager view', () => {
     const plugins = capabilities(current)
     plugins.reload.mockReturnValueOnce(reload)
     const log = vi.spyOn(console, 'error').mockImplementation(() => {})
-    render(createElement(PluginManagerTab, { plugins, dialog, t }))
+    render(createElement(PluginManagerTab, { plugins, dialog, app, t }))
     await screen.findByText('Git')
 
     fireEvent.click(screen.getByRole('button', { name: 'Reload' }))
@@ -295,7 +321,7 @@ describe('Electron Plugin Manager view', () => {
     plugins.checkUpdates.mockResolvedValueOnce([{
       name: '@fixture/plugin', currentVersion: '1.0.0', wantedVersion: '1.4.0', latestVersion: '2.0.0', updateAvailable: true,
     }])
-    render(createElement(PluginManagerTab, { plugins, dialog, t }))
+    render(createElement(PluginManagerTab, { plugins, dialog, app, t }))
     await screen.findByText('Plugin')
 
     fireEvent.click(screen.getByRole('button', { name: 'Check for Updates' }))
@@ -318,11 +344,14 @@ describe('Electron Plugin Manager view', () => {
       runtime: undefined,
     })
     const plugins = capabilities(snapshot(bundle))
+    plugins.remove.mockResolvedValue({
+      name: '@fixture/bundle', operation: 'remove', previousVersion: '0.2.0', restartRequired: true,
+    })
     plugins.list.mockResolvedValueOnce(snapshot(bundle)).mockResolvedValue({
       entries: [],
       pendingRestart: [{ name: '@fixture/bundle', operation: 'remove', previousVersion: '0.2.0' }],
     })
-    render(createElement(PluginManagerTab, { plugins, dialog, t }))
+    render(createElement(PluginManagerTab, { plugins, dialog, app, t }))
     await screen.findByText('Bundle')
 
     fireEvent.click(screen.getByRole('button', { name: 'Package actions for Bundle' }))
@@ -331,8 +360,19 @@ describe('Electron Plugin Manager view', () => {
     expect(screen.getByText('Restart DeepSeek Harness to fully apply this change.')).toBeTruthy()
     fireEvent.click(screen.getByRole('button', { name: 'Remove' }))
     await vi.waitFor(() => { expect(plugins.remove.mock.calls).toContainEqual(['@fixture/bundle']) })
+    await vi.waitFor(() => {
+      expect(screen.getAllByRole('status').some(node => node.textContent?.includes('Removal succeeded'))).toBe(true)
+    })
+    const removeRestart = screen.getAllByRole('button', { name: 'Restart Now' })[0]
+    expect(removeRestart).toBeTruthy()
+    fireEvent.click(removeRestart)
+    await vi.waitFor(() => { expect(app.relaunch).toHaveBeenCalled() })
+    fireEvent.click(screen.getByRole('button', { name: 'Done' }))
     expect(await screen.findByText('Plugin changes require restart')).toBeTruthy()
     expect(screen.getByText('@fixture/bundle was removed')).toBeTruthy()
+    app.relaunch.mockClear()
+    fireEvent.click(screen.getByRole('button', { name: 'Restart Now' }))
+    expect(app.relaunch).toHaveBeenCalledTimes(1)
   })
 
   it.each([
@@ -347,7 +387,7 @@ describe('Electron Plugin Manager view', () => {
       packageActions: { checkUpdates: false, update: 'source-refresh', reinstall: true, remove: true },
     })
     const plugins = capabilities(snapshot(source))
-    render(createElement(PluginManagerTab, { plugins, dialog, t }))
+    render(createElement(PluginManagerTab, { plugins, dialog, app, t }))
     await screen.findByText(pluginDisplayName(source))
 
     fireEvent.click(screen.getByRole('button', { name: `Package actions for ${pluginDisplayName(source)}` }))
@@ -364,7 +404,7 @@ describe('Electron Plugin Manager view', () => {
       packageActions: { checkUpdates: false, update: false, reinstall: false, remove: true },
     })
     const plugins = capabilities(snapshot(linked))
-    render(createElement(PluginManagerTab, { plugins, dialog, t }))
+    render(createElement(PluginManagerTab, { plugins, dialog, app, t }))
     const title = pluginDisplayName(linked)
     await screen.findByText(title)
 
@@ -379,7 +419,7 @@ describe('Electron Plugin Manager view', () => {
     ['Disable', 'disable', plugin()],
   ] as const)('forwards the %s action to the desktop lifecycle capability', async (label, kind, current) => {
     const plugins = capabilities(snapshot(current))
-    render(createElement(PluginManagerTab, { plugins, dialog, t }))
+    render(createElement(PluginManagerTab, { plugins, dialog, app, t }))
     const button = await screen.findByRole('button', { name: label })
     fireEvent.click(button)
     await vi.waitFor(() => { expect(plugins[kind]).toHaveBeenCalledWith(GIT) })
@@ -388,7 +428,7 @@ describe('Electron Plugin Manager view', () => {
   it('shows initial load failure and retries without preserving failed local state', async () => {
     const plugins = capabilities(snapshot(plugin()))
     plugins.list.mockRejectedValueOnce(new Error('offline')).mockResolvedValueOnce(snapshot(plugin()))
-    render(createElement(PluginManagerTab, { plugins, dialog, t }))
+    render(createElement(PluginManagerTab, { plugins, dialog, app, t }))
 
     expect((await screen.findByRole('alert')).textContent).toContain('Installed plugins are temporarily unavailable.')
     fireEvent.click(screen.getByRole('button', { name: 'Retry' }))

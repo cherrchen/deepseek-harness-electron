@@ -41,6 +41,7 @@ export const DesktopIpcChannel = {
   openStream: 'deepseek-desktop:host:openStream',
   getVersion: 'deepseek-desktop:app:getVersion',
   getPlatform: 'deepseek-desktop:app:getPlatform',
+  relaunch: 'deepseek-desktop:app:relaunch',
   pickDirectory: 'deepseek-desktop:dialog:pickDirectory',
   clipboardReadText: 'deepseek-desktop:clipboard:readText',
   clipboardWriteText: 'deepseek-desktop:clipboard:writeText',
@@ -150,6 +151,8 @@ export interface DeepseekDesktopBridge {
     getVersion(): Promise<string>
     /** Electron `process.platform`. */
     getPlatform(): Promise<string>
+    /** Relaunch Desktop after draining Host so pending plugin composition applies. */
+    relaunch(): Promise<void>
   }
   dialog: {
     /** Open the OS directory chooser owned by Electron Main. */

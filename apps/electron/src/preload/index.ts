@@ -118,6 +118,7 @@ const bridge: DeepseekDesktopBridge = {
   app: {
     getVersion: () => ipcRenderer.invoke(DesktopIpcChannel.getVersion),
     getPlatform: () => ipcRenderer.invoke(DesktopIpcChannel.getPlatform),
+    relaunch: () => ipcRenderer.invoke(DesktopIpcChannel.relaunch),
   },
   dialog: {
     pickDirectory: (options?: PickDirectoryOptions) =>

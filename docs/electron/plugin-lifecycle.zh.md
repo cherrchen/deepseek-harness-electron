@@ -93,7 +93,7 @@ Renderer 只按 direct dependency name 请求 package lifecycle operation。Main
 
 只有用户选择**检查更新**时才会执行 update check。Main 通过 `dsh plugin --profile web outdated --format json` 调用 bundled pnpm，将结果过滤到 Registry-owned direct dependency，并保持 `wanted` 与 `latest` 的区别。Registry 与 Git update 调用 `dsh plugin --profile web update <name>`；Registry target 因此由现有 dependency range 选择，且不会选择新的 major version。Copied local package 与 explicit reinstall 调用 `add <requestedSpec> --force`，remove 调用 `remove <name>`。上游 dsh 仍是 `dsh.profile.bundles` reconciliation 的唯一 owner。
 
-在 update、reinstall 或 removal 修改 package file 之前，`PluginLifecycleController.quiesceForPackageMutation()` 会从 generated roster 中移除 active hot plugin，并等待 Host inventory 报告 absent。此 temporary quiescence 不会编辑 persisted disabled preference。如果 package command 失败，且 dependency manifest、lockfile 与 installed package manifest 均未变化，controller 会恢复之前的 runtime。如果任何 captured disk state 已变化，Electron 会让插件保持 unloaded、刷新 catalog 并报告 `profile-changed`；它不会执行可能处于 partial 状态的 artifact。Removal 成功后会从 `profileManaged` 与 `disabled` 同时删除 package name。
+在 update、reinstall 或 removal 修改 package file 之前，`PluginLifecycleController.quiesceForPackageMutation()` 会从 generated roster 中移除 active hot plugin，并等待 Host inventory 报告 absent。此 temporary quiescence 不会编辑 persisted disabled preference。如果 package command 失败，且 dependency manifest、lockfile 与 installed package manifest 均未变化，controller 会恢复之前的 runtime。如果任何 captured disk state 已变化，Electron 会让插件保持 unloaded、刷新 catalog 并报告 `profile-changed`；它不会执行可能处于 partial 状态的 artifact。Removal 成功后会从 `profileManaged` 与 `disabled` 同时删除 package name。Electron 只在移除 hot-activated、带 client half 的 package 后 soft-refresh Renderer，因为 Host 已不再引用它。移除 `profile-restart` package 时绝不 soft-refresh：Host 在 Desktop relaunch 前仍持有 startup Bundle composition，reload 会尝试抓取已删除的 client script。
 
 每次 update 或 reinstall 成功后都会重新 inspect package kind。Managed runtime package 会 hot-activate，但 startup kind 为 Bundle 时除外。从 running Bundle transition 后绝不 hot-load 新 runtime entry，因为 Host 仍包含 startup Bundle composition。进入或离开 Bundle 的任何 transition 都会建立 pending restart change。
 
@@ -105,15 +105,16 @@ Runtime reactivation 会在 package Host entry 上使用 Main 生成的 revision
 
 ## Renderer refresh 边界
 
-Electron 只会在 Host 稳定之后，并且仅当 manageable 插件分发产物带有 client half（`hasClient === true`）时刷新 BrowserWindow。
+Electron 只会在 Host 稳定之后，并且仅当 manageable、hot-activated 插件分发产物带有 client half（`hasClient === true`）时刷新 BrowserWindow。
 
-纯 Host 插件不会触发 Renderer reload。
+纯 Host 插件不会触发 Renderer reload。Profile-restart package 在 install、update、reinstall 或 removal 后也不会 reload Renderer；Desktop 暴露 `ctx.desktop.app.relaunch()`，让“已安装”页可以 relaunch 进程并应用 pending composition。
 
 该边界是刻意的：
 
 * Host 插件生命周期保持为真正的 Cordis hot plug。
 * Renderer 插件图协调仍是由 Electron 拥有的整页 reload。
 * Electron 不尝试对上游模块图做 client 侧热协调。
+* Bundle composition change 需要完整 Desktop relaunch，而不是 soft Renderer reload。
 
 ## 状态文件行为
 

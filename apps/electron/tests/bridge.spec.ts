@@ -22,6 +22,7 @@ describe('desktop bridge constants', () => {
       'deepseek-desktop:host:openStream',
       'deepseek-desktop:app:getVersion',
       'deepseek-desktop:app:getPlatform',
+      'deepseek-desktop:app:relaunch',
       'deepseek-desktop:dialog:pickDirectory',
       'deepseek-desktop:clipboard:readText',
       'deepseek-desktop:clipboard:writeText',

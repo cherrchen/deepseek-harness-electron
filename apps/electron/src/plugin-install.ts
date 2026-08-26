@@ -289,7 +289,12 @@ export class PluginPackageService {
           disabled: loaded.disabled.filter(candidate => candidate !== name),
           profileManaged: loaded.profileManaged.filter(candidate => candidate !== name),
         })
-        await this.lifecycle.refreshAfterPackageRemoval(token.hasClient)
+        // Soft-refresh only when Host no longer references the package. Profile-restart
+        // packages remain in Host composition until Desktop relaunch; refreshing would
+        // load missing client scripts and fail plugin bootstrap.
+        if (token.hasClient && entry.activationMode === 'hot') {
+          await this.lifecycle.refreshAfterPackageRemoval(true)
+        }
         await this.reconcileRestart('remove', name)
         return {
           name,
