@@ -1,11 +1,14 @@
 // @vitest-environment jsdom
-import { describe, expect, it, vi } from 'vitest'
-import { render, waitFor, fireEvent, screen } from '@testing-library/react'
+import { afterEach, describe, expect, it, vi } from 'vitest'
+import { cleanup, render, waitFor, fireEvent, screen } from '@testing-library/react'
 import type { SessionId } from '@deepseek-ai/dsh-client-connection/client'
 import type { SessionListState, SessionSummary } from '@deepseek-ai/dsh-client-runtime/client'
 import type { PropsLocale } from '@deepseek-ai/dsh-client-ui-slots'
 import type { GitRepositorySnapshot } from '../src/types.ts'
-import { GitBranchControl } from '../src/client/GitBranchControl.tsx'
+import {
+  createBranchErrorMessage,
+  GitBranchControl,
+} from '../src/client/GitBranchControl.tsx'
 import type { GitClientController, GitClientState } from '../src/client/controller.ts'
 import type { GitDetailsTab } from '../src/client/contract.ts'
 import { en } from '../src/client/locales.ts'
@@ -77,6 +80,8 @@ function sessionsOf(cwdBySession: Partial<Record<SessionId, string>>): SessionLi
 const unused = (): never => { throw new Error('unused') }
 
 describe('GitBranchControl', () => {
+  afterEach(() => { cleanup() })
+
   const t = ((key: keyof typeof en) => en[key]) as PropsLocale<'git'>['t']
   const baseProps = (
     controller: GitClientController,
@@ -172,5 +177,62 @@ describe('GitBranchControl', () => {
     render(<GitBranchControl {...baseProps(controller, list, openDetails)} sessionId={SESSION_A} />)
     fireEvent.click(screen.getByRole('button', { name: /1 changes/i }))
     expect(openDetails).toHaveBeenCalledWith('changes')
+  })
+
+  it('opens a conversation Modal to create a branch', async () => {
+    const createBranch = vi.fn(async () => {})
+    const controller = controllerOf({
+      workspacePath: '/projects/alpha',
+      repository: snapshot(),
+      activeTab: 'changes',
+      selectedDiff: undefined,
+      diff: undefined,
+      loading: false,
+      error: undefined,
+      desktopAvailable: false,
+    })
+    ;(controller as unknown as { createBranch: typeof createBranch }).createBranch = createBranch
+    const list = sessionsOf({ [SESSION_A]: '/projects/alpha' })
+    render(<GitBranchControl {...baseProps(controller, list)} sessionId={SESSION_A} />)
+    fireEvent.click(screen.getByRole('button', { name: 'main' }))
+    fireEvent.click(await screen.findByRole('menuitem', { name: 'Create new branch' }))
+    expect(await screen.findByRole('dialog', { name: 'Create branch' })).toBeTruthy()
+    fireEvent.change(screen.getByLabelText('New branch name'), { target: { value: 'feature/x' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Create' }))
+    await waitFor(() => {
+      expect(createBranch).toHaveBeenCalledWith('feature/x')
+    })
+  })
+
+  it('explains unborn repositories instead of offering create', async () => {
+    const controller = controllerOf({
+      workspacePath: '/projects/alpha',
+      repository: snapshot({
+        head: null,
+        branches: [],
+        branch: 'main',
+      }),
+      activeTab: 'changes',
+      selectedDiff: undefined,
+      diff: undefined,
+      loading: false,
+      error: undefined,
+      desktopAvailable: false,
+    })
+    const list = sessionsOf({ [SESSION_A]: '/projects/alpha' })
+    render(<GitBranchControl {...baseProps(controller, list)} sessionId={SESSION_A} />)
+    fireEvent.click(screen.getByRole('button', { name: 'main' }))
+    expect(await screen.findByText(/No commits yet/i)).toBeTruthy()
+    expect((screen.getByRole('menuitem', { name: 'Create new branch' }) as HTMLButtonElement).disabled).toBe(true)
+  })
+})
+
+describe('createBranchErrorMessage', () => {
+  const t = ((key: keyof typeof en) => en[key]) as PropsLocale<'git'>['t']
+
+  it('maps unborn HEAD and object-name failures to the same copy', () => {
+    expect(createBranchErrorMessage(new Error('boom'), true, t)).toBe(en['branch.unbornCreate'])
+    expect(createBranchErrorMessage(new Error("fatal: not a valid object name: 'main'"), false, t))
+      .toBe(en['branch.unbornCreate'])
   })
 })

@@ -93,6 +93,19 @@ describe('portable Git service', () => {
     await dispose()
   })
 
+  it('reports an empty branch list after git init before the first commit', async () => {
+    const root = mkdtempSync(join(tmpdir(), 'dsh-plugin-git-unborn-'))
+    roots.push(root)
+    execFileSync('git', ['init', '-b', 'main'], { cwd: root })
+    const { dispose, git } = await service()
+    const snapshot = await git.status(root)
+    expect(snapshot.branch).toBe('main')
+    expect(snapshot.head).toBeNull()
+    expect(snapshot.branches).toEqual([])
+    await expect(git.createBranch(root, 'feature')).rejects.toThrow(/not a valid object name/iu)
+    await dispose()
+  })
+
   it('preserves Git command failures instead of reporting a missing repository', async () => {
     const root = mkdtempSync(join(tmpdir(), 'dsh-plugin-git-failing-'))
     roots.push(root)

@@ -17,28 +17,31 @@
   color: var(--dsw-alias-state-warn-primary);
 }
 
-.createForm {
-  position: absolute;
-  z-index: 30;
+.createBody {
   display: grid;
-  gap: 8px;
-  width: min(280px, 80vw);
-  padding: 12px;
-  border: 1px solid var(--dsw-alias-border-l2);
-  border-radius: 10px;
-  background: var(--dsw-alias-bg-elevated);
-  box-shadow: var(--dsw-shadow-lv2);
+  gap: 10px;
 }
 
-.createTitle {
-  font-size: 12px;
+.createField {
+  display: grid;
+  gap: 6px;
+  font-size: 13px;
   color: var(--dsw-alias-label-secondary);
 }
 
-.createActions {
-  display: flex;
-  justify-content: flex-end;
-  gap: 6px;
+.createHint,
+.createError {
+  margin: 0;
+  font-size: 13px;
+  line-height: 19px;
+}
+
+.createHint {
+  color: var(--dsw-alias-label-secondary);
+}
+
+.createError {
+  color: var(--dsw-alias-state-error-primary);
 }
 
 .menuError {
