@@ -46,7 +46,7 @@ dsh plugin --profile web add github:cherrchen/dsh-theme-studio
 Theme Studio 不自行呈现 CSS。它调用 `ctx.theme.overrideTokens()`：
 
 ```text
-官方 Light / Dark / System
+Official Light / Dark / System
         ↓
 ACTIVE_SOURCE  (@dsh-electron/dsh-theme-studio:active)
         ↓
