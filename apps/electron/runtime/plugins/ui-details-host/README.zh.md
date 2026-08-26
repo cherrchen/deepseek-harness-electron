@@ -119,3 +119,4 @@ pnpm pack --dry-run
 
 - **单一活动 surface** — 同一时间只渲染一个 `shell.details.surface` instance；不实现 split、stacked 或 pinned 详情栏。
 - **仅内存 session 状态** — 进程重启后导航历史清空；不做 localStorage / IndexedDB / 文件持久化。
+- **Windows Desktop 标题栏避让** — 当宿主 document root 带有 `data-dsh-desktop-platform="win32"` 时，details header 会增加顶部 padding，使关闭控件避开 Window Controls Overlay；其他平台保持默认 header padding。

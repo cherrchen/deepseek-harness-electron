@@ -119,3 +119,4 @@ None. The package does not add, replace, or retain model-request tokens.
 
 - **Single active surface** — only one `shell.details.surface` instance renders at a time; split, stacked, or pinned details columns are not implemented.
 - **Memory-only session state** — navigation history is cleared on process restart; there is no localStorage, IndexedDB, or file persistence.
+- **Windows Desktop caption clearance** — when the host document root carries `data-dsh-desktop-platform="win32"`, the details header increases top padding so its close control clears the Window Controls Overlay. Other platforms keep the default header padding.
