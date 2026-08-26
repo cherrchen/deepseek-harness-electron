@@ -201,14 +201,22 @@
 }
 
 .restartBanner {
-  display: grid;
-  gap: 7px;
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
   border: 1px solid color-mix(in srgb, var(--dsw-alias-state-warn-primary) 42%, var(--dsw-alias-border-l2));
   border-radius: 10px;
   padding: 12px 14px;
   background: color-mix(in srgb, var(--dsw-alias-state-warn-primary) 9%, var(--dsw-alias-bg-layer-3));
   font-size: 12px;
   line-height: 18px;
+}
+
+.restartBannerBody {
+  display: grid;
+  gap: 7px;
+  min-width: 0;
 }
 
 .restartBanner strong {
@@ -224,6 +232,11 @@
 
 .restartBanner span {
   color: var(--dsw-alias-label-tertiary);
+}
+
+.restartButton {
+  flex-shrink: 0;
+  align-self: center;
 }
 
 .pluginMeta {

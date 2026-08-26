@@ -20,7 +20,7 @@ System 与 distribution-bundled package 不具有 package action。Registry-owne
 
 Reactivation 会为 installed Host entry 分配 Main 生成的 file-URL revision。如果不改变 request，Node ESM cache 会在 package file 改变后继续执行旧 module。Lifecycle settlement 除了 revisioned module request，还会跟踪 stable nested loader entry id。
 
-Package recovery 会比较 command 前 capture 的 dependency manifest、pnpm lockfile 与 installed package manifest。未发生变化的 failure 会在之前处于 active 时 restore 原 runtime。任何 captured disk change 都会让 plugin 保持 unloaded 并报告 `profile-changed`；Desktop 不会执行可能处于 partial 状态的 artifact。Removal 成功后会同时清理 `profileManaged` 与 `disabled` membership。
+Package recovery 会比较 command 前 capture 的 dependency manifest、pnpm lockfile 与 installed package manifest。未发生变化的 failure 会在之前处于 active 时 restore 原 runtime。任何 captured disk change 都会让 plugin 保持 unloaded 并报告 `profile-changed`；Desktop 不会执行可能处于 partial 状态的 artifact。Removal 成功后会同时清理 `profileManaged` 与 `disabled` membership。Removal 后的 soft Renderer refresh 仅适用于 hot-activated package；`profile-restart` removal 会保持 Host composition 不变，直到 Desktop 通过 `ctx.desktop.app.relaunch()` relaunch。
 
 `PluginRestartTracker` 会在 Host 启动前 capture profile package，并在 Main memory 中保存 Bundle composition difference。Bundle install、update、reinstall、removal 与 kind transition 会出现在 `pendingRestart`；catalog row 消失后，removal 仍以 tombstone 保留。Same-version source refresh 仍保持 pending，因为 package version 不能标识 source content。安装一个 startup baseline 中不存在的 Bundle 后再将其移除，会取消该 change。新的 Desktop process 会 capture 新 baseline，因此不需要新的 persisted state version。
 

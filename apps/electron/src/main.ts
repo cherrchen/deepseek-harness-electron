@@ -88,6 +88,7 @@ const desktop = new DesktopServices({
   getWindow: () => mainWindow,
   getUpdater: () => updater,
   showMainWindow,
+  relaunch: relaunchDesktop,
 })
 
 registerRendererScheme()
@@ -241,6 +242,13 @@ async function prepareToInstall(): Promise<void> {
   const child = harness
   harness = undefined
   if (child !== undefined) await stopHarness(child)
+}
+
+/** Stop Host cleanly, then relaunch this Desktop process. */
+async function relaunchDesktop(): Promise<void> {
+  await prepareToInstall()
+  app.relaunch()
+  app.exit(0)
 }
 
 function installDesktopMenus(): void {

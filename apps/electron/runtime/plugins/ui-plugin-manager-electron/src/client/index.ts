@@ -27,6 +27,7 @@ export function apply(ctx: ClientContext): void {
   const injected = (): PluginManagerTabInjected => ({
     plugins: ctx.desktop.plugins,
     dialog: ctx.desktop.dialog,
+    app: ctx.desktop.app,
   })
   ctx.slots.inject('settings.plugins.tab', () => ctx.slots.register({
     name: 'settings.plugins.tab',

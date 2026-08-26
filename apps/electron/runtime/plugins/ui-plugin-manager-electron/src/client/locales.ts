@@ -61,6 +61,7 @@ export const zh = {
   restartRemove: '{plugin} 已移除',
   restartReinstall: '{plugin} 已重新安装',
   restartInstruction: '重启 DeepSeek Harness 以应用这些变更。',
+  restartNow: '立即重启',
   installPlugin: '安装插件',
   close: '关闭',
   cancel: '取消',
@@ -92,6 +93,9 @@ export const zh = {
   installedActivated: '{plugin} {version} 已安装并正在运行。',
   installedRestart: '{plugin} {version} 已安装。重启 DeepSeek Harness 后即可启用此 Bundle。',
   installedDependencyMessage: '{plugin} {version} 已作为普通依赖安装。',
+  removalSucceeded: '移除成功',
+  removalFailed: '移除失败',
+  removedRestart: '{plugin} 已移除。重启 DeepSeek Harness 后即可完整应用此变更。',
 } satisfies Record<string, string>
 
 /** Plugin Manager locale key union. */
@@ -160,6 +164,7 @@ export const en = {
   restartRemove: '{plugin} was removed',
   restartReinstall: '{plugin} was reinstalled',
   restartInstruction: 'Restart DeepSeek Harness to apply these changes.',
+  restartNow: 'Restart Now',
   installPlugin: 'Install Plugin',
   close: 'Close',
   cancel: 'Cancel',
@@ -191,4 +196,7 @@ export const en = {
   installedActivated: '{plugin} {version} is installed and running.',
   installedRestart: '{plugin} {version} is installed. Restart DeepSeek Harness to activate this Bundle.',
   installedDependencyMessage: '{plugin} {version} was installed as a plain dependency.',
+  removalSucceeded: 'Removal succeeded',
+  removalFailed: 'Removal failed',
+  removedRestart: '{plugin} was removed. Restart DeepSeek Harness to fully apply this change.',
 } satisfies Record<PluginManagerLocaleKey, string>

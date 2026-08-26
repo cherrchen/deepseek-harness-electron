@@ -80,6 +80,8 @@ export interface DesktopCapabilitiesContract {
     getVersion(): Promise<string>
     /** Electron process.platform. */
     getPlatform(): Promise<string>
+    /** Relaunch Desktop after draining Host so pending plugin composition applies. */
+    relaunch(): Promise<void>
   }
   dialog: {
     /** Open the OS directory chooser owned by Electron Main. */
@@ -197,6 +199,7 @@ export function createDesktopCapabilities(bridge: DesktopBridge): DesktopCapabil
     app: {
       getVersion: () => bridge.app.getVersion(),
       getPlatform: () => bridge.app.getPlatform(),
+      relaunch: () => bridge.app.relaunch(),
     },
     dialog: {
       pickDirectory: options => bridge.dialog.pickDirectory(options),

@@ -233,6 +233,29 @@ describe('plugin package lifecycle', () => {
     }
   })
 
+  it('does not soft-refresh the renderer after removing a client-bearing Bundle', async () => {
+    const f = await fixture()
+    f.setCatalogKind('bundle')
+    try {
+      const service = new PluginPackageService(
+        f.profileDir,
+        f.statePath,
+        async () => {
+          f.removeDependency()
+          return { exitCode: 0, stdout: '', stderr: '' }
+        },
+        f.lifecycle,
+        new PluginMutationCoordinator(),
+        new Set(),
+        f.catalog,
+      )
+      await expect(service.remove('@fixture/plugin')).resolves.toMatchObject({ operation: 'remove' })
+      expect(f.lifecycleSpies.refreshAfterRemoval.mock.calls).toHaveLength(0)
+    } finally {
+      await rm(f.root, { recursive: true, force: true })
+    }
+  })
+
   it('uses upstream update for Git and force-resolves copied local packages from their requested spec', async () => {
     for (const [requestedSpec, expected] of [
       ['github:fixture/plugin#main', { kind: 'update', name: '@fixture/plugin' }],

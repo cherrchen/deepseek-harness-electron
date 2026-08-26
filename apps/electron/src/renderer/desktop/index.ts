@@ -96,6 +96,9 @@ export const app = {
   getPlatform(): Promise<string> {
     return requireBridge().app.getPlatform()
   },
+  relaunch(): Promise<void> {
+    return requireBridge().app.relaunch()
+  },
 }
 
 /** Window facade. */
