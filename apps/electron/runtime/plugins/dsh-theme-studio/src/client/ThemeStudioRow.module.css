@@ -1,3 +1,6 @@
+/* Themes row: title + description + compact theme cards (Appearance-style
+ * boxes: small top-left swatch, name/badge in the header, actions bottom-right). */
+
 .group {
   display: flex;
   flex-direction: column;
@@ -29,15 +32,17 @@
 
 .card {
   box-sizing: border-box;
-  flex: 1 1 160px;
-  max-width: 220px;
+  flex: 1 1 180px;
+  max-width: 280px;
   display: flex;
   flex-direction: column;
-  gap: 8px;
-  padding: 12px;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px 16px;
   border: 1px solid var(--dsw-alias-border-l2);
   border-radius: 16px;
   background: var(--dsw-alias-bg-layer-1);
+  min-height: 0;
 }
 
 .active {
@@ -50,16 +55,34 @@
   outline-offset: 1px;
 }
 
+.cardTop {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  min-width: 0;
+}
+
 .mosaic {
+  flex: 0 0 auto;
+  width: 20px;
+  height: 20px;
   display: grid;
   grid-template-columns: 1fr 1fr;
-  grid-template-rows: 36px 36px;
+  grid-template-rows: 1fr 1fr;
   overflow: hidden;
-  border-radius: 10px;
+  border-radius: 4px;
 }
 
 .mosaic span {
   display: block;
+}
+
+.cardMeta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 4px 8px;
+  min-width: 0;
 }
 
 .name {
@@ -69,7 +92,6 @@
 }
 
 .cardStatus {
-  min-height: 18px;
   font-size: 12px;
   line-height: 18px;
   color: var(--dsw-alias-label-secondary);
@@ -79,13 +101,15 @@
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
+  justify-content: flex-end;
+  align-self: flex-end;
 }
 
 .action {
   font: inherit;
   font-size: 12px;
   line-height: 18px;
-  padding: 6px 10px;
+  padding: 4px 8px;
   border: 1px solid var(--dsw-alias-border-l2);
   border-radius: 8px;
   background: transparent;
@@ -119,6 +143,10 @@
   color: var(--dsw-alias-label-primary);
   font-size: 13px;
   line-height: 20px;
+}
+
+.bar .actions {
+  align-self: auto;
 }
 
 .live {

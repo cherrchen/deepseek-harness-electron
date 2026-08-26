@@ -60,12 +60,15 @@ export function ThemeStudioRow({
           const name = t(card.nameKey as ThemeStudioKey)
           const active = activeThemeId === card.id
           const cardPreviewing = previewing && previewThemeId === card.id
+          const badge = active ? t('current') : cardPreviewing ? t('preview') : null
           return (
             <article key={card.id ?? 'default'} className={cardClass(css, active, cardPreviewing)} role="listitem">
-              <Mosaic preview={card.preview.light} />
-              <div className={css.name}>{name}</div>
-              <div className={css.cardStatus}>
-                {active ? t('current') : cardPreviewing ? t('preview') : '\u00a0'}
+              <div className={css.cardTop}>
+                <Mosaic preview={card.preview.light} />
+                <div className={css.cardMeta}>
+                  <div className={css.name}>{name}</div>
+                  {badge ? <div className={css.cardStatus}>{badge}</div> : null}
+                </div>
               </div>
               <div className={css.actions}>
                 <button

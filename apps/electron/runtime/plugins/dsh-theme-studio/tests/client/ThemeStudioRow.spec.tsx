@@ -91,6 +91,8 @@ describe('ThemeStudioRow', () => {
     expect(screen.getByText('Default')).toBeDefined()
     expect(screen.getByText('Graphite')).toBeDefined()
     expect(screen.getByText('Nordic')).toBeDefined()
+    // Default is active when activeThemeId is null.
+    expect(screen.getByText('Current')).toBeDefined()
     expect(screen.getAllByRole('button', { name: /Preview / })).toHaveLength(3)
     expect(screen.getAllByRole('button', { name: /Apply / })).toHaveLength(3)
   })
@@ -107,6 +109,7 @@ describe('ThemeStudioRow', () => {
       })
     })
     expect(screen.getByText('Current')).toBeDefined()
+    expect(screen.getAllByText('Current')).toHaveLength(1)
     fireEvent.click(screen.getByRole('button', { name: 'Preview Nordic' }))
     expect(b.previewTheme).toHaveBeenCalledWith('dsh-theme-studio.nordic')
     expect(b.activateTheme).not.toHaveBeenCalled()
