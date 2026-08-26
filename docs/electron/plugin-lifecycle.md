@@ -35,7 +35,7 @@ Electron writes these files below `$DSH_HOME/electron/`:
 
 Electron also writes `electron-host.patch.yml` into Electron `userData` and passes it to `dsh web --patch`.
 
-The bootstrap patch keeps required runtime plugin rows, enables narrow HMR for `plugins.cordis.yml`, and mounts one stable `cordis:include` seat for that generated file. Individual ecosystem plugins are not listed in the bootstrap overlay. Details Host is a required row: it must stay out of `dshElectron.ecosystemPlugins`.
+The bootstrap patch keeps required runtime plugin rows, enables narrow HMR for `plugins.cordis.yml`, and mounts one stable `cordis:include` seat for that generated file. Individual ecosystem plugins are not listed in the bootstrap overlay. Details Host and Theme Studio are required rows: they must stay out of `dshElectron.ecosystemPlugins`.
 
 ## Startup sequence
 

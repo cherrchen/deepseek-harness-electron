@@ -68,6 +68,7 @@ const OPERATION_VERBS = {
 const SYSTEM_NAMES: Readonly<Record<string, string>> = {
   '@dsh-electron/dsh-plugin-git': 'Git',
   '@dsh-electron/dsh-client-ui-details-host': 'Details Host',
+  '@dsh-electron/dsh-theme-studio': 'Theme Studio',
   '@dsh-electron/dsh-electron-desktop-capabilities': 'Desktop Capabilities',
   '@dsh-electron/dsh-electron-ui-brand': 'Brand Adapter',
   '@dsh-electron/dsh-electron-ui-directory-picker': 'Directory Picker Adapter',

@@ -349,6 +349,8 @@ Plugin Manager（`@dsh-electron/dsh-electron-ui-plugin-manager`）消费 `ctx.de
 
 Details Host（`@dsh-electron/dsh-client-ui-details-host`）是必需的 portable UI 基础设施。源码真源是 `cherrchen/dsh-client-ui-details-host`；`apps/electron/runtime/plugins/ui-details-host` 是 git subtree 镜像。Electron 从该源码重新构建 Host 与 Client artifacts。该包在启动时挂载 `ctx.shellDetails`，在消费者调用 `open()` 之前不占用 `details`。加载它 MUST 让上游 DetailsPanel 继续作为栏位 winner。`open(id)` 仍然支持；当 surface 需要参数时，优先使用 `open({ surfaceId, payload })`。每个 session 在内存中保留独立的 active instance 与有界 back stack。
 
+Theme Studio（`@dsh-electron/dsh-theme-studio`）是必需的 portable UI，用于内置配色覆盖层。源码真源是 `cherrchen/dsh-theme-studio`；`apps/electron/runtime/plugins/dsh-theme-studio` 是 git subtree 镜像。Electron 从该源码重新构建 Host 与 Client artifacts。该包注册**设置 → 通用 → 主题**，并调用 `ctx.theme.overrideTokens()`；它不替换官方外观，也不自己呈现 CSS。
+
 ```text
 Feature Plugin
      │
@@ -614,7 +616,8 @@ apps/electron/runtime/plugins/
 ├─ ui-directory-picker-electron/  Desktop-required adapter
 ├─ ui-brand-electron/             Electron carrier plugin
 ├─ ui-plugin-manager-electron/    Electron carrier plugin
-└─ ui-details-host/               Electron-required portable UI infrastructure (subtree)
+├─ ui-details-host/               Electron-required portable UI infrastructure (subtree)
+└─ dsh-theme-studio/              portable theme overlay (subtree)
 
 packages/dsh-electron/
 └─ dsh-plugin-<feature>/           portable or Desktop-aware public DSH plugin

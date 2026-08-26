@@ -45,6 +45,7 @@ DeepSeek Harness Desktop 随附两个来自独立 canonical repository 的可移
 | 插件 | 桌面角色 | 简介 |
 |---|---|---|
 | [dsh-client-ui-details-host](https://github.com/cherrchen/dsh-client-ui-details-host) | 必需内置 | 通过 `ctx.shellDetails` 在 AppFrame 第三栏承载一个活动 details surface。 |
+| [dsh-theme-studio](https://github.com/cherrchen/dsh-theme-studio) | 必需内置 | 在**设置 → 通用 → 主题**提供内置配色主题，叠加在官方浅色 / 深色 / 跟随系统外观之上。 |
 | [dsh-plugin-git](https://github.com/cherrchen/dsh-plugin-git) | 预装（可在**设置 → 插件**中禁用） | 在输入区与详情栏提供本地 Git 状态、diff、stage、commit 与 branch 操作。依赖 Details Host。 |
 
 Canonical 开发在各自仓库进行；本 monorepo 通过 git subtree 镜像它们。
