@@ -81,7 +81,7 @@ AppFrame 详情栏几何、resize handle 与 close button 由 Details Host 拥�
 
 ## 用户体验
 
-在会话输入区左侧，Git 贡献 branch selector 与 changed-files indicator。点击任一控件会在第三栏打开 Git details surface。
+在会话输入区左侧，Git 贡献 branch selector 与 changed-files indicator。点击任一控件会在第三栏打开 Git details surface。创建分支会打开共享的 conversation Modal；在仅有 `git init`、尚无提交（unborn HEAD）时，菜单以禁用态展示符号默认分支，说明需要先完成首次提交，并在 HEAD 存在前禁用创建。
 
 面板内可查看 staged、unstaged 与 untracked 变更，检查 diff，stage / unstage 路径，编写 commit message，以及切换或创建本地 branch。在 Electron 上，optional Desktop enhancement 在 Desktop provider 存在时提供 reveal-in-folder 与 open-path 操作。
 

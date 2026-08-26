@@ -229,7 +229,9 @@ export class GitClientController {
       const next = decodeSnapshot(await this.call(endpoint, payload))
       this.patch({ repository: next, diff: undefined, selectedDiff: undefined, loading: false })
     } catch (error) {
-      this.patch({ loading: false, error: error instanceof Error ? error.message : String(error) })
+      const message = error instanceof Error ? error.message : String(error)
+      this.patch({ loading: false, error: message })
+      throw error instanceof Error ? error : new Error(message)
     }
   }
 

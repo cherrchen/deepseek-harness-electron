@@ -77,7 +77,7 @@ describe('GitClientController', () => {
     }
     const controller = new GitClientController(rpc)
     await controller.setWorkspace('/workspace')
-    await controller.switchBranch('dev')
+    await expect(controller.switchBranch('dev')).rejects.toThrow('Your local changes would be overwritten')
     expect(controller.getSnapshot().repository?.branch).toBe('main')
     expect(controller.getSnapshot().error).toBe('Your local changes would be overwritten')
   })
