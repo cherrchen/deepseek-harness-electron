@@ -74,7 +74,7 @@ function mount() {
     useWorkspaces: (() => undefined) as never,
     useStore: bindSnapshotSelector(store),
     actions: store.actions as never,
-    t: (key) => en[key] ?? key,
+    t: key => en[key] ?? key,
     previewTheme,
     activateTheme,
     cancelPreview,

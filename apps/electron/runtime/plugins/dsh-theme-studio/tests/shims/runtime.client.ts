@@ -46,4 +46,6 @@ export function defineStore<S extends object, A extends Record<string, (draft: S
   }
 }
 
-export type EngineStoreHandle<S extends object, A> = ReturnType<typeof defineStore<S, A & Record<string, (draft: S, ...args: never[]) => void>>>
+export type EngineStoreHandle<S extends object, A> = ReturnType<
+  typeof defineStore<S, A & Record<string, (draft: S, ...args: never[]) => void>>
+>

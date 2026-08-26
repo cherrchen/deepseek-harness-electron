@@ -70,7 +70,10 @@ function fakeSlots() {
     inject(_name: string, factory: () => () => void) {
       return factory()
     },
-    register(options: { name: string; id?: string; order?: number; locale?: string; store?: unknown; inject?: unknown }, component: unknown) {
+    register(
+      options: { name: string; id?: string; order?: number; locale?: string; store?: unknown; inject?: unknown },
+      component: unknown,
+    ) {
       const entry = { options, component, store: options.store, inject: options.inject }
       items.push(entry)
       return () => {

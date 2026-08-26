@@ -46,7 +46,7 @@ function cardsOf(catalog: BuiltinPresetRegistry): ThemeStudioCard[] {
       descriptionKey: 'default.description',
       preview: DEFAULT_PREVIEW,
     },
-    ...catalog.list().map((preset) => ({
+    ...catalog.list().map(preset => ({
       id: preset.id,
       nameKey: nameKeyOf(preset.id),
       descriptionKey: descriptionKeyOf(preset.id),
