@@ -1,0 +1,4 @@
+# Profile bundle: mount Theme Studio Host settings and Client overlay UI.
+- insert:
+    - id: theme-studio
+      name: '@dsh-electron/dsh-theme-studio'
