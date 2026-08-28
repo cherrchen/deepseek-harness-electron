@@ -26,6 +26,7 @@ jobs:
         with:
           ref: main
           fetch-depth: 0
+          token: ${{ secrets.UPSTREAM_SYNC_TOKEN }}
 
       # desktop-release.yml runs from the release tag push; do not dispatch it here.
       - name: Validate prepared version and publish tag
