@@ -6,7 +6,7 @@ Status: implemented
 
 ## 问题
 
-桌面仓库从 `deepseek-ai/deepseek-harness` 继承了大部分 manifest（元数据清单）、工作流和依赖决策。如果在这里继续应用上游覆盖整个仓库的 [Dependabot 策略](2026-07-27-dependabot-version-updates.md)，就会重复创建 npm、Python 和 GitHub Actions 更新提案，而这些变更之后还会通过上游同步再次到达。每个自动生成的 PR（Pull Request）也会启动上游验证和三平台桌面打包矩阵，尽管下游仓库只负责 Electron 打包工具链。
+桌面仓库从 `deepseek-ai/deepseek-harness` 继承了大部分 manifest（元数据清单）、工作流和依赖决策。如果在这里继续应用上游覆盖整个仓库的 [Dependabot 策略](2026-07-27-dependabot-version-updates.zh.md)，就会重复创建 npm、Python 和 GitHub Actions 更新提案，而这些变更之后还会通过上游同步再次到达。每个自动生成的 PR（Pull Request）也会启动上游验证和三平台桌面打包矩阵，尽管下游仓库只负责 Electron 打包工具链。
 
 ## 决策
 

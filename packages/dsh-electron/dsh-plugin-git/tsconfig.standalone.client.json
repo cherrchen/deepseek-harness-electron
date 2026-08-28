@@ -1,0 +1,41 @@
+{
+  "compilerOptions": {
+    "target": "ES2024",
+    "module": "NodeNext",
+    "moduleResolution": "NodeNext",
+    "lib": ["ES2024", "DOM", "DOM.Iterable"],
+    "types": ["node", "react"],
+    "jsx": "react-jsx",
+    "strict": true,
+    "skipLibCheck": true,
+    "exactOptionalPropertyTypes": true,
+    "noUncheckedIndexedAccess": true,
+    "verbatimModuleSyntax": true,
+    "preserveSymlinks": true,
+    "rewriteRelativeImportExtensions": true,
+    "declaration": true,
+    "declarationMap": true,
+    "sourceMap": true,
+    "rootDir": "src",
+    "outDir": "lib/types"
+  },
+  "files": [
+    "src/types.ts",
+    "src/css-modules.d.ts",
+    "src/client/index.ts",
+    "src/client/contract.ts",
+    "src/client/controller.ts",
+    "src/client/changed-path-count.ts",
+    "src/client/path-display.ts",
+    "src/client/ComposerToolTrigger.tsx",
+    "src/client/GitBranchControl.tsx",
+    "src/client/GitDetailsHeaderActions.tsx",
+    "src/client/GitDetailsSurface.tsx",
+    "src/client/details/ChangesTab.tsx",
+    "src/client/details/CommitTab.tsx",
+    "src/client/details/DiffTab.tsx",
+    "src/client/details/ChangeSection.tsx",
+    "src/client/details/ChangeRow.tsx",
+    "src/client/locales.ts"
+  ]
+}

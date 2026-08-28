@@ -12,6 +12,7 @@ import {
   composeEntries,
   healProfilesModuleFallback,
   initProfile,
+  inspectBundlePackage,
   loadProfile,
   PROFILE_PATCH_FILENAME,
   PROFILE_TEMPLATES,
@@ -114,6 +115,43 @@ describe('resolveBundleDir', () => {
     writeFileSync(join(dir, 'index.js'), '')
     writeFileSync(join(dir, 'cordis.patch.yml'), '[]\n')
     expect(resolveBundleDir('t', 'sealed-bundle', anchor, profileDir)).toBe(dir)
+  })
+})
+
+describe('inspectBundlePackage', () => {
+  it('rejects missing declared Host and client entries before profile composition', () => {
+    const root = tmp()
+    writeFileSync(join(root, 'cordis.patch.yml'), '[]\n')
+    writeFileSync(join(root, 'package.json'), JSON.stringify({
+      name: 'broken-bundle',
+      main: 'lib/index.js',
+      exports: { '.': './lib/index.js', './client': './lib/client.js' },
+      dsh: { bundle: { patch: './cordis.patch.yml' }, client: { platform: 'web' } },
+    }))
+    expect(inspectBundlePackage('t', root)).toEqual({
+      kind: 'invalid', reason: 'declared Host entry does not exist: ./lib/index.js',
+    })
+    mkdirSync(join(root, 'lib'))
+    writeFileSync(join(root, 'lib', 'index.js'), '')
+    expect(inspectBundlePackage('t', root)).toEqual({
+      kind: 'invalid', reason: 'declared client entry does not exist: ./lib/client.js',
+    })
+  })
+
+  it('rejects an entry outside the package without rejecting a child whose name starts with dots', () => {
+    const parent = tmp()
+    const root = join(parent, 'bundle')
+    mkdirSync(join(root, '..safe'), { recursive: true })
+    writeFileSync(join(parent, 'outside.js'), '')
+    writeFileSync(join(root, '..safe', 'cordis.patch.yml'), '[]\n')
+    writeFileSync(join(root, 'package.json'), JSON.stringify({
+      name: 'escaped-bundle',
+      main: '../outside.js',
+      dsh: { bundle: { patch: './..safe/cordis.patch.yml' } },
+    }))
+    expect(inspectBundlePackage('t', root)).toEqual({
+      kind: 'invalid', reason: 'declared Host entry escapes the package directory: ../outside.js',
+    })
   })
 })
 

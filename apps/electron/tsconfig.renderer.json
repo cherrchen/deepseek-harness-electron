@@ -1,0 +1,14 @@
+{
+  "extends": "../../tsconfig.base.client.json",
+  "compilerOptions": {
+    "composite": false,
+    "incremental": false,
+    "noEmit": true,
+    "paths": {}
+  },
+  "include": [
+    "src/bridge-types.ts",
+    "src/renderer/**/*.ts",
+    "src/renderer/**/*.tsx"
+  ]
+}

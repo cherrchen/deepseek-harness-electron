@@ -116,6 +116,8 @@ export interface CordisCatalogPolicy {
   readonly foundationTypeNames: ReadonlySet<string>
   /** Repository types deliberately documented outside the linked data catalog. */
   readonly typeLinkExemptions: Readonly<Record<string, string>>
+  /** Services deliberately documented outside the generated catalog and service graphs. */
+  readonly serviceExclusions?: ReadonlySet<string>
   /** Framework Services included in the model-facing runtime catalog but not the harness documentation partition. */
   readonly runtimeServices?: readonly ServiceEntry[]
   /** Harness Services omitted from the model-facing runtime catalog because dynamic Plugins must not call them. */
@@ -278,7 +280,13 @@ export class CordisCatalogProjector {
     const entries: ServiceEntry[] = []
     const violations: string[] = []
     const typeLinkViolations: string[] = []
-    for (const service of this.renderableServices()) {
+    const renderable = this.renderableServices()
+    const renderableKeys = new Set(renderable.map(service => service.key))
+    for (const excluded of this.policy.serviceExclusions ?? []) {
+      if (!renderableKeys.has(excluded)) violations.push(`service exclusion ctx.${excluded} does not name a renderable service.`)
+    }
+    for (const service of renderable) {
+      if (this.policy.serviceExclusions?.has(service.key)) continue
       const declaration = this.renderer.declaration(service.symbol)
       const parsedDeclaration = parseJsDoc(declaration.jsDoc ?? '')
       if (parsedDeclaration.deprecated) continue
@@ -951,6 +959,12 @@ function anchorFor(headingText: string): string[] {
   return [`<a id="${githubSlug(headingText)}"></a>`, '']
 }
 
+/** Render a subsystem `file:line` source pointer as a file-only link. */
+function sourceLink(source: string): string {
+  const file = source.split(':')[0]
+  return `[\`${file}\`](../../${file})`
+}
+
 /** Render one harness event entry onto its owning page, nested under its scope heading. */
 function renderEvent(e: EventEntry, onPage: string, linkedTypePages: Readonly<Record<string, string>>): string[] {
   const out = [...anchorFor(`${e.name} — ${e.mode}`), `#### \`${e.name}\` — ${e.mode}`, '']
@@ -958,7 +972,7 @@ function renderEvent(e: EventEntry, onPage: string, linkedTypePages: Readonly<Re
   out.push('```' + FENCE, e.jsDoc, e.signature, '```', '')
   const links = typeLinks(e.signature, onPage, linkedTypePages)
   if (links) out.push(links, '')
-  out.push(`Source: [\`${e.source}\`](../../${e.source.split(':')[0]})`, '')
+  out.push(`Source: ${sourceLink(e.source)}`, '')
   return out
 }
 
@@ -978,7 +992,7 @@ function renderService(s: ServiceEntry, onPage: string, linkedTypePages: Readonl
     const links = typeLinks(methods.map(method => method.signature).join('\n'), onPage, linkedTypePages)
     if (links) out.push(links, '')
   }
-  out.push(`Source: [\`${s.source}\`](../../${s.source.split(':')[0]})`, '')
+  out.push(`Source: ${sourceLink(s.source)}`, '')
   return out
 }
 
@@ -1010,7 +1024,7 @@ export function renderPageRegion(page: string, services: ServiceEntry[], events:
     '',
     '## Cordis API',
     '',
-    'Generated from source by `scripts/gen-cordis-catalog.ts` (verified fresh by `pnpm run verify-cordis-catalog` in doc-sync; regenerate with `pnpm run gen-cordis-catalog`) — this section is byte-identical in both language sides of the page. Signature blocks use a `ts cordis-catalog` fence and keep the original source JSDoc; dispatch modes are defined in the [primer](../cordis-primer.md#dispatch-modes), and the framework-inherited `ctx` API lives in [cordis-api/inherited.md](../cordis-api/inherited.md).',
+    'Generated from source by `scripts/gen-cordis-catalog.ts` (verified fresh by `pnpm run verify-cordis-catalog` in doc-sync; regenerate with `pnpm run gen-cordis-catalog`) — the language sides differ only in locale-specific paired document paths. Signature blocks use a `ts cordis-catalog` fence and keep the original source JSDoc; dispatch modes are defined in the [primer](../cordis-primer.md#dispatch-modes), and the framework-inherited `ctx` API lives in [cordis-api/inherited.md](../cordis-api/inherited.md).',
     '',
   ]
   for (const s of services) lines.push(...renderService(s, page, policy.linkedTypePages))

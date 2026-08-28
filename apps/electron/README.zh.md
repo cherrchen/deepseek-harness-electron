@@ -2,7 +2,37 @@
 
 [English](README.md) | 中文
 
-此应用将上游 DeepSeek Harness Web 组合封装为桌面应用。Electron 以 Node 兼容子进程模式启动已构建的 `dsh web` 可执行模块，请求操作系统分配环回端口，并在沙箱窗口中打开它报告的就绪 URL。应用完整复用上游 Web 前端、RPC 传输、插件组合、profile 和 `$DSH_HOME` 存储行为。
+此应用将上游 DeepSeek Harness 封装为原生桌面壳。Electron Main 在环回端口上监督已构建的 `dsh web` 后端以保持兼容，而 `BrowserWindow` 加载本包内基于 `@deepseek-ai/dsh-client-web` 构建的 Electron 自有 Renderer（`dsh-electron://localhost/`）。Host bootstrap、插件 bundle、一元 Host 调用（包括插件自有的 Connection RPC channel）与事件流仅通过 Main（类型化 preload IPC 与自定义协议代理）到达受监督进程。profile、会话与 `$DSH_HOME` 存储仍遵循上游 Harness 行为。
+
+CURRENT 与 TARGET 架构、所有权规则、里程碑与 ADR 详见 [../../docs/electron/architecture.zh.md](../../docs/electron/architecture.zh.md)。
+
+## 架构（CURRENT）
+
+Desktop 分离三层：
+
+| 层级 | 职责 |
+| ---- | ---- |
+| Electron Runtime | 窗口/托盘/菜单/更新器、OS 特权、安全策略、Host 进程监督、打包 |
+| DeepSeek Harness | Agent、会话、工具、模型、profile、Cordis Host/Client 运行时、持久化 |
+| Feature plugins | 以标准 DSH 插件封装的 portable 或 Desktop-aware 产品功能 |
+
+进程拓扑：
+
+```text
+BrowserWindow (dsh-electron://localhost)
+  └─ Electron-owned Renderer → @deepseek-ai/dsh-client-web
+Electron Main
+  ├─ typed window.deepseekDesktop bridge (no generic IPC)
+  └─ supervised `dsh web` on 127.0.0.1:<random-port>
+```
+
+贡献者约束：
+
+- Desktop 专属改动留在 `apps/electron/**`；不要通过改 `apps/web` 做 Desktop-only UI。
+- 保持 `src/renderer` 为薄 bootstrap/carrier；不要在此长出第二套产品前端。
+- Portable 与 Desktop-aware 产品功能归属 `packages/dsh-electron/` 下的标准 DSH/Cordis package；`runtime/plugins/` 容纳 Desktop-required adapter、Electron carrier，以及 Electron 必需的 portable DSH UI 基础设施。Desktop-required Host 组合留在 `runtime/host.patch.yml`；bundled 生态插件成员资格由生成的 `$DSH_HOME/electron/plugins.cordis.yml` roster 决定（[插件生命周期](../../docs/electron/plugin-lifecycle.zh.md)）。
+- Desktop-aware feature 保持 core fiber portable，并通过 optional `ctx.inject(['desktop'], ...)` child fiber 安装原生增强。它通过 `ctx.desktop` 能力服务消费原生能力，不得直接访问 `window.deepseekDesktop`。
+- 环回 Host 传输是内部兼容机制，无证据时不要为架构纯粹性替换它。
 
 ## 开发
 
@@ -11,23 +41,25 @@
 ```sh
 pnpm install
 pnpm run build
-pnpm --filter @deepseek-ai/dsh-electron start
+pnpm --filter @dsh-electron/dsh-electron start
 ```
 
-使用以下命令运行桌面端聚焦测试并编译主进程：
+`pnpm --filter @dsh-electron/dsh-electron build` 会编译主进程、preload 桥接、bundled runtime 插件与 Renderer（`dist/renderer`）。聚焦桌面测试需要这些 Electron 产物（在上方上游 `pnpm run build` 之后）：
 
 ```sh
-pnpm --filter @deepseek-ai/dsh-electron test
-pnpm --filter @deepseek-ai/dsh-electron build
+pnpm --filter @dsh-electron/dsh-electron build
+pnpm --filter @dsh-electron/dsh-electron test
 ```
 
 ## 桌面集成
 
-主窗口使用隐藏标题栏，并在上游 Web UI 上方保留 40 像素的拖拽区域。macOS 在该区域内保留“交通信号灯”；Windows 和 Linux 使用 Electron Window Controls Overlay 提供原生最小化、最大化和关闭控件。关闭主窗口会隐藏窗口，Harness 进程继续运行。通过托盘菜单可以重新打开窗口，也可以退出应用并停止受监管的子进程。
+主窗口使用隐藏标题栏，不绘制独立 Heading。侧栏和会话背景延伸至窗口顶部：macOS 在侧栏顶部保留可拖拽的“交通信号灯”区域；Windows 和 Linux 的 Window Controls Overlay 只占据右上角，因此侧栏内容从窗口顶边开始。活动会话 Header 的非交互部分可拖拽，空白会话背景顶部则覆盖一个透明的 40 像素命中面。Header 控件被明确排除拖拽；模态对话框打开期间，页面的所有拖拽区域均会暂停，使对话框遮罩和控件能够保持指针输入。关闭主窗口会隐藏窗口，Harness 进程继续运行。通过托盘菜单可以重新打开窗口，也可以退出应用并停止受监管的子进程。
 
-原生页面右键菜单根据 Chromium 当前的编辑能力提供剪切、复制、粘贴、全选和刷新；开发构建还提供 DevTools。应用只允许当前环回 Harness 源写入剪贴板，仍拒绝读取剪贴板和所有无关的渲染进程权限。应用菜单和托盘菜单提供桌面端自有的“关于”窗口、更新通道选择和手动更新检查入口。
+操作系统桌面能力由 Electron Main 拥有，并通过类型化的 `window.deepseekDesktop` preload 桥暴露。Desktop Capability Provider 插件（`runtime/plugins/desktop-capabilities`）将该桥适配为 feature 插件可用的 `ctx.desktop`。Electron Plugin Manager 消费 `ctx.desktop.plugins`，并向 upstream Plugins settings tab 贡献**已安装** view；lifecycle 读取、mutation、polling、rollback 与 Renderer refresh 行为记录在[插件生命周期参考](../../docs/electron/plugin-lifecycle.zh.md)中。受监督 Host 接收 `apps/electron/runtime` 下的 cordis overlay：禁用 Host `directory-picker-auto`，保留 browse Host 后端以便 `directoryPicker` 仍能注入 apiproxy，挂载 capability provider，将 Details Host 作为必需 portable UI 基础设施挂载（`ctx.shellDetails` 在消费者打开 surface 前不占用 `details`），挂载 Electron 本地 directory-flow client 插件（不挂载 browse client），挂载始终填充已交付品牌 slot 的 Electron 本地品牌插件，挂载 Electron Plugin Manager，并安装一个 `cordis:include` seat，其生成的 `$DSH_HOME/electron/plugins.cordis.yml` roster 默认包含 `@dsh-electron/dsh-plugin-git` 等 bundled 生态插件。`scripts/build-runtime-plugins.mjs` 从源码重新构建 `runtime/plugins/` 下的每个目录；标准生态插件保留独立构建的 Host 与 Client artifact。两类插件均在启动时链接到 `$DSH_HOME/profiles/node_modules` 与 `$DSH_HOME/electron/node_modules`。上游 UI 的剪贴板写入在存在上游注入 seam 之前，经 Renderer 侧窄 shim 转到 Main。以新窗口打开的外部 URL 必须使用 `https:`、`http:` 或 `mailto:`。
 
-托盘使用随应用打包的透明 DeepSeek 图形，而不是完整应用图标。Windows 和 Linux 在原生浅色主题下选择黑色图形，在原生深色主题下选择白色图形，并在 Electron 报告主题变化时刷新图标。macOS 使用随应用打包的 Template Image，由操作系统控制菜单栏对比度。
+原生页面右键菜单根据 Chromium 当前的编辑能力提供剪切、复制、粘贴、全选和刷新；开发构建还提供 DevTools。应用菜单和托盘菜单提供桌面端自有的“关于”窗口、更新通道选择和手动更新检查入口。
+
+托盘使用从受版本控制的 `assets/tray/deepseek.svg`（LobeHub lobe-icons，MIT）栅格化的单色 DeepSeek 图形。`pnpm run build:tray` 会在 `build/tray/` 下生成各 DPI 的 PNG；Windows 和 Linux 在原生浅色主题下选择黑色图形、在深色主题下选择白色图形，并按主显示器缩放因子选取最近的打包像素尺寸，在 Electron 报告主题或 display-metrics 变化时刷新。macOS 使用预渲染的 template PNG，由操作系统控制菜单栏对比度。
 
 “关于”窗口从此包的 manifest（元数据清单）读取仓库 URL，显示打包的图标和版本，并在系统浏览器中打开项目链接。其渲染进程在沙箱中运行，Content Security Policy 只允许内嵌样式和图标。
 
@@ -41,12 +73,12 @@ pnpm --filter @deepseek-ai/dsh-electron build
 
 ## 打包
 
-包元数据将产品名声明为 `DeepSeek Harness`，Electron 与 `electron-builder` 会将它用于开发环境界面、应用元数据、安装程序和可执行文件。包配置在 Windows 上生成允许用户选择安装目录的向导式 NSIS 安装程序，在 macOS 上生成 DMG 和 ZIP 产物，在 Linux 上生成 AppImage 和 DEB 产物。release 工作流使用 GitHub 托管的原生架构 runner，为 x64 和 ARM64 构建每一种格式。CI 构建未签名产物，因此仓库无需配置签名凭据；需要分发可信二进制文件的维护者必须提供 `electron-builder` 支持的平台签名环境。
+包元数据将产品名声明为 `DeepSeek Harness`，Electron 与 `electron-builder` 会将它用于开发环境界面、应用元数据、安装程序和可执行文件。打包后的元数据使用无 scope 的 `deepseek-harness-desktop` 应用名称，因此 updater 缓存目录不会从仅供 workspace 使用的 `@dsh-electron/dsh-electron` 名称派生。包配置在 Windows 上生成允许用户选择安装目录的向导式 NSIS 安装程序，并使用 ZIP 载荷解压，使 NSIS 在解压失败时拒绝安装，而不会只写入卸载程序；在 macOS 上生成 DMG 和 ZIP 产物，在 Linux 上生成 AppImage 和 DEB 产物。release 工作流使用 GitHub 托管的原生架构 runner，为 x64 和 ARM64 构建每一种格式；每个 Windows runner 都会在上传前安装已完成的产物，检查可执行文件、runtime 和两个快捷方式，然后卸载。CI 构建未签名产物，因此仓库无需配置签名凭据；需要分发可信二进制文件的维护者必须提供 `electron-builder` 支持的平台签名环境。
 
 桌面 release 在 `develop` 上使用 `v{a.b.c}-beta.{x}`，在 `main` 上使用 `v{a.b.c}-rc.{x}`，稳定版使用 `v{a.b.c}`。[`sync-upstream.yml`](../../.github/workflows/sync-upstream.yml) 将上游合并到 `develop`，准备并推送下一个 Beta commit，仅在 Desktop CI 针对该提交成功后发布其 tag。开发者在创建 `develop` 到 `main` 的发布 PR（Pull Request）前，先运行 `pnpm electron:set-version <apps/cli version>`，再运行 `pnpm install --no-frozen-lockfile`，然后提交 Electron manifest 和 lockfile。Desktop CI 会拒绝来自其他分支、使用 Beta 版本或版本与 [`apps/cli/package.json`](../cli/package.json) 不一致的发布 PR。PR 合并后，[`desktop-promote.yml`](../../.github/workflows/desktop-promote.yml) 在已准备好的 `main` 提交上创建 RC 或 Stable tag，不修改任何分支。[`desktop-release.yml`](../../.github/workflows/desktop-release.yml) 在发布安装包前校验 tag 所在分支与 package 版本。
 
 ## 运行时与安全
 
-子进程仅监听 `127.0.0.1` 的随机端口。渲染进程不启用 Node.js 集成，使用上下文隔离和 Chromium 沙箱，不获授任何权限，并且不能离开本地 Harness 源进行导航。以新窗口方式请求的 HTTP 和 HTTPS 链接会在系统浏览器中打开。
+受监督的 Harness 进程仅绑定 `127.0.0.1` 上的随机端口，且永远不是 BrowserWindow 的页面源。Renderer 无 Node.js 集成，启用上下文隔离与 Chromium 沙箱，仅接收类型化的 `window.deepseekDesktop` 桥接，且不能离开 `dsh-electron://localhost`。以新窗口请求的 HTTP/HTTPS 链接在系统浏览器中打开。
 
-受监管的子进程将操作系统用户主目录下的 `.dsh` 作为 `$DSH_HOME`，因此 Harness profile、设置、session 和其他状态在 macOS 与 Linux 上使用 `~/.dsh`，在 Windows 上使用 `%USERPROFILE%\.dsh`。Electron 自身的 Chromium 数据、缓存与桌面更新通道偏好仍保存在对应平台的 `userData` 目录。agent（智能体）shell 命令以当前用户的主目录作为初始工作区；用户可以通过 Harness UI 选择其他工作区。
+受监督进程将 `$DSH_HOME` 设为操作系统用户主目录下的 `.dsh`，因此 Harness profile、设置、会话等状态在 macOS/Linux 使用 `~/.dsh`，在 Windows 使用 `%USERPROFILE%\.dsh`。Electron 将 Chromium 数据、缓存与桌面更新偏好保留在其平台专属 `userData` 目录。Agent shell 命令以当前用户主目录为初始工作区；用户可通过 Harness UI 选择其他工作区。

@@ -10,9 +10,11 @@ The desktop distribution must preserve the upstream Web frontend, RPC routes, pl
 
 ## Decision
 
-[`apps/electron`](../../../../apps/electron) is a private workspace application that supervises the built `dsh web` entry in Electron's Node-compatible child mode. It enables Node internals required by the upstream config watcher, requests port zero, waits for the upstream readiness line, and loads the reported `127.0.0.1` URL. The child receives `<user home>/.dsh` as `DSH_HOME`, matching the CLI default on every operating system, while Electron retains its platform-specific `userData` directory for Chromium and desktop-owned state. The child's initial workspace is the current user's home directory.
+[`apps/electron`](../../../../apps/electron) is a private workspace application that supervises the built `dsh web` entry in Electron's Node-compatible child mode. It enables Node internals required by the upstream config watcher, requests port zero, and waits for the upstream readiness line. The child receives `<user home>/.dsh` as `DSH_HOME`, matching the CLI default on every operating system, while Electron retains its platform-specific `userData` directory for Chromium and desktop-owned state. The child's initial workspace is the current user's home directory.
 
-The renderer uses context isolation and Chromium sandboxing without Node integration or permission grants. Navigation stays on the ready URL's origin; new HTTP and HTTPS windows are handed to the system browser. Electron terminates the child before it exits and reports startup or unexpected child failures through a native error dialog.
+BrowserWindow loading is owned by [the standalone renderer note](2026-08-21-electron-standalone-renderer.md): the window loads `dsh-electron://localhost/` and Main proxies Host HTTP/WebSocket traffic. This note still owns Harness supervision, tray, updater, and packaging policy.
+
+The renderer uses context isolation and Chromium sandboxing without Node integration. New HTTP and HTTPS windows are handed to the system browser. Electron terminates the child before it exits and reports startup or unexpected child failures through a native error dialog.
 
 The package-level `productName` supplies `DeepSeek Harness` to Electron and `electron-builder`. Windows packages use the assisted NSIS installer and let users select the installation directory; the release matrix passes the same settings explicitly for both Windows architectures. The system tray loads packaged transparent glyphs: macOS receives a Template Image, while Windows and Linux select black or white artwork from `nativeTheme` and refresh it after a theme change.
 

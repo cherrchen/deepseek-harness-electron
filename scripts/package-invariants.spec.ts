@@ -27,6 +27,7 @@ export const apply = (ctx: { invariants: { register(name: string, install: typeo
 }
 
 function fixture(options: {
+  dir?: string
   packageName?: string
   source?: string
   invariantExport?: boolean
@@ -36,7 +37,7 @@ function fixture(options: {
 } = {}): string {
   const root = mkdtempSync(join(tmpdir(), 'dsh-package-invariants-'))
   roots.push(root)
-  const dir = join(root, 'packages/core/probe')
+  const dir = join(root, options.dir ?? 'packages/core/probe')
   mkdirSync(join(dir, 'src'), { recursive: true })
   const packageName = options.packageName ?? '@deepseek-ai/dsh-probe'
   const manifest = {
@@ -84,6 +85,16 @@ describe('package invariant gate', () => {
     }, null, 2)}\n`)
 
     expect(collectPackageInvariantViolations(root)).toEqual([])
+  })
+
+  it('accepts standalone dependency and build metadata in the downstream ecosystem namespace', () => {
+    expect(collectPackageInvariantViolations(fixture({
+      dir: 'packages/dsh-electron/probe',
+      packageName: '@dsh-electron/dsh-plugin-probe',
+      invariantDependency: false,
+      invariantReference: false,
+      buildEntry: false,
+    }))).toEqual([])
   })
 
   it('rejects missing publication metadata and build output', () => {

@@ -1,11 +1,12 @@
 /**
- * Electron desktop entry. It supervises the upstream dsh Web application,
- * keeps its loopback renderer sandboxed, and owns desktop-only lifecycle UI.
+ * Electron desktop entry. It supervises the upstream dsh Web backend as a
+ * Main-only compatibility process, loads the Electron-owned renderer over
+ * `dsh-electron://localhost`, and owns desktop OS capabilities.
  */
 
+import { existsSync, readFileSync } from 'node:fs'
 import { spawn, type ChildProcessByStdio } from 'node:child_process'
 import type { Readable } from 'node:stream'
-import { writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import {
   app,
@@ -14,8 +15,8 @@ import {
   Menu,
   nativeImage,
   nativeTheme,
+  screen,
   session,
-  shell,
   Tray,
   type MenuItemConstructorOptions,
 } from 'electron'
@@ -23,12 +24,28 @@ import { showAboutWindow } from './about.ts'
 import {
   allowsClipboardWrite,
   contextMenuTemplate,
-  DESKTOP_CHROME_CSS,
-  desktopChromeScript,
   desktopWindowChrome,
-} from './desktop.ts'
+  isAllowedExternalUrl,
+} from './desktop/index.ts'
+import { DesktopServices } from './desktop/services.ts'
+import { stopHarness } from './harness/process.ts'
+import { HttpHarnessTransport } from './harness/transport.ts'
+import { installDesktopIpc } from './ipc.ts'
 import { readDesktopManifest, resolveUpdateRepository } from './manifest.ts'
+import { RENDERER_ENTRY_URL, RENDERER_ORIGIN } from './bridge-types.ts'
 import { loadUpdateChannel, saveUpdateChannel, type UpdateChannel } from './preferences.ts'
+import {
+  installRendererProtocol,
+  registerRendererScheme,
+  resolveRendererRoot,
+} from './protocol.ts'
+import { prepareHostRuntimeOverlay } from './runtime-overlay.ts'
+import {
+  ensureRuntimePluginsLinked,
+  profileModuleLinkPath,
+  pluginRuntimeModuleLinkPath,
+  ensureSymlink,
+} from './runtime-plugins.ts'
 import {
   HARNESS_START_TIMEOUT_MS,
   harnessArguments,
@@ -36,7 +53,22 @@ import {
   resolveDshBin,
   resolveHarnessHome,
 } from './runtime.ts'
-import { trayIconPath, trayIconSize } from './tray.ts'
+import { DynamicIncludeCompositionBackend, effectivePluginRoster } from './plugin-runtime-config.ts'
+import { loadPluginState, reconcilePluginState, savePluginState } from './plugin-state.ts'
+import { PluginLifecycleController } from './plugin-lifecycle.ts'
+import { ProfilePluginCatalog } from './plugin-catalog.ts'
+import { PluginMutationCoordinator } from './plugin-mutation.ts'
+import { PluginPackageService, createPluginCommandRunner } from './plugin-install.ts'
+import { PluginRestartTracker } from './plugin-restart-tracker.ts'
+import { preparePluginPackageManager, resolveBundledPnpmBin } from './plugin-package-manager.ts'
+import { RemotePluginInventoryProbe } from './plugin-inventory-probe.ts'
+import {
+  trayIconNeedsLogicalLoad,
+  trayIconPath,
+  trayIconPixelSize,
+  trayIconRasterScale,
+  trayIconSize,
+} from './tray.ts'
 import { createUpdater, type UpdaterController } from './updater.ts'
 import * as process from 'node:process'
 
@@ -46,50 +78,28 @@ let harness: HarnessProcess | undefined
 let mainWindow: BrowserWindow | undefined
 let tray: Tray | undefined
 let updater: UpdaterController | undefined
+let pluginLifecycle: PluginLifecycleController | undefined
+let pluginPackages: PluginPackageService | undefined
+let inventoryProbe: RemotePluginInventoryProbe | undefined
 let quitting = false
 let stopping = false
+const transport = new HttpHarnessTransport()
+const desktop = new DesktopServices({
+  getWindow: () => mainWindow,
+  getUpdater: () => updater,
+  showMainWindow,
+  relaunch: relaunchDesktop,
+})
 
-const BROWSE_PICKER_PATCH = `# Electron Windows fallback for native directory picker
-- id: directory-picker
-  disabled: true
-
-- insert:
-    - id: directory-picker-browse
-      name: '@deepseek-ai/dsh-host-directory-picker-browse'
-    - id: directory-picker-browse-client
-      name: '@deepseek-ai/dsh-client-ui-directory-picker-browse'
-`
-
-function ensurePickerFallbackPatch(): string | undefined {
-  if (process.platform !== 'win32') {
-    return undefined
-  }
-
-  const patchPath = join(
-    app.getPath('userData'),
-    'picker-browse-fallback.yml',
-  )
-
-  writeFileSync(
-    patchPath,
-    BROWSE_PICKER_PATCH,
-    'utf8',
-  )
-
-  return patchPath
-}
+registerRendererScheme()
 
 /** Start dsh and resolve only after its complete Web composition is ready. */
-async function startHarness(): Promise<{ child: HarnessProcess; url: string }> {
-  const dshBin = resolveDshBin(app.getAppPath())
-
-  const pickerPatch = ensurePickerFallbackPatch()
-
-  const child = spawn(process.execPath, harnessArguments(dshBin, pickerPatch), {
+async function startHarness(dshBin: string, harnessHome: string, hostPatch: string): Promise<{ child: HarnessProcess; url: string }> {
+  const child = spawn(process.execPath, harnessArguments(dshBin, hostPatch), {
     cwd: app.getPath('home'),
     env: {
       ...process.env,
-      DSH_HOME: resolveHarnessHome(app.getPath('home')),
+      DSH_HOME: harnessHome,
       ELECTRON_RUN_AS_NODE: '1',
     },
     stdio: ['ignore', 'pipe', 'pipe'],
@@ -101,8 +111,18 @@ async function startHarness(): Promise<{ child: HarnessProcess; url: string }> {
     const timer = setTimeout(() => {
       if (settled) return
       settled = true
-      child.kill()
-      reject(new Error(`DeepSeek Harness did not become ready within ${String(HARNESS_START_TIMEOUT_MS / 1000)} seconds.`))
+      const timeoutError = new Error(
+        `DeepSeek Harness did not become ready within ${String(HARNESS_START_TIMEOUT_MS / 1000)} seconds.`,
+      )
+      void stopHarness(child).then(
+        () => { reject(timeoutError) },
+        (cleanupError: unknown) => {
+          reject(new AggregateError(
+            [timeoutError, cleanupError],
+            `${timeoutError.message} Harness shutdown also failed.`,
+          ))
+        },
+      )
     }, HARNESS_START_TIMEOUT_MS)
 
     const fail = (error: Error): void => {
@@ -130,9 +150,21 @@ async function startHarness(): Promise<{ child: HarnessProcess; url: string }> {
   })
 }
 
-/** Open one hardened desktop window for the local Harness origin. */
-async function createWindow(url: string): Promise<BrowserWindow> {
-  const allowedOrigin = new URL(url).origin
+function logPlugins(message: string, ...details: unknown[]): void {
+  console.info('[electron:plugins]', message, ...details)
+}
+
+function readProfileDependencies(profileDir: string): Record<string, string> {
+  const manifestPath = join(profileDir, 'package.json')
+  if (!existsSync(manifestPath)) return {}
+  const manifest = JSON.parse(readFileSync(manifestPath, 'utf8')) as { dependencies?: Record<string, string> }
+  return manifest.dependencies ?? {}
+}
+
+/** Open one hardened desktop window for the Electron-owned renderer. */
+async function createWindow(): Promise<BrowserWindow> {
+  const allowedOrigin = RENDERER_ORIGIN
+  const preload = join(app.getAppPath(), 'lib', 'preload', 'index.cjs')
   const window = new BrowserWindow({
     ...desktopWindowChrome(process.platform),
     width: 1440,
@@ -143,12 +175,16 @@ async function createWindow(url: string): Promise<BrowserWindow> {
     autoHideMenuBar: true,
     backgroundColor: '#f8f9fb',
     webPreferences: {
+      preload,
       contextIsolation: true,
       nodeIntegration: false,
       sandbox: true,
     },
   })
   mainWindow = window
+  window.webContents.on('preload-error', (_event, preloadPath, error) => {
+    console.error(`desktop preload failed (${preloadPath}):`, error)
+  })
   window.on('close', (event) => {
     if (quitting) return
     event.preventDefault()
@@ -161,14 +197,15 @@ async function createWindow(url: string): Promise<BrowserWindow> {
     if (safeOrigin(nextUrl) !== allowedOrigin) event.preventDefault()
   })
   window.webContents.setWindowOpenHandler(({ url: nextUrl }) => {
-    const protocol = safeProtocol(nextUrl)
-    if (protocol === 'https:' || protocol === 'http:') void shell.openExternal(nextUrl)
+    if (isAllowedExternalUrl(nextUrl)) void desktop.openExternal(nextUrl)
     return { action: 'deny' }
   })
   window.webContents.on('context-menu', (_event, params) => {
     Menu.buildFromTemplate(contextMenuTemplate(params, !app.isPackaged)).popup({ window })
   })
 
+  // Clipboard OS access goes through desktop.clipboard; keep a narrow write
+  // allowance until the renderer shim is the only writer in packaged builds.
   session.defaultSession.setPermissionCheckHandler((contents, permission, requestingOrigin) =>
     contents === window.webContents
       && allowsClipboardWrite(permission, requestingOrigin, allowedOrigin))
@@ -177,27 +214,9 @@ async function createWindow(url: string): Promise<BrowserWindow> {
       && allowsClipboardWrite(permission, safeOrigin(details.requestingUrl), allowedOrigin))
   })
 
-  await window.loadURL(url)
-  await window.webContents.insertCSS(DESKTOP_CHROME_CSS)
-  await window.webContents.executeJavaScript(desktopChromeScript(app.name), true)
+  await window.loadURL(RENDERER_ENTRY_URL)
   window.show()
   return window
-}
-
-/** Stop the supervised process, escalating only after its shutdown window. */
-async function stopHarness(child: HarnessProcess): Promise<void> {
-  if (child.exitCode !== null || child.signalCode !== null) return
-  child.kill('SIGTERM')
-  await new Promise<void>((resolve) => {
-    const timer = setTimeout(() => {
-      child.kill('SIGKILL')
-      resolve()
-    }, 5_000)
-    child.once('exit', () => {
-      clearTimeout(timer)
-      resolve()
-    })
-  })
 }
 
 function showMainWindow(): void {
@@ -216,9 +235,24 @@ function requestQuit(): void {
 async function prepareToInstall(): Promise<void> {
   quitting = true
   stopping = true
+  // Drain in-flight plugin mutations before tearing down Host.
+  await pluginLifecycle?.list().catch(() => undefined)
+  await inventoryProbe?.dispose().catch(() => undefined)
+  await transport.stop()
   const child = harness
   harness = undefined
   if (child !== undefined) await stopHarness(child)
+}
+
+/** Stop Host cleanly, then relaunch this Desktop process. */
+async function relaunchDesktop(): Promise<void> {
+  app.relaunch()
+  try {
+    await prepareToInstall()
+  } catch (error) {
+    console.error('desktop relaunch: failed to drain Host before exit', error)
+  }
+  app.exit(0)
 }
 
 function installDesktopMenus(): void {
@@ -265,6 +299,7 @@ function installDesktopMenus(): void {
     tray.setToolTip(app.name)
     tray.on('click', showMainWindow)
     nativeTheme.on('updated', refreshTrayIcon)
+    screen.on('display-metrics-changed', refreshTrayIcon)
   }
   tray.setContextMenu(Menu.buildFromTemplate([
     { label: `Show ${app.name}`, click: showMainWindow },
@@ -274,6 +309,7 @@ function installDesktopMenus(): void {
     { type: 'separator' },
     { label: 'Quit', click: requestQuit },
   ]))
+  desktop.emitUpdater()
 }
 
 function updateMenuItem(checkForUpdates: () => void): MenuItemConstructorOptions {
@@ -310,11 +346,36 @@ function updateChannelMenu(): MenuItemConstructorOptions {
 }
 
 function createTrayIcon(): Electron.NativeImage {
-  const source = nativeImage.createFromPath(trayIconPath(app.getAppPath(), process.platform, nativeTheme.shouldUseDarkColors))
-  if (source.isEmpty()) throw new Error('The packaged tray icon could not be loaded.')
-  const size = trayIconSize(process.platform)
-  const icon = source.resize({ width: size, height: size })
-  if (process.platform === 'darwin') icon.setTemplateImage(true)
+  const trayDir = join(app.getAppPath(), 'build', 'tray')
+  if (process.platform === 'darwin') {
+    const icon = nativeImage.createFromPath(join(trayDir, 'deepseekTemplate.png'))
+    if (icon.isEmpty()) throw new Error('The packaged tray icon could not be loaded.')
+    const retina = nativeImage.createFromPath(join(trayDir, 'deepseekTemplate@2x.png'))
+    if (!retina.isEmpty()) {
+      const { width, height } = retina.getSize()
+      icon.addRepresentation({ scaleFactor: 2, width, height, buffer: retina.toPNG() })
+    }
+    icon.setTemplateImage(true)
+    return icon
+  }
+
+  const scaleFactor = screen.getPrimaryDisplay().scaleFactor
+  const dip = trayIconSize(process.platform)
+  const pixel = trayIconPixelSize(dip, scaleFactor)
+  const path = trayIconPath(
+    app.getAppPath(),
+    process.platform,
+    nativeTheme.shouldUseDarkColors,
+    scaleFactor,
+  )
+  const icon = trayIconNeedsLogicalLoad(process.platform, dip, pixel)
+    ? nativeImage.createFromBuffer(readFileSync(path), {
+      width: dip,
+      height: dip,
+      scaleFactor: trayIconRasterScale(dip, pixel),
+    })
+    : nativeImage.createFromPath(path)
+  if (icon.isEmpty()) throw new Error('The packaged tray icon could not be loaded.')
   return icon
 }
 
@@ -323,12 +384,15 @@ function refreshTrayIcon(): void {
   tray.setImage(createTrayIcon())
 }
 
-function safeOrigin(value: string): string {
-  try { return new URL(value).origin } catch { return '' }
+async function refreshRendererForPluginLifecycle(): Promise<void> {
+  const window = mainWindow
+  if (window === undefined || window.isDestroyed()) return
+  logPlugins('refreshing renderer after client plugin lifecycle change')
+  await window.loadURL(RENDERER_ENTRY_URL)
 }
 
-function safeProtocol(value: string): string {
-  try { return new URL(value).protocol } catch { return '' }
+function safeOrigin(value: string): string {
+  try { return new URL(value).origin } catch { return '' }
 }
 
 app.on('window-all-closed', () => {})
@@ -341,7 +405,7 @@ app.on('before-quit', (event) => {
   stopping = true
   const child = harness
   harness = undefined
-  void stopHarness(child).finally(() => { app.quit() })
+  void transport.stop().then(() => stopHarness(child)).finally(() => { app.quit() })
 })
 
 const primaryInstance = app.requestSingleInstanceLock()
@@ -349,8 +413,91 @@ if (!primaryInstance) {
   app.quit()
 } else {
   void app.whenReady().then(async () => {
-    const started = await startHarness()
+    installRendererProtocol(resolveRendererRoot(app.getAppPath()), transport.harnessProxy)
+    const appPath = app.getAppPath()
+    const harnessHome = resolveHarnessHome(app.getPath('home'))
+    ensureRuntimePluginsLinked(appPath, harnessHome)
+    const overlay = await prepareHostRuntimeOverlay(appPath, app.getPath('userData'), harnessHome)
+    const loadedState = loadPluginState(overlay.pluginStatePath)
+    for (const warning of loadedState.warnings) console.warn(warning)
+    if (!existsSync(overlay.pluginStatePath) || loadedState.dirty) {
+      await savePluginState(overlay.pluginStatePath, loadedState.state)
+    }
+    const catalog = new ProfilePluginCatalog(
+      appPath,
+      harnessHome,
+      'web',
+      () => loadPluginState(overlay.pluginStatePath).state,
+    )
+    const catalogPlugins = await catalog.list()
+    const restartTracker = new PluginRestartTracker(catalogPlugins)
+    const reconciled = reconcilePluginState(
+      loadedState.state,
+      catalogPlugins.filter(plugin => plugin.manageable).map(plugin => plugin.name),
+      Object.keys(readProfileDependencies(join(harnessHome, 'profiles', 'web'))),
+    )
+    if (reconciled.removed.length > 0) {
+      console.warn('[electron:plugins] ignoring stale plugin state entries', reconciled.removed)
+      await savePluginState(overlay.pluginStatePath, reconciled.state)
+    }
+    const composition = new DynamicIncludeCompositionBackend(overlay.pluginConfigPath)
+    const mutations = new PluginMutationCoordinator()
+    const packageManager = preparePluginPackageManager(
+      harnessHome,
+      process.execPath,
+      resolveBundledPnpmBin(appPath),
+    )
+    await composition.apply(effectivePluginRoster(catalogPlugins, reconciled.state))
+    logPlugins('desired startup roster', effectivePluginRoster(catalogPlugins, reconciled.state).map(plugin => plugin.name))
+    installDesktopIpc(
+      transport,
+      desktop,
+      contents => mainWindow !== undefined && contents === mainWindow.webContents,
+      () => {
+        if (pluginLifecycle === undefined) throw new Error('desktop ipc: plugin lifecycle is unavailable')
+        return pluginLifecycle
+      },
+      () => {
+        if (pluginPackages === undefined) throw new Error('desktop ipc: plugin package service is unavailable')
+        return pluginPackages
+      },
+    )
+
+    const started = await startHarness(resolveDshBin(appPath), harnessHome, overlay.patchPath)
     harness = started.child
+    await transport.start(started.url)
+    inventoryProbe = new RemotePluginInventoryProbe(transport)
+    pluginLifecycle = new PluginLifecycleController(
+      catalog,
+      reconciled.state,
+      overlay.pluginStatePath,
+      composition,
+      inventoryProbe,
+      (plugin) => {
+        ensureSymlink(profileModuleLinkPath(harnessHome, plugin.name), plugin.rootPath)
+        ensureSymlink(pluginRuntimeModuleLinkPath(harnessHome, plugin.name), plugin.rootPath)
+      },
+      refreshRendererForPluginLifecycle,
+      {},
+      mutations,
+      restartTracker,
+    )
+    pluginPackages = new PluginPackageService(
+      join(harnessHome, 'profiles', 'web'),
+      overlay.pluginStatePath,
+      createPluginCommandRunner({
+        electronExecutable: process.execPath,
+        dshBin: resolveDshBin(appPath),
+        harnessHome,
+        profile: 'web',
+        envPath: packageManager.envPath,
+      }),
+      pluginLifecycle,
+      mutations,
+      new Set(catalogPlugins.filter(plugin => plugin.ownership !== 'profile').map(plugin => plugin.name)),
+      catalog,
+      restartTracker,
+    )
     harness.once('exit', (code, signal) => {
       if (quitting) return
       dialog.showErrorBox(
@@ -359,7 +506,7 @@ if (!primaryInstance) {
       )
       requestQuit()
     })
-    await createWindow(started.url)
+    await createWindow()
     const repository = resolveUpdateRepository(readDesktopManifest(app.getAppPath()))
     if (repository === undefined) throw new Error('The packaged GitHub update repository is missing.')
     updater = createUpdater({

@@ -45,25 +45,32 @@ jobs:
     steps:
       - uses: actions/checkout@v6
         with:
+          ref: ${{ github.event.inputs.tag || github.ref_name }}
           fetch-depth: 0
 
       - name: Resolve release context
         id: context
         run: |
-          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
-            tag="${{ inputs.tag }}"
-            version="${{ inputs.version }}"
-            prerelease="${{ inputs.prerelease }}"
-          else
-            tag="${GITHUB_REF_NAME}"
-            version="${GITHUB_REF_NAME#v}"
-            prerelease=false
-            if [[ "$tag" == *-beta.* || "$tag" == *-rc.* ]]; then prerelease=true; fi
-          fi
+          tag="${{ github.event.inputs.tag || github.ref_name }}"
 
           if [[ ! "$tag" =~ ^v[0-9]+\.[0-9]+\.[0-9]+(-beta\.[0-9]+|-rc\.[0-9]+)?$ ]]; then
             echo "::error::Tag $tag does not match the supported desktop release format."
             exit 1
+          fi
+
+          version="${tag#v}"
+          prerelease=false
+          if [[ "$tag" == *-beta.* || "$tag" == *-rc.* ]]; then prerelease=true; fi
+
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            if [ "${{ inputs.version }}" != "$version" ]; then
+              echo "::error::Requested version ${{ inputs.version }} does not match tag version $version."
+              exit 1
+            fi
+            if [ "${{ inputs.prerelease }}" != "$prerelease" ]; then
+              echo "::error::Requested prerelease value ${{ inputs.prerelease }} does not match tag $tag."
+              exit 1
+            fi
           fi
 
           if [[ "$tag" == *-beta.* ]]; then
@@ -97,6 +104,7 @@ jobs:
         include:
           - name: Windows x64
             runner: windows-latest
+            arch: x64
             args: --win nsis --x64 --config.nsis.oneClick=false --config.nsis.allowToChangeInstallationDirectory=true
             artifact: windows-x64
             files: |
@@ -105,6 +113,7 @@ jobs:
               dist/electron/latest.yml
           - name: Windows ARM64
             runner: windows-11-arm
+            arch: arm64
             args: --win nsis --arm64 --config.nsis.oneClick=false --config.nsis.allowToChangeInstallationDirectory=true
             artifact: windows-arm64
             files: |
@@ -113,6 +122,7 @@ jobs:
               dist/electron/latest.yml
           - name: macOS x64
             runner: macos-15-intel
+            arch: x64
             args: --mac dmg zip --x64
             artifact: macos-x64
             files: |
@@ -122,6 +132,7 @@ jobs:
               dist/electron/latest-mac.yml
           - name: macOS ARM64
             runner: macos-15
+            arch: arm64
             args: --mac dmg zip --arm64
             artifact: macos-arm64
             files: |
@@ -131,6 +142,7 @@ jobs:
               dist/electron/latest-mac.yml
           - name: Linux x64
             runner: ubuntu-latest
+            arch: x64
             args: --linux AppImage deb --x64
             artifact: linux-x64
             files: |
@@ -139,6 +151,7 @@ jobs:
               dist/electron/latest-linux*.yml
           - name: Linux ARM64
             runner: ubuntu-24.04-arm
+            arch: arm64
             args: --linux AppImage deb --arm64
             artifact: linux-arm64
             files: |
@@ -162,17 +175,24 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
-      - name: Test Electron runtime
-        run: pnpm --filter @deepseek-ai/dsh-electron test
-
       - name: Build upstream application
         run: pnpm run build
 
-      - name: Compile Electron main process
-        run: pnpm --filter @deepseek-ai/dsh-electron build
+      - name: Compile Electron application
+        run: pnpm --filter @dsh-electron/dsh-electron build
+
+      - name: Test Electron runtime
+        run: pnpm --filter @dsh-electron/dsh-electron test
 
       - name: Build installer
-        run: pnpm --filter @deepseek-ai/dsh-electron exec electron-builder ${{ matrix.args }} --publish never
+        run: pnpm --filter @dsh-electron/dsh-electron exec electron-builder ${{ matrix.args }} --publish never
+
+      - name: Smoke-test Windows installer
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $installer = Get-ChildItem "dist/electron/*-${{ matrix.arch }}.exe" | Select-Object -First 1 -ExpandProperty FullName
+          ./apps/electron/scripts/smoke-windows-installer.ps1 -InstallerPath $installer -Architecture '${{ matrix.arch }}'
 
       - uses: actions/upload-artifact@v4
         with:

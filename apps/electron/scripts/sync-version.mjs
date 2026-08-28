@@ -3,7 +3,11 @@
 import { readdir, readFile, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { synchronizeDependencies, assertResolvedWorkspaceDependencies } from './sync-version-dependencies.mjs'
+import {
+  DESKTOP_ENTRY_WORKSPACE_DEPENDENCIES,
+  synchronizeDependencies,
+  assertResolvedWorkspaceDependencies,
+} from './sync-version-dependencies.mjs'
 
 const electronManifestPath = fileURLToPath(new URL('../package.json', import.meta.url))
 const upstreamManifestPath = fileURLToPath(new URL('../../cli/package.json', import.meta.url))
@@ -68,6 +72,7 @@ const dependencies = synchronizeDependencies(
   electronManifest.dependencies,
   workspaceDependencies,
   workspaceNames,
+  DESKTOP_ENTRY_WORKSPACE_DEPENDENCIES,
 )
 assertResolvedWorkspaceDependencies(dependencies, workspaceNames)
 const changed = electronManifest.version !== upstreamManifest.version

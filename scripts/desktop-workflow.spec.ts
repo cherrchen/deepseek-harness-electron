@@ -9,6 +9,8 @@ describe('Desktop synchronization and release workflows', () => {
   it('assigns upstream and downstream workflow paths to their repository owners', () => {
     const attributes = readFileSync(resolve(root, '.gitattributes'), 'utf8')
 
+    expect(attributes).toContain('docs/electron/** merge=ours')
+    expect(attributes).toContain('packages/dsh-electron/** merge=ours')
     expect(attributes).toContain('.github/workflows/*.yml merge=theirs')
     expect(attributes).toContain('.github/workflows/desktop-*.yml merge=ours')
     expect(attributes).toContain('.github/workflows/sync-upstream.yml merge=ours')
@@ -36,6 +38,8 @@ describe('Desktop synchronization and release workflows', () => {
       isRecord(job) && Array.isArray(job.steps) ? job.steps.filter(isRecord) : []
     ))
     expect(ciSteps.find(step => step.name === 'Build installer')).toBeUndefined()
+    expect(ciSteps.filter(step => step.name === 'Type-check Electron application')).toHaveLength(2)
+    expect(ciSteps.filter(step => step.name === 'Lint Electron application')).toHaveLength(2)
 
     const packageJob = workflowJob(release, 'package')
     if (!isRecord(packageJob.strategy) || !isRecord(packageJob.strategy.matrix) || !Array.isArray(packageJob.strategy.matrix.include)) {
@@ -74,6 +78,8 @@ describe('Desktop synchronization and release workflows', () => {
     expect(electronManifest.build.nsis).toEqual({
       oneClick: false,
       allowToChangeInstallationDirectory: true,
+      useZip: true,
+      differentialPackage: false,
     })
   })
 
@@ -103,8 +109,10 @@ describe('Desktop synchronization and release workflows', () => {
     expect(sync.permissions).toMatchObject({ actions: 'read', checks: 'read', contents: 'write' })
     expect(checkout).toMatchObject({ with: { ref: 'develop' } })
     expect(merge.run).toContain('git merge --no-edit upstream/master')
+    expect(merge.run).toContain('git ls-tree -d --name-only upstream/master -- packages/dsh-electron')
     expect(merge.run).toContain("git config merge.theirs.driver 'cp %B %A'")
-    expect(merge.run).toContain('README.md|README.zh.md|README.i18n.yaml')
+    expect(merge.run).toContain('README.md|README.zh.md|README.i18n.yaml|docs/electron/*')
+    expect(merge.run).toContain('packages/dsh-electron/*')
     expect(merge.run).toContain('.github/workflows/desktop-*.yml|.github/workflows/sync-upstream.yml|scripts/desktop-workflow.spec.ts')
     expect(merge.run).toContain('AGENTS.md|.github/workflows/*.yml|scripts/ci-workflow.spec.ts')
     expect(merge.run).toContain('git checkout --theirs -- "$file"')
@@ -115,6 +123,7 @@ describe('Desktop synchronization and release workflows', () => {
     expect(merge.run).toContain('pnpm install --no-frozen-lockfile')
     expect(merge.run).not.toMatch(/pnpm install --lockfile-only/)
     expect(merge.run).toContain('apps/electron')
+    expect(merge.run).toContain('run verify:downstream-workspace')
     expect(prepareBeta.run).toContain('next-beta-tag.mjs')
     expect(prepareBeta.run).toContain('set-version.mjs')
     expect(prepareBeta.run).toContain('pnpm install --no-frozen-lockfile')
@@ -179,6 +188,7 @@ describe('Desktop synchronization and release workflows', () => {
       throw new TypeError('Desktop release must validate tags and publish installers')
     }
     const context = validate.steps.filter(isRecord).find(step => step.name === 'Resolve release context')
+    const checkout = validate.steps.filter(isRecord).find(step => step.uses === 'actions/checkout@v6')
     const notes = publish.steps.filter(isRecord).find(step => step.name === 'Write checksums and release notes')
     const create = publish.steps.filter(isRecord).find(step => step.name === 'Create release and upload installers')
     if (typeof context?.run !== 'string' || typeof create?.run !== 'string') {
@@ -196,6 +206,16 @@ describe('Desktop synchronization and release workflows', () => {
     })
     expect(context.run).toContain('expected_branch=develop')
     expect(context.run).toContain('expected_branch=main')
+    expect(checkout).toMatchObject({
+      with: {
+        ref: '${{ github.event.inputs.tag || github.ref_name }}',
+        'fetch-depth': 0,
+      },
+    })
+    expect(context.run).toContain('version="${tag#v}"')
+    expect(context.run).toContain('Requested version ${{ inputs.version }} does not match tag version $version.')
+    expect(context.run).toContain('Requested prerelease value ${{ inputs.prerelease }} does not match tag $tag.')
+    expect(context.run).toContain('git merge-base --is-ancestor HEAD "origin/$expected_branch"')
     expect(context.run).toContain("require('./apps/electron/package.json').version")
     expect(notes?.run).not.toContain('deepseek-ai/deepseek-harness/commit')
     expect(create.run).toContain('gh release view "$RELEASE_TAG"')

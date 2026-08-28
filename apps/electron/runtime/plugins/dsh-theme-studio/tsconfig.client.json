@@ -1,0 +1,35 @@
+{
+  "compilerOptions": {
+    "target": "ES2024",
+    "module": "NodeNext",
+    "moduleResolution": "NodeNext",
+    "lib": ["ES2024", "DOM", "DOM.Iterable"],
+    "types": ["node", "react"],
+    "jsx": "react-jsx",
+    "strict": true,
+    "skipLibCheck": true,
+    "exactOptionalPropertyTypes": true,
+    "noUncheckedIndexedAccess": true,
+    "verbatimModuleSyntax": true,
+    "preserveSymlinks": true,
+    "rewriteRelativeImportExtensions": true,
+    "declaration": true,
+    "declarationMap": true,
+    "sourceMap": true,
+    "rootDir": "src",
+    "outDir": "lib/types"
+  },
+  "files": [
+    "src/constants.ts",
+    "src/css-modules.d.ts",
+    "src/client/index.ts",
+    "src/client/adapter.ts",
+    "src/client/catalog.ts",
+    "src/client/locales.ts",
+    "src/client/presets.ts",
+    "src/client/runtime.ts",
+    "src/client/store.ts",
+    "src/client/types.ts",
+    "src/client/ThemeStudioRow.tsx"
+  ]
+}

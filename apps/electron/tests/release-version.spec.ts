@@ -17,13 +17,13 @@ afterEach(async () => {
 describe('Electron release version scripts', () => {
   it('sets the Electron manifest version from a tag or bare semver', async () => {
     const root = await createElectronFixture({
-      'apps/electron/package.json': JSON.stringify({ name: '@deepseek-ai/dsh-electron', version: '0.1.0-rc.1' }, null, 2),
+      'apps/electron/package.json': JSON.stringify({ name: '@dsh-electron/dsh-electron', version: '0.1.0-rc.1' }, null, 2),
     })
     const setVersionScript = join(root, 'apps/electron/scripts/set-version.mjs')
 
     execFileSync('node', [setVersionScript, 'v0.1.0-beta.2'], { cwd: root, encoding: 'utf8' })
-    const manifest = JSON.parse(await readFile(join(root, 'apps/electron/package.json'), 'utf8'))
-    expect(manifest.version).toBe('0.1.0-beta.2')
+    const manifest: unknown = JSON.parse(await readFile(join(root, 'apps/electron/package.json'), 'utf8'))
+    expect(manifest).toMatchObject({ version: '0.1.0-beta.2' })
   })
 
   it('restores the AGENTS.downstream.md reference after upstream AGENTS.md sync', async () => {

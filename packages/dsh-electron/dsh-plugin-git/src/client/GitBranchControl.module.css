@@ -1,0 +1,51 @@
+.root {
+  display: inline-flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+}
+
+.changesLabelCaption {
+  flex: none;
+  text-align: center;
+  color: var(--dsw-alias-label-caption);
+}
+
+.changesLabelWarn {
+  flex: none;
+  text-align: center;
+  color: var(--dsw-alias-state-warn-primary);
+}
+
+.createBody {
+  display: grid;
+  gap: 10px;
+}
+
+.createField {
+  display: grid;
+  gap: 6px;
+  font-size: 13px;
+  color: var(--dsw-alias-label-secondary);
+}
+
+.createHint,
+.createError {
+  margin: 0;
+  font-size: 13px;
+  line-height: 19px;
+}
+
+.createHint {
+  color: var(--dsw-alias-label-secondary);
+}
+
+.createError {
+  color: var(--dsw-alias-state-error-primary);
+}
+
+.menuError {
+  position: absolute;
+  font-size: 11px;
+  color: var(--dsw-alias-state-error-primary);
+}

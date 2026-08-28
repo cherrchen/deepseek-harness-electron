@@ -59,11 +59,20 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
-      - name: Test Electron runtime
-        run: pnpm --filter @deepseek-ai/dsh-electron test
+      - name: Build upstream application
+        run: pnpm run build
 
-      - name: Compile Electron main process
-        run: pnpm --filter @deepseek-ai/dsh-electron build
+      - name: Type-check Electron application
+        run: pnpm --filter @dsh-electron/dsh-electron typecheck
+
+      - name: Lint Electron application
+        run: pnpm exec tsx scripts/run-oxlint.ts apps/electron
+
+      - name: Compile Electron application
+        run: pnpm --filter @dsh-electron/dsh-electron build
+
+      - name: Test Electron runtime
+        run: pnpm --filter @dsh-electron/dsh-electron test
 
   validate:
     name: Test and compile
@@ -103,11 +112,17 @@ jobs:
             exit 1
           fi
 
-      - name: Test Electron runtime
-        run: pnpm --filter @deepseek-ai/dsh-electron test
-
       - name: Build upstream application
         run: pnpm run build
 
-      - name: Compile Electron main process
-        run: pnpm --filter @deepseek-ai/dsh-electron build
+      - name: Type-check Electron application
+        run: pnpm --filter @dsh-electron/dsh-electron typecheck
+
+      - name: Lint Electron application
+        run: pnpm exec tsx scripts/run-oxlint.ts apps/electron
+
+      - name: Compile Electron application
+        run: pnpm --filter @dsh-electron/dsh-electron build
+
+      - name: Test Electron runtime
+        run: pnpm --filter @dsh-electron/dsh-electron test

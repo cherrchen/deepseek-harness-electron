@@ -1,6 +1,10 @@
 import { describe, expect, it } from 'vitest'
 import { nextBetaTag } from '../scripts/next-beta-tag-lib.mjs'
-import { assertResolvedWorkspaceDependencies, synchronizeDependencies } from '../scripts/sync-version-dependencies.mjs'
+import {
+  DESKTOP_ENTRY_WORKSPACE_DEPENDENCIES,
+  assertResolvedWorkspaceDependencies,
+  synchronizeDependencies,
+} from '../scripts/sync-version-dependencies.mjs'
 
 describe('Electron dependency synchronization', () => {
   it('replaces workspace dependencies and retains desktop registry dependencies', () => {
@@ -41,11 +45,36 @@ describe('Electron dependency synchronization', () => {
     })
   })
 
+  it('retains required desktop workspace dependencies outside the CLI graph', () => {
+    const dependencies = synchronizeDependencies(
+      {
+        '@deepseek-ai/dsh-client-web': 'workspace:^',
+        '@deepseek-ai/dsh-obsolete': 'workspace:^',
+        'electron-updater': '^6.8.9',
+      },
+      ['@deepseek-ai/dsh'],
+      new Set([
+        '@deepseek-ai/dsh',
+        '@deepseek-ai/dsh-client-web',
+        '@deepseek-ai/dsh-obsolete',
+      ]),
+      DESKTOP_ENTRY_WORKSPACE_DEPENDENCIES,
+    )
+
+    expect(dependencies).toEqual({
+      '@deepseek-ai/dsh': 'workspace:^',
+      '@deepseek-ai/dsh-client-web': 'workspace:^',
+      'electron-updater': '^6.8.9',
+    })
+  })
+
   it('rejects workspace dependencies that are absent from the workspace', () => {
-    expect(() => assertResolvedWorkspaceDependencies(
-      { '@deepseek-ai/dsh-missing': 'workspace:^' },
-      new Set(['@deepseek-ai/dsh']),
-    )).toThrow('Electron dependency @deepseek-ai/dsh-missing is not present in the workspace')
+    expect(() => {
+      assertResolvedWorkspaceDependencies(
+        { '@deepseek-ai/dsh-missing': 'workspace:^' },
+        new Set(['@deepseek-ai/dsh']),
+      )
+    }).toThrow('Electron dependency @deepseek-ai/dsh-missing is not present in the workspace')
   })
 })
 
