@@ -5006,34 +5006,40 @@ importers:
         version: link:../../../vendor/schemastery
     devDependencies:
       '@deepseek-ai/cordis':
-        specifier: workspace:^
+        specifier: '>=4.0.1 <5.0.0'
         version: link:../../../vendor/cordis
+      '@deepseek-ai/dsh-api-session-controller':
+        specifier: '>=0.1.2-alpha.2 <0.2.0'
+        version: link:../../api/session-controller
       '@deepseek-ai/dsh-client-connection':
-        specifier: workspace:^
+        specifier: '>=0.1.2-alpha.2 <0.2.0'
         version: link:../../client/connection
       '@deepseek-ai/dsh-client-locale':
-        specifier: workspace:^
+        specifier: '>=0.1.2-alpha.2 <0.2.0'
         version: link:../../client/locale
       '@deepseek-ai/dsh-client-ui-conversation':
-        specifier: workspace:^
+        specifier: '>=0.1.2-alpha.2 <0.2.0'
         version: link:../../client/ui-conversation
       '@deepseek-ai/dsh-client-ui-primitives':
-        specifier: workspace:^
+        specifier: '>=0.1.2-alpha.2 <0.2.0'
         version: link:../../client/ui-primitives
       '@deepseek-ai/dsh-client-ui-renderer':
-        specifier: workspace:^
+        specifier: '>=0.1.2-alpha.2 <0.2.0'
         version: link:../../client/ui-renderer
+      '@deepseek-ai/dsh-client-ui-session':
+        specifier: '>=0.1.2-alpha.2 <0.2.0'
+        version: link:../../client/ui-session
       '@deepseek-ai/dsh-client-ui-slots':
-        specifier: workspace:^
+        specifier: '>=0.1.2-alpha.2 <0.2.0'
         version: link:../../client/ui-slots
       '@deepseek-ai/dsh-invariants':
-        specifier: workspace:^
+        specifier: '>=0.1.2-alpha.2 <0.2.0'
         version: link:../../runtime-diagnostics/invariants
       '@deepseek-ai/dsh-subprocess':
-        specifier: workspace:^
+        specifier: '>=0.1.2-alpha.2 <0.2.0'
         version: link:../../subprocess/subprocess
       '@deepseek-ai/dsh-subprocess-local':
-        specifier: workspace:^
+        specifier: '>=0.1.2-alpha.2 <0.2.0'
         version: link:../../subprocess/subprocess-local
       '@dsh-electron/dsh-client-ui-details-host':
         specifier: file:tests/fixtures/dsh-client-ui-details-host-0.2.0.tgz
