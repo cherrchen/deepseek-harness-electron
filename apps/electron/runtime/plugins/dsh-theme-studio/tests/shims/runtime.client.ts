@@ -1,4 +1,4 @@
-/** Test stand-in for `@deepseek-ai/dsh-client-runtime/client` named exports. */
+/** Test stand-in for the client-store and ui-renderer named exports. */
 
 type Listener = () => void
 

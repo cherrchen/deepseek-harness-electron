@@ -47,6 +47,9 @@ allowBuilds:
   '@deepseek-ai/dsh-subprocess-local@file:packages/subprocess/subprocess-local': true
   # Optional Squirrel.Windows backend; desktop releases use NSIS instead.
   electron-winstaller: false
+  # Legacy fixture closure used only by downstream compatibility tests; its
+  # published postinstall is not needed by the assembled applications.
+  '@deepseek-ai/dsh-subprocess-local': false
 
 minimumReleaseAgeExclude:
   # Fresh pi-ai releases carry the model catalog updates that are the whole

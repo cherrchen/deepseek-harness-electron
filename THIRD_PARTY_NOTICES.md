@@ -141,7 +141,6 @@ External packages **directly declared** only by repository tooling, test infrast
 | Package | License |
 | --- | --- |
 | [`@braintree/sanitize-url`](https://github.com/braintree/sanitize-url) | MIT |
-| [`@deepseek-ai/dsh-client-runtime`](https://github.com/deepseek-ai/deepseek-harness) | MIT |
 | [`@dsh-electron/dsh-client-ui-details-host`](https://github.com/cherrchen/dsh-client-ui-details-host) | MIT |
 | [`@lexical/headless`](https://github.com/facebook/lexical) | MIT |
 | [`@modelcontextprotocol/server-everything`](https://github.com/modelcontextprotocol/servers) | MIT / Apache-2.0 |

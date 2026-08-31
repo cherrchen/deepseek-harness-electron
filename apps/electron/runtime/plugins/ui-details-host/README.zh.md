@@ -28,7 +28,7 @@ dsh plugin --profile web add github:cherrchen/dsh-client-ui-details-host
 
 `dsh plugin add` 会激活随包附带的 `cordis.patch.yml` 层，把插件行插入组合配置。无需手动编辑 `cordis.yml`。
 
-Client 半通过 package 的 `exports["./client"]` 入口解析。Peer 依赖（`@deepseek-ai/dsh-client-runtime`、`@deepseek-ai/dsh-client-ui-layout`、`@deepseek-ai/dsh-client-ui-slots` 与 React）必须已存在于 host 组合中。
+Client 半通过 package 的 `exports["./client"]` 入口解析。Peer 依赖（`@deepseek-ai/dsh-client-ui-renderer`、`@deepseek-ai/dsh-client-ui-layout`、`@deepseek-ai/dsh-client-ui-slots` 与 React）必须已存在于 host 组合中。
 
 ## 用户体验
 

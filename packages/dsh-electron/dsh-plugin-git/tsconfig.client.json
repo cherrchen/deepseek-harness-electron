@@ -28,7 +28,7 @@
     { "path": "../../../vendor/cordis" },
     { "path": "../../client/connection/tsconfig.client.json" },
     { "path": "../../client/locale" },
-    { "path": "../../client/runtime" },
+    { "path": "../../client/ui-renderer" },
     { "path": "../../client/ui-conversation" },
     { "path": "../../client/ui-primitives" },
     { "path": "../../client/ui-slots" }

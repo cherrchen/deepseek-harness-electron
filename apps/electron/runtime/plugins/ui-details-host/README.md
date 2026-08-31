@@ -28,7 +28,7 @@ dsh plugin --profile web add github:cherrchen/dsh-client-ui-details-host
 
 `dsh plugin add` activates the bundled `cordis.patch.yml` layer, which inserts the plugin row into the composed configuration. No manual `cordis.yml` edit is required.
 
-The Client half resolves through the package `exports["./client"]` entry. Peer dependencies (`@deepseek-ai/dsh-client-runtime`, `@deepseek-ai/dsh-client-ui-layout`, `@deepseek-ai/dsh-client-ui-slots`, and React) must already be present in the host composition.
+The Client half resolves through the package `exports["./client"]` entry. Peer dependencies (`@deepseek-ai/dsh-client-ui-renderer`, `@deepseek-ai/dsh-client-ui-layout`, `@deepseek-ai/dsh-client-ui-slots`, and React) must already be present in the host composition.
 
 ## User experience
 

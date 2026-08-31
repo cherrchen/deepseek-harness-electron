@@ -2,7 +2,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { cleanup, render, waitFor, fireEvent, screen } from '@testing-library/react'
 import type { SessionId } from '@deepseek-ai/dsh-client-connection/client'
-import type { SessionListState, SessionSummary } from '@deepseek-ai/dsh-client-runtime/client'
+import type { SessionListState, SessionSummary } from '@deepseek-ai/dsh-api-session-controller/client'
 import type { PropsLocale } from '@deepseek-ai/dsh-client-ui-slots'
 import type { GitRepositorySnapshot } from '../src/types.ts'
 import {
@@ -93,8 +93,12 @@ describe('GitBranchControl', () => {
     t,
     useSessions: <S,>(selector: (s: SessionListState) => S): S => selector(list),
     useSession: unused,
+    useConversation: unused,
+    useChat: unused,
+    useTrajectory: unused,
     useWorkspaces: unused,
     useProjection: unused,
+    useSessionPendingInteraction: unused,
     useInput: unused,
     inputActions: {
       setDraft: unused,
