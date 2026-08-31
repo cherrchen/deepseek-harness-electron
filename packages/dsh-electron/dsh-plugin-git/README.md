@@ -8,6 +8,12 @@ Standard DSH/Cordis Git plugin with one portable Host service, one Client bundle
 
 [DeepSeek Harness Desktop](https://github.com/cherrchen/deepseek-harness-electron) pre-installs this plugin and mirrors this repository with git subtree. Users may disable Git from the Plugins settings; Details Host remains a required built-in.
 
+## DSH compatibility
+
+This `develop` branch targets **DeepSeek Harness `v0.1.2`** (including [`v0.1.2-alpha.2`](https://github.com/deepseek-ai/deepseek-harness/releases/tag/v0.1.2-alpha.2)).
+
+For **DeepSeek Harness [`v0.1.1-rc.2`](https://github.com/deepseek-ai/deepseek-harness/releases/tag/v0.1.1-rc.2)**, use the [`main`](https://github.com/cherrchen/dsh-plugin-git/tree/main) branch instead.
+
 ## Installation
 
 The package is in experimental development. A public npm release under `@dsh-electron/dsh-plugin-git` is planned; until then, install from this repository.
