@@ -7,6 +7,7 @@
 import { existsSync, globSync, readFileSync } from 'node:fs'
 import { dirname, relative, resolve, sep } from 'node:path'
 import ts from 'typescript'
+import { usesFlattenedPackageDependencies } from './package-dependency-policy.ts'
 
 /** Required explanation marker for an intentionally empty installer. */
 const NO_RUNTIME_INVARIANT_MARKER = 'No runtime invariant:'
@@ -14,6 +15,7 @@ const DOWNSTREAM_ECOSYSTEM_PACKAGE = /^packages\/dsh-electron\/[^/]+$/
 
 interface PackageManifest {
   name?: string
+  dsh?: unknown
   exports?: Record<string, { types?: string; default?: string } | string | undefined>
   files?: string[]
   peerDependencies?: Record<string, string>
@@ -98,18 +100,23 @@ function checkManifest(
   }
   if (DOWNSTREAM_ECOSYSTEM_PACKAGE.test(owner.dir)) return
   if (owner.packageName === '@deepseek-ai/dsh-invariants') return
-  if (manifest.peerDependencies?.['@deepseek-ai/dsh-invariants'] !== 'workspace:^') {
-    addViolation(
-      violations,
-      owner.manifestPath,
-      '@deepseek-ai/dsh-invariants must be a workspace:^ peerDependency',
-    )
+  const developmentOnlyInvariant = usesFlattenedPackageDependencies(
+    owner.manifestPath,
+    owner.packageName,
+    manifest.dsh,
+  )
+  const expectedRange = 'workspace:^'
+  const peerRange = manifest.peerDependencies?.['@deepseek-ai/dsh-invariants']
+  if (developmentOnlyInvariant ? peerRange !== undefined : peerRange !== expectedRange) {
+    addViolation(violations, owner.manifestPath, developmentOnlyInvariant
+      ? '@deepseek-ai/dsh-invariants must not be a peerDependency under this package dependency policy'
+      : '@deepseek-ai/dsh-invariants must be a workspace:^ peerDependency')
   }
-  if (manifest.devDependencies?.['@deepseek-ai/dsh-invariants'] !== 'workspace:^') {
+  if (manifest.devDependencies?.['@deepseek-ai/dsh-invariants'] !== expectedRange) {
     addViolation(
       violations,
       owner.manifestPath,
-      '@deepseek-ai/dsh-invariants must also be a workspace:^ devDependency',
+      `@deepseek-ai/dsh-invariants must be a ${expectedRange} devDependency`,
     )
   }
 }
