@@ -37,7 +37,10 @@ describe('Git client lifecycle', () => {
         historyDepth: 0,
       })),
       subscribe: vi.fn(() => () => {}),
-      registerSurface: vi.fn(() => () => {}),
+      registerSurface: vi.fn((_descriptor: {
+        id: string
+        dedupeKey?: (payload: unknown) => string | undefined
+      }) => () => {}),
     }
     ctx.provide('slots', {
       inject: (_name: string, callback: () => unknown) => ctx.effect(() => callback() as () => void),
@@ -90,9 +93,7 @@ describe('Git client lifecycle', () => {
       payload: { tab: 'diff' },
       navigation: 'replace',
     })
-    const descriptor = vi.mocked(shellDetails.registerSurface).mock.calls[0]![0] as {
-      dedupeKey?: (payload: unknown) => string | undefined
-    }
+    const descriptor = shellDetails.registerSurface.mock.calls[0]![0]
     expect(descriptor.dedupeKey?.({ tab: 'changes' })).toBe(GIT_DETAILS_SURFACE_ID)
     expect(descriptor.dedupeKey?.({ tab: 'commit' })).toBe(GIT_DETAILS_SURFACE_ID)
 

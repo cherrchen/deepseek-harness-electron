@@ -1,6 +1,8 @@
 import { useEffect, useMemo, useState, useSyncExternalStore } from 'react'
 import type { ReactNode } from 'react'
 import type { PropsLocale, PropsRuntime } from '@deepseek-ai/dsh-client-ui-slots'
+import type { SessionListState } from '@deepseek-ai/dsh-api-session-controller/client'
+import type {} from '@deepseek-ai/dsh-client-ui-session/client'
 import {
   Button, IconBranchOutline16, IconCheckOutline16, Input, Menu, Modal, Tooltip,
 } from '@deepseek-ai/dsh-client-ui-primitives'
@@ -44,7 +46,7 @@ export function createBranchErrorMessage(
 /** Branch selector and changed-files chip for the composer `conversation.input.left` slot. */
 export function GitBranchControl({ controller, openDetails, t, sessionId, useSessions }: GitBranchControlProps): ReactNode {
   const state = useSyncExternalStore(controller.subscribe, controller.getSnapshot)
-  const workspacePath = useSessions((list) => {
+  const workspacePath = useSessions((list: SessionListState) => {
     if (sessionId === undefined) return undefined
     return list.byId[sessionId]?.cwd
   })
