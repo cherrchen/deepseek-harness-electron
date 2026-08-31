@@ -2,7 +2,7 @@
  * Details Host plugin, browser half: `ctx.shellDetails` plus on-demand
  * takeover of the AppFrame `details` column.
  */
-import type { ClientContext } from '@deepseek-ai/dsh-client-runtime/client'
+import type { Context as ClientContext } from '@deepseek-ai/cordis'
 import type {} from '@deepseek-ai/dsh-client-ui-layout/client'
 import { ShellDetailsService } from './service.ts'
 

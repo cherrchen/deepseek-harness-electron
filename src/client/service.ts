@@ -4,8 +4,9 @@
  */
 import { Service } from '@deepseek-ai/cordis'
 import type { Context } from '@deepseek-ai/cordis'
-import type {} from '@deepseek-ai/dsh-client-runtime/client'
+import type {} from '@deepseek-ai/dsh-api-session-controller/client'
 import type { HostObservable, SlotLabel, StoredEntry } from '@deepseek-ai/dsh-client-ui-slots'
+import type {} from '@deepseek-ai/dsh-client-ui-renderer/client'
 import type {} from '@deepseek-ai/dsh-client-ui-layout/client'
 import {
   DETAILS_HEADER_ACTIONS_SLOT,

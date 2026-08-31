@@ -6,6 +6,12 @@
 
 本仓库是源码真源。[DeepSeek Harness Desktop](https://github.com/cherrchen/deepseek-harness-electron) 通过 git subtree 镜像它，并将 Details Host 作为必需内置基础设施挂载。同一 package 可在 DeepSeek Harness Desktop 与标准 DSH Web host 中原样运行。
 
+## DSH 兼容性
+
+本仓库的 `develop` 分支面向 **DeepSeek Harness `v0.1.2`**（含 [`v0.1.2-alpha.2`](https://github.com/deepseek-ai/deepseek-harness/releases/tag/v0.1.2-alpha.2)）。
+
+若你使用的是 **DeepSeek Harness [`v0.1.1-rc.2`](https://github.com/deepseek-ai/deepseek-harness/releases/tag/v0.1.1-rc.2)**，请改用 [`main`](https://github.com/cherrchen/dsh-client-ui-details-host/tree/main) 分支。
+
 ## 安装
 
 本包处于试验开发阶段，计划以 `@dsh-electron/dsh-client-ui-details-host` 发布到 npm；在此之前请从本仓库安装。
@@ -28,7 +34,7 @@ dsh plugin --profile web add github:cherrchen/dsh-client-ui-details-host
 
 `dsh plugin add` 会激活随包附带的 `cordis.patch.yml` 层，把插件行插入组合配置。无需手动编辑 `cordis.yml`。
 
-Client 半通过 package 的 `exports["./client"]` 入口解析。Peer 依赖（`@deepseek-ai/dsh-client-runtime`、`@deepseek-ai/dsh-client-ui-layout`、`@deepseek-ai/dsh-client-ui-slots` 与 React）必须已存在于 host 组合中。
+Client 半通过 package 的 `exports["./client"]` 入口解析。Peer 依赖（`@deepseek-ai/dsh-client-ui-renderer`、`@deepseek-ai/dsh-client-ui-layout`、`@deepseek-ai/dsh-client-ui-slots` 与 React）必须已存在于 host 组合中。
 
 ## 用户体验
 
