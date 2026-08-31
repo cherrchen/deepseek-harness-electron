@@ -64,12 +64,13 @@ Git 是 Details Host 的参考消费者。Client manifest 显式声明依赖关�
 
 `external` 确保模块表在本 bundle `require` Details Host Client factory 之前先物化它。`inject` 将 `ctx.shellDetails` 声明为运行时依赖。
 
-Git 注册 surface id `git`、可选 payload tab（`changes`、`diff`、`commit`），并通过以下调用打开栏位：
+Git 注册 surface id `git`、可选 payload tab（`changes`、`diff`、`commit`），并以单例方式打开栏位（`replace` 加上稳定的 `dedupeKey`），因此 Details Host 不会在 Git 标题旁显示返回控件：
 
 ```ts
 ctx.shellDetails.open({
   surfaceId: 'git',
   payload: { tab: 'changes' },
+  navigation: 'replace',
 })
 ```
 

@@ -15,7 +15,7 @@ import { GitBranchControl } from './GitBranchControl.tsx'
 import { GitDetailsHeaderActions } from './GitDetailsHeaderActions.tsx'
 import { GitDetailsSurface } from './GitDetailsSurface.tsx'
 import { GitClientController, type GitDesktopCapability } from './controller.ts'
-import { GIT_DETAILS_SURFACE_ID, type GitDetailsTab } from './contract.ts'
+import { GIT_DETAILS_SURFACE_ID, type GitDetailsPayload, type GitDetailsTab } from './contract.ts'
 import { en, NS, zh, type GitLocaleKey } from './locales.ts'
 
 declare module '@deepseek-ai/dsh-client-ui-slots' {
@@ -44,11 +44,13 @@ export function apply(ctx: ClientContext): void {
     ctx.shellDetails.open({
       surfaceId: GIT_DETAILS_SURFACE_ID,
       payload: { tab },
+      navigation: 'replace',
     })
   }
   ctx.effect(() => ctx.locale.register(NS, { en, zh }), 'git: dictionaries')
-  ctx.effect(() => ctx.shellDetails.registerSurface({
+  ctx.effect(() => ctx.shellDetails.registerSurface<GitDetailsPayload>({
     id: GIT_DETAILS_SURFACE_ID,
+    dedupeKey: () => GIT_DETAILS_SURFACE_ID,
   }), 'git: details descriptor')
   ctx.slots.inject('conversation.input.left', () => ctx.slots.register({
     name: 'conversation.input.left',
