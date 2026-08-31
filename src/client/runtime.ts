@@ -1,6 +1,6 @@
 /** Theme Studio overlay runtime: active/preview layers and settings adoption. */
 
-import type { SettingsScope } from '@deepseek-ai/dsh-client-runtime/client'
+import type { SettingsScope } from '@deepseek-ai/dsh-client-ui-settings/client'
 import type { ThemeTokenOverrides } from '@deepseek-ai/dsh-client-ui-theme/client'
 import {
   ACTIVE_SOURCE, ACTIVE_THEME_ID_FIELD, PREVIEW_SOURCE, THEME_STUDIO_SETTINGS_NAMESPACE,

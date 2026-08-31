@@ -57,7 +57,7 @@
     "@deepseek-ai/dsh-api-remotes": ">=0.1.1-rc.2 <0.2.0",
     "@deepseek-ai/dsh-client-connection": ">=0.1.1-rc.2 <0.2.0",
     "@deepseek-ai/dsh-client-locale": ">=0.1.1-rc.2 <0.2.0",
-    "@deepseek-ai/dsh-client-runtime": ">=0.1.1-rc.2 <0.2.0",
+    "@deepseek-ai/dsh-client-ui-renderer": ">=0.1.1-rc.2 <0.2.0",
     "@deepseek-ai/dsh-client-ui-settings": ">=0.1.1-rc.2 <0.2.0",
     "@deepseek-ai/dsh-client-ui-slots": ">=0.1.1-rc.2 <0.2.0",
     "@deepseek-ai/dsh-client-ui-theme": ">=0.1.1-rc.2 <0.2.0",
@@ -66,11 +66,12 @@
     "react": ">=18.2.0 <19.0.0"
   },
   "devDependencies": {
+    "@deepseek-ai/dsh-client-store": ">=0.1.2-alpha.2 <0.2.0",
     "@deepseek-ai/cordis": ">=4.0.1 <5.0.0",
     "@deepseek-ai/dsh-api-remotes": ">=0.1.1-rc.2 <0.2.0",
     "@deepseek-ai/dsh-client-connection": ">=0.1.1-rc.2 <0.2.0",
     "@deepseek-ai/dsh-client-locale": ">=0.1.1-rc.2 <0.2.0",
-    "@deepseek-ai/dsh-client-runtime": ">=0.1.1-rc.2 <0.2.0",
+    "@deepseek-ai/dsh-client-ui-renderer": ">=0.1.1-rc.2 <0.2.0",
     "@deepseek-ai/dsh-client-ui-settings": ">=0.1.1-rc.2 <0.2.0",
     "@deepseek-ai/dsh-client-ui-slots": ">=0.1.1-rc.2 <0.2.0",
     "@deepseek-ai/dsh-client-ui-theme": ">=0.1.1-rc.2 <0.2.0",
@@ -96,11 +97,14 @@
       "platform": "web",
       "inject": [
         "@deepseek-ai/dsh-client-connection",
-        "@deepseek-ai/dsh-client-runtime",
+        "@deepseek-ai/dsh-client-ui-renderer",
         "@deepseek-ai/dsh-client-locale",
         "@deepseek-ai/dsh-client-ui-theme",
         "@deepseek-ai/dsh-client-ui-settings",
         "@deepseek-ai/dsh-api-remotes"
+      ],
+      "external": [
+        "@deepseek-ai/dsh-client-store"
       ]
     }
   }

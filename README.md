@@ -8,6 +8,12 @@ This repository is the canonical source. [DeepSeek Harness Desktop](https://gith
 
 Stage 1 provides builtin theme browsing, preview, apply, persistence, and plugin lifecycle recovery. Theme Schema, import/export, and Theme Creator Agent are later stages.
 
+## DSH compatibility
+
+This `develop` branch targets **DeepSeek Harness `v0.1.2`** (including [`v0.1.2-alpha.2`](https://github.com/deepseek-ai/deepseek-harness/releases/tag/v0.1.2-alpha.2)).
+
+For **DeepSeek Harness [`v0.1.1-rc.2`](https://github.com/deepseek-ai/deepseek-harness/releases/tag/v0.1.1-rc.2)**, use the [`main`](https://github.com/cherrchen/dsh-theme-studio/tree/main) branch instead.
+
 ## Installation
 
 The package is in experimental development. A public npm release under `@dsh-electron/dsh-theme-studio` is planned; until then, install from this repository.
