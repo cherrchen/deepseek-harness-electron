@@ -6,6 +6,12 @@ Portable DSH/Cordis Client plugin that hosts one active details surface in the A
 
 This repository is the canonical source. [DeepSeek Harness Desktop](https://github.com/cherrchen/deepseek-harness-electron) mirrors it with git subtree and mounts Details Host as required built-in infrastructure. The same package runs unchanged in DeepSeek Harness Desktop and in a standard DSH Web host.
 
+## DSH compatibility
+
+This `develop` branch targets **DeepSeek Harness `v0.1.2`** (including [`v0.1.2-alpha.2`](https://github.com/deepseek-ai/deepseek-harness/releases/tag/v0.1.2-alpha.2)).
+
+For **DeepSeek Harness [`v0.1.1-rc.2`](https://github.com/deepseek-ai/deepseek-harness/releases/tag/v0.1.1-rc.2)**, use the [`main`](https://github.com/cherrchen/dsh-client-ui-details-host/tree/main) branch instead.
+
 ## Installation
 
 The package is in experimental development. A public npm release under `@dsh-electron/dsh-client-ui-details-host` is planned; until then, install from this repository.
