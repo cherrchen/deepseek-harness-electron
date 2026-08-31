@@ -49,7 +49,7 @@ export function harnessArguments(dshBin: string, patchPath?: string): string[] {
  * @returns The validated loopback URL, or undefined until a complete line is present.
  */
 export function parseHarnessReadyUrl(output: string): string | undefined {
-  const match = /^dsh web: (http:\/\/127\.0\.0\.1:(\d+))(?:\s|$)/m.exec(output)
+  const match = /^dsh web: (http:\/\/127\.0\.0\.1:(\d+)(?:\/\?token=[A-Za-z0-9_-]+)?)(?:\s|$)/m.exec(output)
   if (match?.[1] === undefined || match[2] === undefined) return undefined
   const port = Number(match[2])
   if (!Number.isInteger(port) || port < 1 || port > 65_535) return undefined

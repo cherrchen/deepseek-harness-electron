@@ -11,6 +11,7 @@ import {
   type DesktopUpdaterSnapshot,
   type HostHttpRequest,
   type HostStreamHandlers,
+  type HostStreamHandle,
   type HostStreamPortMessage,
   type PickDirectoryOptions,
   type PluginInstallRequest,
@@ -54,12 +55,12 @@ async function invokePackageMutation(channel: string, name: string): Promise<imp
  * and session baselines that wait on stream `onConnected`.
  * @param path - Host event path.
  * @param handlers - Renderer callbacks (functions cross contextBridge safely).
- * @returns disposer that aborts the stream.
+ * @returns Handle that sends frames and aborts the stream.
  */
 function openHostStream(
-  path: '/api/events.mux' | '/api/events.host',
+  path: '/api/remote.mux',
   handlers: HostStreamHandlers,
-): DesktopUnsubscribe {
+): HostStreamHandle {
   const { port1, port2 } = new MessageChannel()
   let closed = false
   const cleanup = (): void => {
@@ -96,6 +97,7 @@ function openHostStream(
         cleanup()
         break
       case 'abort':
+      case 'send':
         break
       default: {
         const _exhaustive: never = message
@@ -106,7 +108,13 @@ function openHostStream(
   port2.addEventListener('message', onMessage)
   port2.start()
   ipcRenderer.postMessage(DesktopIpcChannel.openStream, path, [port1])
-  return cleanup
+  return {
+    send(data: string): void {
+      if (closed) throw new Error('desktop stream: cannot send after close')
+      port2.postMessage({ type: 'send', data } satisfies HostStreamPortMessage)
+    },
+    close: cleanup,
+  }
 }
 
 const bridge: DeepseekDesktopBridge = {
