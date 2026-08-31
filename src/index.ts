@@ -44,10 +44,10 @@ export function apply(ctx: Context, config: Config): void {
       } catch (error) {
         return {
           ok: false,
-          error: { code: 'internal', message: error instanceof Error ? error.message : String(error), details: {} },
+          error: { code: 'git/internal', message: error instanceof Error ? error.message : String(error), details: {} },
         }
       }
-    }, { authority: 'loopback' })
+    })
   })
 }
 
