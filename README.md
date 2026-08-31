@@ -64,12 +64,13 @@ Git is the reference consumer of Details Host. The Client manifest wires the dep
 
 `external` ensures the module table materializes the Details Host Client factory before this bundle `require`s it. `inject` declares `ctx.shellDetails` as a runtime dependency.
 
-Git registers surface id `git`, optional payload tabs (`changes`, `diff`, `commit`), and opens the column with:
+Git registers surface id `git`, optional payload tabs (`changes`, `diff`, `commit`), and opens the column as a singleton (replace plus a stable `dedupeKey`) so Details Host never shows a back control on the Git heading:
 
 ```ts
 ctx.shellDetails.open({
   surfaceId: 'git',
   payload: { tab: 'changes' },
+  navigation: 'replace',
 })
 ```
 
