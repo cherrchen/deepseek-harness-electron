@@ -1,6 +1,14 @@
+---
+description: "Portable Git repository operations and Client UI for DeepSeek Harness Desktop and standard DSH Web profiles."
+kind: "package-bundle"
+---
+
 # dsh-plugin-git
 
 English | [中文](README.zh.md)
+
+<a id="summary"></a>
+## Summary
 
 Standard DSH/Cordis Git plugin with one portable Host service, one Client bundle, and optional Desktop enhancement. The package runs unchanged in DeepSeek Harness Desktop and in a standard DSH Web host; the npm scope `@dsh-electron/` identifies the publisher, not a runtime requirement.
 
@@ -8,12 +16,30 @@ Standard DSH/Cordis Git plugin with one portable Host service, one Client bundle
 
 [DeepSeek Harness Desktop](https://github.com/cherrchen/deepseek-harness-electron) pre-installs this plugin and mirrors this repository with git subtree. Users may disable Git from the Plugins settings; Details Host remains a required built-in.
 
+<a id="table-of-contents"></a>
+## Table of Contents
+
+- [DSH compatibility](#dsh-compatibility)
+- [Installation](#installation)
+- [Pairing with Details Host](#pairing-with-details-host)
+- [User experience](#user-experience)
+- [Composition](#composition)
+- [Configuration](#configuration)
+- [Git operations](#git-operations)
+- [npm publication](#npm-publication)
+- [Development](#development)
+- [Model Experience](#model-experience)
+- [Known Limitations and Deferred Work](#known-limitations-and-deferred-work)
+- [Dev Note](#dev-note)
+
+<a id="dsh-compatibility"></a>
 ## DSH compatibility
 
-This `develop` branch targets **DeepSeek Harness `v0.1.2`** (including [`v0.1.2-alpha.2`](https://github.com/deepseek-ai/deepseek-harness/releases/tag/v0.1.2-alpha.2)).
+This `develop` branch targets **DeepSeek Harness `v0.1.2`** starting with [`v0.1.2-alpha.4`](https://github.com/deepseek-ai/deepseek-harness/releases/tag/dsh-v0.1.2-alpha.4).
 
 For **DeepSeek Harness [`v0.1.1-rc.2`](https://github.com/deepseek-ai/deepseek-harness/releases/tag/v0.1.1-rc.2)**, use the [`main`](https://github.com/cherrchen/dsh-plugin-git/tree/main) branch instead.
 
+<a id="installation"></a>
 ## Installation
 
 The package is in experimental development. A public npm release under `@dsh-electron/dsh-plugin-git` is planned; until then, install from this repository.
@@ -43,6 +69,7 @@ Each `dsh plugin add` activates the package's bundled `cordis.patch.yml` layer. 
 
 Until `@dsh-electron/dsh-client-ui-details-host` is on npm, local development in this repository uses the pinned fixture tarball under `tests/fixtures/`.
 
+<a id="pairing-with-details-host"></a>
 ## Pairing with Details Host
 
 Git is the reference consumer of Details Host. The Client manifest wires the dependency explicitly:
@@ -66,7 +93,7 @@ Git is the reference consumer of Details Host. The Client manifest wires the dep
 
 Git registers surface id `git`, optional payload tabs (`changes`, `diff`, `commit`), and opens the column as a singleton (replace plus a stable `dedupeKey`) so Details Host never shows a back control on the Git heading:
 
-```ts
+```text
 ctx.shellDetails.open({
   surfaceId: 'git',
   payload: { tab: 'changes' },
@@ -86,20 +113,25 @@ declare module '@dsh-electron/dsh-client-ui-details-host/client' {
 
 AppFrame details geometry, resize handle, and close button are owned by Details Host, not this package.
 
+<a id="user-experience"></a>
 ## User experience
 
 In the conversation composer, Git contributes a branch selector and a changed-files indicator on the left of the input area. Clicking either control opens the Git details surface in the third column. Creating a branch opens a shared conversation Modal; after `git init` with no commits (unborn HEAD), the menu shows the symbolic default branch as disabled, explains that the first commit is required, and disables create until HEAD exists.
 
 Inside the panel, users can review staged, unstaged, and untracked changes, inspect diffs, stage or unstage paths, write commit messages, and switch or create local branches. On Electron, optional Desktop enhancement adds reveal-in-folder and open-path actions when the Desktop provider is present.
 
+<a id="composition"></a>
 ## Composition
 
 The Host plugin requires `ctx.subprocess`, provides `ctx.git`, and starts Git with an executable plus separate argv values. It never invokes a shell. When a DSH Web Host is present, an optional Connection child registers the loopback `/git` RPC channel.
 
-The Client plugin requires Connection, locale, runtime, conversation UI, primitives, and Details Host. Business components receive a controller and `openDetails()` through slot injection and do not access Cordis context.
+The Client plugin requires Connection, locale, renderer, conversation UI, primitives, session UI, and Details Host. Business components receive a controller and `openDetails()` through slot injection and do not access Cordis context.
 
 The Client main fiber does not require `desktop`. A child `ctx.inject(['desktop'], ...)` fiber accepts only `shell.showItemInFolder`, `shell.openPath`, and `notification.show`; without them, repository, status, diff, stage, commit, and branch operations remain available and native actions are not shown.
 
+No runtime invariant companion is published because Cordis owns the service, RPC registration, and child-fiber lifetimes this package uses.
+
+<a id="configuration"></a>
 ## Configuration
 
 | Field | Default | Meaning |
@@ -108,16 +140,19 @@ The Client main fiber does not require `desktop`. A child `ctx.inject(['desktop'
 | `maxOutputBytes` | 8 MiB | Per-stream collection cap for one Git command. |
 | `graceMs` | 3000 | Managed subprocess termination grace period. |
 
+<a id="git-operations"></a>
 ## Git operations
 
 The first release supports repository discovery, Git version, current branch and HEAD, staged/unstaged/untracked status, local branches, working and staged diffs, stage/unstage, commit, branch creation, and branch switching. Status uses porcelain v2 with NUL path separators; branches use `for-each-ref`; every caller-supplied path, branch, and message remains one argv value.
 
 GitHub authentication, remotes, fetch/pull/push UX, issues, pull requests, stash, rebase, cherry-pick, merge-conflict editing, and credential management are outside this package.
 
+<a id="npm-publication"></a>
 ## npm publication
 
 The package will publish to npm as `@dsh-electron/dsh-plugin-git`. Publication is not available yet; treat API and versioning as pre-release. Details Host must remain a separate installed dependency.
 
+<a id="development"></a>
 ## Development
 
 Use Node.js `^22.19` or `>=24` with pnpm 11.
@@ -129,6 +164,7 @@ pnpm build
 pnpm pack
 ```
 
+<a id="model-experience"></a>
 ## Model Experience
 
 None, as this package contributes a human-facing repository service and Client UI without registering model tools or prompt content.
@@ -141,3 +177,8 @@ None. The package does not add, replace, or retain model-request tokens.
 
 - **Local repositories only** — all operations run through the configured DSH subprocess execution world; remote repository and hosting-provider workflows are not implemented.
 - **Bounded command output** — a diff larger than `maxOutputBytes` retains only the subprocess collector's tail, so deployments handling very large diffs must raise that validated setting.
+
+<a id="dev-note"></a>
+### Dev Note
+
+None.

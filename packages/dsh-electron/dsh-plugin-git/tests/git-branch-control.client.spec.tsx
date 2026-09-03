@@ -126,10 +126,12 @@ describe('GitBranchControl', () => {
     const props = baseProps(controller, list)
     const { rerender } = render(<GitBranchControl {...props} sessionId={SESSION_A} />)
     await waitFor(() => {
+      // oxlint-disable-next-line typescript/unbound-method -- Vitest inspects the controller mock without invoking it
       expect(controller.setWorkspace).toHaveBeenCalledWith('/projects/alpha')
     })
     rerender(<GitBranchControl {...props} sessionId={SESSION_B} />)
     await waitFor(() => {
+      // oxlint-disable-next-line typescript/unbound-method -- Vitest inspects the controller mock without invoking it
       expect(controller.setWorkspace).toHaveBeenCalledWith('/projects/beta')
     })
   })
@@ -227,7 +229,7 @@ describe('GitBranchControl', () => {
     render(<GitBranchControl {...baseProps(controller, list)} sessionId={SESSION_A} />)
     fireEvent.click(screen.getByRole('button', { name: 'main' }))
     expect(await screen.findByText(/No commits yet/i)).toBeTruthy()
-    expect((screen.getByRole('menuitem', { name: 'Create new branch' }) as HTMLButtonElement).disabled).toBe(true)
+    expect(screen.getByRole<HTMLButtonElement>('menuitem', { name: 'Create new branch' }).disabled).toBe(true)
   })
 })
 

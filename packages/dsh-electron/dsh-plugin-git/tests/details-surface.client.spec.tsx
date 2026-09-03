@@ -81,6 +81,7 @@ describe('GitDetailsSurface', () => {
       desktopAvailable: true,
     })
     const { container } = render(<GitDetailsSurface {...surfaceProps(controller)} />)
+    // oxlint-disable-next-line typescript/unbound-method -- Vitest inspects the controller mock without invoking it
     expect(controller.refresh).toHaveBeenCalled()
     expect(screen.getByText('repo')).toBeTruthy()
     expect(screen.getByText('main')).toBeTruthy()
@@ -102,6 +103,7 @@ describe('GitDetailsSurface', () => {
       desktopAvailable: false,
     })
     render(<GitDetailsSurface {...surfaceProps(controller, detailsInstanceOf({ tab: 'diff' }))} />)
+    // oxlint-disable-next-line typescript/unbound-method -- Vitest inspects the controller mock without invoking it
     expect(controller.selectTab).toHaveBeenCalledWith('diff')
   })
 
@@ -145,8 +147,10 @@ describe('GitDetailsHeaderActions', () => {
     })
     render(<GitDetailsHeaderActions {...actionProps(controller)} />)
     fireEvent.click(screen.getByRole('button', { name: en['details.refresh'] }))
+    // oxlint-disable-next-line typescript/unbound-method -- Vitest inspects the controller mock without invoking it
     expect(controller.refresh).toHaveBeenCalled()
     fireEvent.click(screen.getByRole('button', { name: en['details.reveal'] }))
+    // oxlint-disable-next-line typescript/unbound-method -- Vitest inspects the controller mock without invoking it
     expect(controller.reveal).toHaveBeenCalled()
   })
 

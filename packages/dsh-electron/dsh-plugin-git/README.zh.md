@@ -1,6 +1,14 @@
+---
+description: "面向 DeepSeek Harness Desktop 与标准 DSH Web profile 的 portable Git repository 操作及 Client UI。"
+kind: "package-bundle"
+---
+
 # dsh-plugin-git
 
 [English](README.md) | 中文
+
+<a id="summary"></a>
+## 概述
 
 标准 DSH/Cordis Git 插件，包含一项 portable Host service、一份 Client bundle 与 optional Desktop enhancement。同一 package 可在 DeepSeek Harness Desktop 与标准 DSH Web host 中原样运行；npm scope `@dsh-electron/` 标识发布者，不是运行时要求。
 
@@ -8,12 +16,30 @@
 
 [DeepSeek Harness Desktop](https://github.com/cherrchen/deepseek-harness-electron) 预装本插件，并通过 git subtree 镜像本仓库。用户可在**设置 → 插件**中禁用 Git；Details Host 仍是必需内置项。
 
+<a id="table-of-contents"></a>
+## 目录
+
+- [DSH 兼容性](#dsh-compatibility)
+- [安装](#installation)
+- [与 Details Host 配对](#pairing-with-details-host)
+- [用户体验](#user-experience)
+- [组合](#composition)
+- [配置](#configuration)
+- [Git 操作](#git-operations)
+- [npm 发布](#npm-publication)
+- [开发](#development)
+- [Model Experience](#model-experience)
+- [Known Limitations and Deferred Work](#known-limitations-and-deferred-work)
+- [开发备注](#dev-note)
+
+<a id="dsh-compatibility"></a>
 ## DSH 兼容性
 
-本仓库的 `develop` 分支面向 **DeepSeek Harness `v0.1.2`**（含 [`v0.1.2-alpha.2`](https://github.com/deepseek-ai/deepseek-harness/releases/tag/v0.1.2-alpha.2)）。
+本仓库的 `develop` 分支面向从 [`v0.1.2-alpha.4`](https://github.com/deepseek-ai/deepseek-harness/releases/tag/dsh-v0.1.2-alpha.4) 开始的 **DeepSeek Harness `v0.1.2`**。
 
 若你使用的是 **DeepSeek Harness [`v0.1.1-rc.2`](https://github.com/deepseek-ai/deepseek-harness/releases/tag/v0.1.1-rc.2)**，请改用 [`main`](https://github.com/cherrchen/dsh-plugin-git/tree/main) 分支。
 
+<a id="installation"></a>
 ## 安装
 
 本包处于试验开发阶段，计划以 `@dsh-electron/dsh-plugin-git` 发布到 npm；在此之前请从本仓库安装。
@@ -43,6 +69,7 @@ dsh plugin --profile web add /path/to/dsh-plugin-git
 
 在 `@dsh-electron/dsh-client-ui-details-host` 上线 npm 之前，本仓库本地开发通过 `tests/fixtures/` 下的 pinned fixture tarball 安装 Details Host。
 
+<a id="pairing-with-details-host"></a>
 ## 与 Details Host 配对
 
 Git 是 Details Host 的参考消费者。Client manifest 显式声明依赖关系：
@@ -66,7 +93,7 @@ Git 是 Details Host 的参考消费者。Client manifest 显式声明依赖关�
 
 Git 注册 surface id `git`、可选 payload tab（`changes`、`diff`、`commit`），并以单例方式打开栏位（`replace` 加上稳定的 `dedupeKey`），因此 Details Host 不会在 Git 标题旁显示返回控件：
 
-```ts
+```text
 ctx.shellDetails.open({
   surfaceId: 'git',
   payload: { tab: 'changes' },
@@ -86,20 +113,25 @@ declare module '@dsh-electron/dsh-client-ui-details-host/client' {
 
 AppFrame 详情栏几何、resize handle 与 close button 由 Details Host 拥有，不属于本 package。
 
+<a id="user-experience"></a>
 ## 用户体验
 
 在会话输入区左侧，Git 贡献 branch selector 与 changed-files indicator。点击任一控件会在第三栏打开 Git details surface。创建分支会打开共享的 conversation Modal；在仅有 `git init`、尚无提交（unborn HEAD）时，菜单以禁用态展示符号默认分支，说明需要先完成首次提交，并在 HEAD 存在前禁用创建。
 
 面板内可查看 staged、unstaged 与 untracked 变更，检查 diff，stage / unstage 路径，编写 commit message，以及切换或创建本地 branch。在 Electron 上，optional Desktop enhancement 在 Desktop provider 存在时提供 reveal-in-folder 与 open-path 操作。
 
+<a id="composition"></a>
 ## 组合
 
 Host plugin 要求 `ctx.subprocess`，提供 `ctx.git`，并使用 executable 与独立 argv values 启动 Git。它绝不调用 shell。DSH Web Host 存在时，optional Connection child 注册 loopback `/git` RPC channel。
 
-Client plugin 要求 Connection、locale、runtime、conversation UI、primitives 与 Details Host。Business components 通过 slot injection 接收 controller 与 `openDetails()`，不访问 Cordis context。
+Client plugin 要求 Connection、locale、renderer、conversation UI、primitives、session UI 与 Details Host。Business components 通过 slot injection 接收 controller 与 `openDetails()`，不访问 Cordis context。
 
 Client main fiber 不要求 `desktop`。Child `ctx.inject(['desktop'], ...)` fiber 只接受 `shell.showItemInFolder`、`shell.openPath` 与 `notification.show`；缺少这些能力时，repository、status、diff、stage、commit 与 branch operations 仍可用，native actions 不显示。
 
+本 package 不发布 runtime invariant companion，因为 Cordis 负责它所使用的 service、RPC registration 与 child-fiber lifetimes。
+
+<a id="configuration"></a>
 ## 配置
 
 | 字段 | 默认值 | 含义 |
@@ -108,16 +140,19 @@ Client main fiber 不要求 `desktop`。Child `ctx.inject(['desktop'], ...)` fib
 | `maxOutputBytes` | 8 MiB | 单条 Git command 每个 stream 的 collection cap。 |
 | `graceMs` | 3000 | Managed subprocess termination grace period。 |
 
+<a id="git-operations"></a>
 ## Git 操作
 
 首个版本支持 repository discovery、Git version、current branch 与 HEAD、staged／unstaged／untracked status、local branches、working 与 staged diffs、stage／unstage、commit、branch creation 与 branch switching。Status 使用带 NUL path separators 的 porcelain v2；branches 使用 `for-each-ref`；每个 caller-supplied path、branch 与 message 始终作为一个 argv value。
 
 GitHub authentication、remotes、fetch／pull／push UX、issues、pull requests、stash、rebase、cherry-pick、merge-conflict editing 与 credential management 不属于本 package。
 
+<a id="npm-publication"></a>
 ## npm 发布
 
 本包将以 `@dsh-electron/dsh-plugin-git` 发布到 npm。当前尚未公开发布；请将 API 与版本视为 pre-release。Details Host 必须作为独立依赖安装。
 
+<a id="development"></a>
 ## 开发
 
 使用 Node.js `^22.19` 或 `>=24` 与 pnpm 11。
@@ -129,6 +164,7 @@ pnpm build
 pnpm pack
 ```
 
+<a id="model-experience"></a>
 ## Model Experience
 
 无直接影响，因为本 package 贡献 human-facing repository service 与 Client UI，不注册 model tools 或 prompt content。
@@ -141,3 +177,8 @@ pnpm pack
 
 - **仅支持 local repositories** — 所有操作都在配置的 DSH subprocess execution world 中运行；尚未实现 remote repository 与 hosting-provider workflows。
 - **Command output 有界** — 大于 `maxOutputBytes` 的 diff 只保留 subprocess collector tail；处理超大 diff 的 deployment 必须提高这一 validated setting。
+
+<a id="dev-note"></a>
+### 开发备注
+
+无。

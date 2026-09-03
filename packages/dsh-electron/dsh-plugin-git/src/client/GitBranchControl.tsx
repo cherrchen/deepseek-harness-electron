@@ -46,10 +46,7 @@ export function createBranchErrorMessage(
 /** Branch selector and changed-files chip for the composer `conversation.input.left` slot. */
 export function GitBranchControl({ controller, openDetails, t, sessionId, useSessions }: GitBranchControlProps): ReactNode {
   const state = useSyncExternalStore(controller.subscribe, controller.getSnapshot)
-  const workspacePath = useSessions((list: SessionListState) => {
-    if (sessionId === undefined) return undefined
-    return list.byId[sessionId]?.cwd
-  })
+  const workspacePath = useSessions((list: SessionListState) => list.byId[sessionId]?.cwd)
   const [menuOpen, setMenuOpen] = useState(false)
   const [creating, setCreating] = useState(false)
   const [branchName, setBranchName] = useState('')
