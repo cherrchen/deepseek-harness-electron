@@ -8,7 +8,7 @@ This repository is the canonical source. [DeepSeek Harness Desktop](https://gith
 
 ## DSH compatibility
 
-This `develop` branch targets **DeepSeek Harness `v0.1.2`** (including [`v0.1.2-alpha.2`](https://github.com/deepseek-ai/deepseek-harness/releases/tag/v0.1.2-alpha.2)).
+This `develop` branch targets **DeepSeek Harness `v0.1.2`** (including [`dsh-v0.1.2-alpha.4`](https://github.com/deepseek-ai/deepseek-harness/releases/tag/dsh-v0.1.2-alpha.4)).
 
 For **DeepSeek Harness [`v0.1.1-rc.2`](https://github.com/deepseek-ai/deepseek-harness/releases/tag/v0.1.1-rc.2)**, use the [`main`](https://github.com/cherrchen/dsh-client-ui-details-host/tree/main) branch instead.
 
@@ -34,7 +34,7 @@ dsh plugin --profile web add github:cherrchen/dsh-client-ui-details-host
 
 `dsh plugin add` activates the bundled `cordis.patch.yml` layer, which inserts the plugin row into the composed configuration. No manual `cordis.yml` edit is required.
 
-The Client half resolves through the package `exports["./client"]` entry. Peer dependencies (`@deepseek-ai/dsh-client-ui-renderer`, `@deepseek-ai/dsh-client-ui-layout`, `@deepseek-ai/dsh-client-ui-slots`, and React) must already be present in the host composition.
+The Client half resolves through the package `exports["./client"]` entry. Peer dependencies (`@deepseek-ai/dsh-api-session-controller`, `@deepseek-ai/dsh-client-ui-renderer`, `@deepseek-ai/dsh-client-ui-layout`, `@deepseek-ai/dsh-client-ui-slots`, and React) must already be present in the host composition.
 
 ## User experience
 

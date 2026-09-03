@@ -8,6 +8,7 @@ import {
   DETAILS_HEADER_ACTIONS_SLOT,
   DETAILS_SURFACE_SLOT,
   type DetailsHostInjected,
+  type DetailsHostState,
 } from './contract.ts'
 import css from './DetailsHost.module.css'
 
@@ -23,7 +24,7 @@ export type DetailsHostProps =
  * @returns the hosted column, or null while no surface is active.
  */
 export function DetailsHost({ renderSlot, useDetailsHost, close, back }: DetailsHostProps) {
-  const { activeId, activeInstance, label, canGoBack } = useDetailsHost(state => state)
+  const { activeId, activeInstance, label, canGoBack } = useDetailsHost((state: DetailsHostState) => state)
   if (activeId === null || activeInstance === null) return null
   const owner = { detailsInstance: activeInstance }
   return (
