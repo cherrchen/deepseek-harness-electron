@@ -60,10 +60,10 @@ describe('Git client lifecycle', () => {
       'shell.details.surface',
       'shell.details.header.actions',
     ])
-    expect(shellDetails.registerSurface).toHaveBeenCalledWith({
-      id: GIT_DETAILS_SURFACE_ID,
-      dedupeKey: expect.any(Function),
-    })
+    expect(shellDetails.registerSurface).toHaveBeenCalledOnce()
+    const descriptor = shellDetails.registerSurface.mock.calls[0]![0]
+    expect(descriptor.id).toBe(GIT_DETAILS_SURFACE_ID)
+    expect(descriptor.dedupeKey).toBeTypeOf('function')
     expect(registrations.some(entry => entry.name === 'shell.overlay')).toBe(false)
     expect(registrations.some(entry => entry.id === 'git-drawer')).toBe(false)
 
@@ -93,7 +93,6 @@ describe('Git client lifecycle', () => {
       payload: { tab: 'diff' },
       navigation: 'replace',
     })
-    const descriptor = shellDetails.registerSurface.mock.calls[0]![0]
     expect(descriptor.dedupeKey?.({ tab: 'changes' })).toBe(GIT_DETAILS_SURFACE_ID)
     expect(descriptor.dedupeKey?.({ tab: 'commit' })).toBe(GIT_DETAILS_SURFACE_ID)
 
