@@ -133,7 +133,7 @@ export class ShellDetailsService extends Service implements ShellDetailsControll
       this.sessions.clear()
     }, 'shellDetails: unload')
     ctx.effect(() => {
-      const sessions = ctx.sessions as ISessions
+      const sessions = ctx.sessions as unknown as ISessions
       let current = sessions.list.getSnapshot().current
       return sessions.list.subscribe(() => {
         const snapshot = sessions.list.getSnapshot()
@@ -579,7 +579,7 @@ export class ShellDetailsService extends Service implements ShellDetailsControll
   }
 
   private currentSessionId(): string {
-    const current = (this.owner.sessions as ISessions).list.getSnapshot().current
+    const current = (this.owner.sessions as unknown as ISessions).list.getSnapshot().current
     return typeof current === 'string' && current.length > 0 ? current : ''
   }
 
