@@ -235,7 +235,7 @@ export function installDesktopIpc(
     if (!guardEvent(event)) return
     const port = event.ports[0]
     if (port === undefined) return
-    if (path !== '/api/events.mux' && path !== '/api/events.host') {
+    if (path !== '/api/remote.mux') {
       port.postMessage({ type: 'error', message: `desktop ipc: unsupported stream ${path}` })
       port.close()
       return

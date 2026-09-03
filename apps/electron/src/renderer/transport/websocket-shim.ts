@@ -1,13 +1,13 @@
 /**
  * Renderer WebSocket stand-in for Host event streams.
- * Unmodified WebApiClient opens `ws://…/api/events.*`; custom schemes cannot
+ * Unmodified WebApiClient opens `ws://…/api/remote.mux`; custom schemes cannot
  * carry native WebSockets, so those paths ride preload-owned MessagePort →
  * Main → real WS (callbacks cross contextBridge; MessagePort does not).
  */
 
-import type { DesktopUnsubscribe, HostStreamHandlers } from '../../bridge-types.ts'
+import type { HostStreamHandle, HostStreamHandlers } from '../../bridge-types.ts'
 
-const EVENT_PATHS = new Set(['/api/events.mux', '/api/events.host'])
+const EVENT_PATHS = new Set(['/api/remote.mux'])
 
 export const DESKTOP_WS_CONNECTING = 0
 export const DESKTOP_WS_OPEN = 1
@@ -44,7 +44,7 @@ class DesktopWebSocketImpl {
   url: string
   readyState = DESKTOP_WS_CONNECTING
   private readonly listeners = new Map<string, Set<EventListenerOrEventListenerObject>>()
-  private unsubscribe: DesktopUnsubscribe | undefined
+  private stream: HostStreamHandle | undefined
 
   constructor(
     url: string,
@@ -63,18 +63,25 @@ class DesktopWebSocketImpl {
       this.close = socket.close.bind(socket)
       return
     }
-    const path = parsed.pathname as '/api/events.mux' | '/api/events.host'
+    const path = parsed.pathname as '/api/remote.mux'
     this.open(path, bridge)
   }
 
   close(): void {
     if (this.readyState === DESKTOP_WS_CLOSING || this.readyState === DESKTOP_WS_CLOSED) return
     this.readyState = DESKTOP_WS_CLOSING
-    const stop = this.unsubscribe
-    this.unsubscribe = undefined
-    stop?.()
+    const stream = this.stream
+    this.stream = undefined
+    stream?.close()
     this.readyState = DESKTOP_WS_CLOSED
     this.emit('close', new CloseEvent('close'))
+  }
+
+  send(data: string): void {
+    if (this.readyState !== DESKTOP_WS_OPEN || this.stream === undefined) {
+      throw new DOMException('WebSocket is not open', 'InvalidStateError')
+    }
+    this.stream.send(data)
   }
 
   addEventListener(type: string, listener: EventListenerOrEventListenerObject): void {
@@ -95,7 +102,7 @@ class DesktopWebSocketImpl {
   }
 
   private open(
-    path: '/api/events.mux' | '/api/events.host',
+    path: '/api/remote.mux',
     bridge: NonNullable<Window['deepseekDesktop']>,
   ): void {
     const handlers: HostStreamHandlers = {
@@ -107,13 +114,13 @@ class DesktopWebSocketImpl {
         this.emit('message', new MessageEvent('message', { data }))
       },
       onClose: () => {
-        this.unsubscribe = undefined
+        this.stream = undefined
         if (this.readyState === DESKTOP_WS_CLOSED) return
         this.readyState = DESKTOP_WS_CLOSED
         this.emit('close', new CloseEvent('close'))
       },
       onError: () => {
-        this.unsubscribe = undefined
+        this.stream = undefined
         this.emit('error', new Event('error'))
         if (this.readyState === DESKTOP_WS_CLOSED) return
         this.readyState = DESKTOP_WS_CLOSED
@@ -121,7 +128,7 @@ class DesktopWebSocketImpl {
       },
     }
     try {
-      this.unsubscribe = bridge.host.openStream(path, handlers)
+      this.stream = bridge.host.openStream(path, handlers)
     } catch {
       // Defer so callers can attach listeners after `new WebSocket(...)`.
       queueMicrotask(() => {

@@ -12,7 +12,7 @@ describe('Git client lifecycle', () => {
     const shellDetails = {
       activeId: null as string | null,
       activeInstance: null as { surfaceId: string; payload?: unknown } | null,
-      open: vi.fn((idOrRequest: string | { surfaceId: string; payload?: unknown }) => {
+      open: vi.fn((idOrRequest: string | { surfaceId: string; payload?: unknown; navigation?: string }) => {
         if (typeof idOrRequest === 'string') {
           shellDetails.activeId = idOrRequest
           shellDetails.activeInstance = { surfaceId: idOrRequest }
@@ -37,7 +37,10 @@ describe('Git client lifecycle', () => {
         historyDepth: 0,
       })),
       subscribe: vi.fn(() => () => {}),
-      registerSurface: vi.fn(() => () => {}),
+      registerSurface: vi.fn((_descriptor: {
+        id: string
+        dedupeKey?: (payload: unknown) => string | undefined
+      }) => () => {}),
     }
     ctx.provide('slots', {
       inject: (_name: string, callback: () => unknown) => ctx.effect(() => callback() as () => void),
@@ -57,7 +60,10 @@ describe('Git client lifecycle', () => {
       'shell.details.surface',
       'shell.details.header.actions',
     ])
-    expect(shellDetails.registerSurface).toHaveBeenCalledWith({ id: GIT_DETAILS_SURFACE_ID })
+    expect(shellDetails.registerSurface).toHaveBeenCalledOnce()
+    const descriptor = shellDetails.registerSurface.mock.calls[0]![0]
+    expect(descriptor.id).toBe(GIT_DETAILS_SURFACE_ID)
+    expect(descriptor.dedupeKey).toBeTypeOf('function')
     expect(registrations.some(entry => entry.name === 'shell.overlay')).toBe(false)
     expect(registrations.some(entry => entry.id === 'git-drawer')).toBe(false)
 
@@ -85,7 +91,10 @@ describe('Git client lifecycle', () => {
     expect(shellDetails.open).toHaveBeenCalledWith({
       surfaceId: GIT_DETAILS_SURFACE_ID,
       payload: { tab: 'diff' },
+      navigation: 'replace',
     })
+    expect(descriptor.dedupeKey?.({ tab: 'changes' })).toBe(GIT_DETAILS_SURFACE_ID)
+    expect(descriptor.dedupeKey?.({ tab: 'commit' })).toBe(GIT_DETAILS_SURFACE_ID)
 
     await fiber.dispose()
   })

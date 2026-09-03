@@ -6,8 +6,8 @@ describe('extractHostBootstrap', () => {
     const html = [
       '<html><head>',
       '<script>window.__ModuleLoader__={}</script>',
-      '<script src="/plugins/@deepseek-ai/dsh-client-modules/client.js?rev=abc"></script>',
-      '<script src="/plugins/@deepseek-ai/dsh-client-runtime/client.js?rev=def"></script>',
+      '<script src="/plugins/??@deepseek-ai/dsh-client-modules/client.js&amp;rev=abc"></script>',
+      '<script src="/plugins/@deepseek-ai/dsh-client-ui-renderer/client.js?rev=def"></script>',
       '<script>globalThis["__DSH_BOOT__"] = {"rev":"g1","entries":[{"id":"@deepseek-ai/dsh-client-modules","url":"/plugins/@deepseek-ai/dsh-client-modules/client.js?rev=abc","rev":"abc"}]}</script>',
       '</head><body></body></html>',
     ].join('')
@@ -22,8 +22,8 @@ describe('extractHostBootstrap', () => {
         }],
       },
       preloadUrls: [
-        '/plugins/@deepseek-ai/dsh-client-modules/client.js?rev=abc',
-        '/plugins/@deepseek-ai/dsh-client-runtime/client.js?rev=def',
+        '/plugins/??@deepseek-ai/dsh-client-modules/client.js&rev=abc',
+        '/plugins/@deepseek-ai/dsh-client-ui-renderer/client.js?rev=def',
       ],
     })
   })

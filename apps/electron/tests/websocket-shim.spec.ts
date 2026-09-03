@@ -18,19 +18,20 @@ describe('desktop WebSocket stand-in', () => {
 
   it('bridges Host event paths through openStream callbacks (not a returned MessagePort)', () => {
     let captured: HostStreamHandlers | undefined
-    const stop = vi.fn()
+    const close = vi.fn()
+    const send = vi.fn()
     const bridge = {
       host: {
-        openStream: (_path: '/api/events.host', handlers: HostStreamHandlers) => {
+        openStream: (_path: '/api/remote.mux', handlers: HostStreamHandlers) => {
           captured = handlers
-          return stop
+          return { close, send }
         },
       },
     } as unknown as DeepseekDesktopBridge
     globalThis.window.deepseekDesktop = bridge
     installDesktopWebSocket()
 
-    const socket = new WebSocket('dsh-electron://localhost/api/events.host')
+    const socket = new WebSocket('dsh-electron://localhost/api/remote.mux')
     expect(socket.readyState).toBe(DESKTOP_WS_CONNECTING)
     expect(captured).toBeDefined()
 
@@ -43,12 +44,15 @@ describe('desktop WebSocket stand-in', () => {
     expect(socket.readyState).toBe(DESKTOP_WS_OPEN)
     expect(opens).toHaveLength(1)
 
+    socket.send('{"type":"start"}')
+    expect(send).toHaveBeenCalledWith('{"type":"start"}')
+
     captured!.onMessage('{"type":"ping"}')
     expect(messages).toHaveLength(1)
     expect(messages[0]?.data).toBe('{"type":"ping"}')
 
     socket.close()
-    expect(stop).toHaveBeenCalledOnce()
+    expect(close).toHaveBeenCalledOnce()
     expect(socket.readyState).toBe(DESKTOP_WS_CLOSED)
   })
 
@@ -62,7 +66,7 @@ describe('desktop WebSocket stand-in', () => {
     } as unknown as DeepseekDesktopBridge
     installDesktopWebSocket()
 
-    const socket = new WebSocket('dsh-electron://localhost/api/events.mux')
+    const socket = new WebSocket('dsh-electron://localhost/api/remote.mux')
     const events: string[] = []
     socket.addEventListener('error', () => { events.push('error') })
     socket.addEventListener('close', () => { events.push('close') })

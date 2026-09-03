@@ -24,13 +24,22 @@ export function extractHostBootstrap(html: string): HostBootstrap {
   const preloadUrls: string[] = []
   for (const match of html.matchAll(PRELOAD_SCRIPT)) {
     const url = match[1]
-    if (url !== undefined) preloadUrls.push(url)
+    if (url !== undefined) preloadUrls.push(decodeHtmlAttribute(url))
   }
   if (preloadUrls.length === 0) {
     throw new Error('desktop bootstrap: Host index HTML contains no /plugins/ preload scripts')
   }
 
   return { boot, preloadUrls }
+}
+
+/** Decode the fixed entity set used by the Host's quoted attribute renderer. */
+function decodeHtmlAttribute(value: string): string {
+  return value
+    .replaceAll('&quot;', '"')
+    .replaceAll('&lt;', '<')
+    .replaceAll('&gt;', '>')
+    .replaceAll('&amp;', '&')
 }
 
 /**

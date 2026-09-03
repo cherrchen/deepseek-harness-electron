@@ -4,12 +4,13 @@
  */
 
 import type { MessagePortMain } from 'electron'
+import { WebSocket as NodeWebSocket } from 'ws'
 import type { HostBootstrap, HostHttpRequest, HostHttpResponse, HostStreamPortMessage } from './bridge-types.ts'
 import { extractHostBootstrap } from './bootstrap-extract.ts'
 
-const EVENT_PATHS = new Set(['/api/events.mux', '/api/events.host'])
+const EVENT_PATHS = new Set(['/api/remote.mux'])
 
-type WebSocketFactory = (url: URL) => WebSocket
+type WebSocketFactory = (url: URL, cookie: string | undefined) => WebSocket
 
 interface ActiveStream {
   stop(): Promise<void>
@@ -18,14 +19,23 @@ interface ActiveStream {
 /** Owns the Harness origin and performs every Main→DSH network call. */
 export class HarnessProxy {
   private origin: string | undefined
+  private cookie: string | undefined
   private readonly createWebSocket: WebSocketFactory
+  private readonly fetchImpl: typeof fetch
   private readonly activeStreams = new Set<ActiveStream>()
 
   /**
    * @param createWebSocket - Host WebSocket factory; injectable for lifecycle tests.
+   * @param fetchImpl - Host HTTP implementation; injectable for authentication tests.
    */
-  constructor(createWebSocket: WebSocketFactory = url => new WebSocket(url)) {
+  constructor(
+    createWebSocket: WebSocketFactory = (url, cookie) => new NodeWebSocket(url, {
+      headers: cookie === undefined ? undefined : { cookie },
+    }) as unknown as WebSocket,
+    fetchImpl: typeof fetch = fetch,
+  ) {
     this.createWebSocket = createWebSocket
+    this.fetchImpl = fetchImpl
   }
 
   /**
@@ -43,6 +53,22 @@ export class HarnessProxy {
     this.origin = `${url.protocol}//${url.host}`
   }
 
+  /**
+   * Exchange an upstream launch token for the authority-bound browser cookie.
+   * @param launchUrl - Validated readiness URL emitted by `dsh web`.
+   */
+  async authenticate(launchUrl: string): Promise<void> {
+    const url = new URL(launchUrl)
+    this.setOrigin(launchUrl)
+    if (!url.searchParams.has('token')) return
+    const response = await this.fetchImpl(url, { redirect: 'manual' })
+    const setCookie = response.headers.get('set-cookie')
+    if (response.status !== 303 || setCookie === null) {
+      throw new Error(`harness proxy: authentication returned HTTP ${String(response.status)}`)
+    }
+    this.cookie = setCookie.split(';', 1)[0]
+  }
+
   /** Absolute Harness origin, or throw when not ready. */
   requireOrigin(): string {
     if (this.origin === undefined) throw new Error('harness proxy: origin is not ready')
@@ -54,8 +80,8 @@ export class HarnessProxy {
    * @returns Bootstrap payload for the Electron renderer.
    */
   async getBootstrap(): Promise<HostBootstrap> {
-    const response = await fetch(this.requireOrigin() + '/', {
-      headers: { accept: 'text/html' },
+    const response = await this.fetchImpl(this.requireOrigin() + '/', {
+      headers: { accept: 'text/html', ...this.cookie === undefined ? {} : { cookie: this.cookie } },
     })
     if (!response.ok) {
       throw new Error(`harness proxy: bootstrap GET failed with HTTP ${String(response.status)}`)
@@ -77,7 +103,8 @@ export class HarnessProxy {
     delete headers.Origin
     delete headers.referer
     delete headers.Referer
-    const response = await fetch(target, {
+    if (this.cookie !== undefined) headers.cookie = this.cookie
+    const response = await this.fetchImpl(target, {
       method: init.method,
       headers,
       ...(init.body === undefined ? {} : { body: init.body }),
@@ -113,6 +140,7 @@ export class HarnessProxy {
     headers.delete('sec-fetch-mode')
     headers.delete('sec-fetch-dest')
     headers.delete('sec-fetch-user')
+    if (this.cookie !== undefined) headers.set('cookie', this.cookie)
     const init: RequestInit = {
       method: request.method,
       headers,
@@ -121,12 +149,12 @@ export class HarnessProxy {
     if (request.method !== 'GET' && request.method !== 'HEAD' && request.body !== null) {
       Object.assign(init, { body: request.body, duplex: 'half' })
     }
-    return await fetch(new Request(target, init))
+    return await this.fetchImpl(new Request(target, init))
   }
 
   /**
    * Open a real Host WebSocket and bridge frames onto a renderer MessagePort.
-   * @param path - `/api/events.mux` or `/api/events.host`.
+   * @param path - `/api/remote.mux`.
    * @param port - MessagePort transferred from the preload bridge.
    */
   openStream(path: string, port: MessagePortMain): void {
@@ -137,7 +165,7 @@ export class HarnessProxy {
     }
     const wsUrl = new URL(path, this.requireOrigin())
     wsUrl.protocol = wsUrl.protocol === 'https:' ? 'wss:' : 'ws:'
-    const socket = this.createWebSocket(wsUrl)
+    const socket = this.createWebSocket(wsUrl, this.cookie)
     let closing = false
     let finished = false
     let resolveDone: (() => void) | undefined
@@ -211,7 +239,15 @@ export class HarnessProxy {
 
     port.on('message', (event) => {
       const data = event.data as HostStreamPortMessage
-      if (data.type === 'abort') void shutdown()
+      if (data.type === 'send') {
+        if (socket.readyState !== WebSocket.OPEN) {
+          port.postMessage({ type: 'error', message: 'harness proxy: send before WebSocket open' } satisfies HostStreamPortMessage)
+          return
+        }
+        socket.send(data.data)
+      } else if (data.type === 'abort') {
+        void shutdown()
+      }
     })
     port.on('close', () => { void shutdown() })
     port.start()

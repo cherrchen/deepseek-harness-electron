@@ -6,7 +6,7 @@ import { apply as applyGit, inject as injectGit } from '../../src/client/index.t
 import { GIT_DETAILS_SURFACE_ID } from '../../src/client/contract.ts'
 import { materializeClientBundle } from '../setup/module-loader.client.ts'
 
-const { SlotRegistry } = materializeClientBundle('@deepseek-ai/dsh-client-runtime') as {
+const { SlotRegistry } = materializeClientBundle('@deepseek-ai/dsh-client-ui-renderer') as {
   SlotRegistry: Parameters<Context['plugin']>[0]
 }
 

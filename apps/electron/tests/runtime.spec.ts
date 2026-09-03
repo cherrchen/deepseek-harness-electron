@@ -45,11 +45,15 @@ describe('Electron Harness runtime', () => {
     expect(parseHarnessReadyUrl('booting\ndsh web: http://127.0.0.1:43127\n')).toBe(
       'http://127.0.0.1:43127',
     )
+    expect(parseHarnessReadyUrl('dsh web: http://127.0.0.1:43127/?token=abc_123-XYZ\n')).toBe(
+      'http://127.0.0.1:43127/?token=abc_123-XYZ',
+    )
   })
 
   it('waits for a complete valid loopback readiness line', () => {
     expect(parseHarnessReadyUrl('dsh web: http://127.0.0.1:')).toBeUndefined()
     expect(parseHarnessReadyUrl('dsh web: http://0.0.0.0:3080\n')).toBeUndefined()
     expect(parseHarnessReadyUrl('dsh web: http://127.0.0.1:70000\n')).toBeUndefined()
+    expect(parseHarnessReadyUrl('dsh web: http://127.0.0.1:3080/?token=\n')).toBeUndefined()
   })
 })

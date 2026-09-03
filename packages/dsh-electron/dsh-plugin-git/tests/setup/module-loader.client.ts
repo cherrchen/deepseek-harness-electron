@@ -3,7 +3,7 @@ import { readFileSync } from 'node:fs'
 
 const nodeRequire = createRequire(import.meta.url)
 
-type Factory = (require: NodeRequire) => Record<string, unknown>
+type Factory = (require: NodeJS.Require) => Record<string, unknown>
 
 type ModuleLoader = {
   load(handoff: { id: string; factory: Factory }): void
@@ -23,7 +23,7 @@ function bundleRequire(specifier: string): unknown {
 
 loaderHost().__ModuleLoader__ = {
   load({ id, factory }: { id: string; factory: Factory }) {
-    if (!materialized.has(id)) materialized.set(id, factory(bundleRequire as NodeRequire))
+    if (!materialized.has(id)) materialized.set(id, factory(bundleRequire as NodeJS.Require))
     factories.set(id, factory)
   },
 }
@@ -35,11 +35,14 @@ export function materializeClientBundle(packageName: string): Record<string, unk
   const entry = nodeRequire.resolve(`${packageName}/client`)
   const source = readFileSync(entry, 'utf8')
   const host = loaderHost()
+  // This fixture intentionally evaluates the built client bundle through its browser loader protocol.
+  // oxlint-disable-next-line typescript/no-implied-eval
   const evaluate = new Function('window', 'globalThis', `${source}\n;return null;`)
+  // oxlint-disable-next-line typescript/no-unsafe-call -- typed immediately above
   evaluate(host, globalThis)
   const factory = factories.get(packageName)
   if (factory === undefined) throw new Error(`client bundle ${packageName} did not register via __ModuleLoader__.load`)
-  const exports = factory(bundleRequire as NodeRequire)
+  const exports = factory(bundleRequire as NodeJS.Require)
   materialized.set(packageName, exports)
   return exports
 }

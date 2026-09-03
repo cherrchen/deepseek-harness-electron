@@ -18,5 +18,5 @@
     "rootDir": "src",
     "outDir": "lib/types"
   },
-  "files": ["src/index.ts", "src/invariant.ts", "src/service.ts", "src/status.ts", "src/types.ts"]
+  "files": ["src/index.ts", "src/service.ts", "src/status.ts", "src/types.ts"]
 }

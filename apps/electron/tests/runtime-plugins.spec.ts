@@ -44,7 +44,7 @@ const pluginRoot = join(pluginsRoot, 'example-plugin')
 const manifest = JSON.parse(readFileSync(join(pluginRoot, 'package.json'), 'utf8'))
 mkdirSync(join(pluginRoot, 'lib'), { recursive: true })
 await build({ entryPoints: [join(pluginRoot, 'src', 'index.ts')], outfile: join(pluginRoot, 'lib', 'index.js'), bundle: true, platform: 'node', packages: 'external', format: 'esm', target: 'node22', logLevel: 'silent' })
-const result = await build({ entryPoints: [join(pluginRoot, 'src', 'client', 'index.ts')], bundle: true, platform: 'browser', format: 'cjs', target: 'es2022', write: false, jsx: 'automatic', external: ['react','react/jsx-runtime','react-dom','@deepseek-ai/cordis','@deepseek-ai/dsh-client-runtime/client'], logLevel: 'silent' })
+const result = await build({ entryPoints: [join(pluginRoot, 'src', 'client', 'index.ts')], bundle: true, platform: 'browser', format: 'cjs', target: 'es2022', write: false, jsx: 'automatic', external: ['react','react/jsx-runtime','react-dom','@deepseek-ai/cordis','@deepseek-ai/dsh-client-ui-renderer/client'], logLevel: 'silent' })
 const code = result.outputFiles[0].text
 writeFileSync(join(pluginRoot, 'lib', 'client.js'), 'window.__ModuleLoader__.load({ id: ' + JSON.stringify(manifest.name) + ', factory: (require) => { var module = { exports: {} }; var exports = module.exports; ' + code + ' return module.exports; } });')
 `
