@@ -4,7 +4,7 @@
  */
 import { Service } from '@deepseek-ai/cordis'
 import type { Context } from '@deepseek-ai/cordis'
-import type {} from '@deepseek-ai/dsh-api-session-controller/client'
+import type { ISessions } from '@deepseek-ai/dsh-api-session-controller/client'
 import type { HostObservable, SlotLabel, StoredEntry } from '@deepseek-ai/dsh-client-ui-slots'
 import type {} from '@deepseek-ai/dsh-client-ui-renderer/client'
 import type {} from '@deepseek-ai/dsh-client-ui-layout/client'
@@ -133,7 +133,7 @@ export class ShellDetailsService extends Service implements ShellDetailsControll
       this.sessions.clear()
     }, 'shellDetails: unload')
     ctx.effect(() => {
-      const sessions = ctx.sessions
+      const sessions = ctx.sessions as ISessions
       let current = sessions.list.getSnapshot().current
       return sessions.list.subscribe(() => {
         const snapshot = sessions.list.getSnapshot()
@@ -579,7 +579,7 @@ export class ShellDetailsService extends Service implements ShellDetailsControll
   }
 
   private currentSessionId(): string {
-    const current = this.owner.sessions.list.getSnapshot().current
+    const current = (this.owner.sessions as ISessions).list.getSnapshot().current
     return typeof current === 'string' && current.length > 0 ? current : ''
   }
 
