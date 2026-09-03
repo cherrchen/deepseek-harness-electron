@@ -10,7 +10,7 @@ Stage 1 provides builtin theme browsing, preview, apply, persistence, and plugin
 
 ## DSH compatibility
 
-This `develop` branch targets **DeepSeek Harness `v0.1.2`** (including [`v0.1.2-alpha.2`](https://github.com/deepseek-ai/deepseek-harness/releases/tag/v0.1.2-alpha.2)).
+This compatibility branch targets **DeepSeek Harness [`v0.1.2-alpha.4`](https://github.com/deepseek-ai/deepseek-harness/releases/tag/v0.1.2-alpha.4)**.
 
 For **DeepSeek Harness [`v0.1.1-rc.2`](https://github.com/deepseek-ai/deepseek-harness/releases/tag/v0.1.1-rc.2)**, use the [`main`](https://github.com/cherrchen/dsh-theme-studio/tree/main) branch instead.
 
@@ -72,7 +72,7 @@ theme-studio.activeThemeId   null | dsh-theme-studio.*
 
 ## Composition
 
-The Host plugin registers the `theme-studio` settings namespace when `ctx.settings` exists, and is a no-op otherwise. The Client plugin requires `theme`, `settingsScope`, `slots`, `locale`, `connection`, and `remote`. Headless profiles load only the Host half and do not boot the browser UI.
+The Host plugin registers the `theme-studio` settings namespace when `ctx.settings` exists, and is a no-op otherwise. The Client plugin requires `theme`, `settingsScope`, `slots`, `locale`, `connection`, and `remote`. Headless profiles load only the Host half and do not boot the browser UI. The package intentionally has no `./invariant` export because ThemeRuntime owns overlay-layer consistency and the settings service owns persistence.
 
 ## npm publication
 
