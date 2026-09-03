@@ -64,7 +64,7 @@ describe('HarnessProxy', () => {
     })
     const socket = new FakeWebSocket()
     const createWebSocket = vi.fn(() => socket as unknown as WebSocket)
-    const proxy = new HarnessProxy(createWebSocket, fetchMock as unknown as typeof fetch)
+    const proxy = new HarnessProxy(createWebSocket, fetchMock)
     const transport = new HttpHarnessTransport(proxy)
 
     await transport.start('http://127.0.0.1:43127/?token=launch-token')

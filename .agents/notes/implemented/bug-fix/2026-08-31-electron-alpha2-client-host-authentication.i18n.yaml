@@ -2,5 +2,5 @@
 # side as of the last confirmed-consistent state. Both languages carry equal authority;
 # after editing either side, bring the other along and re-record with:
 #   pnpm run verify-translation-pairing --write .agents/notes/implemented/bug-fix/2026-08-31-electron-alpha2-client-host-authentication.md
-2026-08-31-electron-alpha2-client-host-authentication.md: e5342287493b15fe94a116a2a16047dc6c4ed4ec
-2026-08-31-electron-alpha2-client-host-authentication.zh.md: c0552049babf4ed1dca16ec2eeae137bc3b5b69b
+2026-08-31-electron-alpha2-client-host-authentication.md: 60d6eafe91b0d580dd4478343a1d48764a8db452
+2026-08-31-electron-alpha2-client-host-authentication.zh.md: 6796c07e61d2603ad752a69d63b9c23e7e994e74

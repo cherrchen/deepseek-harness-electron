@@ -1,4 +1,4 @@
-# Agent Note: Electron follows the alpha.2 client and Host authentication APIs
+# Agent Note: Electron follows the alpha.4 client and Host authentication APIs
 
 Status: implemented
 
@@ -10,15 +10,15 @@ The desktop composition loaded client extensions through the removed `dsh-client
 
 ## Decision
 
-Electron client extensions use Cordis `Context` directly. Store helpers come from `dsh-client-store`, slot registration comes from `dsh-client-ui-renderer`, and session list types come from `dsh-api-session-controller`. Downstream package peer declarations name the owning client packages, while development dependencies use `workspace:` so repository tests exercise the synchronized source.
+Electron client extensions use Cordis `Context` directly. Store helpers come from `dsh-client-store`, slot registration comes from `dsh-client-ui-renderer`, and session list types and services come from `dsh-api-session-controller`. Details Host declares the session controller as an injected client dependency, and Git's standalone fixture packages the alpha.4-compatible Details Host artifact. Downstream package peer declarations name the owning client packages, while development dependencies use `workspace:` so repository tests exercise the synchronized source.
 
 The Electron supervisor preserves the complete loopback readiness URL. `HarnessProxy` exchanges its launch token exactly once, stores only the returned cookie pair, and attaches that cookie to every proxied HTTP request and the `/api/remote.mux` WebSocket handshake. The preload-owned `MessagePort` carries text frames in both directions so the remote mux can send client requests and receive Host responses. The renderer receives neither the launch token nor the cookie. Bootstrap extraction decodes the Host's HTML attribute entities before loading combo-script URLs.
 
-The legacy fixture dependency may retain its published install script in the lockfile, but the root install denies that script because the fixture does not execute it. The current workspace `dsh-subprocess-local` postinstall remains explicitly allowed.
+Standalone plugin lockfiles admit the synchronized alpha.4 DSH packages through exact minimum-release-age exemptions. Install scripts remain denied unless the package executes them during build or tests; the current `dsh-subprocess-local`, `node-pty`, and `koffi` builds are explicitly allowed where required.
 
 ## Verification
 
-The Electron suite covers token parsing, token-to-cookie exchange, authenticated HTTP requests, authenticated WebSocket creation, and runtime plugin hot reload. The Git plugin suite resolves the workspace client bundles. Full builds and real `pnpm dsh web` and Electron launches exercise the assembled applications.
+The Electron suite covers token parsing, token-to-cookie exchange, authenticated HTTP requests, authenticated WebSocket creation, Details Host composition, and runtime plugin hot reload. The Git and Details Host standalone suites resolve alpha.4 published client artifacts. Full builds and real `pnpm dsh web` and Electron launches exercise the assembled applications.
 
 ## Alternatives considered
 

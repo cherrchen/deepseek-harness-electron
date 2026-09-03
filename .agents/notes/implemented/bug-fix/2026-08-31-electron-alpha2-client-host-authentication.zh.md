@@ -1,4 +1,4 @@
-# Agent Note: Electron 遵循 alpha.2 客户端与 Host 认证 API
+# Agent Note: Electron 遵循 alpha.4 客户端与 Host 认证 API
 
 Status: implemented
 
@@ -10,15 +10,15 @@ Status: implemented
 
 ## Decision
 
-Electron 客户端扩展直接使用 Cordis `Context`。存储辅助函数来自 `dsh-client-store`，slot 注册来自 `dsh-client-ui-renderer`，session 列表类型来自 `dsh-api-session-controller`。下游包的对等依赖声明所属客户端包，开发依赖则使用 `workspace:`，使仓库测试覆盖已同步的源码。
+Electron 客户端扩展直接使用 Cordis `Context`。存储辅助函数来自 `dsh-client-store`，slot 注册来自 `dsh-client-ui-renderer`，session 列表类型与服务来自 `dsh-api-session-controller`。Details Host 将 session controller 声明为注入的客户端依赖，Git 的独立 fixture 则打包兼容 alpha.4 的 Details Host 产物。下游包的对等依赖声明所属客户端包，开发依赖使用 `workspace:`，使仓库测试覆盖已同步的源码。
 
 Electron 监管器保留完整的环回就绪 URL。`HarnessProxy` 只交换一次启动 token，仅保存返回的 cookie 键值对，并把该 cookie 附加到每个代理 HTTP 请求和 `/api/remote.mux` WebSocket 握手。preload 持有的 `MessagePort` 会双向传递文本帧，使远程 mux 能够发送客户端请求并接收 Host 响应。渲染进程既不接收启动 token，也不接收 cookie。bootstrap 提取器会先解码 Host 的 HTML 属性实体，再加载组合脚本 URL。
 
-旧 fixture 依赖可以在锁文件中保留其已发布安装脚本，但根安装会拒绝执行该脚本，因为 fixture 不会运行它。当前 workspace 的 `dsh-subprocess-local` postinstall 仍获明确允许。
+独立插件锁文件通过精确的最短发布时间豁免接纳已同步的 alpha.4 DSH 包。除非构建或测试会执行某个包的安装脚本，否则仍拒绝该脚本；当前所需的 `dsh-subprocess-local`、`node-pty` 与 `koffi` 构建均获明确允许。
 
 ## Verification
 
-Electron 测试覆盖 token 解析、token 到 cookie 的交换、已认证 HTTP 请求、已认证 WebSocket 创建以及运行时插件热重载。Git 插件测试解析 workspace 客户端产物。完整构建以及真实的 `pnpm dsh web` 与 Electron 启动会覆盖组装后的应用。
+Electron 测试覆盖 token 解析、token 到 cookie 的交换、已认证 HTTP 请求、已认证 WebSocket 创建、Details Host 组合以及运行时插件热重载。Git 与 Details Host 独立套件解析 alpha.4 已发布客户端产物。完整构建以及真实的 `pnpm dsh web` 与 Electron 启动会覆盖组装后的应用。
 
 ## Alternatives considered
 

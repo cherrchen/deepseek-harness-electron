@@ -11,6 +11,7 @@ import { usesFlattenedPackageDependencies } from './package-dependency-policy.ts
 
 /** Package README sentence that records why an invariant companion is omitted. */
 const OMITTED_COMPANION_REASON = /No (?:(?:runtime )?invariant )?companion is published(?: because|[.:;—])\s+\S/i
+const DOWNSTREAM_ECOSYSTEM_PACKAGE = /^packages\/dsh-electron\/[^/]+$/
 
 interface PackageManifest {
   name?: string

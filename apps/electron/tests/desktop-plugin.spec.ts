@@ -71,6 +71,7 @@ describe('details host portable runtime plugin regression', () => {
     expect(manifest.name).toBe('@dsh-electron/dsh-client-ui-details-host')
     expect(manifest.dsh?.client?.platform).toBe('web')
     expect(manifest.dsh?.client?.inject).toEqual([
+      '@deepseek-ai/dsh-api-session-controller',
       '@deepseek-ai/dsh-client-ui-renderer',
       '@deepseek-ai/dsh-client-ui-layout',
     ])
