@@ -74,6 +74,8 @@ describe('details host portable runtime plugin regression', () => {
       '@deepseek-ai/dsh-api-session-controller',
       '@deepseek-ai/dsh-client-ui-renderer',
       '@deepseek-ai/dsh-client-ui-layout',
+      '@deepseek-ai/dsh-client-locale',
+      '@deepseek-ai/dsh-client-ui-conversation',
     ])
     const clientRoot = join(electronRoot, 'runtime', 'plugins', 'ui-details-host', 'src', 'client')
     for (const file of readdirSync(clientRoot)) {

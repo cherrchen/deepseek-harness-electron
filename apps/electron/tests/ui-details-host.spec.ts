@@ -74,10 +74,14 @@ async function bench() {
   const layout = fakeLayout()
   const sessions = fakeSessions()
   ctx.provide('layout', layout)
+  ctx.provide('locale', { register: vi.fn(() => () => {}) } as never)
   ctx.provide('sessions', sessions as never)
   slots.register({
     name: 'root',
-    children: { details: { kind: 'single', scope: 'session' } },
+    children: {
+      details: { kind: 'single', scope: 'session' },
+      'conversation.session.header.utilities': { kind: 'list', scope: 'session' },
+    },
   } as never, () => null)
   slots.register({ name: 'details' } as never, UpstreamDetailsPanel)
   const fiber = ctx.plugin({ inject: [...inject], apply })
@@ -111,11 +115,12 @@ describe('Details Host Electron integration', () => {
     await b.fiber.dispose()
   })
 
-  it('lets DetailsHost win details, then restores the upstream occupant on close', async () => {
+  it('keeps DetailsHost and its tabs after closing a tab (v3 dock semantics)', async () => {
     const b = await bench()
-    expect(b.shellDetails.apiVersion).toBe(2)
+    expect(b.shellDetails.apiVersion).toBe(3)
     expect(b.shellDetails.features.has('sessionRestore')).toBe(true)
-    expect(b.shellDetails.features.has('navigationHistory')).toBe(true)
+    expect(b.shellDetails.features.has('tabs')).toBe(true)
+    expect(b.shellDetails.features.has('launcher')).toBe(true)
     contributeSurface(b.ctx, 'test.alpha', 'Alpha', DummyAlpha)
     contributeSurface(b.ctx, 'test.beta', 'Beta', DummyBeta)
 
@@ -130,12 +135,17 @@ describe('Details Host Electron integration', () => {
 
     b.shellDetails.open('test.beta')
     expect(b.shellDetails.activeId).toBe('test.beta')
+    expect(b.shellDetails.getSnapshot().tabs).toHaveLength(2)
     expect(winner(b.slots)).toBe(DetailsHost)
     expect(b.layout.closeDetails).not.toHaveBeenCalled()
 
+    // Closing the active tab falls back to the retained tab; the dock keeps
+    // its takeover and the upstream occupant stays shadowed.
     b.shellDetails.close()
-    expect(winner(b.slots)).toBe(UpstreamDetailsPanel)
-    expect(b.slots.spec(DETAILS_SURFACE_SLOT)).toBeUndefined()
+    expect(b.shellDetails.activeId).toBe('test.alpha')
+    expect(b.shellDetails.getSnapshot().tabs).toHaveLength(1)
+    expect(winner(b.slots)).toBe(DetailsHost)
+    expect(b.slots.spec(DETAILS_SURFACE_SLOT)).toEqual({ kind: 'list', scope: 'session' })
     await b.fiber.dispose()
   })
 
@@ -147,8 +157,10 @@ describe('Details Host Electron integration', () => {
       payload: { tab: 'commit' },
     })
     b.sessions.setCurrent('session-b')
-    expect(b.shellDetails.isOpen()).toBe(false)
-    expect(winner(b.slots)).toBe(UpstreamDetailsPanel)
+    expect(b.shellDetails.activeInstance).toBeNull()
+    expect(b.shellDetails.activeId).toBeNull()
+    // v3 keeps the takeover while the host lives; the dock shows the Launcher.
+    expect(winner(b.slots)).toBe(DetailsHost)
     b.sessions.setCurrent('session-a')
     expect(b.shellDetails.activeInstance?.instanceId).toBe(opened.instanceId)
     expect(b.shellDetails.activeInstance?.payload).toEqual({ tab: 'commit' })
@@ -199,14 +211,22 @@ describe('Details Host Electron integration', () => {
     expect(winner(first.slots)).toBe(UpstreamDetailsPanel)
   })
 
-  it('closes when the active surface unloads', async () => {
+  it('prunes tabs when the active surface unloads and keeps the dock alive', async () => {
     const b = await bench()
     const stopAlpha = contributeSurface(b.ctx, 'test.alpha', 'Alpha', DummyAlpha)
     b.shellDetails.open('test.alpha')
     stopAlpha()
     await Promise.resolve()
     expect(b.shellDetails.isOpen()).toBe(false)
-    expect(winner(b.slots)).toBe(UpstreamDetailsPanel)
+    expect(b.shellDetails.getSnapshot().tabs).toEqual([])
+    expect(winner(b.slots)).toBe(DetailsHost)
+    await b.fiber.dispose()
+  })
+
+  it('registers the header Details Toggle entry', async () => {
+    const b = await bench()
+    const entries = b.slots.entries('conversation.session.header.utilities')
+    expect(entries.some(entry => entry.options.id === 'dsh-electron.details-toggle')).toBe(true)
     await b.fiber.dispose()
   })
 })
