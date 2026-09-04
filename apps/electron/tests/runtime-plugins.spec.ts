@@ -76,6 +76,41 @@ describe('runtime plugin discovery', () => {
     expect(readFileSync(buildScript, 'utf8')).not.toContain('packages/dsh-electron')
   })
 
+  it('resolves declared ecosystem plugins from the packaged app node_modules tree', async () => {
+    const appPath = await mkdtemp(join(tmpdir(), 'dsh-electron-ecosystem-'))
+    try {
+      const installed = join(appPath, 'node_modules', '@dsh-electron', 'dsh-plugin-git')
+      const { mkdirSync } = await import('node:fs')
+      mkdirSync(installed, { recursive: true })
+      writeFileSync(join(appPath, 'package.json'), JSON.stringify({
+        dshElectron: { ecosystemPlugins: ['@dsh-electron/dsh-plugin-git'] },
+      }), 'utf8')
+      writeFileSync(join(installed, 'package.json'), JSON.stringify({
+        name: '@dsh-electron/dsh-plugin-git',
+        version: '0.2.0',
+      }), 'utf8')
+      const plugins = discoverEcosystemPlugins(appPath)
+      expect(plugins).toEqual([expect.objectContaining({
+        name: '@dsh-electron/dsh-plugin-git',
+        rootPath: installed,
+      })])
+    } finally {
+      await rm(appPath, { recursive: true, force: true })
+    }
+  })
+
+  it('rejects a declared ecosystem plugin missing from a packaged app node_modules', async () => {
+    const appPath = await mkdtemp(join(tmpdir(), 'dsh-electron-ecosystem-missing-'))
+    try {
+      writeFileSync(join(appPath, 'package.json'), JSON.stringify({
+        dshElectron: { ecosystemPlugins: ['@dsh-electron/dsh-plugin-git'] },
+      }), 'utf8')
+      expect(() => discoverEcosystemPlugins(appPath)).toThrow(/declared but not installed/)
+    } finally {
+      await rm(appPath, { recursive: true, force: true })
+    }
+  })
+
   it('declares Details Host as Git\'s module-table request so boot arrives that factory first', () => {
     const git = discoverEcosystemPlugins(electronRoot)
       .find(plugin => plugin.name === '@dsh-electron/dsh-plugin-git')

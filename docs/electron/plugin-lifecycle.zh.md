@@ -19,7 +19,7 @@ Electron 拥有插件的 desired state。DSH Host 拥有实际的 Cordis fiber s
 `ProfilePluginCatalog` 会刷新并合并三种 ownership class：
 
 * `runtime/plugins/` 下的 **system runtime 插件** 在 Host 启动前完成链接，且不允许用户管理。
-* `dshElectron.ecosystemPlugins` 声明的 **bundled ecosystem 插件** 在 Host 启动前完成链接，允许用户管理，并通过 generated include file 进入组合。
+* `dshElectron.ecosystemPlugins` 声明的 **bundled ecosystem 插件** 是 Electron 应用的 production `workspace:` 依赖，在 Host 启动前完成链接，允许用户管理，并通过 generated include file 进入组合。
 * **Profile package** 是 `$DSH_HOME/profiles/web/package.json` 中通过 Desktop 安装或声明为 profile bundle 的 direct dependency。
 
 链接本身不是启用状态信号。Electron 会把 bundled artifact 同时暴露到 `$DSH_HOME/profiles/node_modules` 与 `$DSH_HOME/electron/node_modules`；运行时启停仅由生成的 Cordis 组合控制。

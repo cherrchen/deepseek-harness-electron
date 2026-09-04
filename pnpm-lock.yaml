@@ -733,6 +733,9 @@ importers:
       '@deepseek-ai/schemastery':
         specifier: link:../../vendor/schemastery
         version: link:../../vendor/schemastery
+      '@dsh-electron/dsh-plugin-git':
+        specifier: workspace:^
+        version: link:../../packages/dsh-electron/dsh-plugin-git
       electron-updater:
         specifier: ^6.8.9
         version: 6.8.9

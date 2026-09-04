@@ -19,7 +19,7 @@ Electron owns desired plugin state. DSH Host owns actual Cordis fiber state. The
 `ProfilePluginCatalog` refreshes and merges three ownership classes:
 
 * **System runtime plugins** under `runtime/plugins/` are linked before Host start and are not user-manageable.
-* **Bundled ecosystem plugins** declared by `dshElectron.ecosystemPlugins` are linked before Host start, are user-manageable, and are composed through a generated include file.
+* **Bundled ecosystem plugins** declared by `dshElectron.ecosystemPlugins` are production `workspace:` dependencies of the Electron app, linked before Host start, are user-manageable, and are composed through a generated include file.
 * **Profile packages** are direct dependencies in `$DSH_HOME/profiles/web/package.json` installed through Desktop or declared as profile bundles.
 
 Linking is not the enable-state signal. Electron keeps bundled artifacts available under both `$DSH_HOME/profiles/node_modules` and `$DSH_HOME/electron/node_modules`; runtime enablement is controlled only by generated Cordis composition.

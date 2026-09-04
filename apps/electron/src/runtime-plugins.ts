@@ -115,6 +115,7 @@ export function discoverRuntimePlugins(appPath: string): RuntimePluginManifest[]
 
 /**
  * Resolve prebuilt standard DSH packages declared by the Electron distribution.
+ * Packaged apps require each name as a production dependency so electron-builder copies it into `node_modules`.
  * @param appPath - Electron application root.
  * @returns manifests backed by installed package artifacts or workspace sources in development.
  */
