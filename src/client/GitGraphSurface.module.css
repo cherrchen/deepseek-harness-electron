@@ -1,0 +1,128 @@
+.root {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.body {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-height: 0;
+  overflow: auto;
+}
+
+.rows {
+  flex: none;
+  margin: 0;
+  padding: 4px 0;
+  list-style: none;
+}
+
+.row {
+  display: flex;
+  align-items: center;
+  min-width: 0;
+}
+
+.row:hover {
+  background: var(--dsw-alias-fill-hover);
+}
+
+.lane {
+  flex: none;
+}
+
+.commitCell {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 1px;
+  min-width: 0;
+  padding: 3px 8px 3px 2px;
+}
+
+.subjectLine {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+
+.subject {
+  overflow: hidden;
+  font-size: 12px;
+  line-height: 16px;
+  color: var(--dsw-alias-label-primary);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.refBadge {
+  flex: none;
+  padding: 0 6px;
+  border: 1px solid var(--dsw-alias-border-l2);
+  border-radius: 999px;
+  font-size: 10px;
+  line-height: 14px;
+  color: var(--dsw-alias-label-secondary);
+  white-space: nowrap;
+}
+
+.refBadge[data-ref='head'] {
+  border-color: var(--dsw-alias-border-brand, var(--dsw-alias-border-l2));
+  color: var(--dsw-alias-label-primary);
+}
+
+.meta {
+  overflow: hidden;
+  font-size: 10px;
+  line-height: 13px;
+  color: var(--dsw-alias-label-tertiary, var(--dsw-alias-label-secondary));
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.loadMore {
+  flex: none;
+  margin: 4px 8px 12px;
+  padding: 6px 10px;
+  border: 1px solid var(--dsw-alias-border-l2);
+  border-radius: 8px;
+  background: transparent;
+  color: var(--dsw-alias-label-secondary);
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.loadMore:hover:not(:disabled) {
+  background: var(--dsw-alias-fill-hover);
+}
+
+.loadMore:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+
+.empty {
+  margin: 0;
+  padding: 16px;
+  font-size: 12px;
+  color: var(--dsw-alias-label-tertiary, var(--dsw-alias-label-secondary));
+}
+
+.error {
+  margin: 0;
+  padding: 8px 12px;
+  font-size: 12px;
+  color: var(--dsw-alias-label-error, #e5484d);
+}
+
+.loadingHint {
+  flex: none;
+  margin: 0;
+  padding: 4px 12px 12px;
+  font-size: 11px;
+  color: var(--dsw-alias-label-tertiary, var(--dsw-alias-label-secondary));
+}
