@@ -36,7 +36,7 @@ export interface Config {
   }
 }
 
-export const Config: z<Config> = z.object({
+export const Config = z.object({
   executable: z.string().default('git'),
   maxOutputBytes: z.natural().min(1024).default(8 * 1024 * 1024),
   graceMs: z.natural().min(1).default(3000),
@@ -44,7 +44,7 @@ export const Config: z<Config> = z.object({
     provider: z.string(),
     model: z.string(),
     maxDiffBytes: z.natural().min(1024),
-  }) as unknown as z<Config['commitMessage']>,
+  }),
 })
 
 /** Install the portable service and the transport adapter when Connection is present. */
