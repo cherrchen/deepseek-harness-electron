@@ -36,3 +36,21 @@ export interface GitDiff {
   readonly path?: string
   readonly text: string
 }
+
+/** One parsed commit from `git log`, in topological/date order. */
+export interface GitCommitSummary {
+  /** Full commit hash. */
+  readonly hash: string
+  /** Abbreviated commit hash. */
+  readonly shortHash: string
+  /** Parent hashes, oldest first; empty for a root commit. */
+  readonly parents: readonly string[]
+  /** Commit subject line. */
+  readonly subject: string
+  /** Author name. */
+  readonly author: string
+  /** Author date, ISO-8601. */
+  readonly date: string
+  /** Decorations for the commit: branch names, tags, and `HEAD`. */
+  readonly refs: readonly string[]
+}

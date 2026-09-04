@@ -3,8 +3,15 @@
     "target": "ES2024",
     "module": "NodeNext",
     "moduleResolution": "NodeNext",
-    "lib": ["ES2024", "DOM", "DOM.Iterable"],
-    "types": ["node", "react"],
+    "lib": [
+      "ES2024",
+      "DOM",
+      "DOM.Iterable"
+    ],
+    "types": [
+      "node",
+      "react"
+    ],
     "jsx": "react-jsx",
     "strict": true,
     "skipLibCheck": true,
@@ -30,12 +37,18 @@
     "src/client/ComposerToolTrigger.tsx",
     "src/client/GitBranchControl.tsx",
     "src/client/GitDetailsHeaderActions.tsx",
-    "src/client/GitDetailsSurface.tsx",
     "src/client/details/ChangesTab.tsx",
-    "src/client/details/CommitTab.tsx",
     "src/client/details/DiffTab.tsx",
     "src/client/details/ChangeSection.tsx",
     "src/client/details/ChangeRow.tsx",
-    "src/client/locales.ts"
+    "src/client/locales.ts",
+    "src/client/use-git-workspace.ts",
+    "src/client/graph-model.ts",
+    "src/client/surfaces/GitChangesSurface.tsx",
+    "src/client/surfaces/GitDiffSurface.tsx",
+    "src/client/surfaces/GitGraphSurface.tsx",
+    "src/client/details/CommitRegion.tsx",
+    "src/client/LauncherIcons.tsx",
+    "src/client/launcher-cards.tsx"
   ]
 }

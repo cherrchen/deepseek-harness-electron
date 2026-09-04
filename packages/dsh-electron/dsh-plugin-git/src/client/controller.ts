@@ -1,7 +1,6 @@
 /** Client-side Git state and RPC orchestration. */
 
-import type { GitDiff, GitRepositorySnapshot } from '../types.ts'
-import type { GitDetailsTab } from './contract.ts'
+import type { GitCommitSummary, GitDiff, GitRepositorySnapshot } from '../types.ts'
 
 type GitRpcResult = { ok: true; value: unknown } | { ok: false; error: { message: string } }
 
@@ -34,15 +33,31 @@ export interface GitSelectedDiff {
   readonly staged: boolean
 }
 
+/** Number of commits loaded per graph page. */
+export const GIT_GRAPH_PAGE_SIZE = 100
+
 export interface GitClientState {
   readonly workspacePath: string | undefined
   readonly repository: GitRepositorySnapshot | null | undefined
-  readonly activeTab: GitDetailsTab
   readonly selectedDiff: GitSelectedDiff | undefined
   readonly diff: GitDiff | undefined
   readonly loading: boolean
   readonly error: string | undefined
   readonly desktopAvailable: boolean
+  /** Commit history page, newest first. */
+  readonly graph: readonly GitCommitSummary[]
+  /** Whether a graph page request is in flight. */
+  readonly graphLoading: boolean
+  /** Whether another graph page may exist past the loaded ones. */
+  readonly graphHasMore: boolean
+  readonly graphError: string | undefined
+  /** Editable commit message proposal/input shared by the commit region. */
+  readonly commitMessage: string
+  /** Whether a commit message generation request is in flight. */
+  readonly generating: boolean
+  /** Whether the Host reports a configured generation backend. */
+  readonly generationAvailable: boolean
+  readonly generationError: string | undefined
 }
 
 /** Observable controller shared by the composer control and details surface. */
@@ -50,16 +65,24 @@ export class GitClientController {
   private state: GitClientState = {
     workspacePath: undefined,
     repository: undefined,
-    activeTab: 'changes',
     selectedDiff: undefined,
     diff: undefined,
     loading: false,
     error: undefined,
     desktopAvailable: false,
+    graph: [],
+    graphLoading: false,
+    graphHasMore: true,
+    graphError: undefined,
+    commitMessage: '',
+    generating: false,
+    generationAvailable: false,
+    generationError: undefined,
   }
   private readonly listeners = new Set<() => void>()
   private desktop: GitDesktopCapability | undefined
   private operationGeneration = 0
+  private diffNavigator: ((path: string, staged: boolean) => void) | undefined
 
   constructor(private readonly rpc: GitRpcClient) {}
 
@@ -88,6 +111,28 @@ export class GitClientController {
   }
 
   /**
+   * Install the Details Host diff navigation (set at plugin mount).
+   * @param navigator - Opens one Diff surface tab for the path and side.
+   */
+  setDiffNavigator(navigator: ((path: string, staged: boolean) => void) | undefined): void {
+    this.diffNavigator = navigator
+  }
+
+  /**
+   * Open one changed path as its own Diff surface tab (create-or-reuse via
+   * the stable diff tab key). No-op when Details Host is unavailable.
+   * @param path - Repository-relative changed path.
+   * @param staged - Whether to open the staged comparison.
+   */
+  openDiff(path: string, staged: boolean): void {
+    if (this.diffNavigator !== undefined) {
+      this.diffNavigator(path, staged)
+      return
+    }
+    void this.showDiff(path, staged)
+  }
+
+  /**
    * Bind repository discovery to the current workspace path.
    * @param workspacePath - Current workspace path, if one is selected.
    * @returns Completion after the first discover and status calls settle.
@@ -99,14 +144,20 @@ export class GitClientController {
       repository: undefined,
       diff: undefined,
       selectedDiff: undefined,
-      activeTab: 'changes',
       error: undefined,
+      graph: [],
+      graphHasMore: true,
+      graphError: undefined,
+      commitMessage: '',
+      generationError: undefined,
     })
     if (workspacePath === undefined) {
       this.patch({ loading: false })
       return
     }
     await this.loadRepository(generation, workspacePath)
+    void this.loadGraph(true)
+    void this.loadGenerationCapability()
   }
 
   /**
@@ -124,23 +175,15 @@ export class GitClientController {
   }
 
   /**
-   * Activate one details tab.
-   * @param tab - Details tab to show.
-   */
-  selectTab(tab: GitDetailsTab): void {
-    this.patch({ activeTab: tab })
-  }
-
-  /**
-   * Load a diff for one changed path and switch to the Diff tab.
+   * Load a diff for one changed path (Diff surface payload routing).
    * @param path - Repository-relative changed path.
    * @param staged - Whether to read the staged diff.
    * @returns Completion after the Host diff call settles.
    */
-  async selectDiff(path: string, staged: boolean): Promise<void> {
+  async showDiff(path: string, staged: boolean): Promise<void> {
     const repository = this.requireRepository()
     const selectedDiff = { path, staged }
-    this.patch({ selectedDiff, activeTab: 'diff', error: undefined })
+    this.patch({ selectedDiff, error: undefined })
     if (repository.untracked.includes(path)) {
       this.patch({ diff: undefined, loading: false })
       return
@@ -148,9 +191,95 @@ export class GitClientController {
     this.patch({ loading: true })
     try {
       const diff = decodeDiff(await this.call('diff', { repository: repository.root, path, staged }))
+      if (this.state.selectedDiff?.path !== path || this.state.selectedDiff?.staged !== staged) return
       this.patch({ diff, loading: false })
     } catch (error) {
       this.patch({ loading: false, error: error instanceof Error ? error.message : String(error) })
+    }
+  }
+
+  /**
+   * Discard unstaged working-tree changes of one tracked path, or of every
+   * tracked path when omitted. Destructive; callers confirm first.
+   * @param path - Optional repository-relative tracked path.
+   * @returns Completion after state refresh.
+   */
+  discard(path?: string): Promise<void> { return this.mutate('discard', { path }) }
+
+  /**
+   * Load the first graph page, replacing any loaded history.
+   * @param reset - Replace the loaded page instead of appending.
+   * @returns Completion after the Host log call settles.
+   */
+  async loadGraph(reset = true): Promise<void> {
+    const repository = this.state.repository
+    if (repository === undefined || repository === null) {
+      this.patch({ graph: [], graphHasMore: false })
+      return
+    }
+    const skip = reset ? 0 : this.state.graph.length
+    this.patch({ graphLoading: true, graphError: undefined })
+    try {
+      const commits = decodeCommits(await this.call('log', {
+        repository: repository.root,
+        limit: GIT_GRAPH_PAGE_SIZE,
+        skip,
+      }))
+      const graph = reset ? commits : [...this.state.graph, ...commits]
+      this.patch({ graph, graphLoading: false, graphHasMore: commits.length === GIT_GRAPH_PAGE_SIZE })
+    } catch (error) {
+      this.patch({ graphLoading: false, graphError: error instanceof Error ? error.message : String(error) })
+    }
+  }
+
+  /**
+   * Load the next graph page and append it.
+   * @returns Completion after the Host log call settles.
+   */
+  loadMoreGraph(): Promise<void> { return this.loadGraph(false) }
+
+  /**
+   * Editable commit message input (survives tab switches within a session).
+   * @param message - Current message text.
+   */
+  setCommitMessage(message: string): void {
+    this.patch({ commitMessage: message })
+  }
+
+  /**
+   * Generate a commit message proposal from the staged diff. Generation only
+   * produces text: it never stages, commits, or pushes.
+   * @returns Completion after the proposal lands in `commitMessage`.
+   */
+  async generateCommitMessage(): Promise<void> {
+    const repository = this.requireRepository()
+    if (repository.staged.length === 0) {
+      this.patch({ generationError: 'stage-changes-first' })
+      return
+    }
+    this.patch({ generating: true, generationError: undefined })
+    try {
+      const staged = decodeDiff(await this.call('diff', { repository: repository.root, staged: true }))
+      const proposal = await this.call('generate-commit-message', {
+        repository: repository.root,
+        stagedDiff: staged.text,
+      })
+      if (typeof proposal !== 'string' || proposal.trim().length === 0) {
+        throw new Error('generation returned an empty message')
+      }
+      this.patch({ commitMessage: proposal, generating: false })
+    } catch (error) {
+      this.patch({ generating: false, generationError: error instanceof Error ? error.message : String(error) })
+    }
+  }
+
+  private async loadGenerationCapability(): Promise<void> {
+    if (this.state.workspacePath === undefined) return
+    try {
+      const capability = await this.call('commit-message-capability', {}) as { available?: unknown }
+      this.patch({ generationAvailable: capability?.available === true })
+    } catch {
+      this.patch({ generationAvailable: false })
     }
   }
 
@@ -256,6 +385,27 @@ export class GitClientController {
 function decodeRoot(value: unknown): string | null {
   if (value === null || typeof value === 'string') return value
   throw new Error('Git Host returned an invalid repository root')
+}
+
+function decodeCommits(value: unknown): readonly GitCommitSummary[] {
+  if (!Array.isArray(value)) throw new Error('Git Host returned an invalid commit log')
+  return value.map((entry) => {
+    if (typeof entry !== 'object' || entry === null) throw new Error('Git Host returned an invalid commit')
+    const commit = entry as Partial<GitCommitSummary>
+    if (typeof commit.hash !== 'string' || typeof commit.shortHash !== 'string'
+      || typeof commit.subject !== 'string' || !Array.isArray(commit.parents)) {
+      throw new Error('Git Host returned an invalid commit')
+    }
+    return {
+      hash: commit.hash,
+      shortHash: commit.shortHash,
+      parents: commit.parents,
+      subject: commit.subject,
+      author: typeof commit.author === 'string' ? commit.author : '',
+      date: typeof commit.date === 'string' ? commit.date : '',
+      refs: Array.isArray(commit.refs) ? commit.refs.filter((ref): ref is string => typeof ref === 'string') : [],
+    }
+  })
 }
 
 function decodeDiff(value: unknown): GitDiff {

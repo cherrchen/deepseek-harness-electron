@@ -10,14 +10,13 @@ import type { MenuEntry } from '@deepseek-ai/dsh-client-ui-primitives'
 import { ComposerToolTrigger } from './ComposerToolTrigger.tsx'
 import { changedPathCount } from './changed-path-count.ts'
 import type { GitClientController } from './controller.ts'
-import type { GitDetailsTab } from './contract.ts'
 import { formatLocale } from './locales.ts'
 import css from './GitBranchControl.module.css'
 
 export type GitBranchControlProps = PropsRuntime<'conversation.input.left'> & PropsLocale<'git'>
   & {
     controller: GitClientController
-    openDetails: (tab?: GitDetailsTab) => void
+    openDetails: () => void
   }
 
 /** Whether the repository has an unborn HEAD (initialized, no commits yet). */
@@ -176,7 +175,7 @@ export function GitBranchControl({ controller, openDetails, t, sessionId, useSes
           label={formatLocale(t('changes.indicatorCompact'), { count })}
           labelClassName={count > 0 ? css.changesLabelWarn : css.changesLabelCaption}
           aria-label={changesLabel}
-          onClick={() => { openDetails('changes') }}
+          onClick={openDetails}
         />
       </Tooltip>
       <Modal

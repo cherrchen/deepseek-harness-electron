@@ -10,7 +10,6 @@ import {
   GitBranchControl,
 } from '../src/client/GitBranchControl.tsx'
 import type { GitClientController, GitClientState } from '../src/client/controller.ts'
-import type { GitDetailsTab } from '../src/client/contract.ts'
 import { en } from '../src/client/locales.ts'
 
 const SESSION_A = 'session-a' as SessionId
@@ -86,7 +85,7 @@ describe('GitBranchControl', () => {
   const baseProps = (
     controller: GitClientController,
     list: SessionListState,
-    openDetails: (tab?: GitDetailsTab) => void = vi.fn(),
+    openDetails: () => void = vi.fn(),
   ) => ({
     controller,
     openDetails,
@@ -182,7 +181,7 @@ describe('GitBranchControl', () => {
     const list = sessionsOf({ [SESSION_A]: '/projects/alpha' })
     render(<GitBranchControl {...baseProps(controller, list, openDetails)} sessionId={SESSION_A} />)
     fireEvent.click(screen.getByRole('button', { name: /1 changes/i }))
-    expect(openDetails).toHaveBeenCalledWith('changes')
+    expect(openDetails).toHaveBeenCalled()
   })
 
   it('opens a conversation Modal to create a branch', async () => {

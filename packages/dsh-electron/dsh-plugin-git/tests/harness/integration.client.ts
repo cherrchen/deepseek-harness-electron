@@ -3,7 +3,11 @@ import { Context } from '@deepseek-ai/cordis'
 import { vi } from 'vitest'
 import { apply as applyDetailsHost, inject as injectDetailsHost } from '@dsh-electron/dsh-client-ui-details-host/client'
 import { apply as applyGit, inject as injectGit } from '../../src/client/index.ts'
-import { GIT_DETAILS_SURFACE_ID } from '../../src/client/contract.ts'
+import {
+  GIT_CHANGES_SURFACE_ID,
+  GIT_DIFF_SURFACE_ID,
+  GIT_GRAPH_SURFACE_ID,
+} from '../../src/client/contract.ts'
 import { materializeClientBundle } from '../setup/module-loader.client.ts'
 
 const { SlotRegistry } = materializeClientBundle('@deepseek-ai/dsh-client-ui-renderer') as {
@@ -94,7 +98,10 @@ export async function integrationBench(): Promise<{
   ctx.provide('locale', { register: () => () => {} } as never)
   const disposeRoot = ctx.slots.register({
     name: 'root',
-    children: { details: { kind: 'single', scope: 'session' } },
+    children: {
+      details: { kind: 'single', scope: 'session' },
+      'conversation.session.header.utilities': { kind: 'list', scope: 'session' },
+    },
   } as never, () => null)
   const disposeUpstream = ctx.slots.register({ name: 'details' } as never, UpstreamDetailsPanel)
   const detailsFiber = ctx.plugin({ inject: [...injectDetailsHost], apply: applyDetailsHost })
@@ -114,4 +121,9 @@ export async function integrationBench(): Promise<{
   }
 }
 
-export { GIT_DETAILS_SURFACE_ID, UpstreamDetailsPanel }
+export {
+  GIT_CHANGES_SURFACE_ID,
+  GIT_DIFF_SURFACE_ID,
+  GIT_GRAPH_SURFACE_ID,
+  UpstreamDetailsPanel,
+}

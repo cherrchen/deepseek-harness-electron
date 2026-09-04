@@ -116,4 +116,31 @@ describe('portable Git service', () => {
     await expect(git.discover(root)).rejects.toMatchObject({ exitCode: 42, stderr: 'permission-denied' })
     await dispose()
   })
+
+  it('reads paged history and discards unstaged changes', async () => {
+    const { dispose, git } = await service()
+    try {
+      const root = mkdtempSync(join(tmpdir(), 'dsh-plugin-git-log-'))
+      roots.push(root)
+      execFileSync('git', ['init', '-b', 'main'], { cwd: root })
+      execFileSync('git', ['config', 'user.name', 'Git Plugin Test'], { cwd: root })
+      execFileSync('git', ['config', 'user.email', 'git-plugin@example.invalid'], { cwd: root })
+      execFileSync('git', ['commit', '--allow-empty', '-m', 'first'], { cwd: root })
+      execFileSync('git', ['commit', '--allow-empty', '-m', 'second'], { cwd: root })
+
+      const page = await git.log(root, 10, 0)
+      expect(page.map(commit => commit.subject)).toEqual(['second', 'first'])
+      const skipped = await git.log(root, 10, 1)
+      expect(skipped.map(commit => commit.subject)).toEqual(['first'])
+
+      writeFileSync(join(root, 'tracked.txt'), 'initial\nchanged\n')
+      execFileSync('git', ['add', 'tracked.txt'], { cwd: root })
+      await git.discard(root, 'tracked.txt')
+      const snapshot = await git.status(root)
+      expect(snapshot.unstaged).toEqual([])
+      expect(snapshot.staged.map(change => change.path)).toEqual(['tracked.txt'])
+    } finally {
+      await dispose()
+    }
+  })
 })

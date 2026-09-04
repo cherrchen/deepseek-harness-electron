@@ -1,7 +1,13 @@
 // @vitest-environment jsdom
 import { describe, expect, it } from 'vitest'
 import { apply as applyGit, inject as injectGit } from '../src/client/index.ts'
-import { GIT_DETAILS_SURFACE_ID, UpstreamDetailsPanel, integrationBench } from './harness/integration.client.ts'
+import {
+  GIT_CHANGES_SURFACE_ID,
+  GIT_DIFF_SURFACE_ID,
+  GIT_GRAPH_SURFACE_ID,
+  UpstreamDetailsPanel,
+  integrationBench,
+} from './harness/integration.client.ts'
 
 function winner(slots: Awaited<ReturnType<typeof integrationBench>>['slots']): unknown {
   return slots.entriesOfSlot('details')[0]?.component
@@ -19,96 +25,97 @@ async function disposeBench(bench: Awaited<ReturnType<typeof integrationBench>>)
 }
 
 describe('Git + Details Host integration', () => {
-  it('materializes the Git surface when shellDetails opens git', async () => {
+  it('opens Git Changes as a details tab and dedupes repeated opens', async () => {
     const bench = await integrationBench()
-    const instance = bench.shellDetails.open({
-      surfaceId: GIT_DETAILS_SURFACE_ID,
-      payload: { tab: 'commit' },
-    })
-    expect(instance.surfaceId).toBe(GIT_DETAILS_SURFACE_ID)
-    expect(instance.payload).toEqual({ tab: 'commit' })
-    expect(bench.shellDetails.activeId).toBe(GIT_DETAILS_SURFACE_ID)
-    expect(bench.shellDetails.activeInstance?.payload).toEqual({ tab: 'commit' })
+    const instance = bench.shellDetails.open({ surfaceId: GIT_CHANGES_SURFACE_ID })
+    expect(instance.surfaceId).toBe(GIT_CHANGES_SURFACE_ID)
+    expect(bench.shellDetails.activeId).toBe(GIT_CHANGES_SURFACE_ID)
     expect(winner(bench.slots)).not.toBe(UpstreamDetailsPanel)
     expect((winner(bench.slots) as { name?: string }).name).toBe('DetailsHost')
-    expect(bench.slots.entries('shell.details.surface').some(entry => entry.options.id === GIT_DETAILS_SURFACE_ID)).toBe(true)
+    expect(bench.slots.entries('shell.details.surface').some(entry => entry.options.id === GIT_CHANGES_SURFACE_ID)).toBe(true)
     expect(bench.layout.openDetails).toHaveBeenCalledTimes(1)
+
+    // Repeated opens reuse the tab (stable changes dedupe key).
+    const again = bench.shellDetails.open({ surfaceId: GIT_CHANGES_SURFACE_ID })
+    expect(again.instanceId).toBe(instance.instanceId)
+    expect(bench.shellDetails.getSnapshot().tabs).toHaveLength(1)
     await disposeBench(bench)
   })
 
-  it('keeps legacy string open compatible', async () => {
+  it('opens a changed file as its own diff tab with a stable key', async () => {
     const bench = await integrationBench()
-    bench.shellDetails.open(GIT_DETAILS_SURFACE_ID)
-    expect(bench.shellDetails.activeId).toBe(GIT_DETAILS_SURFACE_ID)
-    expect(bench.shellDetails.activeInstance?.surfaceId).toBe(GIT_DETAILS_SURFACE_ID)
+    bench.shellDetails.open({ surfaceId: GIT_CHANGES_SURFACE_ID })
+    const diff = bench.shellDetails.open({
+      surfaceId: GIT_DIFF_SURFACE_ID,
+      payload: { path: 'README.md', staged: false },
+    })
+    expect(bench.shellDetails.activeId).toBe(GIT_DIFF_SURFACE_ID)
+    expect(bench.shellDetails.getSnapshot().tabs.map(tab => tab.surfaceId)).toEqual([
+      GIT_CHANGES_SURFACE_ID,
+      GIT_DIFF_SURFACE_ID,
+    ])
+
+    // Same path + side reuses the tab; the other side opens a new one.
+    const repeat = bench.shellDetails.open({
+      surfaceId: GIT_DIFF_SURFACE_ID,
+      payload: { path: 'README.md', staged: false },
+    })
+    expect(repeat.instanceId).toBe(diff.instanceId)
+    const stagedTab = bench.shellDetails.open({
+      surfaceId: GIT_DIFF_SURFACE_ID,
+      payload: { path: 'README.md', staged: true },
+    })
+    expect(stagedTab.instanceId).not.toBe(diff.instanceId)
+    expect(bench.shellDetails.getSnapshot().tabs).toHaveLength(3)
     await disposeBench(bench)
   })
 
-  it('closes details when the Git surface registration is disposed', async () => {
+  it('prunes Git tabs when their registrations disappear and keeps the dock alive', async () => {
     const bench = await integrationBench()
-    bench.shellDetails.open(GIT_DETAILS_SURFACE_ID)
-    const gitSurface = bench.slots.entries('shell.details.surface').find(entry => entry.options.id === GIT_DETAILS_SURFACE_ID)
-    expect(gitSurface).toBeDefined()
+    bench.shellDetails.open({ surfaceId: GIT_CHANGES_SURFACE_ID })
     await bench.gitFiber.dispose()
     await new Promise<void>((resolve) => { queueMicrotask(resolve) })
-    expect(bench.slots.entries('shell.details.surface').some(entry => entry.options.id === GIT_DETAILS_SURFACE_ID)).toBe(false)
     expect(bench.shellDetails.isOpen()).toBe(false)
-    expect(winner(bench.slots)).toBe(UpstreamDetailsPanel)
+    expect(bench.shellDetails.getSnapshot().tabs).toEqual([])
+    // v3 keeps the takeover; the Launcher page shows instead of the upstream panel.
+    expect(winner(bench.slots)).not.toBe(UpstreamDetailsPanel)
+    expect((winner(bench.slots) as { name?: string }).name).toBe('DetailsHost')
     await bench.detailsFiber.dispose()
     bench.disposeRoot()
     bench.disposeUpstream()
   })
 
-  it('restores Git details across session switch without leaking into an empty session', async () => {
+  it('restores Git tabs across a session switch without leaking into an empty session', async () => {
     const bench = await integrationBench()
-    const opened = bench.shellDetails.open({
-      surfaceId: GIT_DETAILS_SURFACE_ID,
-      payload: { tab: 'diff' },
-    })
-    expect(bench.shellDetails.activeId).toBe(GIT_DETAILS_SURFACE_ID)
-    expect(bench.shellDetails.activeInstance?.payload).toEqual({ tab: 'diff' })
-    expect(bench.slots.entries('shell.details.header.actions').some(entry => entry.options.id === GIT_DETAILS_SURFACE_ID)).toBe(true)
+    const opened = bench.shellDetails.open({ surfaceId: GIT_CHANGES_SURFACE_ID })
+    expect(bench.shellDetails.activeId).toBe(GIT_CHANGES_SURFACE_ID)
+    expect(bench.slots.entries('shell.details.header.actions').some(entry => entry.options.id === GIT_CHANGES_SURFACE_ID)).toBe(true)
 
     bench.sessions.setCurrent('session-b')
-    expect(bench.shellDetails.isOpen()).toBe(false)
+    expect(bench.shellDetails.activeId).toBeNull()
     expect(bench.shellDetails.activeInstance).toBeNull()
-    expect(winner(bench.slots)).toBe(UpstreamDetailsPanel)
-    expect(bench.slots.spec('shell.details.surface')).toBeUndefined()
+    expect(bench.shellDetails.getSnapshot().tabs).toEqual([])
 
     bench.sessions.setCurrent('session-a')
-    expect(bench.shellDetails.activeId).toBe(GIT_DETAILS_SURFACE_ID)
+    expect(bench.shellDetails.activeId).toBe(GIT_CHANGES_SURFACE_ID)
     expect(bench.shellDetails.activeInstance?.instanceId).toBe(opened.instanceId)
-    expect(bench.shellDetails.activeInstance?.payload).toEqual({ tab: 'diff' })
     expect((winner(bench.slots) as { name?: string }).name).toBe('DetailsHost')
-    expect(bench.slots.entries('shell.details.surface').some(entry => entry.options.id === GIT_DETAILS_SURFACE_ID)).toBe(true)
-    expect(bench.slots.entries('shell.details.header.actions').some(entry => entry.options.id === GIT_DETAILS_SURFACE_ID)).toBe(true)
     await disposeBench(bench)
   })
 
-  it('recovers Host after Git unload and rematerializes contributions on remount', async () => {
+  it('rematerializes Git contributions after plugin reload', async () => {
     const bench = await integrationBench()
-    bench.shellDetails.open({
-      surfaceId: GIT_DETAILS_SURFACE_ID,
-      payload: { tab: 'changes' },
-    })
-    expect(bench.shellDetails.isOpen()).toBe(true)
-
+    bench.shellDetails.open({ surfaceId: GIT_CHANGES_SURFACE_ID })
     await bench.gitFiber.dispose()
     await new Promise<void>((resolve) => { queueMicrotask(resolve) })
-    expect(bench.shellDetails.isOpen()).toBe(false)
-    expect(winner(bench.slots)).toBe(UpstreamDetailsPanel)
-    expect(bench.slots.spec('shell.details.surface')).toBeUndefined()
 
     const remounted = bench.ctx.plugin({ inject: [...injectGit], apply: applyGit })
     await remounted.await()
-    const rematerialized = bench.shellDetails.open({
-      surfaceId: GIT_DETAILS_SURFACE_ID,
-      payload: { tab: 'commit' },
-    })
-    expect(rematerialized.payload).toEqual({ tab: 'commit' })
-    expect(bench.shellDetails.activeId).toBe(GIT_DETAILS_SURFACE_ID)
-    expect(bench.slots.entries('shell.details.surface').some(entry => entry.options.id === GIT_DETAILS_SURFACE_ID)).toBe(true)
-    expect(bench.slots.entries('shell.details.header.actions').some(entry => entry.options.id === GIT_DETAILS_SURFACE_ID)).toBe(true)
+    const reopened = bench.shellDetails.open({ surfaceId: GIT_GRAPH_SURFACE_ID })
+    expect(bench.shellDetails.activeId).toBe(GIT_GRAPH_SURFACE_ID)
+    expect(bench.slots.entries('shell.details.surface').some(entry => entry.options.id === GIT_GRAPH_SURFACE_ID)).toBe(true)
+    expect(bench.shellDetails.getSnapshot().tabs.map(tab => tab.surfaceId)).toEqual([GIT_GRAPH_SURFACE_ID])
+    void reopened
 
     await remounted.dispose()
     await bench.detailsFiber.dispose()
@@ -125,20 +132,17 @@ describe('Git + Details Host integration', () => {
     } as never, DummySurface))
     bench.shellDetails.registerSurface({ id: 'test.dummy' })
 
-    const git = bench.shellDetails.open({
-      surfaceId: GIT_DETAILS_SURFACE_ID,
-      payload: { tab: 'changes' },
-    })
+    const git = bench.shellDetails.open({ surfaceId: GIT_CHANGES_SURFACE_ID })
     bench.shellDetails.open({ surfaceId: 'test.dummy' })
     expect(bench.shellDetails.activeId).toBe('test.dummy')
     expect(bench.shellDetails.canGoBack()).toBe(true)
     expect(bench.shellDetails.getSnapshot().historyDepth).toBe(1)
 
     bench.shellDetails.back()
-    expect(bench.shellDetails.activeId).toBe(GIT_DETAILS_SURFACE_ID)
+    expect(bench.shellDetails.activeId).toBe(GIT_CHANGES_SURFACE_ID)
     expect(bench.shellDetails.activeInstance?.instanceId).toBe(git.instanceId)
-    expect(bench.shellDetails.activeInstance?.payload).toEqual({ tab: 'changes' })
-    expect(bench.shellDetails.canGoBack()).toBe(false)
+    // MRU back navigation toggles: the dummy tab is now restorable.
+    expect(bench.shellDetails.canGoBack()).toBe(true)
 
     stopDummy()
     await disposeBench(bench)

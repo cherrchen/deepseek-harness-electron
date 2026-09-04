@@ -3,8 +3,12 @@
     "target": "ES2024",
     "module": "NodeNext",
     "moduleResolution": "NodeNext",
-    "lib": ["ES2024"],
-    "types": ["node"],
+    "lib": [
+      "ES2024"
+    ],
+    "types": [
+      "node"
+    ],
     "strict": true,
     "skipLibCheck": true,
     "exactOptionalPropertyTypes": true,
@@ -18,5 +22,12 @@
     "rootDir": "src",
     "outDir": "lib/types"
   },
-  "files": ["src/index.ts", "src/service.ts", "src/status.ts", "src/types.ts"]
+  "files": [
+    "src/index.ts",
+    "src/service.ts",
+    "src/status.ts",
+    "src/types.ts",
+    "src/log.ts",
+    "src/commit-message.ts"
+  ]
 }

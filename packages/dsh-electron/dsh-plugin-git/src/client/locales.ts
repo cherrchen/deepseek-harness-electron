@@ -42,6 +42,15 @@ export const en = {
   'details.commitPlaceholder': 'Commit message',
   'details.commit': 'Commit',
   'details.stagedCount': '{count} staged files',
+  'details.discard': 'Discard',
+  'details.discardConfirm': 'Discard changes?',
+  'details.generate': 'Generate Message',
+  'details.generating': 'Generating…',
+  'details.generateUnavailable': 'Commit message generation is not configured.',
+  'details.generateNeedsStaged': 'Stage changes first to generate a commit message.',
+  'details.generateFailed': 'Commit message generation failed.',
+  'graph.loadMore': 'Load more commits',
+  'graph.empty': 'No commits yet.',
 } as const
 
 export const zh: Record<keyof typeof en, string> = {
@@ -84,6 +93,15 @@ export const zh: Record<keyof typeof en, string> = {
   'details.commitPlaceholder': '提交信息',
   'details.commit': '提交',
   'details.stagedCount': '{count} 个已暂存文件',
+  'details.discard': '丢弃',
+  'details.discardConfirm': '确认丢弃更改？',
+  'details.generate': '生成提交信息',
+  'details.generating': '正在生成…',
+  'details.generateUnavailable': '未配置提交信息生成后端。',
+  'details.generateNeedsStaged': '请先暂存更改，再生成提交信息。',
+  'details.generateFailed': '生成提交信息失败。',
+  'graph.loadMore': '加载更多提交',
+  'graph.empty': '暂无提交。',
 }
 
 export type GitLocaleKey = keyof typeof en

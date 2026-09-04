@@ -37,6 +37,8 @@ describe('GitClientController', () => {
           return { ok: true as const, value: '/repo' }
         }
         if (endpoint === 'status') return { ok: true as const, value: snapshot() }
+        if (endpoint === 'log') return { ok: true as const, value: [] }
+        if (endpoint === 'commit-message-capability') return { ok: true as const, value: { available: false } }
         return { ok: true as const, value: null }
       }),
     }
@@ -48,19 +50,22 @@ describe('GitClientController', () => {
     expect(controller.getSnapshot().repository?.root).toBe('/repo')
   })
 
-  it('resets activeTab when the workspace changes', async () => {
+  it('clears retained surface state when the workspace changes', async () => {
     const rpc = {
       call: vi.fn(async (_channel: string, endpoint: string) => {
         if (endpoint === 'discover') return { ok: true as const, value: '/repo' }
         if (endpoint === 'status') return { ok: true as const, value: snapshot() }
+        if (endpoint === 'log') return { ok: true as const, value: [] }
+        if (endpoint === 'commit-message-capability') return { ok: true as const, value: { available: false } }
         return { ok: true as const, value: null }
       }),
     }
     const controller = new GitClientController(rpc)
     await controller.setWorkspace('/workspace-a')
-    controller.selectTab('diff')
+    controller.setCommitMessage('draft message')
     await controller.setWorkspace('/workspace-b')
-    expect(controller.getSnapshot().activeTab).toBe('changes')
+    expect(controller.getSnapshot().commitMessage).toBe('')
+    expect(controller.getSnapshot().graph).toEqual([])
   })
 
   it('surfaces switch-branch errors without mutating repository state', async () => {
