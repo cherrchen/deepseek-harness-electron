@@ -112,7 +112,7 @@ export function DetailsHost({
     const el = rootRef.current
     if (el === null) return
     if (typeof ResizeObserver === 'undefined') return
-    const observer = new ResizeObserver(entries => {
+    const observer = new ResizeObserver((entries) => {
       const width = entries[0]?.contentRect.width ?? 0
       reportRef.current(width > 1)
     })

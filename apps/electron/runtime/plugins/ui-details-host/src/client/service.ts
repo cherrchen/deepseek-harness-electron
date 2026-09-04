@@ -652,7 +652,12 @@ export class ShellDetailsService extends Service implements ShellDetailsControll
     }
   }
 
-  private publishSession(session: { tabs: DetailsSurfaceInstance[]; activeInstanceId: string | null; launcherVisible: boolean; mru: string[] }): void {
+  private publishSession(session: {
+    tabs: DetailsSurfaceInstance[]
+    activeInstanceId: string | null
+    launcherVisible: boolean
+    mru: string[]
+  }): void {
     const active = session.tabs.find(tab => tab.instanceId === session.activeInstanceId) ?? null
     this.state.set({
       tabs: [...session.tabs],
