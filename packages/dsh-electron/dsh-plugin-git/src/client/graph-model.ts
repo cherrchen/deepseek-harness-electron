@@ -72,7 +72,9 @@ export function computeGitGraph(commits: readonly GitCommitSummary[]): GitGraphM
       const expected = lanes[candidate]
       if (expected !== undefined && candidate !== lane) through.push(candidate)
     }
-    const laneCount = Math.max(lane + 1, edges.reduce((max, edge) => Math.max(max, edge.to + 1), 0), through.length > 0 ? through.at(-1)! + 1 : 0)
+    const lastThrough = through.length > 0 ? through[through.length - 1] + 1 : 0
+    const widestEdge = edges.reduce((max, edge) => Math.max(max, edge.to + 1), 0)
+    const laneCount = Math.max(lane + 1, widestEdge, lastThrough)
     rows.push({ commit, lane, laneCount, edges, through })
   }
 

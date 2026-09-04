@@ -7,7 +7,6 @@ import { useEffect, useMemo, useSyncExternalStore } from 'react'
 import type { ReactNode } from 'react'
 import type { PropsLocale, PropsRuntime } from '@deepseek-ai/dsh-client-ui-slots'
 import type { GitClientController } from '../controller.ts'
-import type { GitLocaleKey } from '../locales.ts'
 import { computeGitGraph } from '../graph-model.ts'
 import { useGitWorkspace, type GitSessionsHook } from '../use-git-workspace.ts'
 import css from '../GitGraphSurface.module.css'
@@ -74,8 +73,8 @@ function LaneGlyph({ lane, laneCount, edges, through }: {
 /** Render the Git Graph surface body. */
 export function GitGraphSurface({ controller, t, useSessions, sessionId }: GitGraphSurfaceProps): ReactNode {
   const state = useSyncExternalStore(controller.subscribe, controller.getSnapshot)
-  const sessions = useSessions as unknown as GitSessionsHook
-  const workspacePath = sessions((list) => list.byId[String(sessionId)]?.cwd)
+  const sessions = useSessions as GitSessionsHook
+  const workspacePath = sessions(list => list.byId[String(sessionId)]?.cwd)
 
   useGitWorkspace(controller, workspacePath)
 

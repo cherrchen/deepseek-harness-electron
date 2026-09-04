@@ -62,9 +62,9 @@ export function apply(ctx: Context, config: Config): void {
     provider: new UnavailableCommitMessageProvider(),
   }
   const generationConfig = config.commitMessage
-  if (generationConfig?.provider !== undefined && generationConfig.model !== undefined) {
+  if (generationConfig !== undefined) {
     ctx.inject(['llm'], (llmCtx) => {
-      const llm = llmCtx.llm as LlmRuntime
+      const llm = llmCtx.llm
       generation.provider = new LlmCommitMessageProvider(llm, {
         provider: generationConfig.provider,
         model: generationConfig.model,
