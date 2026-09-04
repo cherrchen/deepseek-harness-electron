@@ -1,16 +1,24 @@
 /**
- * Per-session details navigation state. Memory only; cleared on Host unload
- * or when a session disappears from the sessions list.
+ * Per-session details navigation state: the live tab list plus launcher and
+ * MRU bookkeeping. Memory only; cleared on Host unload or when a session
+ * disappears from the sessions list.
  */
 import type { DetailsSurfaceInstance } from './contract.ts'
 
-/** Maximum back-stack depth retained per session. */
-export const DETAILS_HISTORY_LIMIT = 20
+/** Maximum tabs retained per session; oldest non-active tabs are evicted. */
+export const DETAILS_TAB_LIMIT = 20
 
-/** One session's active surface and bounded back stack. */
+/**
+ * One session's tabbed navigation state.
+ * `activeInstanceId` selects among `tabs`; `mru` holds other-tab instance ids
+ * most-recent-first (the compatibility face of the v2 back stack);
+ * `launcherVisible` shows the Launcher page over the active tab.
+ */
 export interface DetailsSessionState {
-  active: DetailsSurfaceInstance | null
-  backStack: DetailsSurfaceInstance[]
+  tabs: DetailsSurfaceInstance[]
+  activeInstanceId: string | null
+  launcherVisible: boolean
+  mru: string[]
 }
 
 /**
@@ -18,7 +26,7 @@ export interface DetailsSessionState {
  * @returns idle session state.
  */
 export function emptySessionState(): DetailsSessionState {
-  return { active: null, backStack: [] }
+  return { tabs: [], activeInstanceId: null, launcherVisible: false, mru: [] }
 }
 
 /** In-memory map of session id → details navigation state. */

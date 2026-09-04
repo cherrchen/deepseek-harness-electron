@@ -8,26 +8,45 @@ function winner(slots: Awaited<ReturnType<typeof bench>>['slots']): unknown {
 }
 
 describe('details host lifecycle', () => {
-  it('closes when the active surface unloads', async () => {
+  it('prunes tabs when their surface unloads and keeps the dock alive', async () => {
     const b = await bench()
     const stopAlpha = contributeSurface(b.ctx, 'test.alpha', 'Alpha', DummyAlpha)
     contributeSurface(b.ctx, 'test.beta', 'Beta', DummyBeta)
     b.shellDetails.open('test.alpha')
+    b.shellDetails.open('test.beta')
     stopAlpha()
     await Promise.resolve()
-    expect(b.shellDetails.isOpen()).toBe(false)
-    expect(winner(b.slots)).toBe(UpstreamDetailsPanel)
+    // The unloaded surface's tab disappears; the other tab stays active.
+    expect(b.shellDetails.isOpen('test.beta')).toBe(true)
+    expect(b.shellDetails.getSnapshot().tabs.map(tab => tab.surfaceId)).toEqual(['test.beta'])
+    expect(winner(b.slots)).toBe(DetailsHost)
     await b.fiber.dispose()
   })
 
-  it('keeps session state across switch and restores upstream when the next session is empty', async () => {
+  it('falls back to the launcher when the last surface unloads', async () => {
+    const b = await bench()
+    const stopAlpha = contributeSurface(b.ctx, 'test.alpha', 'Alpha', DummyAlpha)
+    b.shellDetails.open('test.alpha')
+    stopAlpha()
+    await Promise.resolve()
+    expect(b.shellDetails.isOpen()).toBe(false)
+    expect(b.shellDetails.getSnapshot().tabs).toEqual([])
+    // The dock keeps its takeover; the launcher shows while the dock is open.
+    expect(winner(b.slots)).toBe(DetailsHost)
+    await b.fiber.dispose()
+  })
+
+  it('keeps session state across switch and shows the launcher for an empty session', async () => {
     const b = await bench()
     contributeSurface(b.ctx, 'test.alpha', 'Alpha', DummyAlpha)
     b.shellDetails.open('test.alpha')
     b.sessions.setCurrent('session-b')
-    expect(b.shellDetails.isOpen()).toBe(false)
-    expect(winner(b.slots)).toBe(UpstreamDetailsPanel)
-    expect(b.layout.closeDetails).toHaveBeenCalled()
+    // The app frame closes the dock on session switch (production behavior).
+    b.layout.closeDetails()
+    expect(b.shellDetails.activeId).toBeNull()
+    expect(b.shellDetails.getSnapshot().tabs).toEqual([])
+    // v3 keeps the takeover (no upstream restoration while the host lives).
+    expect(winner(b.slots)).toBe(DetailsHost)
     b.sessions.setCurrent('session-a')
     expect(b.shellDetails.isOpen('test.alpha')).toBe(true)
     expect(winner(b.slots)).toBe(DetailsHost)
@@ -41,6 +60,7 @@ describe('details host lifecycle', () => {
     await b.fiber.dispose()
     expect(winner(b.slots)).toBe(UpstreamDetailsPanel)
     expect(b.slots.spec('shell.details.surface')).toBeUndefined()
+    expect(b.layout.closeDetails).toHaveBeenCalled()
   })
 
   it('rematerializes contributions after host reload', async () => {
@@ -60,7 +80,7 @@ describe('details host lifecycle', () => {
     await fiber.dispose()
   })
 
-  it('closes after the active surface reports a render crash', async () => {
+  it('recovers the launcher after the active surface reports a render crash', async () => {
     const b = await bench()
     contributeSurface(b.ctx, 'test.alpha', 'Alpha', DummyAlpha)
     b.shellDetails.open('test.alpha')
@@ -68,7 +88,8 @@ describe('details host lifecycle', () => {
     if (entry === undefined) throw new Error('expected test.alpha contribution')
     b.slots.reportEntryError('shell.details.surface', entry, new Error('boom'), { abdicate: true })
     expect(b.shellDetails.isOpen()).toBe(false)
-    expect(winner(b.slots)).toBe(UpstreamDetailsPanel)
+    expect(b.shellDetails.getSnapshot().tabs).toEqual([])
+    expect(winner(b.slots)).toBe(DetailsHost)
     await b.fiber.dispose()
   })
 })

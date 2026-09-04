@@ -1,25 +1,32 @@
 /**
- * ShellDetailsService (`ctx.shellDetails`): per-session details navigation,
- * takeover, descriptors, and layout open/close.
+ * ShellDetailsService (`ctx.shellDetails`): per-session tabbed details
+ * navigation, launcher registry, takeover, descriptors, and layout open/close.
  */
 import { Service } from '@deepseek-ai/cordis'
 import type { Context } from '@deepseek-ai/cordis'
 import type { ISessions } from '@deepseek-ai/dsh-api-session-controller/client'
+import type {} from '@deepseek-ai/dsh-client-locale/client'
 import type { HostObservable, SlotLabel, StoredEntry } from '@deepseek-ai/dsh-client-ui-slots'
 import type {} from '@deepseek-ai/dsh-client-ui-renderer/client'
 import type {} from '@deepseek-ai/dsh-client-ui-layout/client'
 import {
+  CONVERSATION_HEADER_UTILITIES_SLOT,
   DETAILS_HEADER_ACTIONS_SLOT,
   DETAILS_HOST_ENTRY_ID,
   DETAILS_HOST_PRIORITY,
   DETAILS_SURFACE_SLOT,
+  DETAILS_TOGGLE_ENTRY_ID,
+  DETAILS_TOGGLE_PRIORITY,
   SHELL_DETAILS_API_VERSION,
   SHELL_DETAILS_ENABLED_FEATURES,
+  SHELL_DETAILS_LOCALE_NS,
   type DetailsHostInjected,
   type DetailsHostState,
+  type DetailsLauncherContribution,
   type DetailsSurfaceCloseReason,
   type DetailsSurfaceDescriptor,
   type DetailsSurfaceInstance,
+  type DetailsToggleInjected,
   type ShellDetailsController,
   type ShellDetailsFeature,
   type ShellDetailsOpenRequest,
@@ -37,31 +44,39 @@ import {
   DetailsSurfaceNotFoundError,
   DetailsTakeoverConflictError,
 } from './errors.ts'
+import { DetailsLauncherRegistry } from './launcher.ts'
 import { createSurfaceInstance } from './instance.ts'
 import {
+  activateTab,
   canGoBack as sessionCanGoBack,
-  findDedupedInstance,
-  popHistory,
+  evictOldestTab,
+  findDedupedTab,
+  popMru,
   pruneSurfaceId,
-  pushToHistory,
+  removeTab,
   resolveDedupeKey,
   withUpdatedPayload,
-} from './navigation.ts'
+} from './tabs.ts'
 import { DetailsSessionStore } from './session-state.ts'
 import { DetailsHost } from './DetailsHost.tsx'
+import { DetailsToggle } from './DetailsToggle.tsx'
+import { en, NS, zh } from './locales.ts'
 
 /** Mutable snapshot source for DetailsHost inject and public subscribe. */
 class DetailsHostStateSource implements HostObservable<DetailsHostState> {
   #snapshot: DetailsHostState = {
+    tabs: [],
     activeId: null,
     activeInstance: null,
     label: null,
+    launcherVisible: false,
+    dockVisible: false,
     canGoBack: false,
   }
   readonly #listeners = new Set<() => void>()
 
   /**
-   * @returns the current active-surface snapshot.
+   * @returns the current tab/launcher snapshot.
    */
   getSnapshot(): DetailsHostState {
     return this.#snapshot
@@ -84,8 +99,17 @@ class DetailsHostStateSource implements HostObservable<DetailsHostState> {
   set(snapshot: DetailsHostState): void {
     const prev = this.#snapshot
     if (
-      snapshot.activeId === prev.activeId
+      snapshot.tabs.length === prev.tabs.length
+      && snapshot.tabs.every((tab, index) => {
+        const before = prev.tabs[index]!
+        return tab.instanceId === before.instanceId
+          && tab.label === before.label
+          && tab.payload === before.payload
+      })
+      && snapshot.activeId === prev.activeId
       && snapshot.label === prev.label
+      && snapshot.launcherVisible === prev.launcherVisible
+      && snapshot.dockVisible === prev.dockVisible
       && snapshot.canGoBack === prev.canGoBack
       && snapshot.activeInstance?.instanceId === prev.activeInstance?.instanceId
       && snapshot.activeInstance?.payload === prev.activeInstance?.payload
@@ -109,7 +133,7 @@ function isOpenRequest(value: string | ShellDetailsOpenRequest): value is ShellD
 
 /** `ctx.shellDetails` implementation. */
 export class ShellDetailsService extends Service implements ShellDetailsController {
-  static inject = ['slots', 'layout', 'sessions']
+  static inject = ['slots', 'layout', 'sessions', 'locale']
 
   readonly apiVersion = SHELL_DETAILS_API_VERSION
   readonly features: ReadonlySet<ShellDetailsFeature> = new Set(SHELL_DETAILS_ENABLED_FEATURES)
@@ -117,8 +141,10 @@ export class ShellDetailsService extends Service implements ShellDetailsControll
   private readonly owner: Context
   private readonly state = new DetailsHostStateSource()
   private readonly descriptors = new DetailsDescriptorRegistry()
+  private readonly launchers = new DetailsLauncherRegistry()
   private readonly sessions = new DetailsSessionStore()
   private takeover: (() => void) | undefined
+  private dockVisible = false
 
   /**
    * @param ctx - owning plugin fiber. Takeover registrations ride this fiber
@@ -130,6 +156,7 @@ export class ShellDetailsService extends Service implements ShellDetailsControll
     ctx.effect(() => () => {
       this.disposeAllSessions('host-unload')
       this.descriptors.clear()
+      this.launchers.clear()
       this.sessions.clear()
     }, 'shellDetails: unload')
     ctx.effect(() => {
@@ -155,17 +182,82 @@ export class ShellDetailsService extends Service implements ShellDetailsControll
       if (surfaceId === undefined) return
       this.recoverAfterSurfaceLoss(surfaceId, 'surface-crash')
     }), 'shellDetails: surface crash')
+    ctx.effect(() => ctx.locale.register(NS, { zh, en }), 'shellDetails: toggle locale')
+    this.registerHeaderToggle()
   }
 
   /**
-   * @returns the active surface id, or null while closed.
+   * Header chrome: the App-level Details Toggle in the session header
+   * utilities cluster (right of the Session Log entry). Visibility state is
+   * the measured `dockVisible`; the toggle never destroys retained tabs.
+   */
+  private registerHeaderToggle(): void {
+    this.owner.effect(() => this.owner.slots.inject(CONVERSATION_HEADER_UTILITIES_SLOT, () =>
+      this.owner.slots.register({
+        name: CONVERSATION_HEADER_UTILITIES_SLOT,
+        id: DETAILS_TOGGLE_ENTRY_ID,
+        locale: SHELL_DETAILS_LOCALE_NS,
+        priority: DETAILS_TOGGLE_PRIORITY,
+        inject: (): DetailsToggleInjected => ({
+          hooks: { detailsToggle: this.state },
+          toggleDock: () => { this.toggleDock() },
+        }),
+      }, DetailsToggle)), 'shellDetails: header toggle')
+  }
+
+  /**
+   * Toggle dock visibility (header toggle entry point). Opening with no live
+   * tabs reveals the Launcher; opening with retained tabs re-reveals them.
+   * Closing only hides the column — tabs and launcher state survive.
+   */
+  toggleDock(): void {
+    if (this.dockVisible) {
+      this.owner.layout.closeDetails()
+      return
+    }
+    const session = this.sessions.get(this.currentSessionId())
+    if (session !== undefined && session.tabs.length > 0) {
+      this.owner.layout.openDetails()
+      return
+    }
+    this.showLauncher()
+  }
+
+  /**
+   * Report measured column visibility from the mounted DetailsHost. The
+   * false→true transition on an empty session reveals the Launcher.
+   * @param visible - whether the dock column currently has width.
+   */
+  reportDockVisible(visible: boolean): void {
+    const wasVisible = this.dockVisible
+    this.dockVisible = visible
+    if (visible && !wasVisible) {
+      this.onDockRevealed()
+      return
+    }
+    this.publishCurrent()
+  }
+
+  private onDockRevealed(): void {
+    const session = this.sessions.getOrCreate(this.currentSessionId())
+    if (session.tabs.length > 0 && session.activeInstanceId !== null) {
+      this.publishCurrent()
+      return
+    }
+    this.ensureTakeover()
+    session.launcherVisible = true
+    this.publishCurrent()
+  }
+
+  /**
+   * @returns the active tab surface id, or null while no tab is active.
    */
   get activeId(): string | null {
     return this.state.getSnapshot().activeId
   }
 
   /**
-   * @returns the active surface instance, or null while closed.
+   * @returns the active surface instance, or null while no tab is active.
    */
   get activeInstance(): DetailsSurfaceInstance | null {
     return this.state.getSnapshot().activeInstance
@@ -178,12 +270,15 @@ export class ShellDetailsService extends Service implements ShellDetailsControll
   getSnapshot(): ShellDetailsSnapshot {
     const published = this.state.getSnapshot()
     const session = this.sessions.get(this.currentSessionId())
-    const historyDepth = session?.backStack.length ?? 0
+    const historyDepth = session?.mru.length ?? 0
     return {
-      open: published.activeInstance !== null,
+      open: published.activeInstance !== null || published.launcherVisible,
       activeId: published.activeId,
       activeInstance: published.activeInstance,
       label: published.label,
+      tabs: published.tabs,
+      launcherVisible: published.launcherVisible,
+      dockVisible: published.dockVisible,
       canGoBack: published.canGoBack,
       historyDepth,
     }
@@ -200,7 +295,7 @@ export class ShellDetailsService extends Service implements ShellDetailsControll
 
   /**
    * Register optional behavior metadata for a surface id.
-   * @param descriptor - lifecycle and dedupe metadata.
+   * @param descriptor - lifecycle, dedupe, and closability metadata.
    * @returns disposer that removes the descriptor.
    */
   registerSurface<P = unknown>(descriptor: DetailsSurfaceDescriptor<P>): () => void {
@@ -208,14 +303,24 @@ export class ShellDetailsService extends Service implements ShellDetailsControll
   }
 
   /**
-   * Occupy `details` with DetailsHost, activate a surface, and open the column.
+   * Register a Launcher contribution. Duplicate contribution ids throw.
+   * @param contribution - launcher card metadata and open intent.
+   * @returns disposer that removes the contribution.
+   */
+  registerLauncher(contribution: DetailsLauncherContribution): () => void {
+    return this.launchers.register(contribution)
+  }
+
+  /**
+   * Occupy `details` with DetailsHost, activate a surface as a tab, and open
+   * the column.
    * @param id - registered `shell.details.surface` contribution id.
    */
   open(id: string): void
   /**
-   * Occupy `details` with DetailsHost, create or reuse an instance from
-   * `request`, and open the column.
-   * @param request - surface id, optional payload, and navigation mode.
+   * Occupy `details` with DetailsHost, resolve `request` to a tab
+   * (create-or-reuse), activate it, and open the column.
+   * @param request - surface id, optional payload, and legacy navigation mode.
    * @returns the committed active instance.
    */
   open<P = unknown>(request: ShellDetailsOpenRequest<P>): DetailsSurfaceInstance<P>
@@ -224,7 +329,6 @@ export class ShellDetailsService extends Service implements ShellDetailsControll
       ? idOrRequest
       : { surfaceId: idOrRequest }
     const returnInstance = isOpenRequest(idOrRequest)
-    const navigation = request.navigation ?? 'push'
     const sessionId = this.currentSessionId()
     const session = this.sessions.getOrCreate(sessionId)
     const acquiredTakeover = this.takeover === undefined
@@ -254,31 +358,23 @@ export class ShellDetailsService extends Service implements ShellDetailsControll
       const dedupeKey = resolveDedupeKey(descriptor, payload)
 
       if (dedupeKey !== undefined && descriptor !== undefined) {
-        const match = findDedupedInstance(session, request.surfaceId, dedupeKey, descriptor)
+        const match = findDedupedTab(session, request.surfaceId, dedupeKey, descriptor)
         if (match !== undefined) {
-          const updated = withUpdatedPayload(match.instance, payload, label)
-          if (match.where === 'active') {
-            session.active = updated
-            this.publishSession(session)
-            notifyActivated(this.descriptors, updated)
-            this.owner.layout.openDetails()
-            return returnInstance ? updated : undefined
-          }
-          session.backStack.splice(match.index, 1)
-          this.leaveActive(session, navigation)
-          session.active = updated
-          this.publishSession(session)
-          notifyActivated(this.descriptors, updated)
+          const updated = withUpdatedPayload(match, payload, label)
+          session.tabs = session.tabs.map(tab => (tab.instanceId === match.instanceId ? updated : tab))
+          this.commitActivate(session, updated, { notify: 'activate' })
           this.owner.layout.openDetails()
           return returnInstance ? updated : undefined
         }
       }
 
-      const candidate = createSurfaceInstance(request.surfaceId, payload, label, sessionId)
-      this.leaveActive(session, navigation)
-      session.active = candidate
-      this.publishSession(session)
-      notifyOpened(this.descriptors, candidate)
+      const candidate = createSurfaceInstance(request.surfaceId, payload, label, sessionId, descriptor)
+      session.tabs.push(candidate)
+      const evicted = evictOldestTab(session)
+      if (evicted !== undefined) {
+        notifyClosed(this.descriptors, evicted, 'history-evicted')
+      }
+      this.commitActivate(session, candidate, { notify: 'open' })
       this.owner.layout.openDetails()
       return returnInstance ? candidate : undefined
     } catch (error) {
@@ -288,39 +384,75 @@ export class ShellDetailsService extends Service implements ShellDetailsControll
   }
 
   /**
-   * Close the details column and clear the current session's navigation.
+   * Close the active tab of the current session (reason `user`). Closing the
+   * last tab reveals the Launcher; the dock stays mounted.
    */
   close(): void {
-    this.clearCurrentSession('user')
+    const active = this.activeInstance
+    if (active === null) return
+    this.closeTab(active.instanceId)
   }
 
   /**
-   * Restore the previous instance from the current session back stack.
+   * Close the tab with this instance id (reason `user`).
+   * @param instanceId - instance id of the tab to close.
    */
-  back(): void {
-    const sessionId = this.currentSessionId()
-    const session = this.sessions.get(sessionId)
-    if (session === undefined || session.backStack.length === 0) return
-    const leaving = session.active
-    if (leaving !== null) {
-      notifyClosed(this.descriptors, leaving, 'user')
+  closeTab(instanceId: string): void {
+    const session = this.sessions.get(this.currentSessionId())
+    if (session === undefined) return
+    const wasActive = session.activeInstanceId === instanceId
+    const outcome = removeTab(session, instanceId)
+    if (outcome === undefined) return
+    notifyClosed(this.descriptors, outcome.removed, 'user', { deactivate: wasActive })
+    if (wasActive && outcome.nextActiveId !== null) {
+      const next = session.tabs.find(tab => tab.instanceId === outcome.nextActiveId)
+      if (next !== undefined) {
+        this.publishSession(session)
+        notifyActivated(this.descriptors, next)
+        return
+      }
     }
-    const restored = popHistory(session)
-    session.active = restored ?? null
-    if (restored === undefined) {
-      this.publishSession(session)
-      this.releaseTakeover()
-      return
-    }
-    this.ensureTakeover()
     this.publishSession(session)
-    notifyActivated(this.descriptors, restored)
+  }
+
+  /**
+   * Activate the tab with this instance id and hide the Launcher.
+   * @param instanceId - instance id of the tab to activate.
+   */
+  activate(instanceId: string): void {
+    const session = this.sessions.get(this.currentSessionId())
+    if (session === undefined) return
+    const tab = session.tabs.find(candidate => candidate.instanceId === instanceId)
+    if (tab === undefined) return
+    this.commitActivate(session, tab, { notify: 'activate' })
+  }
+
+  /** Show the Launcher page and reveal the dock. */
+  showLauncher(): void {
+    const session = this.sessions.getOrCreate(this.currentSessionId())
+    this.ensureTakeover()
+    session.launcherVisible = true
+    this.publishSession(session)
     this.owner.layout.openDetails()
   }
 
   /**
-   * Whether the current session has a non-empty back stack.
-   * @returns true when {@link back} would restore an instance.
+   * Restore the most recently active other tab (MRU compatibility face of
+   * tab navigation). No-op when there is nothing to restore.
+   */
+  back(): void {
+    const session = this.sessions.get(this.currentSessionId())
+    if (session === undefined) return
+    const candidate = popMru(session)
+    if (candidate === undefined) return
+    const tab = session.tabs.find(entry => entry.instanceId === candidate)
+    if (tab === undefined) return
+    this.commitActivate(session, tab, { notify: 'activate' })
+  }
+
+  /**
+   * Whether the current session has an MRU tab to restore.
+   * @returns true when {@link back} would activate a tab.
    */
   canGoBack(): boolean {
     const session = this.sessions.get(this.currentSessionId())
@@ -328,7 +460,8 @@ export class ShellDetailsService extends Service implements ShellDetailsControll
   }
 
   /**
-   * Open `id` when it is not active; close when it is.
+   * Open `id` as a tab when it is not the active tab; close the active tab
+   * when it is.
    * @param id - registered `shell.details.surface` contribution id.
    */
   toggle(id: string): void {
@@ -337,80 +470,62 @@ export class ShellDetailsService extends Service implements ShellDetailsControll
   }
 
   /**
-   * Whether any surface is active, or whether `id` is the active surface.
+   * Whether any tab is active (or the Launcher shows), or whether `id` is the
+   * active tab's surface.
    * @param id - optional surface id to compare.
    * @returns open state for the requested query.
    */
   isOpen(id?: string): boolean {
-    if (id === undefined) return this.activeInstance !== null
+    if (id === undefined) return this.activeInstance !== null || this.getSnapshot().launcherVisible
     return this.activeId === id
   }
 
-  private leaveActive(
+  private commitActivate(
     session: ReturnType<DetailsSessionStore['getOrCreate']>,
-    navigation: 'push' | 'replace',
+    tab: DetailsSurfaceInstance,
+    options: { notify: 'open' | 'activate' },
   ): void {
-    const previous = session.active
-    if (previous === null) return
-    if (navigation === 'replace') {
-      notifyClosed(this.descriptors, previous, 'replace')
-      session.active = null
-      return
+    const previous = this.activeInstance
+    const changed = session.activeInstanceId !== tab.instanceId
+    if (changed && previous !== null && previous.instanceId !== tab.instanceId) {
+      notifyDeactivated(this.descriptors, previous)
     }
-    notifyDeactivated(this.descriptors, previous)
-    const evicted = pushToHistory(session, previous)
-    session.active = null
-    for (const dropped of evicted) {
-      notifyClosed(this.descriptors, dropped, 'history-evicted', { deactivate: false })
+    activateTab(session, tab.instanceId)
+    this.publishSession(session)
+    if (options.notify === 'open') {
+      notifyOpened(this.descriptors, tab)
+    } else {
+      notifyActivated(this.descriptors, tab)
     }
-  }
-
-  private clearCurrentSession(reason: DetailsSurfaceCloseReason): void {
-    const sessionId = this.currentSessionId()
-    const session = this.sessions.get(sessionId)
-    if (
-      this.takeover === undefined
-      && this.activeInstance === null
-      && (session === undefined || (session.active === null && session.backStack.length === 0))
-    ) {
-      return
-    }
-    if (session !== undefined) {
-      if (session.active !== null) {
-        notifyClosed(this.descriptors, session.active, reason)
-      }
-      for (const entry of session.backStack) {
-        notifyClosed(this.descriptors, entry, reason, { deactivate: false })
-      }
-      session.active = null
-      session.backStack = []
-    }
-    this.publishIdle()
-    this.releaseTakeover()
   }
 
   private onSessionSwitch(previous: string | undefined, next: string | undefined): void {
     if (previous !== undefined) {
       const prior = this.sessions.get(previous)
-      if (prior?.active !== null && prior !== undefined) {
-        notifyDeactivated(this.descriptors, prior.active)
+      const priorActive = prior?.tabs.find(tab => tab.instanceId === prior?.activeInstanceId)
+      if (priorActive !== undefined) {
+        notifyDeactivated(this.descriptors, priorActive)
       }
     }
     if (next === undefined) {
       this.publishIdle()
-      this.releaseTakeover()
       return
     }
     const session = this.sessions.get(next)
-    if (session?.active == null) {
+    const active = session?.tabs.find(tab => tab.instanceId === session?.activeInstanceId)
+    if (session === undefined || active === undefined) {
       this.publishIdle()
-      this.releaseTakeover()
+      if (this.dockVisible) {
+        const target = this.sessions.getOrCreate(next)
+        target.launcherVisible = true
+        this.ensureTakeover()
+        this.publishSession(target)
+      }
       return
     }
     this.ensureTakeover()
     this.publishSession(session)
-    notifyActivated(this.descriptors, session.active)
-    this.owner.layout.openDetails()
+    notifyActivated(this.descriptors, active)
   }
 
   private purgeDeletedSessions(liveIds: readonly string[]): void {
@@ -419,11 +534,10 @@ export class ShellDetailsService extends Service implements ShellDetailsControll
       if (live.has(sessionId)) continue
       const state = this.sessions.get(sessionId)
       if (state !== undefined) {
-        if (state.active !== null) {
-          notifyClosed(this.descriptors, state.active, 'session-close')
-        }
-        for (const entry of state.backStack) {
-          notifyClosed(this.descriptors, entry, 'session-close', { deactivate: false })
+        for (const tab of state.tabs) {
+          notifyClosed(this.descriptors, tab, 'session-close', {
+            deactivate: tab.instanceId === state.activeInstanceId,
+          })
         }
       }
       this.sessions.delete(sessionId)
@@ -437,43 +551,30 @@ export class ShellDetailsService extends Service implements ShellDetailsControll
     const sessionId = this.currentSessionId()
     const session = this.sessions.get(sessionId)
     if (session === undefined) return
-    const previousActiveId = this.activeInstance?.instanceId
-    const removed = pruneSurfaceId(session, surfaceId)
-    for (const instance of removed) {
+    const previousActiveId = session.activeInstanceId
+    const pruned = pruneSurfaceId(session, surfaceId)
+    for (const instance of pruned.removed) {
       notifyClosed(this.descriptors, instance, reason, {
         deactivate: instance.instanceId === previousActiveId,
       })
     }
-    if (session.active !== null) {
+    const active = session.tabs.find(tab => tab.instanceId === pruned.activeInstanceId)
+    if (active !== undefined && pruned.activeInstanceId !== previousActiveId) {
       this.publishSession(session)
-      return
-    }
-    while (session.backStack.length > 0) {
-      const candidate = popHistory(session)!
-      if (!this.surfacePresent(candidate.surfaceId)) {
-        notifyClosed(this.descriptors, candidate, reason, { deactivate: false })
-        continue
-      }
-      session.active = candidate
-      this.ensureTakeover()
-      this.publishSession(session)
-      notifyActivated(this.descriptors, candidate)
-      this.owner.layout.openDetails()
+      notifyActivated(this.descriptors, active)
       return
     }
     this.publishSession(session)
-    this.releaseTakeover()
   }
 
   private disposeAllSessions(reason: DetailsSurfaceCloseReason): void {
     for (const sessionId of [...this.sessions.keys()]) {
       const session = this.sessions.get(sessionId)
       if (session === undefined) continue
-      if (session.active !== null) {
-        notifyClosed(this.descriptors, session.active, reason)
-      }
-      for (const entry of session.backStack) {
-        notifyClosed(this.descriptors, entry, reason, { deactivate: false })
+      for (const tab of session.tabs) {
+        notifyClosed(this.descriptors, tab, reason, {
+          deactivate: tab.instanceId === session.activeInstanceId,
+        })
       }
     }
     this.publishIdle()
@@ -484,11 +585,8 @@ export class ShellDetailsService extends Service implements ShellDetailsControll
     const session = this.sessions.get(this.currentSessionId())
     if (session === undefined) return
     const missing = new Set<string>()
-    if (session.active !== null && !this.surfacePresent(session.active.surfaceId)) {
-      missing.add(session.active.surfaceId)
-    }
-    for (const entry of session.backStack) {
-      if (!this.surfacePresent(entry.surfaceId)) missing.add(entry.surfaceId)
+    for (const tab of session.tabs) {
+      if (!this.surfacePresent(tab.surfaceId)) missing.add(tab.surfaceId)
     }
     for (const surfaceId of missing) {
       this.recoverAfterSurfaceLoss(surfaceId, 'surface-unload')
@@ -518,6 +616,7 @@ export class ShellDetailsService extends Service implements ShellDetailsControll
         throw error
       }
     }
+    this.dockVisible = false
     const dispose = this.takeover
     this.takeover = undefined
     dispose?.()
@@ -534,6 +633,12 @@ export class ShellDetailsService extends Service implements ShellDetailsControll
       },
       inject: (): DetailsHostInjected => ({
         hooks: { detailsHost: this.state },
+        launcherEntries: this.launchers.list(),
+        reportDockVisible: (visible: boolean) => { this.reportDockVisible(visible) },
+        activate: (instanceId: string) => { this.activate(instanceId) },
+        closeTab: (instanceId: string) => { this.closeTab(instanceId) },
+        showLauncher: () => { this.showLauncher() },
+        openRequest: (request: ShellDetailsOpenRequest) => { this.open(request) },
         close: () => { this.close() },
         back: () => { this.back() },
       }),
@@ -547,23 +652,39 @@ export class ShellDetailsService extends Service implements ShellDetailsControll
     }
   }
 
-  private publishSession(session: { active: DetailsSurfaceInstance | null; backStack: DetailsSurfaceInstance[] }): void {
-    const active = session.active
+  private publishSession(session: { tabs: DetailsSurfaceInstance[]; activeInstanceId: string | null; launcherVisible: boolean; mru: string[] }): void {
+    const active = session.tabs.find(tab => tab.instanceId === session.activeInstanceId) ?? null
     this.state.set({
+      tabs: [...session.tabs],
       activeId: active?.surfaceId ?? null,
       activeInstance: active,
       label: active?.label ?? null,
-      canGoBack: session.backStack.length > 0,
+      launcherVisible: session.launcherVisible,
+      dockVisible: this.dockVisible,
+      canGoBack: sessionCanGoBack(session),
     })
   }
 
   private publishIdle(): void {
     this.state.set({
+      tabs: [],
       activeId: null,
       activeInstance: null,
       label: null,
+      launcherVisible: false,
+      dockVisible: this.dockVisible,
       canGoBack: false,
     })
+  }
+
+  /** Republish the current session state (dock visibility changes). */
+  private publishCurrent(): void {
+    const session = this.sessions.get(this.currentSessionId())
+    if (session === undefined) {
+      this.publishIdle()
+      return
+    }
+    this.publishSession(session)
   }
 
   private requireUniqueSurface(id: string): StoredEntry {

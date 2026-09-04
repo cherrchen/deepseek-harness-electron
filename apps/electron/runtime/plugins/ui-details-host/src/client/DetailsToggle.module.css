@@ -1,0 +1,22 @@
+.toggle {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border: none;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--dsw-alias-label-secondary);
+  cursor: pointer;
+}
+
+.toggle:hover {
+  background: var(--dsw-alias-fill-hover);
+}
+
+.toggle[data-pressed] {
+  color: var(--dsw-alias-label-primary);
+  background: var(--dsw-alias-fill-secondary, var(--dsw-alias-fill-hover));
+}

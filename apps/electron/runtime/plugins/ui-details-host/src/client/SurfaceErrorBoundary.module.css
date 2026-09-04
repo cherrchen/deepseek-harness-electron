@@ -1,0 +1,22 @@
+.root {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  padding: 24px;
+  min-height: 0;
+}
+
+.title {
+  margin: 0;
+  font-size: 13px;
+  color: var(--dsw-alias-fg-primary, var(--dsw-static-basic-black, #1b1b1b));
+}
+
+.detail {
+  margin: 0;
+  font-size: 11px;
+  color: var(--dsw-alias-fg-tertiary, var(--dsw-static-neutral-6, #8c8c8c));
+}
