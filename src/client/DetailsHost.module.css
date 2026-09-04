@@ -1,0 +1,217 @@
+.root {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-width: 0;
+  border-left: 1px solid var(--dsw-alias-border-l2);
+  background: var(--dsw-alias-bg-base);
+}
+
+/*
+ * Desktop stamps data-dsh-desktop-platform on :root. On Windows the details
+ * column shares the top-right corner with the Window Controls Overlay, so the
+ * tab bar needs the same native control-row clearance as the main chrome.
+ */
+:global(:root[data-dsh-desktop-platform='win32']) .tabbar {
+  box-sizing: border-box;
+  padding-top: max(8px, var(--dsh-native-control-row-height, 40px));
+}
+
+.tabbar {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  padding: 8px 8px 0;
+  border-bottom: 1px solid var(--dsw-alias-border-l2);
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.tabbar::-webkit-scrollbar {
+  display: none;
+}
+
+.tabWrap {
+  display: flex;
+  flex: none;
+  align-items: center;
+  max-width: 180px;
+  border: 1px solid transparent;
+  border-bottom: none;
+  border-radius: 8px 8px 0 0;
+  color: var(--dsw-alias-label-secondary);
+}
+
+.tabWrap[data-active] {
+  background: var(--dsw-alias-bg-base);
+  border-color: var(--dsw-alias-border-l2);
+  color: var(--dsw-alias-label-primary);
+}
+
+.tab {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  min-width: 0;
+  padding: 6px 4px 6px 10px;
+  border: none;
+  background: transparent;
+  color: inherit;
+  font-size: 12px;
+  line-height: 16px;
+  cursor: pointer;
+}
+
+.tab:focus-visible {
+  outline: 2px solid var(--dsw-alias-border-brand, var(--dsw-alias-border-l2));
+  outline-offset: -2px;
+  border-radius: 8px 8px 0 0;
+}
+
+.tabLabel {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.tabClose {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 18px;
+  height: 18px;
+  padding: 0;
+  margin-right: 4px;
+  border: none;
+  border-radius: 999px;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+}
+
+.tabClose:hover {
+  background: var(--dsw-alias-fill-hover);
+}
+
+.addTab,
+.headerAction {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  margin-bottom: 4px;
+  border: none;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--dsw-alias-label-secondary);
+  cursor: pointer;
+}
+
+.addTab:hover,
+.headerAction:hover {
+  background: var(--dsw-alias-fill-hover);
+}
+
+.tabbarTrailing {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: 4px;
+  margin-left: auto;
+}
+
+.body {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.bodyScroll {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+}
+
+.launcher {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 24px;
+  overflow: auto;
+}
+
+.launcherTitle {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--dsw-alias-label-primary);
+}
+
+.launcherHint {
+  margin: 0 0 12px;
+  font-size: 12px;
+  color: var(--dsw-alias-label-tertiary, var(--dsw-alias-label-secondary));
+}
+
+.launcherGrid {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 8px;
+  max-width: 420px;
+}
+
+.card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  width: 124px;
+  padding: 14px 10px;
+  border: 1px solid var(--dsw-alias-border-l2);
+  border-radius: 10px;
+  background: var(--dsw-alias-bg-base);
+  color: var(--dsw-alias-label-primary);
+  text-align: center;
+  cursor: pointer;
+}
+
+.card:hover {
+  background: var(--dsw-alias-fill-hover);
+}
+
+.card:focus-visible {
+  outline: 2px solid var(--dsw-alias-border-brand, var(--dsw-alias-border-l2));
+  outline-offset: 1px;
+}
+
+.cardIcon {
+  display: grid;
+  place-items: center;
+  height: 20px;
+  color: var(--dsw-alias-label-secondary);
+}
+
+.cardTitle {
+  font-size: 12px;
+  line-height: 16px;
+}
+
+.cardDescription {
+  font-size: 11px;
+  line-height: 14px;
+  color: var(--dsw-alias-label-tertiary, var(--dsw-alias-label-secondary));
+}
+
+.launcherEmpty {
+  margin: 0;
+  font-size: 12px;
+  color: var(--dsw-alias-label-tertiary, var(--dsw-alias-label-secondary));
+}

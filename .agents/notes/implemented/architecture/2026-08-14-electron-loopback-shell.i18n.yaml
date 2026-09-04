@@ -1,6 +1,0 @@
-# Bilingual-pair consistency record (docs/i18n/README.md): the git blob hash of each
-# side as of the last confirmed-consistent state. Both languages carry equal authority;
-# after editing either side, bring the other along and re-record with:
-#   pnpm run verify-translation-pairing --write .agents/notes/implemented/architecture/2026-08-14-electron-loopback-shell.md
-2026-08-14-electron-loopback-shell.md: 66b98e66d08dba9b32471f021b2fa7ed778b976d
-2026-08-14-electron-loopback-shell.zh.md: 87f1d0341c1fe0143ae288c9b7fbf0de9fa52e6e

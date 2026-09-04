@@ -1,6 +1,0 @@
-# Bilingual-pair consistency record (docs/i18n/README.md): the git blob hash of each
-# side as of the last confirmed-consistent state. Both languages carry equal authority;
-# after editing either side, bring the other along and re-record with:
-#   pnpm run verify-translation-pairing --write .agents/notes/implemented/architecture/2026-08-25-electron-profile-plugin-installation.md
-2026-08-25-electron-profile-plugin-installation.md: 306ce0604d5d8c3be302ef3b0410a8f5babee43c
-2026-08-25-electron-profile-plugin-installation.zh.md: 28579d395a5d2de37e995e15959d54701ae2c948
