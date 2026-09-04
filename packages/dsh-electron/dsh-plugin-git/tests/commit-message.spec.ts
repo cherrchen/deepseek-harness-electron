@@ -9,15 +9,23 @@ import {
   postProcessCommitMessage,
 } from '../src/commit-message.ts'
 
-function fakeLlm(chunks: Array<{ type: string; text?: string }>): { stream: (request: unknown) => AsyncIterable<{ type: string; text?: string }>; requests: unknown[] } {
+type FakeChunk = { type: string; text?: string }
+
+interface FakeLlm {
+  stream: (request: unknown) => AsyncIterable<FakeChunk>
+  requests: unknown[]
+}
+
+function fakeLlm(chunks: FakeChunk[]): FakeLlm {
   const requests: unknown[] = []
-  return {
+  const llm: FakeLlm = {
     requests,
     async *stream(request) {
       requests.push(request)
       for (const chunk of chunks) yield chunk
     },
   }
+  return llm
 }
 
 describe('normalizeStagedDiff', () => {

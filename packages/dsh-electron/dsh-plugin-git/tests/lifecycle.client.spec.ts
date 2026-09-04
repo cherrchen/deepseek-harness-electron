@@ -94,7 +94,6 @@ describe('Git client lifecycle', () => {
 
     const openDetails = (registrations.find(entry => entry.id === 'git-context') as { inject?: () => { openDetails: () => void; controller: GitClientController } })
       .inject?.().openDetails
-    const controllerRef = controller.inject?.().controller
     expect(openDetails).toBeTypeOf('function')
     shellDetails.open.mockImplementationOnce(() => {
       throw new Error('host open failed')

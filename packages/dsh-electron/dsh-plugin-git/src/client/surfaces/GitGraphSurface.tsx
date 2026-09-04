@@ -43,7 +43,7 @@ function LaneGlyph({ lane, laneCount, edges, through }: {
       viewBox={`0 0 ${Math.max(laneCount, 1) * columnWidth} ${height}`}
       aria-hidden="true"
     >
-      {through.map((column) => (
+      {through.map(column => (
         <line
           key={`through-${column}`}
           x1={x(column)}
