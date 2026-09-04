@@ -114,7 +114,6 @@ describe('GitBranchControl', () => {
     const controller = controllerOf({
       workspacePath: undefined,
       repository: snapshot({ branch: 'develop' }),
-      activeTab: 'changes',
       selectedDiff: undefined,
       diff: undefined,
       loading: false,
@@ -140,7 +139,6 @@ describe('GitBranchControl', () => {
     const pending = controllerOf({
       workspacePath: '/projects/plain',
       repository: undefined,
-      activeTab: 'changes',
       selectedDiff: undefined,
       diff: undefined,
       loading: true,
@@ -155,7 +153,6 @@ describe('GitBranchControl', () => {
     const nonRepo = controllerOf({
       workspacePath: '/projects/plain',
       repository: null,
-      activeTab: 'changes',
       selectedDiff: undefined,
       diff: undefined,
       loading: false,
@@ -171,7 +168,6 @@ describe('GitBranchControl', () => {
     const controller = controllerOf({
       workspacePath: '/projects/alpha',
       repository: snapshot({ unstaged: [{ path: 'src/a.ts', status: ' M' }] }),
-      activeTab: 'changes',
       selectedDiff: undefined,
       diff: undefined,
       loading: false,
@@ -189,7 +185,6 @@ describe('GitBranchControl', () => {
     const controller = controllerOf({
       workspacePath: '/projects/alpha',
       repository: snapshot(),
-      activeTab: 'changes',
       selectedDiff: undefined,
       diff: undefined,
       loading: false,
@@ -217,7 +212,6 @@ describe('GitBranchControl', () => {
         branches: [],
         branch: 'main',
       }),
-      activeTab: 'changes',
       selectedDiff: undefined,
       diff: undefined,
       loading: false,
