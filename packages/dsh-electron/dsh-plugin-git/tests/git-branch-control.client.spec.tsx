@@ -29,10 +29,22 @@ function snapshot(overrides: Partial<GitRepositorySnapshot> = {}): GitRepository
   }
 }
 
-function controllerOf(state: GitClientState): GitClientController {
+const graphStateDefaults = {
+  graph: [],
+  graphLoading: false,
+  graphHasMore: false,
+  graphError: undefined,
+  commitMessage: '',
+  generating: false,
+  generationAvailable: false,
+  generationError: undefined,
+} satisfies Partial<GitClientState>
+
+function controllerOf(state: Partial<GitClientState>): GitClientController {
   const listeners = new Set<() => void>()
+  const snapshot = { ...graphStateDefaults, ...state }
   return {
-    getSnapshot: () => state,
+    getSnapshot: () => snapshot,
     subscribe: (listener: () => void) => {
       listeners.add(listener)
       return () => { listeners.delete(listener) }
