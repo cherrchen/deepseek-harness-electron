@@ -5,11 +5,26 @@
     "outDir": "lib/types",
     "tsBuildInfoFile": "lib/tsconfig.host.tsbuildinfo"
   },
-  "files": ["src/index.ts", "src/service.ts", "src/status.ts", "src/types.ts"],
+  "files": [
+    "src/index.ts",
+    "src/service.ts",
+    "src/status.ts",
+    "src/types.ts",
+    "src/log.ts",
+    "src/commit-message.ts"
+  ],
   "references": [
-    { "path": "../../../vendor/cordis" },
-    { "path": "../../subprocess/subprocess" },
-    { "path": "../../subprocess/subprocess-local" },
-    { "path": "../../client/connection/tsconfig.host.json" }
+    {
+      "path": "../../../vendor/cordis"
+    },
+    {
+      "path": "../../subprocess/subprocess"
+    },
+    {
+      "path": "../../subprocess/subprocess-local"
+    },
+    {
+      "path": "../../client/connection/tsconfig.host.json"
+    }
   ]
 }
