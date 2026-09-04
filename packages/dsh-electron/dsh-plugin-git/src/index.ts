@@ -1,7 +1,6 @@
 /** Standard DSH Git plugin: portable service plus optional Connection RPC adapter. */
 
 import type { Context } from '@deepseek-ai/cordis'
-import type { LlmRuntime } from '@deepseek-ai/dsh-llm'
 import z from '@deepseek-ai/schemastery'
 import type {} from '@deepseek-ai/dsh-client-connection'
 import { CommitMessageUnavailableError, LlmCommitMessageProvider, UnavailableCommitMessageProvider, type CommitMessageProvider } from './commit-message.ts'
