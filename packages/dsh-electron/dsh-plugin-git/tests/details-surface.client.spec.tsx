@@ -112,6 +112,7 @@ describe('GitChangesSurface', () => {
   it('refreshes on mount, binds the workspace, and renders context plus sections', () => {
     const controller = controllerOf(baseState())
     const { container } = render(<GitChangesSurface {...props(controller)} />)
+    // oxlint-disable-next-line typescript/unbound-method -- Vitest inspects the controller mock without invoking it
     expect(controller.refresh).toHaveBeenCalled()
     expect(controller.setWorkspace).toHaveBeenCalledWith('/workspace')
     expect(screen.getByText('repo')).toBeTruthy()
@@ -196,8 +197,10 @@ describe('GitDetailsHeaderActions', () => {
     const controller = controllerOf(baseState({ desktopAvailable: true }))
     render(<GitDetailsHeaderActions {...actionProps(controller)} />)
     fireEvent.click(screen.getByRole('button', { name: en['details.refresh'] }))
+    // oxlint-disable-next-line typescript/unbound-method -- Vitest inspects the controller mock without invoking it
     expect(controller.refresh).toHaveBeenCalled()
     fireEvent.click(screen.getByRole('button', { name: en['details.reveal'] }))
+    // oxlint-disable-next-line typescript/unbound-method -- Vitest inspects the controller mock without invoking it
     expect(controller.reveal).toHaveBeenCalled()
   })
 
