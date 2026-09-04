@@ -61,7 +61,9 @@ function detailsInstanceOf(surfaceId: string, payload: unknown = {}): DetailsSur
   }
 }
 
-function controllerOf(state: ReturnType<GitClientController['getSnapshot']>): GitClientController {
+type GitControllerMock = ReturnType<typeof controllerOf>
+
+function controllerOf(state: ReturnType<GitClientController['getSnapshot']>) {
   const listeners = new Set<() => void>()
   return {
     getSnapshot: () => state,
@@ -86,7 +88,7 @@ function controllerOf(state: ReturnType<GitClientController['getSnapshot']>): Gi
     loadMoreGraph: vi.fn(async () => {}),
     setCommitMessage: vi.fn(),
     generateCommitMessage: vi.fn(async () => {}),
-  } as unknown as GitClientController
+  }
 }
 
 const sessionsHook = ((selector: (list: { current: string | undefined; byId: Record<string, { cwd?: string } | undefined> }) => unknown) =>
@@ -97,7 +99,7 @@ afterEach(() => { cleanup() })
 const t = ((key: keyof typeof en) => en[key]) as PropsLocale<'git'>['t']
 
 describe('GitChangesSurface', () => {
-  const props = (controller: GitClientController): GitChangesSurfaceProps =>
+  const props = (controller: GitControllerMock): GitChangesSurfaceProps =>
     ({
       controller,
       t,
@@ -112,7 +114,6 @@ describe('GitChangesSurface', () => {
   it('refreshes on mount, binds the workspace, and renders context plus sections', () => {
     const controller = controllerOf(baseState())
     const { container } = render(<GitChangesSurface {...props(controller)} />)
-    // oxlint-disable-next-line typescript/unbound-method -- Vitest inspects the controller mock without invoking it
     expect(controller.refresh).toHaveBeenCalled()
     expect(controller.setWorkspace).toHaveBeenCalledWith('/workspace')
     expect(screen.getByText('repo')).toBeTruthy()
@@ -129,7 +130,7 @@ describe('GitChangesSurface', () => {
 })
 
 describe('GitDiffSurface', () => {
-  const props = (controller: GitClientController): GitDiffSurfaceProps =>
+  const props = (controller: GitControllerMock): GitDiffSurfaceProps =>
     ({
       controller,
       t,
@@ -165,7 +166,7 @@ describe('GitDiffSurface', () => {
 })
 
 describe('GitGraphSurface', () => {
-  const props = (controller: GitClientController): GitGraphSurfaceProps =>
+  const props = (controller: GitControllerMock): GitGraphSurfaceProps =>
     ({
       controller,
       t,
@@ -186,7 +187,7 @@ describe('GitGraphSurface', () => {
 })
 
 describe('GitDetailsHeaderActions', () => {
-  const actionProps = (controller: GitClientController): GitDetailsHeaderActionsProps =>
+  const actionProps = (controller: GitControllerMock): GitDetailsHeaderActionsProps =>
     ({
       controller,
       t,
@@ -197,10 +198,8 @@ describe('GitDetailsHeaderActions', () => {
     const controller = controllerOf(baseState({ desktopAvailable: true }))
     render(<GitDetailsHeaderActions {...actionProps(controller)} />)
     fireEvent.click(screen.getByRole('button', { name: en['details.refresh'] }))
-    // oxlint-disable-next-line typescript/unbound-method -- Vitest inspects the controller mock without invoking it
     expect(controller.refresh).toHaveBeenCalled()
     fireEvent.click(screen.getByRole('button', { name: en['details.reveal'] }))
-    // oxlint-disable-next-line typescript/unbound-method -- Vitest inspects the controller mock without invoking it
     expect(controller.reveal).toHaveBeenCalled()
   })
 
