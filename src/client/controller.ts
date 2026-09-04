@@ -191,7 +191,9 @@ export class GitClientController {
     this.patch({ loading: true })
     try {
       const diff = decodeDiff(await this.call('diff', { repository: repository.root, path, staged }))
-      if (this.state.selectedDiff?.path !== path || this.state.selectedDiff?.staged !== staged) return
+      if (this.state.selectedDiff === undefined
+        || this.state.selectedDiff.path !== path
+        || this.state.selectedDiff.staged !== staged) return
       this.patch({ diff, loading: false })
     } catch (error) {
       this.patch({ loading: false, error: error instanceof Error ? error.message : String(error) })
@@ -277,7 +279,7 @@ export class GitClientController {
     if (this.state.workspacePath === undefined) return
     try {
       const capability = await this.call('commit-message-capability', {}) as { available?: unknown }
-      this.patch({ generationAvailable: capability?.available === true })
+      this.patch({ generationAvailable: capability.available === true })
     } catch {
       this.patch({ generationAvailable: false })
     }

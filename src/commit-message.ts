@@ -148,8 +148,8 @@ export function postProcessCommitMessage(text: string): string {
     message = message.slice(1, -1).trim()
   }
   const lines = message.split('\n').map(line => line.replace(/\s+$/u, ''))
-  while (lines.length > 0 && lines[0]!.length === 0) lines.shift()
-  while (lines.length > 0 && lines.at(-1)!.length === 0) lines.pop()
+  while (lines.length > 0 && (lines[0] ?? '').length === 0) lines.shift()
+  while (lines.length > 0 && (lines.at(-1) ?? '').length === 0) lines.pop()
   return lines.slice(0, 20).join('\n')
 }
 
@@ -159,8 +159,7 @@ export class UnavailableCommitMessageProvider implements CommitMessageProvider {
    * @param _input - Unused input.
    * @throws {@link CommitMessageUnavailableError} always.
    */
-  async generate(_input: CommitMessageInput): Promise<string> {
-    void _input
-    throw new CommitMessageUnavailableError()
+  generate(_input: CommitMessageInput): Promise<string> {
+    return Promise.reject(new CommitMessageUnavailableError())
   }
 }

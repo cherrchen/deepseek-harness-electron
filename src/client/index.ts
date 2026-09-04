@@ -67,9 +67,6 @@ export function apply(ctx: ClientContext): void {
   const openDiff = (path: string, staged: boolean): void => {
     ctx.shellDetails.open({ surfaceId: GIT_DIFF_SURFACE_ID, payload: { path, staged } })
   }
-  const openGraph = (): void => {
-    ctx.shellDetails.open({ surfaceId: GIT_GRAPH_SURFACE_ID })
-  }
   controller.setDiffNavigator(openDiff)
 
   ctx.effect(() => ctx.locale.register(NS, { en, zh }), 'git: dictionaries')
@@ -99,7 +96,8 @@ export function apply(ctx: ClientContext): void {
 
   // One surface entry per Details tab; the Details Host tab bar renders them
   // as tabs, so Git ships independent surfaces instead of a nested tab set.
-  const surfaces: ReadonlyArray<{ id: typeof GIT_CHANGES_SURFACE_ID | typeof GIT_DIFF_SURFACE_ID | typeof GIT_GRAPH_SURFACE_ID; component: typeof GitChangesSurface }> = [
+  type GitSurfaceId = typeof GIT_CHANGES_SURFACE_ID | typeof GIT_DIFF_SURFACE_ID | typeof GIT_GRAPH_SURFACE_ID
+  const surfaces: ReadonlyArray<{ id: GitSurfaceId; component: typeof GitChangesSurface }> = [
     { id: GIT_CHANGES_SURFACE_ID, component: GitChangesSurface },
     { id: GIT_DIFF_SURFACE_ID, component: GitDiffSurface },
     { id: GIT_GRAPH_SURFACE_ID, component: GitGraphSurface },
@@ -128,6 +126,6 @@ export function apply(ctx: ClientContext): void {
 
 function gitDiffTabKeyOf(payload: unknown): string | undefined {
   const request = payload as { path?: unknown; staged?: unknown }
-  if (typeof request?.path !== 'string' || request.path.length === 0) return undefined
+  if (typeof request.path !== 'string' || request.path.length === 0) return undefined
   return gitDiffTabKey({ path: request.path, staged: request.staged === true })
 }

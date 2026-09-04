@@ -19,10 +19,10 @@ export type GitChangesSurfaceProps = PropsRuntime<'shell.details.surface'> & Pro
   & { controller: GitClientController }
 
 /** Render the Git Changes surface body. */
-export function GitChangesSurface({ controller, t, useSessions, sessionId, detailsInstance }: GitChangesSurfaceProps): ReactNode {
+export function GitChangesSurface({ controller, t, useSessions, sessionId }: GitChangesSurfaceProps): ReactNode {
   const state = useSyncExternalStore(controller.subscribe, controller.getSnapshot)
-  const sessions = useSessions as unknown as GitSessionsHook
-  const workspacePath = sessions((list) => list.byId[String(sessionId)]?.cwd)
+  const sessions = useSessions as GitSessionsHook
+  const workspacePath = sessions(list => list.byId[String(sessionId)]?.cwd)
 
   useEffect(() => {
     void controller.refresh()
@@ -49,11 +49,11 @@ export function GitChangesSurface({ controller, t, useSessions, sessionId, detai
         {!state.loading && repository === null && <p className={css.empty}>{t('details.notRepository')}</p>}
         {repository !== undefined && repository !== null && (
           <>
-            <ChangesTab repository={repository} controller={controller} t={t as (key: GitLocaleKey) => string} loading={state.loading} error={state.error} />
+            <ChangesTab repository={repository} controller={controller} t={t} loading={state.loading} error={state.error} />
             <CommitRegion
               repository={repository}
               controller={controller}
-              t={t as (key: GitLocaleKey) => string}
+              t={t}
               error={state.error}
               commitMessage={state.commitMessage}
               generating={state.generating}

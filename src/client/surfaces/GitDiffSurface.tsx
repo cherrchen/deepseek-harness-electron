@@ -19,15 +19,15 @@ export type GitDiffSurfaceProps = PropsRuntime<'shell.details.surface'> & PropsL
 /** Render one Git Diff surface body. */
 export function GitDiffSurface({ controller, t, useSessions, sessionId, detailsInstance }: GitDiffSurfaceProps): ReactNode {
   const state = useSyncExternalStore(controller.subscribe, controller.getSnapshot)
-  const sessions = useSessions as unknown as GitSessionsHook
-  const workspacePath = sessions((list) => list.byId[String(sessionId)]?.cwd)
+  const sessions = useSessions as GitSessionsHook
+  const workspacePath = sessions(list => list.byId[String(sessionId)]?.cwd)
   const payload = detailsInstance.payload as GitDiffPayload
 
   useGitWorkspace(controller, workspacePath)
 
   // Payload owns the compared file; activation refetches it.
   useEffect(() => {
-    if (payload.path !== undefined) void controller.showDiff(payload.path, payload.staged)
+    void controller.showDiff(payload.path, payload.staged)
   }, [controller, payload.path, payload.staged])
 
   return (
@@ -38,10 +38,10 @@ export function GitDiffSurface({ controller, t, useSessions, sessionId, detailsI
         {state.repository !== undefined && state.repository !== null && (
           <DiffTab
             repository={state.repository}
-            selectedDiff={payload.path === undefined ? undefined : { path: payload.path, staged: payload.staged }}
+            selectedDiff={{ path: payload.path, staged: payload.staged }}
             diff={state.diff}
             clean={false}
-            t={t as (key: GitLocaleKey) => string}
+            t={t}
             error={state.error}
           />
         )}
