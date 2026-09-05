@@ -193,7 +193,8 @@ export class GitClientController {
       // A newer operation replaced this binding while discovery was in
       // flight; drop the bookkeeping so the next identical setWorkspace call
       // rebinds instead of trusting stale state.
-      if (this.boundWorkspace?.generation === generation) this.boundWorkspace = undefined
+      const binding = this.boundWorkspace
+      if (binding !== undefined && binding.generation === generation) this.boundWorkspace = undefined
       return
     }
     void this.loadGraph(true)

@@ -145,7 +145,7 @@ describe('GitClientController', () => {
     await controller.setWorkspace('/workspace')
     // The first-page load fires without being awaited inside setWorkspace;
     // flush pending tasks so the paged assertions below are deterministic.
-    await new Promise(resolve => { setTimeout(resolve, 0) })
+    await new Promise((resolve) => { setTimeout(resolve, 0) })
     expect(controller.getSnapshot().graphRows).toHaveLength(1)
     await controller.loadMoreGraph()
     const state = controller.getSnapshot()
@@ -197,7 +197,7 @@ describe('GitClientController', () => {
     }
     const controller = new GitClientController(rpc)
     await controller.setWorkspace('/workspace')
-    await new Promise(resolve => { setTimeout(resolve, 0) })
+    await new Promise((resolve) => { setTimeout(resolve, 0) })
     // An empty history counts as loaded: the Graph surface auto effect keys on
     // graphLoaded, so no further requests may fire without explicit refresh.
     expect(controller.getSnapshot().graphLoaded).toBe(true)
@@ -248,11 +248,11 @@ describe('GitClientController', () => {
     const staleBinding = controller.setWorkspace('/workspace-a')
     await aLogPending
     await controller.setWorkspace('/workspace-b')
-    await new Promise(resolve => { setTimeout(resolve, 0) })
+    await new Promise((resolve) => { setTimeout(resolve, 0) })
     expect(controller.getSnapshot().graph.map(entry => entry.hash)).toEqual(['b-commit'])
     releaseA?.({ ok: true as const, value: [commit('a-commit')] })
     await staleBinding
-    await new Promise(resolve => { setTimeout(resolve, 0) })
+    await new Promise((resolve) => { setTimeout(resolve, 0) })
     // The late response belongs to the abandoned binding and must not
     // replace workspace B's graph.
     expect(controller.getSnapshot().graph.map(entry => entry.hash)).toEqual(['b-commit'])
@@ -275,7 +275,7 @@ describe('GitClientController', () => {
     }
     const controller = new GitClientController(rpc)
     await controller.setWorkspace('/workspace')
-    await new Promise(resolve => { setTimeout(resolve, 0) })
+    await new Promise((resolve) => { setTimeout(resolve, 0) })
     expect(controller.getSnapshot().graphLoaded).toBe(true)
 
     await controller.refresh()
@@ -299,7 +299,7 @@ describe('GitClientController', () => {
       staged: [{ path: 'src/a.ts', status: 'A ' }],
     })
     const rpc = {
-      call: vi.fn(async (_channel: string, endpoint: string, payload: unknown) => {
+      call: vi.fn(async (_channel: string, endpoint: string, _payload: unknown) => {
         if (endpoint === 'discover') return { ok: true as const, value: '/repo' }
         if (endpoint === 'status') return { ok: true as const, value: stagedSnapshot }
         if (endpoint === 'diff') return { ok: true as const, value: { repository: '/repo', staged: true, text: 'diff --git' } }
