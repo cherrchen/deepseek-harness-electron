@@ -9,6 +9,7 @@ import { DetailsHost } from '../src/client/DetailsHost.tsx'
 import type { DetailsHostProps } from '../src/client/DetailsHost.tsx'
 import type { DetailsHostState } from '../src/client/contract.ts'
 import { SurfaceErrorBoundary } from '../src/client/SurfaceErrorBoundary.tsx'
+import { DetailsHeaderAction } from '../src/client/DetailsHeaderAction.tsx'
 import { DetailsToggle } from '../src/client/DetailsToggle.tsx'
 
 afterEach(() => {
@@ -298,5 +299,83 @@ describe('DetailsHost Windows Desktop chrome', () => {
     const source = readFileSync(join(process.cwd(), 'src/client/DetailsHost.module.css'), 'utf8')
     expect(source).toContain("data-dsh-desktop-platform='win32'")
     expect(source).toContain('--dsh-native-control-row-height')
+  })
+})
+
+describe('DetailsHost responsive tab strip contract', () => {
+  const CSS_SOURCE = readFileSync(join(process.cwd(), 'src/client/DetailsHost.module.css'), 'utf8')
+
+  function manyTabs(count: number): { tabs: DetailsSurfaceInstance[]; active: DetailsSurfaceInstance } {
+    const tabs = Array.from({ length: count }, (_, index) => instance({
+      instanceId: `details-instance-${index + 1}`,
+      surfaceId: `test.surface-${index + 1}`,
+      label: index === 0 ? 'Git Changes' : `Very Long Plugin Tab Name ${index + 1}`,
+    }))
+    return { tabs, active: tabs[0] as DetailsSurfaceInstance }
+  }
+
+  it('keeps every tab, its close button, the + control, and the header actions area mounted under tab pressure', () => {
+    const { tabs, active } = manyTabs(8)
+    render(<DetailsHost {...props(state({
+      tabs,
+      activeId: active.surfaceId,
+      activeInstance: active,
+      label: active.label,
+    }), [], { showLauncher: vi.fn() })} />)
+    expect(screen.getAllByRole('tab')).toHaveLength(8)
+    expect(screen.getAllByRole('button', { name: /^Close / })).toHaveLength(8)
+    // The action area rides the active surface only, and never leaves the DOM.
+    expect(screen.getByTestId('action-test.surface-1')).toBeTruthy()
+    expect(screen.queryByTestId('action-test.surface-2')).toBeNull()
+    expect(screen.getByRole('button', { name: 'Open a tab' })).toBeTruthy()
+  })
+
+  it('keeps the compression layout contract: tabs shrink, the strip never scrolls, actions never shrink', () => {
+    expect(CSS_SOURCE).toMatch(/\.tabWrap \{[^}]*flex: 0 1 auto/)
+    expect(CSS_SOURCE).toMatch(/\.tabWrap \{[^}]*min-width: 0/)
+    expect(CSS_SOURCE).toMatch(/\.tab \{[^}]*min-width: 0/)
+    expect(CSS_SOURCE).toMatch(/\.tabLabel \{[^}]*text-overflow: ellipsis/)
+    expect(CSS_SOURCE).toMatch(/\.tabClose \{[^}]*flex: none/)
+    expect(CSS_SOURCE).toMatch(/\.tabbar \{[^}]*overflow: hidden/)
+    expect(CSS_SOURCE).toMatch(/\.tabbarTrailing \{[^}]*flex: none/)
+    // Shared header geometry: token-driven height plus the main header's
+    // transparent-border + hairline ::after divider treatment.
+    expect(CSS_SOURCE).toMatch(/\.tabbar \{[^}]*height: var\(--app-header-height, 45px\)/)
+    expect(CSS_SOURCE).toMatch(/\.tabbar \{[^}]*border-bottom: 1px solid transparent/)
+    expect(CSS_SOURCE).toMatch(/\.tabbar::after \{[^}]*height: 0\.5px/)
+    expect(CSS_SOURCE).toMatch(/\.tabbar::after \{[^}]*background: var\(--dsw-alias-border-l3\)/)
+  })
+
+  it('aligns the round controls with the tab row: no margin-based lift, one bottom-aligned strip', () => {
+    expect(CSS_SOURCE).toMatch(/\.tabbar \{[^}]*align-items: flex-end/)
+    expect(CSS_SOURCE).not.toMatch(/\.addTab[^{]*\{[^}]*margin-bottom/)
+  })
+})
+
+describe('DetailsHeaderAction', () => {
+  it('renders an icon-only button whose aria-label mirrors the tooltip label', () => {
+    const onTrigger = vi.fn()
+    render(
+      <DetailsHeaderAction
+        icon={<svg data-testid="glyph" />}
+        label="Refresh Git status"
+        onTrigger={onTrigger}
+      />,
+    )
+    const button = screen.getByRole('button', { name: 'Refresh Git status' })
+    expect(button.querySelector('[data-testid="glyph"]')).not.toBeNull()
+    // Label drives tooltip + a11y only; no visible text node.
+    expect(button.textContent).toBe('')
+    fireEvent.click(button)
+    expect(onTrigger).toHaveBeenCalledTimes(1)
+  })
+
+  it('propagates the disabled state to the button', () => {
+    const onTrigger = vi.fn()
+    render(<DetailsHeaderAction icon={<span />} label="Reveal" onTrigger={onTrigger} disabled />)
+    const button = screen.getByRole('button', { name: 'Reveal' }) as HTMLButtonElement
+    expect(button.disabled).toBe(true)
+    fireEvent.click(button)
+    expect(onTrigger).not.toHaveBeenCalled()
   })
 })
