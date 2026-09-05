@@ -62,8 +62,9 @@
 .refBadge {
   flex: none;
   padding: 0 6px;
-  border: 1px solid var(--dsw-alias-border-l2);
+  border: 0.5px solid var(--dsw-alias-border-l2);
   border-radius: 999px;
+  corner-shape: round;
   font-size: 10px;
   line-height: 14px;
   color: var(--dsw-alias-label-secondary);
@@ -88,7 +89,7 @@
   flex: none;
   margin: 4px 8px 12px;
   padding: 6px 10px;
-  border: 1px solid var(--dsw-alias-border-l2);
+  border: 0.5px solid var(--dsw-alias-border-l2);
   border-radius: 8px;
   background: transparent;
   color: var(--dsw-alias-label-secondary);

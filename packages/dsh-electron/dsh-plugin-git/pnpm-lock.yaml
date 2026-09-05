@@ -615,7 +615,7 @@ packages:
     resolution: {integrity: sha512-njDtZsznjYxok7KLLlHOPyuv2efdWVbSflAHgztSfbMsg+CVraEoRe2DjOCgClYv3ZCSm7WXoaUkbB/+RY7tWQ==}
 
   '@dsh-electron/dsh-client-ui-details-host@file:tests/fixtures/dsh-client-ui-details-host-0.3.0.tgz':
-    resolution: {integrity: sha512-JScoE4t04lYwrwuU8MGFN9C5PVeVr+J05kQlEYGHmPfYv3Gkwzab35cPKwAHe+aAS655fxO/jm5xNUuAMTKvbg==, tarball: file:tests/fixtures/dsh-client-ui-details-host-0.3.0.tgz}
+    resolution: {integrity: sha512-pq3pTn6WGz0TQPXEGh2d/k4dLDdVpqp2NwIYV42PL8e4vZDRiRXbmstMcQ7vUcDduEdklJcvyCyuVXs9TlrXtQ==, tarball: file:tests/fixtures/dsh-client-ui-details-host-0.3.0.tgz}
     version: 0.3.0
     engines: {node: ^22.19.0 || >=24.0.0}
     peerDependencies:

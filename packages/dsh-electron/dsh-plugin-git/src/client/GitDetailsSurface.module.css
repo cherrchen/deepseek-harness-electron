@@ -12,7 +12,7 @@
   flex-direction: column;
   gap: 8px;
   padding: 12px 14px;
-  border-bottom: 1px solid var(--dsw-alias-border-l2);
+  border-bottom: 0.5px solid var(--dsw-alias-border-l2);
 }
 
 .repoName {
@@ -34,7 +34,7 @@
   flex: none;
   gap: 4px;
   padding: 0 12px;
-  border-bottom: 1px solid var(--dsw-alias-border-l2);
+  border-bottom: 0.5px solid var(--dsw-alias-border-l2);
 }
 
 .tab,
@@ -164,7 +164,7 @@
   min-height: 96px;
   box-sizing: border-box;
   padding: 9px;
-  border: 1px solid var(--dsw-alias-border-l2);
+  border: 0.5px solid var(--dsw-alias-border-l2);
   border-radius: 8px;
   outline: none;
   color: var(--dsw-alias-label-primary);
@@ -240,7 +240,7 @@
 
 .diffBody {
   overflow: auto;
-  border: 1px solid var(--dsw-alias-border-l2);
+  border: 0.5px solid var(--dsw-alias-border-l2);
   border-radius: 8px;
   background: var(--dsw-specific-sidebar-fill);
   font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
