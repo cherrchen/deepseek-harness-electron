@@ -13,6 +13,7 @@ import type { GitDiffSurfaceProps } from '../src/client/surfaces/GitDiffSurface.
 import { GitGraphSurface } from '../src/client/surfaces/GitGraphSurface.tsx'
 import type { GitGraphSurfaceProps } from '../src/client/surfaces/GitGraphSurface.tsx'
 import type { GitClientController } from '../src/client/controller.ts'
+import { layoutGitGraph } from '../src/client/graph/layout.ts'
 import { GIT_CHANGES_SURFACE_ID, GIT_DIFF_SURFACE_ID } from '../src/client/contract.ts'
 import { en } from '../src/client/locales.ts'
 
@@ -30,6 +31,18 @@ function snapshot(overrides: Partial<GitRepositorySnapshot> = {}): GitRepository
   }
 }
 
+function commit(hash: string, parents: string[]): import('../src/types.ts').GitCommitSummary {
+  return {
+    hash,
+    parents,
+    shortHash: hash.slice(0, 7),
+    subject: `commit ${hash}`,
+    author: 'tester',
+    date: '2026-01-01T00:00:00Z',
+    refs: [],
+  }
+}
+
 function baseState(overrides: Partial<ReturnType<GitClientController['getSnapshot']>> = {}): ReturnType<GitClientController['getSnapshot']> {
   return {
     workspacePath: '/workspace',
@@ -43,6 +56,9 @@ function baseState(overrides: Partial<ReturnType<GitClientController['getSnapsho
     graphLoading: false,
     graphHasMore: false,
     graphError: undefined,
+    graphScope: 'auto',
+    graphRows: [],
+    graphLaneCount: 0,
     commitMessage: '',
     generating: false,
     generationAvailable: false,
@@ -86,6 +102,7 @@ function controllerOf(state: ReturnType<GitClientController['getSnapshot']>) {
     setWorkspace: vi.fn(async () => {}),
     loadGraph: vi.fn(async () => {}),
     loadMoreGraph: vi.fn(async () => {}),
+    setGraphScope: vi.fn(async () => {}),
     setCommitMessage: vi.fn(),
     generateCommitMessage: vi.fn(async () => {}),
   }
@@ -186,23 +203,20 @@ describe('GitGraphSurface', () => {
   })
 
   it('sizes the canvas at design pixels regardless of devicePixelRatio', () => {
-    const commit = (hash: string, parents: string[]) => ({
-      hash,
-      parents,
-      shortHash: hash.slice(0, 7),
-      subject: `commit ${hash}`,
-      author: 'tester',
-      date: '2026-01-01T00:00:00Z',
-      refs: [],
-    })
     const graph = [commit('c2', ['c1']), commit('c1', [])]
-    const controller = controllerOf(baseState({ repository: snapshot(), graph }))
+    const layout = layoutGitGraph(graph)
+    const controller = controllerOf(baseState({
+      repository: snapshot(),
+      graph,
+      graphRows: layout.rows,
+      graphLaneCount: layout.laneCount,
+    }))
     const { container } = render(<GitGraphSurface {...props(controller)} />)
     const canvas = container.querySelector('[data-git-graph-surface] canvas') as HTMLCanvasElement
     expect(canvas).toBeTruthy()
     // CSS box is the design size; the DPR-scaled backing store must never
     // leak into layout (Retina 2x regression guard).
-    expect(canvas.style.width).toBe('14px')
+    expect(canvas.style.width).toBe(`${layout.laneCount * 16}px`)
     expect(canvas.style.height).toBe(`${graph.length * 36}px`)
   })
 })

@@ -14,6 +14,44 @@
 }
 
 /*
+ * History scope switcher (Auto / All / First parent). Pure view policy:
+ * switching only changes which history the Host queries, never the topology
+ * the renderer draws.
+ */
+.scopeBar {
+  display: flex;
+  flex: none;
+  gap: 4px;
+  padding: 8px 12px 0;
+}
+
+.scopeButton {
+  padding: 0 10px;
+  border: 0.5px solid transparent;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--dsw-alias-label-secondary);
+  font-size: 11px;
+  line-height: 18px;
+  cursor: pointer;
+}
+
+.scopeButton:hover:not(:disabled) {
+  background: var(--dsw-alias-fill-hover);
+}
+
+.scopeButton[data-active] {
+  border-color: var(--dsw-alias-border-l2);
+  background: var(--dsw-alias-bg-layer-2, transparent);
+  color: var(--dsw-alias-label-primary);
+}
+
+.scopeButton:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+
+/*
  * Row height is the graph geometry contract: one commit row is exactly
  * GIT_GRAPH_ROW_HEIGHT (36px, shared with graph-geometry.ts), so the canvas
  * rail and the text rows stay aligned at every row boundary.

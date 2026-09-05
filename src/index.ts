@@ -117,10 +117,13 @@ async function invoke(
     case 'log': {
       const limitField = request['limit']
       const skipField = request['skip']
+      const scopeField = request['scope']
+      const scope = scopeField === 'all' || scopeField === 'first-parent' ? scopeField : 'auto'
       return service.log(
         stringField(request, 'repository'),
         typeof limitField === 'number' ? limitField : 100,
         typeof skipField === 'number' ? skipField : 0,
+        scope,
         signal,
       )
     }

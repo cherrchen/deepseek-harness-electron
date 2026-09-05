@@ -51,6 +51,9 @@ export const en = {
   'details.generateFailed': 'Commit message generation failed.',
   'graph.loadMore': 'Load more commits',
   'graph.empty': 'No commits yet.',
+  'graph.scope.auto': 'Auto',
+  'graph.scope.all': 'All',
+  'graph.scope.firstParent': 'First parent',
 } as const
 
 export const zh: Record<keyof typeof en, string> = {
@@ -102,6 +105,9 @@ export const zh: Record<keyof typeof en, string> = {
   'details.generateFailed': '生成提交信息失败。',
   'graph.loadMore': '加载更多提交',
   'graph.empty': '暂无提交。',
+  'graph.scope.auto': '自动',
+  'graph.scope.all': '全部',
+  'graph.scope.firstParent': '首父链',
 }
 
 export type GitLocaleKey = keyof typeof en

@@ -143,4 +143,32 @@ describe('portable Git service', () => {
       await dispose()
     }
   })
+
+  it('applies the history scope to the log command', async () => {
+    const { dispose, git } = await service()
+    try {
+      const root = repository()
+      execFileSync('git', ['checkout', '-q', '-b', 'feature'], { cwd: root })
+      writeFileSync(join(root, 'feature.txt'), 'feature\n')
+      execFileSync('git', ['add', 'feature.txt'], { cwd: root })
+      execFileSync('git', ['commit', '-m', 'feature work'], { cwd: root })
+      execFileSync('git', ['checkout', '-q', 'main'], { cwd: root })
+      writeFileSync(join(root, 'main.txt'), 'main\n')
+      execFileSync('git', ['add', 'main.txt'], { cwd: root })
+      execFileSync('git', ['commit', '-m', 'main work'], { cwd: root })
+      execFileSync('git', ['merge', '-q', '--no-ff', '-m', 'merge feature', 'feature'], { cwd: root })
+
+      const auto = await git.log(root, 10, 0)
+      expect(auto.map(commit => commit.subject)).toEqual(['merge feature', 'main work', 'feature work', 'initial'])
+      // First-parent scope mirrors `git log --first-parent`: the side branch
+      // commit is not part of the queried history at all.
+      const firstParent = await git.log(root, 10, 0, 'first-parent')
+      expect(firstParent.map(commit => commit.subject)).toEqual(['merge feature', 'main work', 'initial'])
+      // All-refs scope keeps both parents' ancestry (and stays valid).
+      const all = await git.log(root, 10, 0, 'all')
+      expect(all.map(commit => commit.subject)).toEqual(['merge feature', 'main work', 'feature work', 'initial'])
+    } finally {
+      await dispose()
+    }
+  })
 })

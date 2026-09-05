@@ -1,6 +1,8 @@
 /** Client-side Git state and RPC orchestration. */
 
-import type { GitCommitSummary, GitDiff, GitRepositorySnapshot } from '../types.ts'
+import type { GitCommitSummary, GitDiff, GitLogScope, GitRepositorySnapshot } from '../types.ts'
+import { layoutGitGraph } from './graph/layout.ts'
+import type { GraphContinuationState, GraphLayoutRow } from './graph/types.ts'
 
 type GitRpcResult = { ok: true; value: unknown } | { ok: false; error: { message: string } }
 
@@ -51,6 +53,12 @@ export interface GitClientState {
   /** Whether another graph page may exist past the loaded ones. */
   readonly graphHasMore: boolean
   readonly graphError: string | undefined
+  /** History scope used for the loaded graph. */
+  readonly graphScope: GitLogScope
+  /** Renderer-ready graph rows laid out across all loaded pages. */
+  readonly graphRows: readonly GraphLayoutRow[]
+  /** Maximum visible lane count across the loaded rows. */
+  readonly graphLaneCount: number
   /** Editable commit message proposal/input shared by the commit region. */
   readonly commitMessage: string
   /** Whether a commit message generation request is in flight. */
@@ -74,6 +82,9 @@ export class GitClientController {
     graphLoading: false,
     graphHasMore: true,
     graphError: undefined,
+    graphScope: 'auto',
+    graphRows: [],
+    graphLaneCount: 0,
     commitMessage: '',
     generating: false,
     generationAvailable: false,
@@ -83,6 +94,8 @@ export class GitClientController {
   private desktop: GitDesktopCapability | undefined
   private operationGeneration = 0
   private diffNavigator: ((path: string, staged: boolean) => void) | undefined
+  /** Lane continuation state between loaded graph pages. */
+  private graphContinuation: GraphContinuationState | undefined
 
   constructor(private readonly rpc: GitRpcClient) {}
 
@@ -146,11 +159,14 @@ export class GitClientController {
       selectedDiff: undefined,
       error: undefined,
       graph: [],
+      graphRows: [],
+      graphLaneCount: 0,
       graphHasMore: true,
       graphError: undefined,
       commitMessage: '',
       generationError: undefined,
     })
+    this.graphContinuation = undefined
     if (workspacePath === undefined) {
       this.patch({ loading: false })
       return
@@ -209,14 +225,17 @@ export class GitClientController {
   discard(path?: string): Promise<void> { return this.mutate('discard', { path }) }
 
   /**
-   * Load the first graph page, replacing any loaded history.
+   * Load a graph page, replacing (reset) or appending to the loaded history.
+   * Appended pages continue the previous page's active lanes through the
+   * stored continuation state instead of restarting from empty lanes.
    * @param reset - Replace the loaded page instead of appending.
    * @returns Completion after the Host log call settles.
    */
   async loadGraph(reset = true): Promise<void> {
     const repository = this.state.repository
     if (repository === undefined || repository === null) {
-      this.patch({ graph: [], graphHasMore: false })
+      this.graphContinuation = undefined
+      this.patch({ graph: [], graphRows: [], graphLaneCount: 0, graphHasMore: false })
       return
     }
     const skip = reset ? 0 : this.state.graph.length
@@ -226,9 +245,22 @@ export class GitClientController {
         repository: repository.root,
         limit: GIT_GRAPH_PAGE_SIZE,
         skip,
+        scope: this.state.graphScope,
       }))
       const graph = reset ? commits : [...this.state.graph, ...commits]
-      this.patch({ graph, graphLoading: false, graphHasMore: commits.length === GIT_GRAPH_PAGE_SIZE })
+      if (reset) this.graphContinuation = undefined
+      const layout = layoutGitGraph(commits, {
+        ...(this.graphContinuation !== undefined ? { continuation: this.graphContinuation } : {}),
+        firstParentOnly: this.state.graphScope === 'first-parent',
+      })
+      this.graphContinuation = layout.continuation
+      this.patch({
+        graph,
+        graphRows: reset ? layout.rows : [...this.state.graphRows, ...layout.rows],
+        graphLaneCount: reset ? layout.laneCount : Math.max(this.state.graphLaneCount, layout.laneCount),
+        graphLoading: false,
+        graphHasMore: commits.length === GIT_GRAPH_PAGE_SIZE,
+      })
     } catch (error) {
       this.patch({ graphLoading: false, graphError: error instanceof Error ? error.message : String(error) })
     }
@@ -239,6 +271,17 @@ export class GitClientController {
    * @returns Completion after the Host log call settles.
    */
   loadMoreGraph(): Promise<void> { return this.loadGraph(false) }
+
+  /**
+   * Switch the graph history scope and reload the first page.
+   * @param scope - New history scope (`auto`, `all`, or `first-parent`).
+   * @returns Completion after the reloaded page settles.
+   */
+  async setGraphScope(scope: GitLogScope): Promise<void> {
+    if (scope === this.state.graphScope) return
+    this.patch({ graphScope: scope })
+    await this.loadGraph(true)
+  }
 
   /**
    * Editable commit message input (survives tab switches within a session).
