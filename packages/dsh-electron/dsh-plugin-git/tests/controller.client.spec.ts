@@ -86,4 +86,76 @@ describe('GitClientController', () => {
     expect(controller.getSnapshot().repository?.branch).toBe('main')
     expect(controller.getSnapshot().error).toBe('Your local changes would be overwritten')
   })
+
+  it('passes the graph scope to log and reloads the first page on switch', async () => {
+    const logPayloads: Record<string, unknown>[] = []
+    const commit = (hash: string, parents: string[]) => ({
+      hash,
+      parents,
+      shortHash: hash.slice(0, 7),
+      subject: hash,
+      author: 'tester',
+      date: '2026-01-01T00:00:00Z',
+      refs: hash === 'c2' ? ['HEAD'] : [],
+    })
+    const rpc = {
+      call: vi.fn(async (_channel: string, endpoint: string, payload: unknown) => {
+        if (endpoint === 'discover') return { ok: true as const, value: '/repo' }
+        if (endpoint === 'status') return { ok: true as const, value: snapshot() }
+        if (endpoint === 'log') {
+          logPayloads.push(payload as Record<string, unknown>)
+          return { ok: true as const, value: [commit('c2', ['c1']), commit('c1', [])] }
+        }
+        return { ok: true as const, value: null }
+      }),
+    }
+    const controller = new GitClientController(rpc)
+    await controller.setWorkspace('/workspace')
+    expect(logPayloads.at(-1)!.scope).toBe('auto')
+    await controller.setGraphScope('first-parent')
+    expect(logPayloads.at(-1)!.scope).toBe('first-parent')
+    expect(controller.getSnapshot().graphScope).toBe('first-parent')
+    expect(controller.getSnapshot().graphRows).toHaveLength(2)
+  })
+
+  it('continues graph lanes across appended pages instead of restarting', async () => {
+    const commit = (hash: string, parents: string[]) => ({
+      hash,
+      parents,
+      shortHash: hash.slice(0, 7),
+      subject: hash,
+      author: 'tester',
+      date: '2026-01-01T00:00:00Z',
+      refs: [],
+    })
+    const pageOne = [commit('m', ['a', 's'])]
+    const pageTwo = [commit('s', ['base']), commit('a', ['base']), commit('base', [])]
+    const rpc = {
+      call: vi.fn(async (_channel: string, endpoint: string, payload: unknown) => {
+        if (endpoint === 'discover') return { ok: true as const, value: '/repo' }
+        if (endpoint === 'status') return { ok: true as const, value: snapshot() }
+        if (endpoint === 'log') {
+          const skip = (payload as { skip?: number }).skip ?? 0
+          return { ok: true as const, value: skip === 0 ? pageOne : pageTwo }
+        }
+        return { ok: true as const, value: null }
+      }),
+    }
+    const controller = new GitClientController(rpc)
+    await controller.setWorkspace('/workspace')
+    // The first-page load fires without being awaited inside setWorkspace;
+    // flush pending tasks so the paged assertions below are deterministic.
+    await new Promise(resolve => { setTimeout(resolve, 0) })
+    expect(controller.getSnapshot().graphRows).toHaveLength(1)
+    await controller.loadMoreGraph()
+    const state = controller.getSnapshot()
+    expect(state.graphRows).toHaveLength(4)
+    // The pending lanes of page one (spine + side lane) continue into page
+    // two: the first appended row carries an entry column instead of
+    // appearing without a rail.
+    expect(state.graphRows[1]!.nodeEntryColumn).toBeDefined()
+    // The shared parent folds both pending lanes in and releases them.
+    expect(state.graphRows.at(-1)!.merging).toHaveLength(1)
+    expect(state.graphLaneCount).toBeGreaterThanOrEqual(2)
+  })
 })

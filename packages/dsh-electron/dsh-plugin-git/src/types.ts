@@ -29,6 +29,15 @@ export interface GitRepositorySnapshot {
   readonly branches: readonly GitBranch[]
 }
 
+/** History scope of a `git log` query. */
+export type GitLogScope =
+  /** HEAD ancestry (default `git log` behavior). */
+  | 'auto'
+  /** All refs and their ancestry (`git log --all`). */
+  | 'all'
+  /** First-parent chain of HEAD (`git log --first-parent`). */
+  | 'first-parent'
+
 /** Diff text with its normalized repository identity. */
 export interface GitDiff {
   readonly repository: string
