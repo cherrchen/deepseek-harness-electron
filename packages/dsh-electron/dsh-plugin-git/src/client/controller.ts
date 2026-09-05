@@ -58,6 +58,8 @@ export interface GitClientState {
   readonly graphError: string | undefined
   /** History scope used for the loaded graph. */
   readonly graphScope: GitLogScope
+  /** Whether the current binding's first graph page already settled (loaded, empty, or failed). */
+  readonly graphLoaded: boolean
   /** Renderer-ready graph rows laid out across all loaded pages. */
   readonly graphRows: readonly GraphLayoutRow[]
   /** Maximum visible lane count across the loaded rows. */
@@ -86,6 +88,7 @@ export class GitClientController {
     graphHasMore: true,
     graphError: undefined,
     graphScope: 'auto',
+    graphLoaded: false,
     graphRows: [],
     graphLaneCount: 0,
     commitMessage: '',
@@ -96,7 +99,11 @@ export class GitClientController {
   private readonly listeners = new Set<() => void>()
   private desktop: GitDesktopCapability | undefined
   private operationGeneration = 0
+  /** Workspace path of the last completed `setWorkspace` binding (idempotence guard). */
+  private boundWorkspace: { path: string | undefined; generation: number } | undefined
   private diffNavigator: ((path: string, staged: boolean) => void) | undefined
+  /** Monotonic request identity for graph pages; stale responses are discarded. */
+  private graphRequestGeneration = 0
   /** Lane continuation state between loaded graph pages. */
   private graphContinuation: GraphContinuationState | undefined
 
@@ -149,12 +156,16 @@ export class GitClientController {
   }
 
   /**
-   * Bind repository discovery to the current workspace path.
+   * Bind repository discovery to the current workspace path. Idempotent: the
+   * Details Host remounts surfaces on tab switches, and rebinding the same
+   * workspace must not reset retained state (commit drafts, loaded graph).
    * @param workspacePath - Current workspace path, if one is selected.
    * @returns Completion after the first discover and status calls settle.
    */
   async setWorkspace(workspacePath: string | undefined): Promise<void> {
+    if (this.boundWorkspace !== undefined && this.boundWorkspace.path === workspacePath) return
     const generation = ++this.operationGeneration
+    this.boundWorkspace = { path: workspacePath, generation }
     this.patch({
       workspacePath,
       repository: undefined,
@@ -166,7 +177,10 @@ export class GitClientController {
       graphLaneCount: 0,
       graphHasMore: true,
       graphError: undefined,
+      graphLoading: false,
+      graphLoaded: false,
       commitMessage: '',
+      generating: false,
       generationError: undefined,
     })
     this.graphContinuation = undefined
@@ -175,12 +189,21 @@ export class GitClientController {
       return
     }
     await this.loadRepository(generation, workspacePath)
+    if (generation !== this.operationGeneration) {
+      // A newer operation replaced this binding while discovery was in
+      // flight; drop the bookkeeping so the next identical setWorkspace call
+      // rebinds instead of trusting stale state.
+      if (this.boundWorkspace?.generation === generation) this.boundWorkspace = undefined
+      return
+    }
     void this.loadGraph(true)
     void this.loadGenerationCapability()
   }
 
   /**
-   * Discover and reload repository state for a workspace.
+   * Discover and reload repository state for a workspace. A successful reload
+   * invalidates the loaded graph so the Graph surface reloads history that may
+   * have changed outside this session (external commits, branch switches).
    * @param workspacePath - Workspace path, defaulting to the current controller state.
    * @returns Completion after Host discovery and status calls settle.
    */
@@ -191,6 +214,8 @@ export class GitClientController {
     }
     const generation = ++this.operationGeneration
     await this.loadRepository(generation, workspacePath)
+    if (generation !== this.operationGeneration || this.state.error !== undefined) return
+    this.patch({ graphLoaded: false, generating: false, generationError: undefined })
   }
 
   /**
@@ -238,23 +263,27 @@ export class GitClientController {
     const repository = this.state.repository
     if (repository === undefined || repository === null) {
       this.graphContinuation = undefined
-      this.patch({ graph: [], graphRows: [], graphLaneCount: 0, graphHasMore: false })
+      this.patch({ graph: [], graphRows: [], graphLaneCount: 0, graphHasMore: false, graphLoaded: false })
       return
     }
+    const requestGeneration = ++this.graphRequestGeneration
+    const repositoryRoot = repository.root
+    const scope = this.state.graphScope
     const skip = reset ? 0 : this.state.graph.length
     this.patch({ graphLoading: true, graphError: undefined })
     try {
       const commits = decodeCommits(await this.call('log', {
-        repository: repository.root,
+        repository: repositoryRoot,
         limit: GIT_GRAPH_PAGE_SIZE,
         skip,
-        scope: this.state.graphScope,
+        scope,
       }))
+      if (!this.isGraphRequestCurrent(requestGeneration, repositoryRoot)) return
       const graph = reset ? commits : [...this.state.graph, ...commits]
       if (reset) this.graphContinuation = undefined
       const layout = layoutGitGraph(commits, {
         ...(this.graphContinuation !== undefined ? { continuation: this.graphContinuation } : {}),
-        firstParentOnly: this.state.graphScope === 'first-parent',
+        firstParentOnly: scope === 'first-parent',
         maxLanes: GIT_GRAPH_MAX_LANES,
       })
       this.graphContinuation = layout.continuation
@@ -264,10 +293,24 @@ export class GitClientController {
         graphLaneCount: reset ? layout.laneCount : Math.max(this.state.graphLaneCount, layout.laneCount),
         graphLoading: false,
         graphHasMore: commits.length === GIT_GRAPH_PAGE_SIZE,
+        graphLoaded: true,
       })
     } catch (error) {
-      this.patch({ graphLoading: false, graphError: error instanceof Error ? error.message : String(error) })
+      // A settled failure counts as loaded: the empty-history auto effect must
+      // not turn a failing `git log` into an infinite retry loop. Recovery is
+      // an explicit refresh.
+      if (!this.isGraphRequestCurrent(requestGeneration, repositoryRoot)) return
+      this.patch({
+        graphLoading: false,
+        graphError: error instanceof Error ? error.message : String(error),
+        graphLoaded: true,
+      })
     }
+  }
+
+  /** Whether a graph response still belongs to the newest request and binding. */
+  private isGraphRequestCurrent(generation: number, repositoryRoot: string): boolean {
+    return generation === this.graphRequestGeneration && this.state.repository?.root === repositoryRoot
   }
 
   /**
@@ -306,20 +349,32 @@ export class GitClientController {
       this.patch({ generationError: 'stage-changes-first' })
       return
     }
+    const generation = this.operationGeneration
+    const repositoryRoot = repository.root
     this.patch({ generating: true, generationError: undefined })
     try {
-      const staged = decodeDiff(await this.call('diff', { repository: repository.root, staged: true }))
+      const staged = decodeDiff(await this.call('diff', { repository: repositoryRoot, staged: true }))
+      if (!this.isGenerationCurrent(generation, repositoryRoot)) return
       const proposal = await this.call('generate-commit-message', {
-        repository: repository.root,
+        repository: repositoryRoot,
         stagedDiff: staged.text,
       })
+      if (!this.isGenerationCurrent(generation, repositoryRoot)) return
       if (typeof proposal !== 'string' || proposal.trim().length === 0) {
         throw new Error('generation returned an empty message')
       }
       this.patch({ commitMessage: proposal, generating: false })
     } catch (error) {
+      // Stale requests (workspace switched, repository reloaded) publish
+      // neither their proposal nor their failure.
+      if (!this.isGenerationCurrent(generation, repositoryRoot)) return
       this.patch({ generating: false, generationError: error instanceof Error ? error.message : String(error) })
     }
+  }
+
+  /** Whether a generation response still belongs to the newest operation and binding. */
+  private isGenerationCurrent(generation: number, repositoryRoot: string): boolean {
+    return generation === this.operationGeneration && this.state.repository?.root === repositoryRoot
   }
 
   private async loadGenerationCapability(): Promise<void> {
@@ -405,7 +460,10 @@ export class GitClientController {
     try {
       const payload = { repository: repository.root, ...fields }
       const next = decodeSnapshot(await this.call(endpoint, payload))
-      this.patch({ repository: next, diff: undefined, selectedDiff: undefined, loading: false })
+      // Commits, discards, and branch switches may change history: invalidate
+      // the loaded graph so the Graph surface reloads instead of rendering the
+      // pre-mutation log.
+      this.patch({ repository: next, diff: undefined, selectedDiff: undefined, loading: false, graphLoaded: false })
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error)
       this.patch({ loading: false, error: message })

@@ -57,6 +57,7 @@ function baseState(overrides: Partial<ReturnType<GitClientController['getSnapsho
     graphHasMore: false,
     graphError: undefined,
     graphScope: 'auto',
+    graphLoaded: false,
     graphRows: [],
     graphLaneCount: 0,
     commitMessage: '',
@@ -180,6 +181,14 @@ describe('GitDiffSurface', () => {
     expect(controller.showDiff).toHaveBeenCalledWith('notes.txt', false)
     expect(screen.getByText(en['details.untrackedDiff'])).toBeTruthy()
   })
+
+  it('waits for the repository binding before requesting the payload diff', () => {
+    const controller = controllerOf(baseState({ repository: undefined }))
+    render(<GitDiffSurface {...props(controller)} />)
+    // Mounting before the shared controller discovered a repository must not
+    // fire a doomed `showDiff` (the load-failure regression).
+    expect(controller.showDiff).not.toHaveBeenCalled()
+  })
 })
 
 describe('GitGraphSurface', () => {
@@ -195,10 +204,16 @@ describe('GitGraphSurface', () => {
       detailsInstance: detailsInstanceOf('git.graph'),
     }) as unknown as GitGraphSurfaceProps
 
-  it('loads the first page on mount and renders empty history copy', () => {
+  it('auto-loads the first page only while the history was never loaded', () => {
     const controller = controllerOf(baseState())
     render(<GitGraphSurface {...props(controller)} />)
     expect(controller.loadGraph).toHaveBeenCalledWith(true)
+  })
+
+  it('renders empty history copy after the first page settled without reloading', () => {
+    const controller = controllerOf(baseState({ graphLoaded: true }))
+    render(<GitGraphSurface {...props(controller)} />)
+    expect(controller.loadGraph).not.toHaveBeenCalled()
     expect(screen.getByText(en['graph.empty'])).toBeTruthy()
   })
 

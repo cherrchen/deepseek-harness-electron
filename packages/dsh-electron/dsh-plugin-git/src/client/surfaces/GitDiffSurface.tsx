@@ -24,10 +24,14 @@ export function GitDiffSurface({ controller, t, useSessions, sessionId, detailsI
 
   useGitWorkspace(controller, workspacePath)
 
-  // Payload owns the compared file; activation refetches it.
+  // Payload owns the compared file. The effect waits for the workspace
+  // binding to settle (repository discovered) — mounting before the shared
+  // controller has a repository must not fire a doomed request; once ready,
+  // activation and every repository snapshot refresh refetch the diff.
   useEffect(() => {
-    void controller.showDiff(payload.path, payload.staged)
-  }, [controller, payload.path, payload.staged])
+    if (state.repository === undefined || state.repository === null) return
+    void controller.showDiff(payload.path, payload.staged).catch(() => {})
+  }, [controller, payload.path, payload.staged, state.repository])
 
   return (
     <div className={css.root} data-git-diff-surface="">
