@@ -4,7 +4,7 @@ import type { GitCommitSummary, GitDiff, GitLogScope, GitRepositorySnapshot } fr
 import { layoutGitGraph } from './graph/layout.ts'
 import type { GraphContinuationState, GraphLayoutRow } from './graph/types.ts'
 
-type GitRpcResult = { ok: true; value: unknown } | { ok: false; error: { message: string } }
+export type GitRpcResult = { ok: true; value: unknown } | { ok: false; error: { message: string } }
 
 /** Structural subset of the Connection RPC caller consumed by the Git client. */
 export interface GitRpcClient {
