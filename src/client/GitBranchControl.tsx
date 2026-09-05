@@ -48,7 +48,7 @@ export function GitBranchControl({ controller, openDetails, t, sessionId, useSes
   // Structural hook face (same treatment as the details surfaces): keeps the
   // component independent of the Host session adapter's concrete typing.
   const sessions = useSessions as GitSessionsHook
-  const workspacePath = sessions(list => list.byId[String(sessionId as string)]?.cwd)
+  const workspacePath = sessions(list => list.byId[sessionId]?.cwd)
   const [menuOpen, setMenuOpen] = useState(false)
   const [creating, setCreating] = useState(false)
   const [branchName, setBranchName] = useState('')
