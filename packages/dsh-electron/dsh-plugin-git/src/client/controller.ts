@@ -163,7 +163,13 @@ export class GitClientController {
    * @returns Completion after the first discover and status calls settle.
    */
   async setWorkspace(workspacePath: string | undefined): Promise<void> {
-    if (this.boundWorkspace !== undefined && this.boundWorkspace.path === workspacePath) return
+    // Idempotent only while the bookkeeping is the newest operation: a stale
+    // continuation (newer binding or refresh bumped the generation) must
+    // rebind instead of trusting retained state.
+    const binding = this.boundWorkspace
+    if (binding !== undefined
+      && binding.generation === this.operationGeneration
+      && binding.path === workspacePath) return
     const generation = ++this.operationGeneration
     this.boundWorkspace = { path: workspacePath, generation }
     this.patch({
@@ -189,14 +195,7 @@ export class GitClientController {
       return
     }
     await this.loadRepository(generation, workspacePath)
-    if (generation !== this.operationGeneration) {
-      // A newer operation replaced this binding while discovery was in
-      // flight; drop the bookkeeping so the next identical setWorkspace call
-      // rebinds instead of trusting stale state.
-      const binding: { path: string | undefined; generation: number } | undefined = this.boundWorkspace
-      if (binding !== undefined && binding.generation === generation) this.boundWorkspace = undefined
-      return
-    }
+    if (generation !== this.operationGeneration) return
     void this.loadGraph(true)
     void this.loadGenerationCapability()
   }
@@ -216,6 +215,9 @@ export class GitClientController {
     const generation = ++this.operationGeneration
     await this.loadRepository(generation, workspacePath)
     if (generation !== this.operationGeneration || this.state.error !== undefined) return
+    // Keep the binding bookkeeping current so surface remounts after a
+    // refresh stay idempotent.
+    this.boundWorkspace = { path: workspacePath, generation }
     this.patch({ graphLoaded: false, generating: false, generationError: undefined })
   }
 
