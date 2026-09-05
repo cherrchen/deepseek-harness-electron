@@ -11091,7 +11091,7 @@ packages:
         optional: true
 
   '@dsh-electron/dsh-client-ui-details-host@file:packages/dsh-electron/dsh-plugin-git/tests/fixtures/dsh-client-ui-details-host-0.3.0.tgz':
-    resolution: {integrity: sha512-+rVeldFEf9ibBhny5ij2vl0KYkjTiHJ78YZLDYp25Efx3C9KO9f4Is7xyZkO4kCpsfViv1BInqGwx8/EiEP25w==, tarball: file:packages/dsh-electron/dsh-plugin-git/tests/fixtures/dsh-client-ui-details-host-0.3.0.tgz}
+    resolution: {integrity: sha512-wNNdlnPwFOXQvsrLQ2YFNBlAGaMgS/nBNsMyWhuCbLiMWBXNPvAYNYRKTveWaizsjPF9XPpwdR47ENKZLj7LQw==, tarball: file:packages/dsh-electron/dsh-plugin-git/tests/fixtures/dsh-client-ui-details-host-0.3.0.tgz}
     version: 0.3.0
     engines: {node: ^22.19.0 || >=24.0.0}
     peerDependencies:
