@@ -50,11 +50,12 @@ export function layoutGitGraph(commits: readonly GitCommitSummary[], options: Gr
     const merging: GraphLanePlacement[] = []
     let primary: PoolLane
     let hasEntry: boolean
-    if (matched.length > 0) {
+    const [primaryMatched, ...duplicateMatches] = matched
+    if (primaryMatched !== undefined) {
       // Primary = highest-priority matched lane; duplicates collapse into the
       // node and are released instead of lingering forever.
-      primary = matched[0]!
-      for (const lane of matched.slice(1)) {
+      primary = primaryMatched
+      for (const lane of duplicateMatches) {
         merging.push({ laneId: lane.id, colorKey: lane.colorKey, column: lane.column })
         pool.release(lane)
       }

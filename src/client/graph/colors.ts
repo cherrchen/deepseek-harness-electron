@@ -35,7 +35,7 @@ export function resolveGraphColors(element: Element): readonly string[] {
 
 /** Color of one lane given the resolved palette. */
 export function graphLaneColor(colorKey: string, colors: readonly string[]): string {
-  return colors.at(graphColorIndex(colorKey) % colors.length) ?? colors[0]!
+  return colors.at(graphColorIndex(colorKey) % colors.length) ?? colors[0] ?? ''
 }
 
 /** Color of a layout row's node. */

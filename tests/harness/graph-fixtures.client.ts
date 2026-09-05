@@ -167,7 +167,7 @@ export function assertGraphInvariants(
     }
     // Left-packed columns: node + through + edge targets cover 0..k.
     const columns = [...new Set(rowColumns(row))].sort((a, b) => a - b)
-    columns.forEach((column, position) => expect(column).toBe(position))
+    columns.forEach((column, position) => { expect(column).toBe(position) })
   })
 
   const rowIndexByHash = new Map(commits.map((c, index) => [c.hash, index] as const))
