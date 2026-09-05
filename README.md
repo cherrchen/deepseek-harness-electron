@@ -141,11 +141,22 @@ No runtime invariant companion is published because Cordis owns the service, RPC
 | `executable` | `git` | Git executable name or absolute path resolved by `ctx.subprocess`. |
 | `maxOutputBytes` | 8 MiB | Per-stream collection cap for one Git command. |
 | `graceMs` | 3000 | Managed subprocess termination grace period. |
+| `commitMessage.provider` | — | Provider route registered with the DSH LLM runtime. Required when the `commitMessage` section is present. |
+| `commitMessage.model` | — | Model id resolved by the provider route. Required when the `commitMessage` section is present. |
+| `commitMessage.maxDiffBytes` | 48 KiB | Staged-diff byte cap applied before the generation prompt is built (validated minimum 1024). |
+
+The whole `commitMessage` section is optional. When it is absent, or when the host exposes no LLM runtime, commit message generation is unavailable and the Client reports `git/generation-unavailable`.
 
 <a id="git-operations"></a>
 ## Git operations
 
 The first release supports repository discovery, Git version, current branch and HEAD, staged/unstaged/untracked status, local branches, working and staged diffs, stage/unstage, commit, branch creation, and branch switching. Status uses porcelain v2 with NUL path separators; branches use `for-each-ref`; every caller-supplied path, branch, and message remains one argv value.
+
+Discard reverts one unstaged or untracked path through `git checkout --` / `git clean -f --` and is destructive: the Client always asks for a second, explicit confirmation before sending the RPC, and the surface names the path in the confirm body.
+
+Commit history is read with a paged `git log` (`GIT_LOG_FORMAT`, one commit per line, fixed field count) so the Graph surface appends older commits incrementally through a load-more control instead of materializing the whole history.
+
+Commit message generation is opt-in: when `commitMessage` is configured and the host provides the LLM runtime, a staged diff (capped by `commitMessage.maxDiffBytes`) is sent to the configured provider route and the streamed suggestion is written into the editable commit message input. Generation is suggestion-only — it never stages, commits, or pushes anything.
 
 GitHub authentication, remotes, fetch/pull/push UX, issues, pull requests, stash, rebase, cherry-pick, merge-conflict editing, and credential management are outside this package.
 
@@ -179,6 +190,8 @@ None. The package does not add, replace, or retain model-request tokens.
 
 - **Local repositories only** — all operations run through the configured DSH subprocess execution world; remote repository and hosting-provider workflows are not implemented.
 - **Bounded command output** — a diff larger than `maxOutputBytes` retains only the subprocess collector's tail, so deployments handling very large diffs must raise that validated setting.
+- **Generation needs host + config** — commit message generation requires a host LLM runtime and a `commitMessage` configuration section; without either, the Generate action stays disabled or reports `git/generation-unavailable`.
+- **Launcher card copy is English** — the two Launcher cards contributed by this plugin ship their own English labels; they are not yet localized through the locale service.
 
 <a id="dev-note"></a>
 ### Dev Note
