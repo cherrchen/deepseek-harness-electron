@@ -13,7 +13,6 @@ import {
   GIT_GRAPH_ROW_HEIGHT,
   buildGraphGeometry,
 } from './graph-geometry.ts'
-import css from './GitGraphSurface.module.css'
 
 /** Lane colors, cycled by lane index. Lane 0 reads the theme brand token. */
 const FALLBACK_LANE_COLORS = ['#4c6fff', '#c586c0', '#ce9178', '#4ec9b0', '#dcdcaa', '#9cdcfe']
@@ -38,7 +37,7 @@ function resolveLaneColors(canvas: HTMLCanvasElement): readonly string[] {
 }
 
 /** Render the whole commit page's graph rail as one canvas layer. */
-export function GitGraphCanvas({ model }: { model: GitGraphModel }): ReactNode {
+export function GitGraphCanvas({ model, className }: { model: GitGraphModel; className: string | undefined }): ReactNode {
   const canvasRef = useRef<HTMLCanvasElement | null>(null)
   const [themeEpoch, setThemeEpoch] = useState(0)
   const [devicePixelRatio, setDevicePixelRatio] = useState(() =>
@@ -75,7 +74,7 @@ export function GitGraphCanvas({ model }: { model: GitGraphModel }): ReactNode {
     if (context === null) return
     context.scale(dpr, dpr)
     const colors = resolveLaneColors(canvas)
-    const laneColor = (lane: number): string => colors[lane % colors.length] ?? colors[0] ?? FALLBACK_LANE_COLORS[0] as string
+    const laneColor = (lane: number): string => colors.at(lane % colors.length) ?? '#4c6fff'
     context.lineWidth = 1.5
     context.lineCap = 'round'
     for (const segment of geometry.segments) {
@@ -93,5 +92,5 @@ export function GitGraphCanvas({ model }: { model: GitGraphModel }): ReactNode {
     }
   }, [model, themeEpoch, devicePixelRatio])
 
-  return <canvas ref={canvasRef} className={css.canvas} aria-hidden="true" />
+  return <canvas ref={canvasRef} className={className} aria-hidden="true" />
 }

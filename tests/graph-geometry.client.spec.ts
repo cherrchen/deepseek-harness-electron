@@ -105,7 +105,9 @@ describe('buildGraphGeometry', () => {
     expect(g.nodes.every(node => node.x === laneX(0))).toBe(true)
     // The last (root) commit draws no outgoing edge.
     const lastRowTop = 3 * GIT_GRAPH_ROW_HEIGHT
-    expect(g.segments.some(segment => segment.y1 === lastRowTop + GIT_GRAPH_ROW_HEIGHT / 2 && segment.y2 === lastRowTop + GIT_GRAPH_ROW_HEIGHT)).toBe(false)
+    expect(g.segments.some(segment =>
+      segment.y1 === lastRowTop + GIT_GRAPH_ROW_HEIGHT / 2
+      && segment.y2 === lastRowTop + GIT_GRAPH_ROW_HEIGHT)).toBe(false)
   })
 
   it('keeps diagonals continuous across the branch row boundary', () => {

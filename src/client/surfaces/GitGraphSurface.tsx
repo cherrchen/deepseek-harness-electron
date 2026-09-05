@@ -5,7 +5,7 @@
  * rows are plain DOM for text and hover.
  */
 import { useEffect, useMemo, useSyncExternalStore } from 'react'
-import type { CSSProperties, ReactNode } from 'react'
+import type { ReactNode } from 'react'
 import type { PropsLocale, PropsRuntime } from '@deepseek-ai/dsh-client-ui-slots'
 import type { GitClientController } from '../controller.ts'
 import { computeGitGraph } from '../graph-model.ts'
@@ -47,8 +47,8 @@ export function GitGraphSurface({ controller, t, useSessions, sessionId }: GitGr
         {state.repository !== undefined && state.repository !== null && model.rows.length === 0 && !state.graphLoading && (
           <p className={css.empty}>{t('graph.empty')}</p>
         )}
-        <div className={css.rowsWrap} style={{ '--git-graph-lane-area': laneArea } as CSSProperties}>
-          <GitGraphCanvas model={model} />
+        <div className={css.rowsWrap} style={{ '--git-graph-lane-area': laneArea }}>
+          <GitGraphCanvas model={model} className={css.canvas} />
           <ol className={css.rows}>
             {model.rows.map(row => (
               <li key={row.commit.hash} className={css.row} data-row="">
