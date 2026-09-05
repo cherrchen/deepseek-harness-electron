@@ -7,7 +7,7 @@ import {
 } from '../src/client/graph-geometry.ts'
 import { layoutGitGraph } from '../src/client/graph/layout.ts'
 import type { GraphPath } from '../src/client/graph-geometry.ts'
-import { subtreePattern } from './harness/graph-fixtures.ts'
+import { subtreePattern } from './harness/graph-fixtures.client.ts'
 
 const GEOMETRY_OPTIONS = { rowHeight: GIT_GRAPH_ROW_HEIGHT, laneGap: GIT_GRAPH_LANE_GAP }
 

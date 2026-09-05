@@ -8,7 +8,7 @@ import { fileURLToPath } from 'node:url'
 import { describe, expect, it } from 'vitest'
 import { layoutGitGraph } from '../src/client/graph/layout.ts'
 import type { GitCommitSummary } from '../src/types.ts'
-import { assertGraphInvariants } from './harness/graph-fixtures.ts'
+import { assertGraphInvariants } from './harness/graph-fixtures.client.ts'
 
 function loadFixture(name: string): readonly GitCommitSummary[] {
   const path = fileURLToPath(new URL(`./fixtures/${name}`, import.meta.url))

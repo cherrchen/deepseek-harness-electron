@@ -13,7 +13,7 @@ import {
   simpleMerge,
   subtreePattern,
   twoPlugins,
-} from './harness/graph-fixtures.ts'
+} from './harness/graph-fixtures.client.ts'
 
 describe('fixture A: linear history', () => {
   it('keeps one lane on column 0 for every row', () => {
