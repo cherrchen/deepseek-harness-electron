@@ -65,6 +65,11 @@ export class ActiveLanePool {
     return [...this.lanes].sort((a, b) => compareOrder(laneOrder(a), laneOrder(b)))
   }
 
+  /** Number of currently active lanes. */
+  activeCount(): number {
+    return this.lanes.length
+  }
+
   /** Active lanes currently expecting one commit. */
   matchedTo(hash: string): readonly PoolLane[] {
     return this.all().filter(lane => lane.expectedCommit === hash)

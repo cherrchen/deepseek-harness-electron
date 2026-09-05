@@ -36,7 +36,10 @@ export interface GitSelectedDiff {
 }
 
 /** Number of commits loaded per graph page. */
-export const GIT_GRAPH_PAGE_SIZE = 100
+export const GIT_GRAPH_PAGE_SIZE = 25
+
+/** Hard cap on simultaneously active graph lanes. */
+export const GIT_GRAPH_MAX_LANES = 3
 
 export interface GitClientState {
   readonly workspacePath: string | undefined
@@ -252,6 +255,7 @@ export class GitClientController {
       const layout = layoutGitGraph(commits, {
         ...(this.graphContinuation !== undefined ? { continuation: this.graphContinuation } : {}),
         firstParentOnly: this.state.graphScope === 'first-parent',
+        maxLanes: GIT_GRAPH_MAX_LANES,
       })
       this.graphContinuation = layout.continuation
       this.patch({

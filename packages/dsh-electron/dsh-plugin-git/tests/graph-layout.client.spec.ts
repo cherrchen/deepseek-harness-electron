@@ -191,6 +191,65 @@ describe('spine color', () => {
   })
 })
 
+describe('lane cap (maxLanes)', () => {
+  const mergeStorm = (): readonly GitCommitSummary[] => [
+    commit('m', ['a', 'b', 'c'], ['HEAD', 'main']),
+    commit('z', ['p']),
+    commit('a', ['p']),
+    commit('b', ['p']),
+    commit('c', ['p']),
+    commit('p', []),
+  ]
+
+  it('caps the visible lanes at maxLanes on a merge-heavy page', () => {
+    // Uncapped, the page needs four lanes: spine + two merge sides + z's tip.
+    expect(layoutGitGraph(mergeStorm()).laneCount).toBe(4)
+    const layout = layoutGitGraph(mergeStorm(), { maxLanes: 3 })
+    expect(layout.laneCount).toBe(3)
+    for (const row of layout.rows) expect(row.visibleLaneCount).toBeLessThanOrEqual(3)
+  })
+
+  it('never evicts the spine lane when an unmatched tip forces eviction', () => {
+    const layout = layoutGitGraph(mergeStorm(), { maxLanes: 3 })
+    const spineLaneId = layout.rows[0]!.node.laneId
+    // `a` is the spine's first parent: it must sit on the same lane as `m`.
+    const aRow = layout.rows.find(row => row.commit.hash === 'a')!
+    expect(aRow.node.laneId).toBe(spineLaneId)
+    expect(aRow.node.colorKey).toBe('0')
+  })
+
+  it('drops secondary parent lanes of a full pool instead of widening', () => {
+    // `m` fills the pool (spine + two sides); `n` then arrives as a merge of
+    // x and y while the pool is still full, so neither secondary parent may
+    // open a lane and only the vertical rail leaves `n`.
+    const commits: readonly GitCommitSummary[] = [
+      commit('m', ['a', 'b', 'c'], ['HEAD']),
+      commit('n', ['x', 'y']),
+      commit('x', ['p']),
+      commit('y', ['p']),
+      commit('a', ['p']),
+      commit('b', ['p']),
+      commit('c', ['p']),
+      commit('p', []),
+    ]
+    const layout = layoutGitGraph(commits, { maxLanes: 3 })
+    expect(layout.laneCount).toBe(3)
+    const nRow = layout.rows[1]!
+    expect(nRow.commit.hash).toBe('n')
+    expect(nRow.edges.every(edge => edge.kind === 'vertical')).toBe(true)
+  })
+
+  it('keeps the cap across pagination continuation', () => {
+    const commits = twoPlugins()
+    const first = layoutGitGraph(commits.slice(0, 4), { maxLanes: 3 })
+    const second = layoutGitGraph(commits.slice(4), { continuation: first.continuation, maxLanes: 3 })
+    for (const row of [...first.rows, ...second.rows]) {
+      expect(row.visibleLaneCount).toBeLessThanOrEqual(3)
+    }
+    expect(first.continuation.lanes.length).toBeLessThanOrEqual(3)
+  })
+})
+
 describe('compaction', () => {
   it('slides the side lane left into a released column without recoloring', () => {
     const commits = [
