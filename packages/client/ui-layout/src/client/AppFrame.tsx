@@ -11,7 +11,7 @@
  * zero self-made hooks.
  */
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
-import type { ReactNode } from 'react'
+import type { ReactNode, Ref } from 'react'
 import type {
   PropsLocale, PropsRenderSlots, PropsRuntime, PropsStore,
 } from '@deepseek-ai/dsh-client-ui-slots'
@@ -28,8 +28,8 @@ export type AppFrameProps =
   & PropsLocale<'common'>
 
 /** Center column grid item (session-body building block). */
-function CenterColumn(props: { children?: ReactNode }) {
-  return <div className={css.centerCol}>{props.children}</div>
+function CenterColumn(props: { centerRef: Ref<HTMLDivElement>; children?: ReactNode }) {
+  return <div className={css.centerCol} ref={props.centerRef}>{props.children}</div>
 }
 
 /** Details column grid item; width 0 keeps the subtree mounted (never unmount on close). */
@@ -106,6 +106,7 @@ export function AppFrame({
     return current === undefined ? undefined : s.byId[current]?.title
   })
   const frameRef = useRef<HTMLDivElement | null>(null)
+  const centerRef = useRef<HTMLDivElement | null>(null)
   const [viewport, setViewport] = useState(() => window.innerWidth)
 
   const lastSession = useRef(detailsSession)
@@ -132,6 +133,43 @@ export function AppFrame({
     })
     observer.observe(el)
     return () => {
+      observer.disconnect()
+      if (raf !== null) cancelAnimationFrame(raf)
+    }
+  }, [])
+
+  // Publish the live main conversation header height as --app-header-height:
+  // the Details Host tab bar consumes the same token, so the two headers'
+  // bottom rules stay one continuous line in every header state (bare title
+  // row, title + view tabs). The header mounts/unmounts with the session,
+  // so a MutationObserver keeps the ResizeObserver attached to the current
+  // header element.
+  useEffect(() => {
+    const center = centerRef.current
+    const frame = frameRef.current
+    /* v8 ignore next -- both refs are attached by effect time: the frame renders unconditionally. */
+    if (center === null || frame === null) return
+    let raf: number | null = null
+    let observed: Element | null = null
+    const observer = new ResizeObserver(() => {
+      raf ??= requestAnimationFrame(() => {
+        raf = null
+        const height = observed?.getBoundingClientRect().height ?? 0
+        if (height > 0) frame.style.setProperty('--app-header-height', `${height}px`)
+      })
+    })
+    const sync = (): void => {
+      const header = center.querySelector('header:not([aria-hidden="true"])')
+      if (header === observed) return
+      if (observed !== null) observer.unobserve(observed)
+      observed = header
+      if (header !== null) observer.observe(header)
+    }
+    sync()
+    const mutation = new MutationObserver(sync)
+    mutation.observe(center, { childList: true, subtree: true })
+    return () => {
+      mutation.disconnect()
       observer.disconnect()
       if (raf !== null) cancelAnimationFrame(raf)
     }
@@ -202,7 +240,7 @@ export function AppFrame({
             the shell's own pending rendering. The conversation
             is session-maybe; SessionProvider withholds the strict details
             entry while no session is current. */}
-        <CenterColumn>{renderSlot('conversation', {})}</CenterColumn>
+        <CenterColumn centerRef={centerRef}>{renderSlot('conversation', {})}</CenterColumn>
         <DetailsColumn>
           <SessionProvider>{renderSlot('details', {})}</SessionProvider>
         </DetailsColumn>
