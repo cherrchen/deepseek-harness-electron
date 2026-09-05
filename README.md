@@ -91,34 +91,36 @@ Git is the reference consumer of Details Host. The Client manifest wires the dep
 
 `external` ensures the module table materializes the Details Host Client factory before this bundle `require`s it. `inject` declares `ctx.shellDetails` as a runtime dependency.
 
-Git registers surface id `git`, optional payload tabs (`changes`, `diff`, `commit`), and opens the column as a singleton (replace plus a stable `dedupeKey`) so Details Host never shows a back control on the Git heading:
+Git ships three independent surfaces — `git.changes`, `git.diff`, and `git.graph` — one Details Host tab each, and opens them through the unified `ctx.shellDetails.open(...)` create-or-reuse navigation:
 
 ```text
-ctx.shellDetails.open({
-  surfaceId: 'git',
-  payload: { tab: 'changes' },
-  navigation: 'replace',
-})
+ctx.shellDetails.open({ surfaceId: 'git.changes' })
+ctx.shellDetails.open({ surfaceId: 'git.diff', payload: { path, staged: false } })
+ctx.shellDetails.open({ surfaceId: 'git.graph' })
 ```
+
+Surface descriptors declare `dedupeKey`s so repeated opens converge on one tab: changes and graph key on the current workspace path (`git:changes:<workspacePath>`, `git:graph:<workspacePath>`); diff keys on path plus comparison side (`git:diff:<path>:<staged|worktree>`), so a staged and a working-tree diff of one file can sit side by side. The changed-files indicator and Launcher cards open `git.changes`; clicking a file row opens `git.diff` for that path.
 
 Payload typing augments Details Host:
 
 ```ts
 declare module '@dsh-electron/dsh-client-ui-details-host/client' {
   interface DetailsSurfacePayloadMap {
-    git: { tab?: 'changes' | 'diff' | 'commit'; path?: string }
+    'git.changes': GitChangesPayload
+    'git.diff': GitDiffPayload
+    'git.graph': GitGraphPayload
   }
 }
 ```
 
-AppFrame details geometry, resize handle, and close button are owned by Details Host, not this package.
+Git also registers two Launcher cards (Changes, Graph) through `ctx.shellDetails.registerLauncher`, plus header actions for every surface. AppFrame details geometry, the tab bar, the Launcher, and dock visibility are owned by Details Host, not this package.
 
 <a id="user-experience"></a>
 ## User experience
 
-In the conversation composer, Git contributes a branch selector and a changed-files indicator on the left of the input area. Clicking either control opens the Git details surface in the third column. Creating a branch opens a shared conversation Modal; after `git init` with no commits (unborn HEAD), the menu shows the symbolic default branch as disabled, explains that the first commit is required, and disables create until HEAD exists.
+In the conversation composer, Git contributes a branch selector and a changed-files indicator on the left of the input area. Clicking either control opens the `git.changes` surface as a Details Host tab. Creating a branch opens a shared conversation Modal; after `git init` with no commits (unborn HEAD), the menu shows the symbolic default branch as disabled, explains that the first commit is required, and disables create until HEAD exists.
 
-Inside the panel, users can review staged, unstaged, and untracked changes, inspect diffs, stage or unstage paths, write commit messages, and switch or create local branches. On Electron, optional Desktop enhancement adds reveal-in-folder and open-path actions when the Desktop provider is present.
+The **Changes** surface groups staged, unstaged, and untracked paths into sections; rows stage, unstage, or discard (a two-step destructive confirm) a path and open the matching diff. The **Diff** surface renders one file's working-tree or staged diff per tab. The **Graph** surface shows the commit history as an SVG lane graph with subject, author, date, hash, and HEAD/branch/tag decoration badges, paged incrementally with a load-more control. A commit region inside Changes accepts an editable message and offers **Generate**: when the host exposes an LLM runtime and `commitMessage` is configured, a staged diff is sent to the configured provider and the streamed suggestion is written into the editable input. Generation never stages, commits, or pushes anything. On Electron, optional Desktop enhancement adds reveal-in-folder and open-path actions when the Desktop provider is present.
 
 <a id="composition"></a>
 ## Composition
