@@ -11,6 +11,7 @@ import type { DetailsHostState } from '../src/client/contract.ts'
 import { SurfaceErrorBoundary } from '../src/client/SurfaceErrorBoundary.tsx'
 import { DetailsHeaderAction } from '../src/client/DetailsHeaderAction.tsx'
 import { DetailsToggle } from '../src/client/DetailsToggle.tsx'
+import { en, zh, type DetailsToggleKey } from '../src/client/locales.ts'
 
 afterEach(() => {
   cleanup()
@@ -84,6 +85,14 @@ interface Handlers {
   throwing?: boolean
 }
 
+/** Translate backed by a real dictionary with `{name}` interpolation. */
+function translateOf(dict: Record<DetailsToggleKey, string>): DetailsHostProps['t'] {
+  return ((key: DetailsToggleKey, params?: Record<string, unknown>) =>
+    dict[key].replace(/\{(\w+)\}/g, (_, name: string) => String(params?.[name] ?? `{${name}}`))) as DetailsHostProps['t']
+}
+
+const t = translateOf(en)
+
 function props(
   snapshot: DetailsHostState,
   entries: readonly DetailsLauncherContribution[] = [],
@@ -127,6 +136,7 @@ function props(
     openRequest: handlers.openRequest ?? vi.fn(),
     close: vi.fn(),
     back: vi.fn(),
+    t,
   }
 }
 
@@ -247,6 +257,21 @@ describe('DetailsHost', () => {
     }), [], { throwing: true })} />)
     expect(container.querySelector('[data-details-surface-error]')).not.toBeNull()
     expect(container.textContent).toContain('test.alpha')
+  })
+
+  it('localizes the launcher and tab chrome through the injected translate seat', () => {
+    const active = instance()
+    render(<DetailsHost {...{
+      ...props(state({
+        tabs: [active],
+        activeId: active.surfaceId,
+        activeInstance: active,
+        label: 'Alpha',
+      })),
+      t: translateOf(zh),
+    }} />)
+    expect(screen.getByRole('tablist', { name: zh['tabs.aria'] })).toBeTruthy()
+    expect(screen.getByRole('button', { name: '关闭 Alpha' })).toBeTruthy()
   })
 })
 

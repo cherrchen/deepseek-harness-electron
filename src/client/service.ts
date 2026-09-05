@@ -627,6 +627,7 @@ export class ShellDetailsService extends Service implements ShellDetailsControll
       name: 'details',
       registrant: DETAILS_HOST_ENTRY_ID,
       priority: DETAILS_HOST_PRIORITY,
+      locale: SHELL_DETAILS_LOCALE_NS,
       children: {
         'shell.details.surface': { kind: 'list', scope: 'session' },
         [DETAILS_HEADER_ACTIONS_SLOT]: { kind: 'list', scope: 'session' },

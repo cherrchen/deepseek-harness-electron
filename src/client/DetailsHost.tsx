@@ -6,11 +6,13 @@
  */
 import { useCallback, useEffect, useRef } from 'react'
 import type { KeyboardEvent } from 'react'
-import type { InjectFace, PropsRenderSlots, PropsRuntime } from '@deepseek-ai/dsh-client-ui-slots'
+import type { InjectFace, PropsLocale, PropsRenderSlots, PropsRuntime } from '@deepseek-ai/dsh-client-ui-slots'
+import type {} from '@deepseek-ai/dsh-client-locale/client'
 import type {} from '@deepseek-ai/dsh-client-ui-layout/client'
 import {
   DETAILS_HEADER_ACTIONS_SLOT,
   DETAILS_SURFACE_SLOT,
+  SHELL_DETAILS_LOCALE_NS,
   type DetailsHostInjected,
   type DetailsHostState,
   type DetailsLauncherContribution,
@@ -23,6 +25,7 @@ import css from './DetailsHost.module.css'
 /** Full composed props for the DetailsHost `details` registration. */
 export type DetailsHostProps =
   & PropsRuntime<'details'>
+  & PropsLocale<typeof SHELL_DETAILS_LOCALE_NS>
   & PropsRenderSlots<'shell.details.surface' | 'shell.details.header.actions'>
   & InjectFace<DetailsHostInjected>
 
@@ -48,17 +51,20 @@ function PlusGlyph() {
   )
 }
 
+type LauncherTranslate = PropsLocale<typeof SHELL_DETAILS_LOCALE_NS>['t']
+
 function LauncherPage(props: {
   entries: readonly DetailsLauncherContribution[]
   onOpen: (request: ShellDetailsOpenRequest) => void
+  t: LauncherTranslate
 }) {
-  const { entries, onOpen } = props
+  const { entries, onOpen, t } = props
   return (
     <div className={css.launcher} data-details-launcher="">
-      <h3 className={css.launcherTitle}>Open a tab</h3>
-      <p className={css.launcherHint}>Choose a panel to open in the details dock.</p>
+      <h3 className={css.launcherTitle}>{t('launcher.title')}</h3>
+      <p className={css.launcherHint}>{t('launcher.hint')}</p>
       {entries.length === 0
-        ? <p className={css.launcherEmpty}>No panels are available. Plugins contribute panels here.</p>
+        ? <p className={css.launcherEmpty}>{t('launcher.empty')}</p>
         : (
           <div className={css.launcherGrid}>
             {entries.map(entry => (
@@ -95,6 +101,7 @@ export function DetailsHost({
   closeTab,
   showLauncher,
   openRequest,
+  t,
 }: DetailsHostProps) {
   const snapshot: DetailsHostState = useDetailsHost((state: DetailsHostState) => state)
   const { tabs, activeInstance, launcherVisible } = snapshot
@@ -134,7 +141,7 @@ export function DetailsHost({
   return (
     <div ref={rootRef} className={css.root} data-details-host="">
       {tabs.length > 0 && (
-        <div className={css.tabbar} role="tablist" aria-label="Details tabs" onKeyDown={onTablistKeyDown}>
+        <div className={css.tabbar} role="tablist" aria-label={t('tabs.aria')} onKeyDown={onTablistKeyDown}>
           {tabs.map((tab: DetailsSurfaceInstance) => (
             <TabChip
               key={tab.instanceId}
@@ -142,14 +149,15 @@ export function DetailsHost({
               active={tab.instanceId === activeId && !launcherPage}
               onActivate={activate}
               onClose={closeTab}
+              t={t}
             />
           ))}
           <button
             type="button"
             className={css.addTab}
             onClick={showLauncher}
-            aria-label="Open a tab"
-            title="Open a tab"
+            aria-label={t('tab.open')}
+            title={t('tab.open')}
           >
             <PlusGlyph />
           </button>
@@ -162,7 +170,7 @@ export function DetailsHost({
       )}
       <div className={css.body}>
         {launcherPage
-          ? <LauncherPage entries={launcherEntries} onOpen={openRequest} />
+          ? <LauncherPage entries={launcherEntries} onOpen={openRequest} t={t} />
           : activeInstance !== null && (
             <div className={css.bodyScroll} role="tabpanel" aria-label={activeInstance.label}>
               <SurfaceErrorBoundary key={activeInstance.instanceId} surfaceId={activeInstance.surfaceId}>
@@ -191,8 +199,9 @@ function TabChip(props: {
   active: boolean
   onActivate: (instanceId: string) => void
   onClose: (instanceId: string) => void
+  t: LauncherTranslate
 }) {
-  const { tab, active, onActivate, onClose } = props
+  const { tab, active, onActivate, onClose, t } = props
   return (
     <div className={css.tabWrap} data-active={active || undefined}>
       <button
@@ -210,7 +219,7 @@ function TabChip(props: {
           type="button"
           className={css.tabClose}
           onClick={() => { onClose(tab.instanceId) }}
-          aria-label={`Close ${tab.label}`}
+          aria-label={t('tab.close', { label: tab.label })}
         >
           <CloseGlyph />
         </button>
