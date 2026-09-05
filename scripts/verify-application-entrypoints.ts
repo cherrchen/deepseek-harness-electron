@@ -32,6 +32,10 @@ const MANIFEST_BIN_ALLOWLIST = new Map<string, ManifestBin>([
 /** Every executable in a Node application workspace has one explicit role. */
 const EXECUTABLE_SOURCE_ALLOWLIST = new Map<string, string>([
   ['apps/cli/src/bin.ts', 'supported dsh application launcher'],
+  ['apps/electron/scripts/next-beta-tag.mjs', 'private desktop release tool'],
+  ['apps/electron/scripts/restore-agents-downstream.mjs', 'private downstream sync tool'],
+  ['apps/electron/scripts/set-version.mjs', 'private desktop release tool'],
+  ['apps/electron/scripts/sync-version.mjs', 'private desktop build tool'],
   ['packages/context/time-context/tests/fixtures/driver.ts', 'test-only subprocess driver'],
   ['packages/experimental/webworker-packer/bin.js', 'private build-only wrapper'],
   ['packages/experimental/webworker-packer/src/bin.ts', 'private build-only implementation'],
