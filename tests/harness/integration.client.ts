@@ -95,7 +95,11 @@ export async function integrationBench(): Promise<{
   ctx.provide('layout', layout)
   ctx.provide('sessions', sessions as never)
   ctx.provide('connection', { rpc: { call: vi.fn() } } as never)
-  ctx.provide('locale', { register: () => () => {} } as never)
+  ctx.provide('locale', {
+    register: () => () => {},
+    bind: () => (key: string) => key,
+    subscribe: () => () => {},
+  } as never)
   const disposeRoot = ctx.slots.register({
     name: 'root',
     children: {

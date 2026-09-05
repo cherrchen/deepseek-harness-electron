@@ -55,7 +55,11 @@ describe('Git client lifecycle', () => {
       },
     } as never)
     ctx.provide('connection', { rpc: { call: vi.fn() } } as never)
-    ctx.provide('locale', { register: () => () => {} } as never)
+    ctx.provide('locale', {
+      register: () => () => {},
+      bind: () => (key: string) => key,
+      subscribe: () => () => {},
+    } as never)
     ctx.provide('shellDetails', shellDetails as never)
     const fiber = ctx.plugin({ inject, apply })
     await fiber.await()

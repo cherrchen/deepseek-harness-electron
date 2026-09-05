@@ -54,6 +54,10 @@ export const en = {
   'graph.scope.auto': 'Auto',
   'graph.scope.all': 'All',
   'graph.scope.firstParent': 'First parent',
+  'launcher.changes.title': 'Git',
+  'launcher.changes.description': 'Changes, staging, and commit',
+  'launcher.graph.title': 'Git Graph',
+  'launcher.graph.description': 'Commit history visualization',
 } as const
 
 export const zh: Record<keyof typeof en, string> = {
@@ -108,6 +112,10 @@ export const zh: Record<keyof typeof en, string> = {
   'graph.scope.auto': '自动',
   'graph.scope.all': '全部',
   'graph.scope.firstParent': '首父链',
+  'launcher.changes.title': 'Git',
+  'launcher.changes.description': '更改、暂存与提交',
+  'launcher.graph.title': 'Git 图谱',
+  'launcher.graph.description': '提交历史可视化',
 }
 
 export type GitLocaleKey = keyof typeof en

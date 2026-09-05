@@ -38,12 +38,15 @@ export function GitGraphSurface({ controller, t, useSessions, sessionId }: GitGr
 
   useGitWorkspace(controller, workspacePath)
 
-  // Load the first page once a repository is bound.
+  // Load the first page once a repository is bound. `graphLoaded` separates
+  // "not loaded yet" from "loaded but empty" and "load failed": only the
+  // first auto-loads, the others wait for an explicit refresh (scope switch,
+  // header refresh, or workspace rebind).
   useEffect(() => {
-    if (state.repository && state.graph.length === 0 && !state.graphLoading) {
+    if (state.repository && !state.graphLoaded && !state.graphLoading) {
       void controller.loadGraph(true)
     }
-  }, [controller, state.repository, state.graph.length, state.graphLoading])
+  }, [controller, state.repository, state.graphLoaded, state.graphLoading])
 
   const laneArea = Math.max(state.graphLaneCount, 1) * GIT_GRAPH_LANE_GAP
 
@@ -70,7 +73,7 @@ export function GitGraphSurface({ controller, t, useSessions, sessionId }: GitGr
         {!state.graphLoading && state.workspacePath === undefined && <p className={css.empty}>{t('details.noWorkspace')}</p>}
         {!state.graphLoading && state.repository === null && <p className={css.empty}>{t('details.notRepository')}</p>}
         {state.graphError !== undefined && <p className={css.error} role="alert">{state.graphError}</p>}
-        {state.repository !== undefined && state.repository !== null && state.graphRows.length === 0 && !state.graphLoading && (
+        {state.graphLoaded && state.repository !== undefined && state.repository !== null && state.graphRows.length === 0 && !state.graphLoading && (
           <p className={css.empty}>{t('graph.empty')}</p>
         )}
         <div className={css.rowsWrap}>

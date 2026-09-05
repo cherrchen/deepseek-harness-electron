@@ -83,9 +83,24 @@ export function apply(ctx: ClientContext): void {
     dedupeKey: () => `git:graph:${controller.getSnapshot().workspacePath ?? ''}`,
   }), 'git: graph descriptor')
 
-  for (const card of createLauncherCards()) {
-    ctx.effect(() => ctx.shellDetails.registerLauncher(card), `git: launcher ${card.id}`)
-  }
+  // Launcher cards resolve their copy through the bound translate function,
+  // and a locale revision change (language switch or late dictionary)
+  // rebuilds the registration so cards follow the active language.
+  ctx.effect(() => {
+    const t = ctx.locale.bind(NS)
+    let registered: readonly (() => void)[] = []
+    const register = (): void => {
+      for (const dispose of registered) dispose()
+      registered = createLauncherCards(t).map(card => ctx.shellDetails.registerLauncher(card))
+    }
+    register()
+    const unsubscribe = ctx.locale.subscribe(register)
+    return () => {
+      unsubscribe()
+      for (const dispose of registered) dispose()
+      registered = []
+    }
+  }, 'git: launcher cards')
 
   ctx.slots.inject('conversation.input.left', () => ctx.slots.register({
     name: 'conversation.input.left',
