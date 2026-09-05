@@ -47,9 +47,9 @@ export function GitGraphSurface({ controller, t, useSessions, sessionId }: GitGr
         {state.repository !== undefined && state.repository !== null && model.rows.length === 0 && !state.graphLoading && (
           <p className={css.empty}>{t('graph.empty')}</p>
         )}
-        <div className={css.rowsWrap} style={{ '--git-graph-lane-area': laneArea }}>
+        <div className={css.rowsWrap}>
           <GitGraphCanvas model={model} className={css.canvas} />
-          <ol className={css.rows}>
+          <ol className={css.rows} style={{ paddingLeft: Math.max(model.laneCount, 1) * GIT_GRAPH_COLUMN_WIDTH + 8 }}>
             {model.rows.map(row => (
               <li key={row.commit.hash} className={css.row} data-row="">
                 <div className={css.commitCell}>

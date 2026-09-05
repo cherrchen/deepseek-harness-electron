@@ -23,6 +23,8 @@
     "src/client/locales.ts",
     "src/client/use-git-workspace.ts",
     "src/client/graph-model.ts",
+    "src/client/graph-geometry.ts",
+    "src/client/GitGraphCanvas.tsx",
     "src/client/launcher-cards.tsx",
     "src/client/LauncherIcons.tsx",
     "src/client/surfaces/GitChangesSurface.tsx",
