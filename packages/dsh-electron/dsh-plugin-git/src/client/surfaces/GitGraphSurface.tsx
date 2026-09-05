@@ -34,9 +34,6 @@ export function GitGraphSurface({ controller, t, useSessions, sessionId }: GitGr
   }, [controller, state.repository, state.graph.length, state.graphLoading])
 
   const model = useMemo(() => computeGitGraph(state.graph), [state.graph])
-  // The lane area width and the canvas share one coordinate space; rows
-  // reserve it via the CSS variable so text always starts after the rail.
-  const laneArea = `${Math.max(model.laneCount, 1) * GIT_GRAPH_COLUMN_WIDTH}px`
 
   return (
     <div className={css.root} data-git-graph-surface="">
