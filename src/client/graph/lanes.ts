@@ -8,7 +8,7 @@
  * columns are assigned by the layout's compaction step and written back into
  * the pool lanes so allocation heuristics can prefer nearby lanes.
  */
-import type { ActiveLaneSnapshot, GraphContinuationState } from './types.ts'
+import type { GraphContinuationState } from './types.ts'
 
 /** Mutable lane record maintained by the pool. */
 export interface PoolLane {
