@@ -139,9 +139,13 @@ describe('production runtime plugin packaging inventory', () => {
       const pluginRoot = join(pluginsRoot, entry.name)
       expect(existsSync(join(pluginRoot, 'package.json'))).toBe(true)
       expect(existsSync(join(pluginRoot, 'lib', 'index.js'))).toBe(true)
-      const manifest = JSON.parse(readFileSync(join(pluginRoot, 'package.json'), 'utf8')) as { dsh?: { client?: unknown } }
+      const manifest = JSON.parse(readFileSync(join(pluginRoot, 'package.json'), 'utf8')) as {
+        dsh?: { client?: unknown }
+        exports?: Record<string, { default?: string }>
+      }
       if (manifest.dsh?.client !== undefined) {
-        expect(existsSync(join(pluginRoot, 'lib', 'client.js'))).toBe(true)
+        const clientTarget = manifest.exports?.['./client']?.default ?? './lib/client.js'
+        expect(existsSync(join(pluginRoot, clientTarget))).toBe(true)
       }
     }
     expect(existsSync(join(electronRoot, 'runtime', 'host.patch.yml'))).toBe(true)

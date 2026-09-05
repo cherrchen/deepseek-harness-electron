@@ -1,7 +1,7 @@
 import { cpSync, existsSync, readFileSync, symlinkSync, writeFileSync } from 'node:fs'
 import { mkdtemp, readFile, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
-import { dirname, join } from 'node:path'
+import { basename, dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { spawnSync } from 'node:child_process'
 import { describe, expect, it } from 'vitest'
@@ -20,6 +20,14 @@ import {
 const electronRoot = fileURLToPath(new URL('..', import.meta.url))
 const fixtureRoot = join(electronRoot, 'tests', 'fixtures', 'runtime-plugins', 'example-plugin')
 const buildScript = join(electronRoot, 'scripts', 'build-runtime-plugins.mjs')
+
+/** Resolve the client bundle filename a plugin manifest declares for "./client". */
+function manifestClientTarget(pluginRoot: string): string {
+  const manifest = JSON.parse(readFileSync(join(pluginRoot, 'package.json'), 'utf8')) as {
+    exports?: Record<string, { default?: string }>
+  }
+  return basename(manifest.exports?.['./client']?.default ?? './lib/client.js')
+}
 
 /** Build one fixture plugin by copying it into a temporary inventory root. */
 async function buildFixtureInInventory(appPath: string): Promise<string> {
@@ -316,9 +324,10 @@ describe('generic runtime plugin builder', () => {
     for (const plugin of discoverRuntimePlugins(electronRoot)) {
       expect(existsSync(join(plugin.rootPath, 'lib', 'index.js'))).toBe(true)
       if (plugin.hasClient) {
-        const client = readFileSync(join(plugin.rootPath, 'lib', 'client.js'), 'utf8')
+        const clientTarget = manifestClientTarget(plugin.rootPath)
+        const client = readFileSync(join(plugin.rootPath, 'lib', clientTarget), 'utf8')
         expect(client).toContain(`id: ${JSON.stringify(plugin.name)}`)
-        expect(existsSync(join(plugin.rootPath, 'lib', 'client.js'))).toBe(true)
+        expect(existsSync(join(plugin.rootPath, 'lib', clientTarget))).toBe(true)
       }
     }
   })
@@ -330,7 +339,7 @@ describe('generic runtime plugin builder', () => {
     const plugin = discoverRuntimePlugins(electronRoot)
       .find(candidate => candidate.name === '@dsh-electron/dsh-client-ui-details-host')
     if (plugin === undefined) throw new Error('Details Host runtime plugin is missing')
-    const client = readFileSync(join(plugin.rootPath, 'lib', 'client.js'), 'utf8')
+    const client = readFileSync(join(plugin.rootPath, 'lib', manifestClientTarget(plugin.rootPath)), 'utf8')
     expect(client).toContain('react/jsx-runtime')
     expect(client).not.toMatch(/\bReact\.createElement\b/)
   })
