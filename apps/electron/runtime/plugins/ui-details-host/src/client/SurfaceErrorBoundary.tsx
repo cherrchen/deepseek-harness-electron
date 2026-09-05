@@ -19,17 +19,17 @@ interface SurfaceErrorBoundaryState {
 
 /** Catch render errors from one surface contribution. */
 export class SurfaceErrorBoundary extends Component<SurfaceErrorBoundaryProps, SurfaceErrorBoundaryState> {
-  state: SurfaceErrorBoundaryState = { error: null }
+  override state: SurfaceErrorBoundaryState = { error: null }
 
   static getDerivedStateFromError(error: Error): SurfaceErrorBoundaryState {
     return { error }
   }
 
-  componentDidCatch(error: Error, info: ErrorInfo): void {
+  override componentDidCatch(error: Error, info: ErrorInfo): void {
     console.error(`shellDetails: surface ${JSON.stringify(this.props.surfaceId)} crashed`, error, info.componentStack)
   }
 
-  componentDidUpdate(prevProps: SurfaceErrorBoundaryProps): void {
+  override componentDidUpdate(prevProps: SurfaceErrorBoundaryProps): void {
     // A tab switch remounts via key; a same-surface payload change resets the
     // caught state so a recovered surface re-renders.
     if (prevProps.surfaceId !== this.props.surfaceId && this.state.error !== null) {
@@ -37,7 +37,7 @@ export class SurfaceErrorBoundary extends Component<SurfaceErrorBoundaryProps, S
     }
   }
 
-  render(): ReactNode {
+  override render(): ReactNode {
     if (this.state.error !== null) {
       return (
         <div className={css.root} data-details-surface-error="">
