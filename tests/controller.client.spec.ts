@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from 'vitest'
 import type { GitRepositorySnapshot } from '../src/types.ts'
 import { changedPathCount } from '../src/client/changed-path-count.ts'
+import type { GitRpcResult } from '../src/client/controller.ts'
 import { GitClientController } from '../src/client/controller.ts'
 
 function snapshot(overrides: Partial<GitRepositorySnapshot> = {}): GitRepositorySnapshot {
@@ -214,7 +215,7 @@ describe('GitClientController', () => {
   })
 
   it('discards a stale graph page whose workspace was rebound mid-flight', async () => {
-    let releaseA: ((value: unknown) => void) | undefined
+    let releaseA: ((value: GitRpcResult) => void) | undefined
     let signalALog: (() => void) | undefined
     const aLogPending = new Promise<void>((resolve) => { signalALog = resolve })
     const commit = (hash: string) => ({
@@ -236,7 +237,7 @@ describe('GitClientController', () => {
           const repository = (payload as { repository: string }).repository
           if (repository === '/workspace-a') {
             signalALog?.()
-            return new Promise((resolve) => { releaseA = resolve })
+            return new Promise<GitRpcResult>((resolve) => { releaseA = resolve })
           }
           return { ok: true as const, value: [commit('b-commit')] }
         }
@@ -291,7 +292,7 @@ describe('GitClientController', () => {
   })
 
   it('discards a commit message proposal whose workspace was rebound mid-flight', async () => {
-    let releaseGeneration: ((value: unknown) => void) | undefined
+    let releaseGeneration: ((value: GitRpcResult) => void) | undefined
     let signalGeneration: (() => void) | undefined
     const generationRequested = new Promise<void>((resolve) => { signalGeneration = resolve })
     const stagedSnapshot = snapshot({
@@ -305,7 +306,7 @@ describe('GitClientController', () => {
         if (endpoint === 'diff') return { ok: true as const, value: { repository: '/repo', staged: true, text: 'diff --git' } }
         if (endpoint === 'generate-commit-message') {
           signalGeneration?.()
-          return new Promise((resolve) => { releaseGeneration = resolve })
+          return new Promise<GitRpcResult>((resolve) => { releaseGeneration = resolve })
         }
         if (endpoint === 'log') return { ok: true as const, value: [] }
         if (endpoint === 'commit-message-capability') return { ok: true as const, value: { available: false } }
