@@ -1,4 +1,8 @@
-/** Shared fixtures and invariant checkers for the Git graph layout engine. */
+/**
+ * Shared fixtures and invariant checkers for the Git graph layout engine.
+ * Client-only test infrastructure: the `.client.ts` suffix keeps it out of
+ * the monorepo host aggregate (whose composite program must stay closed).
+ */
 import { expect } from 'vitest'
 import type { GitCommitSummary } from '../../src/types.ts'
 import { layoutGitGraph } from '../../src/client/graph/layout.ts'
