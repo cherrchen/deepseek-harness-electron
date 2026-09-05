@@ -120,7 +120,7 @@ Git 还通过 `ctx.shellDetails.registerLauncher` 注册两张 Launcher 卡片�
 
 在会话输入区左侧，Git 贡献 branch selector 与 changed-files indicator。点击任一控件会以 Details Host 标签页打开 `git.changes` surface。创建分支会打开共享的 conversation Modal；在仅有 `git init`、尚无提交（unborn HEAD）时，菜单以禁用态展示符号默认分支，说明需要先完成首次提交，并在 HEAD 存在前禁用创建。
 
-**Changes** surface 将 staged、unstaged 与 untracked 路径分组展示；行内可 stage、unstage 或 discard（两步破坏性确认）一条路径，并打开对应的 diff。**Diff** surface 在每个标签页渲染一个文件的 working-tree 或 staged diff。**Graph** surface 以 SVG lane graph 展示提交历史，包含 subject、author、date、hash 与 HEAD／branch／tag 装饰徽标，并通过 load-more 控件增量分页。Changes 内的 commit region 提供可编辑的 message 输入框与 **Generate** 按钮：当 host 暴露 LLM runtime 且 `commitMessage` 已配置时，staged diff 会发送到配置的 provider，流式生成的建议写入可编辑输入框。生成绝不 stage、commit 或 push 任何内容。在 Electron 上，optional Desktop enhancement 在 Desktop provider 存在时提供 reveal-in-folder 与 open-path 操作。
+**Changes** surface 将 staged、unstaged 与 untracked 路径分组展示；行内可 stage、unstage 或 discard（两步破坏性确认）一条路径，并打开对应的 diff。**Diff** surface 在每个标签页渲染一个文件的 working-tree 或 staged diff。**Graph** surface 以 canvas 绘制的 lane graph 展示提交历史——整页共享一个连续坐标系，rail 与 merge 边不会在行边界断裂——包含 subject、author、date、hash 与 HEAD／branch／tag 装饰徽标，并通过 load-more 控件增量分页。Changes 内的 commit region 提供可编辑的 message 输入框与 **Generate** 按钮：当 host 暴露 LLM runtime 且 `commitMessage` 已配置时，staged diff 会发送到配置的 provider，流式生成的建议写入可编辑输入框。生成绝不 stage、commit 或 push 任何内容。在 Electron 上，optional Desktop enhancement 在 Desktop provider 存在时提供 reveal-in-folder 与 open-path 操作。
 
 <a id="composition"></a>
 ## 组合

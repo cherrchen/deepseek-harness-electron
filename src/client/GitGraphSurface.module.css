@@ -13,6 +13,25 @@
   overflow: auto;
 }
 
+/*
+ * Row height is the graph geometry contract: one commit row is exactly
+ * GIT_GRAPH_ROW_HEIGHT (36px, shared with graph-geometry.ts), so the canvas
+ * rail and the text rows stay aligned at every row boundary.
+ */
+.rowsWrap {
+  position: relative;
+  flex: none;
+  min-width: 0;
+  /* Left gutter: keep the graph rail away from the sidebar edge. */
+  padding-left: 12px;
+}
+
+.canvas {
+  position: absolute;
+  top: 4px;
+  left: 12px;
+}
+
 .rows {
   flex: none;
   margin: 0;
@@ -23,15 +42,16 @@
 .row {
   display: flex;
   align-items: center;
+  box-sizing: border-box;
+  height: 36px;
   min-width: 0;
+  /* Graph lanes (canvas layer) then an 8px gap before the commit content. */
+  padding-right: 8px;
+  padding-left: calc(var(--git-graph-lane-area, 14px) + 8px);
 }
 
 .row:hover {
   background: var(--dsw-alias-fill-hover);
-}
-
-.lane {
-  flex: none;
 }
 
 .commitCell {
@@ -40,11 +60,11 @@
   flex-direction: column;
   gap: 1px;
   min-width: 0;
-  padding: 3px 8px 3px 2px;
 }
 
 .subjectLine {
   display: flex;
+  overflow: hidden;
   align-items: center;
   gap: 6px;
   min-width: 0;
