@@ -12,6 +12,9 @@
  *   released immediately.
  * - After every row the active lanes compact toward the left, keeping the
  *   first-parent spine stable and preserving cross-row edge continuity.
+ * - With `maxLanes`, the active lane count is capped: full-pool secondary
+ *   parents draw no lane, and unmatched commits evict the lowest-priority
+ *   lane (the spine is never evicted).
  *
  * Pure logic: no Git access, no React, no DOM. Pagination continues from a
  * `GraphContinuationState` instead of restarting from empty lanes.
@@ -35,6 +38,9 @@ import type {
  */
 export function layoutGitGraph(commits: readonly GitCommitSummary[], options: GraphLayoutOptions = {}): GraphLayout {
   const firstParentOnly = options.firstParentOnly === true
+  const maxLanes = options.maxLanes !== undefined && Number.isInteger(options.maxLanes) && options.maxLanes >= 1
+    ? options.maxLanes
+    : undefined
   const pool = new ActiveLanePool(options.continuation)
   const spineHashes = collectSpineHashes(commits)
   const rows: GraphLayoutRow[] = []
@@ -56,6 +62,7 @@ export function layoutGitGraph(commits: readonly GitCommitSummary[], options: Gr
     } else {
       const spine = spineHashes.has(commit.hash)
       const priority = spine ? 0 : Math.max(0.5, pool.minPriority() + 0.5)
+      if (maxLanes !== undefined && pool.activeCount() >= maxLanes) evictLowestPriorityLane(pool)
       primary = pool.allocate('', priority, spine)
       hasEntry = false
     }
@@ -68,11 +75,15 @@ export function layoutGitGraph(commits: readonly GitCommitSummary[], options: Gr
       pool.release(primary)
     }
 
-    const secondaryLanes = (firstParentOnly ? [] : commit.parents.slice(1)).map((parent) => {
-      const existing = pool.laneExpecting(parent)
-      if (existing !== undefined) return { lane: existing, allocated: false }
-      return { lane: pool.allocate(parent, primary.priority + 0.5, false), allocated: true }
-    })
+    const secondaryLanes = (firstParentOnly ? [] : commit.parents.slice(1))
+      .map((parent) => {
+        const existing = pool.laneExpecting(parent)
+        if (existing !== undefined) return { lane: existing, allocated: false }
+        // Lane budget exhausted: this secondary ancestry draws no lane or edge.
+        if (maxLanes !== undefined && pool.activeCount() >= maxLanes) return undefined
+        return { lane: pool.allocate(parent, primary.priority + 0.5, false), allocated: true }
+      })
+      .filter((placement): placement is { lane: PoolLane; allocated: boolean } => placement !== undefined)
 
     pool.compact()
 
@@ -145,6 +156,22 @@ function nodeKind(commit: GitCommitSummary): GraphNodeKind {
   if (commit.parents.length === 0) return 'root'
   if (commit.parents.length > 1) return 'merge'
   return 'normal'
+}
+
+/**
+ * Make room for a new lane on a full pool: release the least important active
+ * lane (highest priority value, rightmost on ties). Spine lanes (priority 0)
+ * are never evicted; if only spine lanes remain the pool stays over capacity.
+ */
+function evictLowestPriorityLane(pool: ActiveLanePool): void {
+  const candidates = pool.all().filter(lane => lane.priority > 0)
+  if (candidates.length === 0) return
+  const victim = candidates.reduce((worst, lane) => {
+    if (lane.priority > worst.priority) return lane
+    if (lane.priority === worst.priority && lane.column > worst.column) return lane
+    return worst
+  })
+  pool.release(victim)
 }
 
 /**

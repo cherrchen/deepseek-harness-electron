@@ -125,6 +125,13 @@ export interface GraphLayoutOptions {
    * `git log --first-parent`. Secondary parents create no lanes or edges.
    */
   readonly firstParentOnly?: boolean
+  /**
+   * Hard cap on simultaneously active lanes. When the topology needs more:
+   * secondary parents of a full pool draw no lane, and an unmatched commit
+   * evicts the lowest-priority active lane (the spine is never evicted).
+   * Undefined means unlimited.
+   */
+  readonly maxLanes?: number
 }
 
 export type { GitLogScope }

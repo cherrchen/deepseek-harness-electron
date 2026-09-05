@@ -15,7 +15,7 @@ GitCommitSummary[]        （hash / parents / subject / refs …）
       │  Connection RPC /git → log
       ▼
 GitClientController       （分页加载 + 保存 GraphContinuationState）
-      │  layoutGitGraph(commits, { continuation, firstParentOnly })
+      │  layoutGitGraph(commits, { continuation, firstParentOnly, maxLanes })
       ▼
 GraphLayout               （rows + laneCount + continuation）
       │  buildGraphGeometry()
@@ -66,6 +66,19 @@ HEAD 的 first-parent 链是视觉主脊柱：
 ### Lane Color
 
 `colorKey` 在 lane 创建时分配（spine 优先占用 brand 色 0），终身不变；颜色查 `palette[colorKey % len]`，与 column 无关，与分页无关。Spine 色来自主题 token `--dsw-alias-brand-primary`。
+
+### Lane Cap（maxLanes 硬上限）
+
+> **ADR：Git Graph 视图同时最多渲染 3 条 lane。**
+> 客户端常量 `GIT_GRAPH_MAX_LANES = 3`（`controller.ts`）通过 `GraphLayoutOptions.maxLanes` 传入 engine；不传则不设限（engine 保持通用）。
+
+达到上限时的截断规则（按确定性顺序执行）：
+
+- **Secondary parent（merge 侧线）**：pool 已满时不再为该 parent 分配 lane，也不绘制对应 fork / merge 边 —— 该条 ancestry 不出现在视图中；
+- **Unmatched commit（页首 / 无 lane 等待的新祖先 tip）**：先逐出一条低优先级 lane 再分配新 lane。逐出策略：`priority` 最大者，同分取最右列；**spine lane（priority 0）永不逐出**。仅剩 spine 时允许超额分配以保证拓扑正确性；
+- 被丢弃 / 被逐出的 lane 的竖线在其最后一行自然结束，与 release 的渲染行为一致，无需特殊边型。
+
+已知取舍：被截断的 secondary ancestry 不会画线，因此「parent edge 不消失」不变量在 `maxLanes` 生效时不再全量成立（该不变量仅在未设限时断言，见 `tests/graph-layout.client.spec.ts` 的 lane cap 用例）。
 
 ## Pagination Continuation
 
@@ -137,5 +150,6 @@ Fork / merge / shift 使用 cubic Bezier（控制点在行高中点），横向�
 ## 相关决策记录
 
 - **Git branch/ref 不拥有 graph lane**（本文档开头 ADR）—— 后续维护必须长期遵循。
+- **视图最多渲染 3 条 lane**（`GIT_GRAPH_MAX_LANES`）—— 截断规则见「Lane Cap」一节；调整上限只改客户端常量，不改 engine。
 - Renderer 保持 Canvas 2D 实现；geometry 输出与绘制命令解耦，未来可替换为 SVG/Canvas 渲染器而不改 Layout Engine。
 - 详情面板宽度由 Details Host 控制（300–520px），Graph 列宽按 visible lanes 动态收缩/增长，不硬编码。
