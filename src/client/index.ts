@@ -44,6 +44,8 @@ export {
   DetailsTakeoverConflictError,
 } from './errors.ts'
 export { ShellDetailsService } from './service.ts'
+export { DetailsHeaderAction } from './DetailsHeaderAction.tsx'
+export type { DetailsHeaderActionProps } from './DetailsHeaderAction.tsx'
 export type { DetailsHostProps } from './DetailsHost.tsx'
 export type { DetailsToggleProps } from './DetailsToggle.tsx'
 

@@ -96,6 +96,18 @@ declare module '@dsh-electron/dsh-client-ui-details-host/client' {
 
 surface descriptor 可以声明 `dedupeKey(payload)`（标签页复用身份）与逐标签页 `closable`（默认 `true`；不可关闭的标签页不渲染关闭控件）。surface 主体渲染在 error boundary 内：某个 surface 崩溃时降级为样式化的 fallback，不会拖垮整个 Dock。
 
+### Header Actions
+
+激活 surface 所在插件可以向 `shell.details.header.actions` 贡献控件（渲染在 Tab 条尾部、右对齐；该区域永不收缩，空间不足时由 Tab 压缩让位，而不会把 Actions 挤出侧栏）。Actions 是 icon-only 按钮：请使用 host 提供的 `DetailsHeaderAction` primitive，保证尺寸、圆角、hover、tooltip 与无障碍命名跨插件一致：
+
+```tsx
+import { DetailsHeaderAction } from '@dsh-electron/dsh-client-ui-details-host/client'
+
+<DetailsHeaderAction icon={<IconRefreshOutline16 />} label="刷新 Git 状态" onTrigger={refresh} />
+```
+
+`label` 同时是 tooltip 文案与按钮 `aria-label` 的唯一来源，不会作为可见文本渲染在按钮上。
+
 ### Launcher 贡献
 
 Launcher 由贡献注册表渲染 —— host 不硬编码任何卡片。feature 插件注册打开自身 surface 的卡片：

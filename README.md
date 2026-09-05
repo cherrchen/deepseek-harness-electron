@@ -96,6 +96,18 @@ Unknown external surfaces and payloads remain supported without augmentation.
 
 A surface descriptor may declare `dedupeKey(payload)` (tab identity for reuse) and per-tab `closable` (default `true`; non-closable tabs render without the close control). Surface bodies render inside an error boundary: a crashing surface degrades to a styled fallback instead of taking the dock down.
 
+### Header actions
+
+The active surface's plugin may contribute controls to `shell.details.header.actions` (rendered trailing the tab strip, pinned right; the area never shrinks and tabs compress instead of displacing it). Actions are icon-only buttons: render them with the host primitive `DetailsHeaderAction` so size, radius, hover, tooltip, and accessible naming stay uniform across plugins:
+
+```tsx
+import { DetailsHeaderAction } from '@dsh-electron/dsh-client-ui-details-host/client'
+
+<DetailsHeaderAction icon={<IconRefreshOutline16 />} label="Refresh Git status" onTrigger={refresh} />
+```
+
+`label` is the single source for both the tooltip text and the button's `aria-label`; it is never rendered as visible button text.
+
 ### Launcher contributions
 
 The Launcher is rendered from a contribution registry — the host hardcodes no cards. Feature plugins register cards that open their own surfaces:
