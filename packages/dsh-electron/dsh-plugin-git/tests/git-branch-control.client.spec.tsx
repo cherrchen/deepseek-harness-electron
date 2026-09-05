@@ -10,7 +10,6 @@ import {
   GitBranchControl,
 } from '../src/client/GitBranchControl.tsx'
 import type { GitClientController, GitClientState } from '../src/client/controller.ts'
-import type { GitDetailsTab } from '../src/client/contract.ts'
 import { en } from '../src/client/locales.ts'
 
 const SESSION_A = 'session-a' as SessionId
@@ -30,10 +29,22 @@ function snapshot(overrides: Partial<GitRepositorySnapshot> = {}): GitRepository
   }
 }
 
-function controllerOf(state: GitClientState): GitClientController {
+const graphStateDefaults = {
+  graph: [],
+  graphLoading: false,
+  graphHasMore: false,
+  graphError: undefined,
+  commitMessage: '',
+  generating: false,
+  generationAvailable: false,
+  generationError: undefined,
+} satisfies Partial<GitClientState>
+
+function controllerOf(state: Partial<GitClientState>): GitClientController {
   const listeners = new Set<() => void>()
+  const snapshot = { ...graphStateDefaults, ...state }
   return {
-    getSnapshot: () => state,
+    getSnapshot: () => snapshot,
     subscribe: (listener: () => void) => {
       listeners.add(listener)
       return () => { listeners.delete(listener) }
@@ -86,7 +97,7 @@ describe('GitBranchControl', () => {
   const baseProps = (
     controller: GitClientController,
     list: SessionListState,
-    openDetails: (tab?: GitDetailsTab) => void = vi.fn(),
+    openDetails: () => void = vi.fn(),
   ) => ({
     controller,
     openDetails,
@@ -115,7 +126,6 @@ describe('GitBranchControl', () => {
     const controller = controllerOf({
       workspacePath: undefined,
       repository: snapshot({ branch: 'develop' }),
-      activeTab: 'changes',
       selectedDiff: undefined,
       diff: undefined,
       loading: false,
@@ -141,7 +151,6 @@ describe('GitBranchControl', () => {
     const pending = controllerOf({
       workspacePath: '/projects/plain',
       repository: undefined,
-      activeTab: 'changes',
       selectedDiff: undefined,
       diff: undefined,
       loading: true,
@@ -156,7 +165,6 @@ describe('GitBranchControl', () => {
     const nonRepo = controllerOf({
       workspacePath: '/projects/plain',
       repository: null,
-      activeTab: 'changes',
       selectedDiff: undefined,
       diff: undefined,
       loading: false,
@@ -172,7 +180,6 @@ describe('GitBranchControl', () => {
     const controller = controllerOf({
       workspacePath: '/projects/alpha',
       repository: snapshot({ unstaged: [{ path: 'src/a.ts', status: ' M' }] }),
-      activeTab: 'changes',
       selectedDiff: undefined,
       diff: undefined,
       loading: false,
@@ -182,7 +189,7 @@ describe('GitBranchControl', () => {
     const list = sessionsOf({ [SESSION_A]: '/projects/alpha' })
     render(<GitBranchControl {...baseProps(controller, list, openDetails)} sessionId={SESSION_A} />)
     fireEvent.click(screen.getByRole('button', { name: /1 changes/i }))
-    expect(openDetails).toHaveBeenCalledWith('changes')
+    expect(openDetails).toHaveBeenCalled()
   })
 
   it('opens a conversation Modal to create a branch', async () => {
@@ -190,7 +197,6 @@ describe('GitBranchControl', () => {
     const controller = controllerOf({
       workspacePath: '/projects/alpha',
       repository: snapshot(),
-      activeTab: 'changes',
       selectedDiff: undefined,
       diff: undefined,
       loading: false,
@@ -218,7 +224,6 @@ describe('GitBranchControl', () => {
         branches: [],
         branch: 'main',
       }),
-      activeTab: 'changes',
       selectedDiff: undefined,
       diff: undefined,
       loading: false,

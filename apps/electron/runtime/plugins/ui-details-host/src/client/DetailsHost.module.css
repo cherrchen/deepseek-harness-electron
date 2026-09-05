@@ -7,61 +7,123 @@
   background: var(--dsw-alias-bg-base);
 }
 
-.header {
+/*
+ * Header geometry contract: the tab bar shares the main conversation header's
+ * total height (--app-header-height, defined by the host theme) and its exact
+ * divider treatment (1px transparent border reserving the slot + a 0.5px l3
+ * hairline ::after), so the two bottom rules read as one continuous line.
+ */
+.tabbar {
+  position: relative;
   display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 8px;
-  padding: 14px 12px 12px;
-  border-bottom: 1px solid var(--dsw-alias-border-l2);
+  flex: none;
+  align-items: flex-end;
+  gap: 2px;
+  box-sizing: border-box;
+  min-width: 0;
+  height: var(--app-header-height, 45px);
+  padding: 8px 8px 0;
+  border-bottom: 1px solid transparent;
+  overflow: hidden;
+}
+
+.tabbar::after {
+  content: '';
+  position: absolute;
+  right: 0;
+  bottom: 1px;
+  left: 0;
+  height: 0.5px;
+  background: var(--dsw-alias-border-l3);
+  pointer-events: none;
 }
 
 /*
  * Desktop stamps data-dsh-desktop-platform on :root. On Windows the details
  * column shares the top-right corner with the Window Controls Overlay, so the
- * header needs the same native control-row clearance as the main chrome.
+ * tab bar keeps the same native control-row clearance above the shared
+ * header height.
  */
-:global(:root[data-dsh-desktop-platform='win32']) .header {
-  box-sizing: border-box;
-  padding-top: max(14px, var(--dsh-native-control-row-height, 40px));
+:global(:root[data-dsh-desktop-platform='win32']) .tabbar {
+  height: calc(var(--app-header-height, 45px) + var(--dsh-native-control-row-height, 40px));
+  padding-top: max(8px, var(--dsh-native-control-row-height, 40px));
 }
 
-.headerLeading {
+/*
+ * Tabs sit flush on the divider (active tab merges into the body below) and
+ * shrink under pressure: flex-shrink + min-width: 0 let the label ellipsis
+ * while the close button stays; the round buttons carry the same 28px height
+ * and bottom alignment, so label / close / + share one centerline.
+ */
+.tabWrap {
+  position: relative;
+  z-index: 1;
   display: flex;
+  flex: 0 1 auto;
+  align-items: center;
   min-width: 0;
-  flex: 1;
+  max-width: 180px;
+  border: 1px solid transparent;
+  border-bottom: none;
+  border-radius: 8px 8px 0 0;
+  color: var(--dsw-alias-label-secondary);
+}
+
+.tabWrap[data-active] {
+  background: var(--dsw-alias-bg-base);
+  border-color: var(--dsw-alias-border-l3);
+  color: var(--dsw-alias-label-primary);
+}
+
+.tab {
+  display: inline-flex;
   align-items: center;
   gap: 4px;
+  min-width: 0;
+  height: 28px;
+  padding: 2px 4px 2px 10px;
+  border: none;
+  background: transparent;
+  color: inherit;
+  font-size: 12px;
+  line-height: 16px;
+  cursor: pointer;
 }
 
-.title {
-  margin: 0;
+.tab:focus-visible {
+  outline: 2px solid var(--dsw-alias-border-brand, var(--dsw-alias-border-l2));
+  outline-offset: -2px;
+  border-radius: 8px 8px 0 0;
+}
+
+.tabLabel {
+  flex: 1;
   overflow: hidden;
-  font-size: 14px;
-  line-height: 20px;
-  font-weight: 500;
-  color: var(--dsw-alias-label-primary);
+  min-width: 0;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
-.headerTrailing {
-  display: flex;
+.tabClose {
+  display: grid;
   flex: none;
-  align-items: center;
-  gap: 4px;
-  min-width: 0;
+  place-items: center;
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  border: none;
+  border-radius: 999px;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
 }
 
-.actions {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  min-width: 0;
+.tabClose:hover {
+  background: var(--dsw-alias-fill-hover);
 }
 
-.back,
-.close {
+.addTab,
+.headerAction {
   display: grid;
   flex: none;
   place-items: center;
@@ -75,13 +137,116 @@
   cursor: pointer;
 }
 
-.back:hover,
-.close:hover {
+.addTab:hover,
+.headerAction:hover {
   background: var(--dsw-alias-fill-hover);
+}
+
+.tabClose:focus-visible,
+.addTab:focus-visible,
+.headerAction:focus-visible {
+  outline: 2px solid var(--dsw-alias-border-brand, var(--dsw-alias-border-l2));
+  outline-offset: -2px;
+}
+
+.tabbarTrailing {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: 4px;
+  margin-left: auto;
 }
 
 .body {
   flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.bodyScroll {
+  flex: 1;
   min-height: 0;
   overflow: auto;
+}
+
+.launcher {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 24px;
+  overflow: auto;
+}
+
+.launcherTitle {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--dsw-alias-label-primary);
+}
+
+.launcherHint {
+  margin: 0 0 12px;
+  font-size: 12px;
+  color: var(--dsw-alias-label-tertiary, var(--dsw-alias-label-secondary));
+}
+
+.launcherGrid {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 8px;
+  max-width: 420px;
+}
+
+.card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  width: 124px;
+  padding: 14px 10px;
+  border: 1px solid var(--dsw-alias-border-l2);
+  border-radius: 10px;
+  background: var(--dsw-alias-bg-base);
+  color: var(--dsw-alias-label-primary);
+  text-align: center;
+  cursor: pointer;
+}
+
+.card:hover {
+  background: var(--dsw-alias-fill-hover);
+}
+
+.card:focus-visible {
+  outline: 2px solid var(--dsw-alias-border-brand, var(--dsw-alias-border-l2));
+  outline-offset: 1px;
+}
+
+.cardIcon {
+  display: grid;
+  place-items: center;
+  height: 20px;
+  color: var(--dsw-alias-label-secondary);
+}
+
+.cardTitle {
+  font-size: 12px;
+  line-height: 16px;
+}
+
+.cardDescription {
+  font-size: 11px;
+  line-height: 14px;
+  color: var(--dsw-alias-label-tertiary, var(--dsw-alias-label-secondary));
+}
+
+.launcherEmpty {
+  margin: 0;
+  font-size: 12px;
+  color: var(--dsw-alias-label-tertiary, var(--dsw-alias-label-secondary));
 }

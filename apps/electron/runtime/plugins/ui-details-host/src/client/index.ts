@@ -3,39 +3,51 @@
  * takeover of the AppFrame `details` column.
  */
 import type { Context as ClientContext } from '@deepseek-ai/cordis'
+import type {} from '@deepseek-ai/dsh-client-locale/client'
 import type {} from '@deepseek-ai/dsh-client-ui-layout/client'
 import { ShellDetailsService } from './service.ts'
 
 export {
+  CONVERSATION_HEADER_UTILITIES_SLOT,
   DETAILS_HEADER_ACTIONS_SLOT,
   DETAILS_HOST_ENTRY_ID,
   DETAILS_HOST_PRIORITY,
   DETAILS_SURFACE_SLOT,
+  DETAILS_TOGGLE_ENTRY_ID,
+  DETAILS_TOGGLE_PRIORITY,
   SHELL_DETAILS_API_VERSION,
   SHELL_DETAILS_ENABLED_FEATURES,
+  SHELL_DETAILS_LOCALE_NS,
   SHELL_DETAILS_P0_FEATURES,
 } from './contract.ts'
-export { DETAILS_HISTORY_LIMIT } from './session-state.ts'
+export { DETAILS_TAB_LIMIT } from './session-state.ts'
 export type {
   DetailsHostInjected,
   DetailsHostState,
   DetailsSurfaceCloseReason,
   DetailsSurfaceDescriptor,
   DetailsSurfaceInstance,
+  DetailsIcon,
+  DetailsLauncherContribution,
   DetailsSurfaceOwnerProps,
+  DetailsToggleInjected,
   ShellDetailsController,
   ShellDetailsFeature,
   ShellDetailsOpenRequest,
   ShellDetailsSnapshot,
 } from './contract.ts'
 export type { DetailsSessionState } from './session-state.ts'
+export { DetailsLauncherRegistry } from './launcher.ts'
 export {
   DetailsSurfaceDuplicateError,
   DetailsSurfaceNotFoundError,
   DetailsTakeoverConflictError,
 } from './errors.ts'
 export { ShellDetailsService } from './service.ts'
+export { DetailsHeaderAction } from './DetailsHeaderAction.tsx'
+export type { DetailsHeaderActionProps } from './DetailsHeaderAction.tsx'
 export type { DetailsHostProps } from './DetailsHost.tsx'
+export type { DetailsToggleProps } from './DetailsToggle.tsx'
 
 /**
  * Declaration-merging table of known surface payloads.
@@ -57,8 +69,8 @@ declare module '@deepseek-ai/cordis' {
   }
 }
 
-/** Required services: slot ledger, panel geometry, and current-session identity. */
-export const inject = ['slots', 'layout', 'sessions']
+/** Required services: slot ledger, panel geometry, session identity, and locale copy. */
+export const inject = ['slots', 'layout', 'sessions', 'locale']
 
 /**
  * Mount `ctx.shellDetails`. Takeover is deferred until `open()`.

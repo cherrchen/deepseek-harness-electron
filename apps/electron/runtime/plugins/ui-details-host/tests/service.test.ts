@@ -33,8 +33,11 @@ describe('shellDetails service', () => {
     expect(b.shellDetails.isOpen()).toBe(false)
     expect(b.shellDetails.apiVersion).toBe(SHELL_DETAILS_API_VERSION)
     expect(b.shellDetails.features.has('payloadRouting')).toBe(true)
-    expect(b.shellDetails.features.has('navigationHistory')).toBe(true)
     expect(b.shellDetails.features.has('dedupe')).toBe(true)
+    expect(b.shellDetails.features.has('tabs')).toBe(true)
+    expect(b.shellDetails.features.has('launcher')).toBe(true)
+    expect(b.shellDetails.features.has('tabClose')).toBe(true)
+    expect(b.shellDetails.features.has('dockVisibility')).toBe(true)
     expect(winner(b.slots)).toBe(UpstreamDetailsPanel)
     expect(b.layout.openDetails).not.toHaveBeenCalled()
     expect(b.shellDetails.getSnapshot()).toEqual({
@@ -42,13 +45,55 @@ describe('shellDetails service', () => {
       activeId: null,
       activeInstance: null,
       label: null,
+      tabs: [],
+      launcherVisible: false,
+      dockVisible: false,
       canGoBack: false,
       historyDepth: 0,
     })
     await b.fiber.dispose()
   })
 
-  it('opens a registered surface via legacy string id', async () => {
+  it('registers the header Details Toggle in the utilities cluster', async () => {
+    const b = await bench()
+    const entries = b.slots.entries('conversation.session.header.utilities')
+    expect(entries).toHaveLength(1)
+    expect(entries[0]!.options.id).toBe('dsh-electron.details-toggle')
+    await b.fiber.dispose()
+  })
+
+  it('reveals the launcher when the dock opens with no tabs', async () => {
+    const b = await bench()
+    contributeSurface(b.ctx, 'test.alpha', 'Alpha', DummyAlpha)
+    b.shellDetails.reportDockVisible(true)
+    expect(b.shellDetails.getSnapshot().launcherVisible).toBe(true)
+    expect(b.shellDetails.getSnapshot().dockVisible).toBe(true)
+    expect(winner(b.slots)).toBe(DetailsHost)
+    expect(b.layout.closeDetails).not.toHaveBeenCalled()
+
+    // Toggling the dock closed preserves the launcher and any tabs.
+    b.shellDetails.toggleDock()
+    expect(b.layout.closeDetails).toHaveBeenCalledTimes(1)
+    b.shellDetails.reportDockVisible(false)
+    expect(b.shellDetails.getSnapshot().dockVisible).toBe(false)
+    b.shellDetails.toggleDock()
+    expect(b.shellDetails.getSnapshot().launcherVisible).toBe(true)
+    expect(b.layout.openDetails).toHaveBeenCalled()
+    await b.fiber.dispose()
+  })
+
+  it('re-reveals retained tabs without the launcher on dock reopen', async () => {
+    const b = await bench()
+    contributeSurface(b.ctx, 'test.alpha', 'Alpha', DummyAlpha)
+    b.shellDetails.open('test.alpha')
+    b.shellDetails.reportDockVisible(false)
+    b.shellDetails.reportDockVisible(true)
+    expect(b.shellDetails.isOpen('test.alpha')).toBe(true)
+    expect(b.shellDetails.getSnapshot().launcherVisible).toBe(false)
+    await b.fiber.dispose()
+  })
+
+  it('opens a registered surface as a tab via legacy string id', async () => {
     const b = await bench()
     contributeSurface(b.ctx, 'test.alpha', 'Alpha', DummyAlpha)
     contributeSurface(b.ctx, 'test.beta', 'Beta', DummyBeta)
@@ -67,54 +112,132 @@ describe('shellDetails service', () => {
     expect(b.slots.spec('shell.details.surface')).toEqual({ kind: 'list', scope: 'session' })
     expect(b.layout.openDetails).toHaveBeenCalledTimes(1)
 
+    // A second open becomes a second, active tab; the first is retained.
     b.shellDetails.open('test.beta')
     expect(b.shellDetails.activeId).toBe('test.beta')
+    expect(b.shellDetails.getSnapshot().tabs.map(tab => tab.surfaceId)).toEqual(['test.alpha', 'test.beta'])
     expect(winner(b.slots)).toBe(DetailsHost)
     expect(b.layout.closeDetails).not.toHaveBeenCalled()
     expect(b.layout.openDetails).toHaveBeenCalledTimes(2)
-
-    b.shellDetails.close()
-    expect(b.shellDetails.activeId).toBeNull()
-    expect(b.shellDetails.activeInstance).toBeNull()
-    expect(b.shellDetails.isOpen()).toBe(false)
-    expect(winner(b.slots)).toBe(UpstreamDetailsPanel)
-    expect(b.slots.spec('shell.details.surface')).toBeUndefined()
-    expect(b.layout.closeDetails).toHaveBeenCalledTimes(1)
-
-    b.shellDetails.close()
-    expect(b.layout.closeDetails).toHaveBeenCalledTimes(1)
     await b.fiber.dispose()
   })
 
-  it('opens via request, creates unique instances, and routes payload', async () => {
+  it('reuses a deduped surface instead of creating a duplicate tab', async () => {
     resetInstanceIdCounterForTests()
     const b = await bench()
     contributeSurface(b.ctx, 'test.alpha', 'Alpha', DummyAlpha)
-
-    const first = b.shellDetails.open({
-      surfaceId: 'test.alpha',
-      payload: { tab: 'diff', path: 'src/app.tsx' },
+    b.shellDetails.registerSurface({
+      id: 'test.alpha',
+      dedupeKey: payload => `alpha:${(payload as { repo?: string }).repo ?? ''}`,
     })
+
+    const first = b.shellDetails.open({ surfaceId: 'test.alpha', payload: { repo: 'a' } })
     expect(first.instanceId).toBe('details-instance-1')
-    expect(first.surfaceId).toBe('test.alpha')
-    expect(first.payload).toEqual({ tab: 'diff', path: 'src/app.tsx' })
-    expect(first.label).toBe('Alpha')
-    expect(first.sessionId).toBe('session-a')
-    expect(b.shellDetails.activeInstance).toBe(first)
-    expect(b.shellDetails.activeId).toBe('test.alpha')
-    expect(b.shellDetails.getSnapshot().activeInstance?.payload).toEqual({
-      tab: 'diff',
-      path: 'src/app.tsx',
-    })
+    const second = b.shellDetails.open({ surfaceId: 'test.alpha', payload: { repo: 'a' } })
+    expect(second.instanceId).toBe('details-instance-1')
+    expect(second.payload).toEqual({ repo: 'a' })
+    expect(b.shellDetails.getSnapshot().tabs).toHaveLength(1)
 
-    const second = b.shellDetails.open({
-      surfaceId: 'test.alpha',
-      payload: { tab: 'changes' },
+    // A different dedupe key opens a second tab.
+    const third = b.shellDetails.open({ surfaceId: 'test.alpha', payload: { repo: 'b' } })
+    expect(third.instanceId).toBe('details-instance-2')
+    expect(b.shellDetails.getSnapshot().tabs).toHaveLength(2)
+    await b.fiber.dispose()
+  })
+
+  it('closes the active tab and falls back to the MRU tab', async () => {
+    const b = await bench()
+    contributeSurface(b.ctx, 'test.alpha', 'Alpha', DummyAlpha)
+    contributeSurface(b.ctx, 'test.beta', 'Beta', DummyBeta)
+    b.shellDetails.open('test.alpha')
+    b.shellDetails.open('test.beta')
+
+    b.shellDetails.close()
+    expect(b.shellDetails.activeId).toBe('test.alpha')
+    expect(b.shellDetails.getSnapshot().tabs.map(tab => tab.surfaceId)).toEqual(['test.alpha'])
+
+    // Closing the last tab reveals the launcher and keeps the takeover.
+    b.shellDetails.close()
+    expect(b.shellDetails.getSnapshot().tabs).toEqual([])
+    expect(b.shellDetails.activeId).toBeNull()
+    expect(b.shellDetails.isOpen()).toBe(false)
+    expect(winner(b.slots)).toBe(DetailsHost)
+    expect(b.layout.closeDetails).not.toHaveBeenCalled()
+    await b.fiber.dispose()
+  })
+
+  it('closes an explicit tab by instance id', async () => {
+    const b = await bench()
+    contributeSurface(b.ctx, 'test.alpha', 'Alpha', DummyAlpha)
+    contributeSurface(b.ctx, 'test.beta', 'Beta', DummyBeta)
+    const alpha = b.shellDetails.open({ surfaceId: 'test.alpha' })
+    b.shellDetails.open('test.beta')
+
+    b.shellDetails.closeTab(alpha.instanceId)
+    expect(b.shellDetails.activeId).toBe('test.beta')
+    expect(b.shellDetails.getSnapshot().tabs).toHaveLength(1)
+    await b.fiber.dispose()
+  })
+
+  it('activates tabs and hides the launcher', async () => {
+    const b = await bench()
+    contributeSurface(b.ctx, 'test.alpha', 'Alpha', DummyAlpha)
+    contributeSurface(b.ctx, 'test.beta', 'Beta', DummyBeta)
+    const alpha = b.shellDetails.open({ surfaceId: 'test.alpha' })
+    const beta = b.shellDetails.open({ surfaceId: 'test.beta' })
+    b.shellDetails.showLauncher()
+    expect(b.shellDetails.getSnapshot().launcherVisible).toBe(true)
+    expect(b.shellDetails.isOpen()).toBe(true)
+
+    b.shellDetails.activate(alpha.instanceId)
+    expect(b.shellDetails.activeId).toBe('test.alpha')
+    expect(b.shellDetails.getSnapshot().launcherVisible).toBe(false)
+    expect(b.shellDetails.getSnapshot().activeInstance).toBe(alpha)
+
+    b.shellDetails.activate(beta.instanceId)
+    expect(b.shellDetails.activeId).toBe('test.beta')
+    await b.fiber.dispose()
+  })
+
+  it('shows the launcher and navigates through launcher open requests', async () => {
+    const b = await bench()
+    contributeSurface(b.ctx, 'test.alpha', 'Alpha', DummyAlpha)
+    const disposeCard = b.shellDetails.registerLauncher({
+      id: 'test.card',
+      pluginId: 'test.plugin',
+      title: 'Alpha card',
+      open: () => ({ surfaceId: 'test.alpha', payload: { source: 'launcher' } }),
     })
-    expect(second.instanceId).toBe('details-instance-2')
-    expect(second.instanceId).not.toBe(first.instanceId)
-    expect(second.payload).toEqual({ tab: 'changes' })
-    expect(b.shellDetails.activeInstance).toBe(second)
+    expect(disposeCard).toBeTypeOf('function')
+
+    b.shellDetails.showLauncher()
+    expect(b.shellDetails.getSnapshot().launcherVisible).toBe(true)
+    expect(b.layout.openDetails).toHaveBeenCalled()
+
+    b.shellDetails.open({ surfaceId: 'test.alpha', payload: { source: 'launcher' } })
+    expect(b.shellDetails.activeId).toBe('test.alpha')
+    expect(b.shellDetails.getSnapshot().launcherVisible).toBe(false)
+
+    expect(() => b.shellDetails.registerLauncher({
+      id: 'test.card',
+      pluginId: 'test.plugin',
+      title: 'Duplicate',
+      open: () => ({ surfaceId: 'test.alpha' }),
+    })).toThrow(/already registered/)
+    disposeCard()
+    await b.fiber.dispose()
+  })
+
+  it('preserves tab state across dock hide and re-open', async () => {
+    const b = await bench()
+    contributeSurface(b.ctx, 'test.alpha', 'Alpha', DummyAlpha)
+    b.shellDetails.open('test.alpha')
+
+    // Toggle the dock closed and open again (AppFrame toggle semantics).
+    b.layout.closeDetails()
+    b.layout.openDetails()
+    expect(b.shellDetails.isOpen('test.alpha')).toBe(true)
+    expect(b.shellDetails.getSnapshot().tabs).toHaveLength(1)
     await b.fiber.dispose()
   })
 
@@ -136,13 +259,46 @@ describe('shellDetails service', () => {
 
     listener.mockClear()
     b.shellDetails.close()
-    expect(listener).toHaveBeenCalledTimes(1)
+    expect(listener).toHaveBeenCalled()
     expect(b.shellDetails.getSnapshot().open).toBe(false)
 
     listener.mockClear()
     stop()
     b.shellDetails.open('test.alpha')
     expect(listener).not.toHaveBeenCalled()
+    await b.fiber.dispose()
+  })
+
+  it('keeps MRU back navigation across tab activations', async () => {
+    const b = await bench()
+    contributeSurface(b.ctx, 'test.alpha', 'Alpha', DummyAlpha)
+    contributeSurface(b.ctx, 'test.beta', 'Beta', DummyBeta)
+    b.shellDetails.open('test.alpha')
+    b.shellDetails.open('test.beta')
+    expect(b.shellDetails.canGoBack()).toBe(true)
+
+    b.shellDetails.back()
+    expect(b.shellDetails.activeId).toBe('test.alpha')
+    expect(b.shellDetails.canGoBack()).toBe(true)
+
+    b.shellDetails.back()
+    expect(b.shellDetails.activeId).toBe('test.beta')
+    await b.fiber.dispose()
+  })
+
+  it('evicts the oldest tab beyond the tab limit', async () => {
+    resetInstanceIdCounterForTests()
+    const b = await bench()
+    for (let index = 0; index < 25; index += 1) {
+      contributeSurface(b.ctx, `test.surface-${index}`, `Surface ${index}`, DummyAlpha)
+    }
+    for (let index = 0; index < 25; index += 1) {
+      b.shellDetails.open(`test.surface-${index}`)
+    }
+    const tabs = b.shellDetails.getSnapshot().tabs
+    expect(tabs).toHaveLength(20)
+    expect(tabs[0]!.surfaceId).toBe('test.surface-5')
+    expect(b.shellDetails.activeId).toBe('test.surface-24')
     await b.fiber.dispose()
   })
 
@@ -214,14 +370,15 @@ describe('shellDetails service', () => {
     await b.fiber.dispose()
   })
 
-  it('toggles the same surface closed and open', async () => {
+  it('closes the active tab on toggle of the same surface', async () => {
     const b = await bench()
     contributeSurface(b.ctx, 'test.alpha', 'Alpha', DummyAlpha)
     b.shellDetails.toggle('test.alpha')
     expect(b.shellDetails.isOpen('test.alpha')).toBe(true)
     b.shellDetails.toggle('test.alpha')
     expect(b.shellDetails.isOpen()).toBe(false)
-    expect(winner(b.slots)).toBe(UpstreamDetailsPanel)
+    expect(b.shellDetails.getSnapshot().tabs).toEqual([])
+    expect(winner(b.slots)).toBe(DetailsHost)
     await b.fiber.dispose()
   })
 })

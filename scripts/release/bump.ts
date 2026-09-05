@@ -249,7 +249,7 @@ function rootVersion(root: string): string {
  * @returns Private package manifests sorted by path.
  */
 function privateDshVersions(root: string): PrivateDshVersion[] {
-  return globSync('packages/*/*/package.json', { cwd: root })
+  return globSync('packages/!(dsh-electron)/*/package.json', { cwd: root })
     .map(path => path.replaceAll('\\', '/'))
     .sort()
     .flatMap((manifestPath) => {

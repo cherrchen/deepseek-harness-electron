@@ -2,8 +2,16 @@
 
 import type { Context } from '@deepseek-ai/cordis'
 import type { SubprocessRuntime } from '@deepseek-ai/dsh-subprocess'
+import { GIT_LOG_FORMAT, parseGitLog } from './log.ts'
 import { parseBranches, parsePorcelainV2 } from './status.ts'
-import type { GitDiff, GitRepositorySnapshot } from './types.ts'
+import type { GitCommitSummary, GitDiff, GitLogScope, GitRepositorySnapshot } from './types.ts'
+
+/** Extra `git log` arguments implementing one history scope. */
+function logScopeArgs(scope: GitLogScope): readonly string[] {
+  if (scope === 'all') return ['--all']
+  if (scope === 'first-parent') return ['--first-parent']
+  return []
+}
 
 /** Resolved Git process policy. */
 export interface GitServiceOptions {
@@ -120,6 +128,45 @@ export class GitService {
     if (normalized.length === 0) throw new Error('commit message must not be empty')
     await this.run(repository, ['commit', '-m', normalized], signal)
     return this.status(repository, signal)
+  }
+
+  /**
+   * Discard unstaged working-tree changes of one tracked path, or of every
+   * tracked path when omitted. Destructive: callers confirm before invoking.
+   * @param repository - Repository working directory.
+   * @param path - Optional repository-relative tracked path.
+   * @param signal - Optional command cancellation signal.
+   * @returns Repository snapshot after the discard.
+   */
+  async discard(repository: string, path?: string, signal?: AbortSignal): Promise<GitRepositorySnapshot> {
+    await this.run(repository, path === undefined ? ['checkout', '--', '.'] : ['checkout', '--', path], signal)
+    return this.status(repository, signal)
+  }
+
+  /**
+   * Read one bounded page of commit history, newest first.
+   * @param repository - Repository working directory.
+   * @param limit - Page size; callers page forward with `skip`.
+   * @param skip - Number of commits to offset before the first returned row.
+   * @param scope - History scope: HEAD ancestry (`auto`), all refs (`all`),
+   *   or the HEAD first-parent chain (`first-parent`).
+   * @param signal - Optional command cancellation signal.
+   * @returns Commit rows in output order (newest first).
+   */
+  async log(
+    repository: string,
+    limit: number,
+    skip: number,
+    scope: GitLogScope = 'auto',
+    signal?: AbortSignal,
+  ): Promise<readonly GitCommitSummary[]> {
+    const cappedLimit = Math.max(1, Math.min(1000, Math.floor(limit)))
+    const cappedSkip = Math.max(0, Math.floor(skip))
+    const text = await this.run(repository, [
+      'log', `--max-count=${cappedLimit}`, `--skip=${cappedSkip}`,
+      `--format=${GIT_LOG_FORMAT}`, '--date-order', ...logScopeArgs(scope),
+    ], signal)
+    return parseGitLog(text)
   }
 
   /**

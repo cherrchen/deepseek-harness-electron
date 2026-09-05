@@ -51,6 +51,8 @@ pnpm --filter @dsh-electron/dsh-electron build
 pnpm --filter @dsh-electron/dsh-electron test
 ```
 
+Repository Python integration tests require CPython 3.10+ selected by `python3` on PATH. If mise reports an inactive shim, activate an installed version for the command, for example `mise exec python@3.13.12 -- pnpm test packages/experimental/code-runtime-python/tests/runtime.spec.ts packages/experimental/code-runtime-python/tests/boot-write-failure.spec.ts`. Use a version installed on your machine; `python3 --version` must succeed before running the tests. Release membership and maintenance-script classification follow the [downstream testing decision](../../.agents/notes/implemented/bug-fix/2026-09-05-desktop-repository-test-classification.md).
+
 ## Desktop integration
 
 The main window uses a hidden title bar without a separate heading row. The sidebar and conversation backgrounds extend to the window top: macOS reserves a draggable sidebar inset for its traffic lights, while the Windows and Linux sidebar content starts at the top edge because their Window Controls Overlay occupies only the top-right corner. Unused parts of the active conversation header are draggable, and a transparent 40-pixel hit surface covers the empty-session background. Header controls are explicitly non-draggable, and every page drag region is suspended while a modal dialog is open so its mask and controls retain pointer input. Closing the main window hides it while the Harness process continues running. Use the tray menu to reopen the window or quit the application and stop the supervised process.

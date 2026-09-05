@@ -23,21 +23,24 @@ export function ChangesTab({ repository, controller, t, loading, error }: {
         title={t('details.staged')}
         changes={repository.staged}
         action={t('details.unstage')}
-        onSelect={(path) => { void controller.selectDiff(path, true) }}
+        onSelect={(path) => { controller.openDiff(path, true) }}
         onAction={(path) => { void controller.unstage(path) }}
       />
       <ChangeSection
         title={t('details.unstaged')}
         changes={repository.unstaged}
         action={t('details.stage')}
-        onSelect={(path) => { void controller.selectDiff(path, false) }}
+        onSelect={(path) => { controller.openDiff(path, false) }}
         onAction={(path) => { void controller.stage(path) }}
+        onDiscard={(path) => { void controller.discard(path) }}
+        discardLabel={t('details.discard')}
+        discardConfirmLabel={t('details.discardConfirm')}
       />
       <ChangeSection
         title={t('details.untracked')}
         changes={repository.untracked.map(path => ({ path, status: '??' }))}
         action={t('details.stage')}
-        onSelect={(path) => { void controller.selectDiff(path, false) }}
+        onSelect={(path) => { controller.openDiff(path, false) }}
         onAction={(path) => { void controller.stage(path) }}
       />
       {!clean && (

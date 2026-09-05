@@ -37,6 +37,10 @@
 .header {
   position: relative;
   flex: none;
+  box-sizing: border-box;
+  /* Total height (with the 1px divider slot below) shared with the Details
+     Host tab bar via --app-header-height: the two bottom rules align. */
+  min-height: var(--app-header-height, 45px);
   padding: 12px 28px 0 20px;
   border-bottom: 1px solid transparent;
 }

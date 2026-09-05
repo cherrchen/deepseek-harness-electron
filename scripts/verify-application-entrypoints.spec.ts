@@ -25,6 +25,19 @@ function write(root: string, path: string, content: string): void {
 }
 
 describe('application entrypoints', () => {
+  it('classifies desktop maintenance scripts without permitting new launchers', () => {
+    const root = fixture()
+    for (const name of ['next-beta-tag', 'restore-agents-downstream', 'set-version', 'sync-version']) {
+      write(root, `apps/electron/scripts/${name}.mjs`, '#!/usr/bin/env node\n')
+    }
+    expect(applicationEntrypointViolations(root)).toEqual([])
+
+    write(root, 'apps/electron/scripts/rogue.mjs', '#!/usr/bin/env node\n')
+    expect(applicationEntrypointViolations(root)).toEqual([
+      'apps/electron/scripts/rogue.mjs: executable source has no application/build/test classification',
+    ])
+  })
+
   it('accepts the repository launcher inventory', () => {
     expect(applicationEntrypointViolations(resolve(import.meta.dirname, '..'))).toEqual([])
   })

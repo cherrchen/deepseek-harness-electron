@@ -317,10 +317,10 @@ export abstract class ReleaseFamily {
   abstract readonly installedEntry: InstalledEntry | undefined
 }
 
-/** Release packages and apps: one shared version across the whole family. */
+/** Upstream packages and apps share one version; downstream releases are independent. */
 class DshFamily extends ReleaseFamily {
   readonly id = 'dsh'
-  readonly patterns = ['packages/!(experimental)/*/package.json', 'apps/*/package.json'] as const
+  readonly patterns = ['packages/!(experimental|dsh-electron)/*/package.json', 'apps/!(electron)/package.json'] as const
   readonly tagPrefix = 'dsh-v'
 
   /** Require current artifacts from a complete official client build. */

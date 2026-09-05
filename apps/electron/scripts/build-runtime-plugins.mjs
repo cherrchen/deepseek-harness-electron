@@ -173,6 +173,11 @@ async function buildHostHalf(pluginRoot) {
 async function buildClientHalf(pluginRoot, packageId, manifest) {
   const outDir = join(pluginRoot, 'lib')
   mkdirSync(outDir, { recursive: true })
+  // The output filename must match the manifest's "./client" exports target so
+  // the client module registry finds the bundle it resolves at launch.
+  const clientTarget = /** @type {{exports?: Record<string, {default?: string}>}} */ (manifest)
+    .exports?.['./client']?.default
+  const clientFile = clientTarget === undefined ? 'client.js' : basename(clientTarget)
   const result = await build({
     entryPoints: [join(pluginRoot, 'src', 'client', 'index.ts')],
     bundle: true,
@@ -202,7 +207,9 @@ async function buildClientHalf(pluginRoot, packageId, manifest) {
   }
 });
 `
-  writeFileSync(join(outDir, 'client.js'), wrapped, 'utf8')
+  // The .cjs extension (when the manifest declares one) keeps the CJS bundle
+  // loadable by direct require outside the ModuleLoader.
+  writeFileSync(join(outDir, clientFile), wrapped, 'utf8')
 }
 
 /**

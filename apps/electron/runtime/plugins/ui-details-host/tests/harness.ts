@@ -22,9 +22,23 @@ export function DummyGamma(): null {
 }
 
 export function fakeLayout() {
+  let details = 0
+  const listeners = new Set<() => void>()
+  const setDetails = (next: number): void => {
+    if (details === next) return
+    details = next
+    for (const listener of listeners) listener()
+  }
   return {
-    openDetails: vi.fn(),
-    closeDetails: vi.fn(),
+    openDetails: vi.fn(() => { setDetails(400) }),
+    closeDetails: vi.fn(() => { setDetails(0) }),
+    toggleDetails: vi.fn(() => { setDetails(details === 0 ? 400 : 0) }),
+    setDetails: (next: number): void => { setDetails(next) },
+    getSnapshot: () => ({ sidebar: 280, details, narrow: false, narrowExpanded: false }),
+    subscribe: (listener: () => void) => {
+      listeners.add(listener)
+      return () => { listeners.delete(listener) }
+    },
   }
 }
 
@@ -141,11 +155,13 @@ export async function bench() {
   const layout = fakeLayout()
   const sessions = fakeSessions()
   ctx.provide('layout', layout)
+  ctx.provide('locale', { register: vi.fn(() => () => {}) })
   ctx.provide('sessions', sessions as never)
   const disposeRoot = slots.register({
     name: 'root',
     children: {
       details: { kind: 'single', scope: 'session' },
+      'conversation.session.header.utilities': { kind: 'list', scope: 'session' },
     },
   }, () => null)
   const disposeUpstream = slots.register({ name: 'details' }, UpstreamDetailsPanel)

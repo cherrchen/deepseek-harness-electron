@@ -91,34 +91,36 @@ Git is the reference consumer of Details Host. The Client manifest wires the dep
 
 `external` ensures the module table materializes the Details Host Client factory before this bundle `require`s it. `inject` declares `ctx.shellDetails` as a runtime dependency.
 
-Git registers surface id `git`, optional payload tabs (`changes`, `diff`, `commit`), and opens the column as a singleton (replace plus a stable `dedupeKey`) so Details Host never shows a back control on the Git heading:
+Git ships three independent surfaces — `git.changes`, `git.diff`, and `git.graph` — one Details Host tab each, and opens them through the unified `ctx.shellDetails.open(...)` create-or-reuse navigation:
 
 ```text
-ctx.shellDetails.open({
-  surfaceId: 'git',
-  payload: { tab: 'changes' },
-  navigation: 'replace',
-})
+ctx.shellDetails.open({ surfaceId: 'git.changes' })
+ctx.shellDetails.open({ surfaceId: 'git.diff', payload: { path, staged: false } })
+ctx.shellDetails.open({ surfaceId: 'git.graph' })
 ```
+
+Surface descriptors declare `dedupeKey`s so repeated opens converge on one tab: changes and graph key on the current workspace path (`git:changes:<workspacePath>`, `git:graph:<workspacePath>`); diff keys on path plus comparison side (`git:diff:<path>:<staged|worktree>`), so a staged and a working-tree diff of one file can sit side by side. The changed-files indicator and Launcher cards open `git.changes`; clicking a file row opens `git.diff` for that path.
 
 Payload typing augments Details Host:
 
 ```ts
 declare module '@dsh-electron/dsh-client-ui-details-host/client' {
   interface DetailsSurfacePayloadMap {
-    git: { tab?: 'changes' | 'diff' | 'commit'; path?: string }
+    'git.changes': GitChangesPayload
+    'git.diff': GitDiffPayload
+    'git.graph': GitGraphPayload
   }
 }
 ```
 
-AppFrame details geometry, resize handle, and close button are owned by Details Host, not this package.
+Git also registers two Launcher cards (Changes, Graph) through `ctx.shellDetails.registerLauncher`, plus header actions for every surface. AppFrame details geometry, the tab bar, the Launcher, and dock visibility are owned by Details Host, not this package.
 
 <a id="user-experience"></a>
 ## User experience
 
-In the conversation composer, Git contributes a branch selector and a changed-files indicator on the left of the input area. Clicking either control opens the Git details surface in the third column. Creating a branch opens a shared conversation Modal; after `git init` with no commits (unborn HEAD), the menu shows the symbolic default branch as disabled, explains that the first commit is required, and disables create until HEAD exists.
+In the conversation composer, Git contributes a branch selector and a changed-files indicator on the left of the input area. Clicking either control opens the `git.changes` surface as a Details Host tab. Creating a branch opens a shared conversation Modal; after `git init` with no commits (unborn HEAD), the menu shows the symbolic default branch as disabled, explains that the first commit is required, and disables create until HEAD exists.
 
-Inside the panel, users can review staged, unstaged, and untracked changes, inspect diffs, stage or unstage paths, write commit messages, and switch or create local branches. On Electron, optional Desktop enhancement adds reveal-in-folder and open-path actions when the Desktop provider is present.
+The **Changes** surface groups staged, unstaged, and untracked paths into sections; rows stage, unstage, or discard (a two-step destructive confirm) a path and open the matching diff. The **Diff** surface renders one file's working-tree or staged diff per tab. The **Graph** surface shows the commit history as a canvas-drawn lane graph — one continuous coordinate space, so rails and merge edges never break at row boundaries — with subject, author, date, hash, and HEAD/branch/tag decoration badges, paged incrementally with a load-more control. A commit region inside Changes accepts an editable message and offers **Generate**: when the host exposes an LLM runtime and `commitMessage` is configured, a staged diff is sent to the configured provider and the streamed suggestion is written into the editable input. Generation never stages, commits, or pushes anything. On Electron, optional Desktop enhancement adds reveal-in-folder and open-path actions when the Desktop provider is present.
 
 <a id="composition"></a>
 ## Composition
@@ -139,11 +141,22 @@ No runtime invariant companion is published because Cordis owns the service, RPC
 | `executable` | `git` | Git executable name or absolute path resolved by `ctx.subprocess`. |
 | `maxOutputBytes` | 8 MiB | Per-stream collection cap for one Git command. |
 | `graceMs` | 3000 | Managed subprocess termination grace period. |
+| `commitMessage.provider` | — | Provider route registered with the DSH LLM runtime. Required when the `commitMessage` section is present. |
+| `commitMessage.model` | — | Model id resolved by the provider route. Required when the `commitMessage` section is present. |
+| `commitMessage.maxDiffBytes` | 48 KiB | Staged-diff byte cap applied before the generation prompt is built (validated minimum 1024). |
+
+The whole `commitMessage` section is optional. When it is absent, or when the host exposes no LLM runtime, commit message generation is unavailable and the Client reports `git/generation-unavailable`.
 
 <a id="git-operations"></a>
 ## Git operations
 
 The first release supports repository discovery, Git version, current branch and HEAD, staged/unstaged/untracked status, local branches, working and staged diffs, stage/unstage, commit, branch creation, and branch switching. Status uses porcelain v2 with NUL path separators; branches use `for-each-ref`; every caller-supplied path, branch, and message remains one argv value.
+
+Discard reverts one unstaged or untracked path through `git checkout --` / `git clean -f --` and is destructive: the Client always asks for a second, explicit confirmation before sending the RPC, and the surface names the path in the confirm body.
+
+Commit history is read with a paged `git log` (`GIT_LOG_FORMAT`, one commit per line, fixed field count) so the Graph surface appends older commits incrementally through a load-more control instead of materializing the whole history.
+
+Commit message generation is opt-in: when `commitMessage` is configured and the host provides the LLM runtime, a staged diff (capped by `commitMessage.maxDiffBytes`) is sent to the configured provider route and the streamed suggestion is written into the editable commit message input. Generation is suggestion-only — it never stages, commits, or pushes anything.
 
 GitHub authentication, remotes, fetch/pull/push UX, issues, pull requests, stash, rebase, cherry-pick, merge-conflict editing, and credential management are outside this package.
 
@@ -177,6 +190,8 @@ None. The package does not add, replace, or retain model-request tokens.
 
 - **Local repositories only** — all operations run through the configured DSH subprocess execution world; remote repository and hosting-provider workflows are not implemented.
 - **Bounded command output** — a diff larger than `maxOutputBytes` retains only the subprocess collector's tail, so deployments handling very large diffs must raise that validated setting.
+- **Generation needs host + config** — commit message generation requires a host LLM runtime and a `commitMessage` configuration section; without either, the Generate action stays disabled or reports `git/generation-unavailable`.
+- **Launcher card copy is English** — the two Launcher cards contributed by this plugin ship their own English labels; they are not yet localized through the locale service.
 
 <a id="dev-note"></a>
 ### Dev Note

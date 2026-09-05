@@ -3,13 +3,15 @@ import { Button } from '@deepseek-ai/dsh-client-ui-primitives'
 import { splitRepoPath } from '../path-display.ts'
 import css from '../GitDetailsSurface.module.css'
 
-/** Render one changed-file row with status, path, and action. */
-export function ChangeRow({ status, path, action, onSelect, onAction }: {
+/** Render one changed-file row with status, path, action, and optional trailing control. */
+export function ChangeRow({ status, path, action, onSelect, onAction, trailing }: {
   status: string
   path: string
   action: string
   onSelect: () => void
   onAction: () => void
+  /** Optional extra control (e.g. the destructive discard confirm). */
+  trailing?: ReactNode
 }): ReactNode {
   const { name, dir } = splitRepoPath(path)
   return (
@@ -21,6 +23,7 @@ export function ChangeRow({ status, path, action, onSelect, onAction }: {
           {dir !== '' && <span className={css.fileDir}>{dir}</span>}
         </span>
       </button>
+      {trailing}
       <Button size="sm" variant="ghost" onClick={onAction}>{action}</Button>
     </div>
   )

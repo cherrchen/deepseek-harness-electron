@@ -24,6 +24,22 @@
     "website/.generated/**",
     "vendor/**", // Vendored source keeps upstream style and idioms.
     "native/**", // The imported landlock-run subtree has its own gates; see native/README.md.
+    // Git-subtree mirrors of the independently-gated canonical plugin repos
+    // (dsh-plugin-git, dsh-client-ui-details-host, dsh-theme-studio; see the
+    // subtree docs). Each mirror carries its canonical repo's root
+    // tsconfig.json — a build solution (`files: []` + references into the
+    // standalone programs) — which breaks tsgolint's nearest-tsconfig program
+    // discovery: typescript-go resolves the mirrors' cross-package imports
+    // (the dsh-llm store chain, slot locale merges) differently from tsc and
+    // reports error-typed false positives. Their type correctness stays
+    // enforced by `tsc -b tsconfig.host.json` (their programs are root
+    // references) and by the canonical repos' own gates. `packages/
+    // dsh-electron/**` is mirror-only and covered wholesale; new mirrors under
+    // `apps/electron/runtime/plugins/` need one line here, since that
+    // directory also hosts repo-owned plugins that stay linted.
+    "packages/dsh-electron/**",
+    "apps/electron/runtime/plugins/dsh-theme-studio/**",
+    "apps/electron/runtime/plugins/ui-details-host/**",
     "**/*.js",
     "**/*.mjs",
     "**/*.config.ts", // Tool and app configs are outside the repository TypeScript programs.

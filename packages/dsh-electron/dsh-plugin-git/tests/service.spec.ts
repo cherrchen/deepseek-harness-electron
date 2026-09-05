@@ -116,4 +116,59 @@ describe('portable Git service', () => {
     await expect(git.discover(root)).rejects.toMatchObject({ exitCode: 42, stderr: 'permission-denied' })
     await dispose()
   })
+
+  it('reads paged history and discards unstaged changes', async () => {
+    const { dispose, git } = await service()
+    try {
+      const root = mkdtempSync(join(tmpdir(), 'dsh-plugin-git-log-'))
+      roots.push(root)
+      execFileSync('git', ['init', '-b', 'main'], { cwd: root })
+      execFileSync('git', ['config', 'user.name', 'Git Plugin Test'], { cwd: root })
+      execFileSync('git', ['config', 'user.email', 'git-plugin@example.invalid'], { cwd: root })
+      execFileSync('git', ['commit', '--allow-empty', '-m', 'first'], { cwd: root })
+      execFileSync('git', ['commit', '--allow-empty', '-m', 'second'], { cwd: root })
+
+      const page = await git.log(root, 10, 0)
+      expect(page.map(commit => commit.subject)).toEqual(['second', 'first'])
+      const skipped = await git.log(root, 10, 1)
+      expect(skipped.map(commit => commit.subject)).toEqual(['first'])
+
+      writeFileSync(join(root, 'tracked.txt'), 'initial\nchanged\n')
+      execFileSync('git', ['add', 'tracked.txt'], { cwd: root })
+      await git.discard(root, 'tracked.txt')
+      const snapshot = await git.status(root)
+      expect(snapshot.unstaged).toEqual([])
+      expect(snapshot.staged.map(change => change.path)).toEqual(['tracked.txt'])
+    } finally {
+      await dispose()
+    }
+  })
+
+  it('applies the history scope to the log command', async () => {
+    const { dispose, git } = await service()
+    try {
+      const root = repository()
+      execFileSync('git', ['checkout', '-q', '-b', 'feature'], { cwd: root })
+      writeFileSync(join(root, 'feature.txt'), 'feature\n')
+      execFileSync('git', ['add', 'feature.txt'], { cwd: root })
+      execFileSync('git', ['commit', '-m', 'feature work'], { cwd: root })
+      execFileSync('git', ['checkout', '-q', 'main'], { cwd: root })
+      writeFileSync(join(root, 'main.txt'), 'main\n')
+      execFileSync('git', ['add', 'main.txt'], { cwd: root })
+      execFileSync('git', ['commit', '-m', 'main work'], { cwd: root })
+      execFileSync('git', ['merge', '-q', '--no-ff', '-m', 'merge feature', 'feature'], { cwd: root })
+
+      const auto = await git.log(root, 10, 0)
+      expect(auto.map(commit => commit.subject)).toEqual(['merge feature', 'main work', 'feature work', 'initial'])
+      // First-parent scope mirrors `git log --first-parent`: the side branch
+      // commit is not part of the queried history at all.
+      const firstParent = await git.log(root, 10, 0, 'first-parent')
+      expect(firstParent.map(commit => commit.subject)).toEqual(['merge feature', 'main work', 'initial'])
+      // All-refs scope keeps both parents' ancestry (and stays valid).
+      const all = await git.log(root, 10, 0, 'all')
+      expect(all.map(commit => commit.subject)).toEqual(['merge feature', 'main work', 'feature work', 'initial'])
+    } finally {
+      await dispose()
+    }
+  })
 })

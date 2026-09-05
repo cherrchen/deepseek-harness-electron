@@ -30,6 +30,7 @@ const clientExternals = new Set([
   '@deepseek-ai/cordis',
   '@deepseek-ai/dsh-client-ui-renderer/client',
   '@deepseek-ai/dsh-client-ui-slots',
+  '@deepseek-ai/dsh-client-ui-primitives',
   '@deepseek-ai/dsh-client-ui-layout/client',
 ])
 
@@ -97,6 +98,27 @@ export const clientConfig: UserConfig = {
     'import.meta.env': JSON.stringify({ MODE: process.env.NODE_ENV ?? 'production' }),
   },
   plugins: [{
+    name: 'dsh-details-host-cjs-named-exports',
+    // The bundle is a ModuleLoader wrapper; when it is required directly from
+    // Node/vitest instead, the CJS fallback needs lexer-visible named exports.
+    generateBundle(_options, bundle) {
+      for (const chunk of Object.values(bundle)) {
+        if (chunk.type !== 'chunk' || chunk.fileName !== 'client.cjs') continue
+        const names = [...new Set([...chunk.code.matchAll(/exports\.([A-Za-z_$][\w$]*)\s*=/g)]
+          .map((match) => match[1] ?? ''))]
+          .filter((name) => name.length > 0)
+        const lines = [
+          'if (typeof module === "object" && module !== null) {',
+          ...names.map((name) => `  exports.${name} = module.exports.${name};`),
+          '}',
+        ]
+        const marker = chunk.code.lastIndexOf('//# sourceMappingURL=')
+        const suffix = marker < 0 ? '' : chunk.code.slice(marker)
+        const code = marker < 0 ? chunk.code : chunk.code.slice(0, marker)
+        chunk.code = `${code}${lines.join('\n')}\n${suffix}`
+      }
+    },
+  }, {
     name: 'dsh-details-host-css-modules-inline',
     resolveId(source: string, importer: string | undefined) {
       if (!source.endsWith('.module.css')) return null
@@ -119,9 +141,22 @@ export const clientConfig: UserConfig = {
     },
   }],
   outputOptions: {
-    entryFileNames: 'client.js',
-    banner: `window.__ModuleLoader__.load({ id: ${JSON.stringify(PACKAGE_NAME)}, factory: (require) => {`,
-    footer: 'return module.exports; } });',
+    entryFileNames: 'client.cjs',
+    banner: [
+      '(function () {',
+      '  var factory = (require) => {',
+    ].join('\n'),
+    footer: [
+      'return module.exports; };',
+      "  if (typeof window !== 'undefined' && window.__ModuleLoader__) {",
+      `    window.__ModuleLoader__.load({ id: ${JSON.stringify(PACKAGE_NAME)}, factory: factory });`,
+      '    return;',
+      '  }',
+      "  if (typeof module === 'object' && module !== null && typeof require === 'function') {",
+      '    Object.assign(module.exports, factory(require));',
+      '  }',
+      '})();',
+    ].join('\n'),
     intro: 'var module = { exports: {} }; var exports = module.exports;',
   },
 }
