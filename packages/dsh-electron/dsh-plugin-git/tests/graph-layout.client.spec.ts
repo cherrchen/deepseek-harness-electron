@@ -1,5 +1,6 @@
 /** Layout engine specs: task-spec fixtures A–I plus pagination equivalence. */
 import { describe, expect, it } from 'vitest'
+import type { GitCommitSummary } from '../src/types.ts'
 import { layoutGitGraph } from '../src/client/graph/layout.ts'
 import {
   assertGraphInvariants,
