@@ -68,8 +68,13 @@ export function GitGraphCanvas({ model, className }: { model: GitGraphModel; cla
     if (canvas === null) return
     const dpr = devicePixelRatio > 0 ? devicePixelRatio : 1
     const geometry = buildGraphGeometry(model, { rowHeight: GIT_GRAPH_ROW_HEIGHT, columnWidth: GIT_GRAPH_COLUMN_WIDTH })
+    // The backing store is DPR-scaled while the CSS box stays at design size:
+    // without an explicit style size the canvas displays at its attribute
+    // size, which is DPR× too large on Retina displays.
     canvas.width = Math.ceil(geometry.width * dpr)
     canvas.height = Math.ceil(geometry.height * dpr)
+    canvas.style.width = `${geometry.width}px`
+    canvas.style.height = `${geometry.height}px`
     const context = canvas.getContext('2d')
     if (context === null) return
     context.scale(dpr, dpr)

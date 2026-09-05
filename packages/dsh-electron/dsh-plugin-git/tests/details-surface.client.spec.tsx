@@ -184,6 +184,27 @@ describe('GitGraphSurface', () => {
     expect(controller.loadGraph).toHaveBeenCalledWith(true)
     expect(screen.getByText(en['graph.empty'])).toBeTruthy()
   })
+
+  it('sizes the canvas at design pixels regardless of devicePixelRatio', () => {
+    const commit = (hash: string, parents: string[]) => ({
+      hash,
+      parents,
+      shortHash: hash.slice(0, 7),
+      subject: `commit ${hash}`,
+      author: 'tester',
+      date: '2026-01-01T00:00:00Z',
+      refs: [],
+    })
+    const graph = [commit('c2', ['c1']), commit('c1', [])]
+    const controller = controllerOf(baseState({ repository: snapshot(), graph }))
+    const { container } = render(<GitGraphSurface {...props(controller)} />)
+    const canvas = container.querySelector('[data-git-graph-surface] canvas') as HTMLCanvasElement
+    expect(canvas).toBeTruthy()
+    // CSS box is the design size; the DPR-scaled backing store must never
+    // leak into layout (Retina 2x regression guard).
+    expect(canvas.style.width).toBe('14px')
+    expect(canvas.style.height).toBe(`${graph.length * 36}px`)
+  })
 })
 
 describe('GitDetailsHeaderActions', () => {
