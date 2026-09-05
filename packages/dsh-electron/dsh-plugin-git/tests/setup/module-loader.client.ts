@@ -1,5 +1,6 @@
 import { createRequire } from 'node:module'
 import { readFileSync } from 'node:fs'
+import type { ReactNode } from 'react'
 
 const nodeRequire = createRequire(import.meta.url)
 
@@ -15,6 +16,18 @@ const materialized = new Map<string, Record<string, unknown>>()
 function loaderHost(): { __ModuleLoader__?: ModuleLoader } {
   return globalThis as { __ModuleLoader__?: ModuleLoader }
 }
+
+// The details-host client bundle treats the host-injected primitives package
+// as an external. The real ModuleLoader injects the host's copy at runtime;
+// at test time Node cannot evaluate that package's CSS modules, so the
+// loader hands the bundle a host-side stand-in with the same contract.
+// Plugin code that imports primitives directly keeps going through Vite and
+// the real implementations.
+function TooltipStub({ children }: { children: ReactNode }): ReactNode {
+  return children
+}
+
+materialized.set('@deepseek-ai/dsh-client-ui-primitives', { Tooltip: TooltipStub })
 
 function bundleRequire(specifier: string): unknown {
   if (materialized.has(specifier)) return materialized.get(specifier)

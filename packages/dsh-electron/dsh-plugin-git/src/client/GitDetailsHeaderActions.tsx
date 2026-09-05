@@ -1,10 +1,11 @@
 /**
- * Git panel-level Host header actions (Reveal / Refresh).
+ * Git panel-level Host header actions (Reveal / Refresh) as icon buttons.
  */
 import { useSyncExternalStore } from 'react'
 import type { ReactNode } from 'react'
 import type { PropsLocale, PropsRuntime } from '@deepseek-ai/dsh-client-ui-slots'
-import { Button } from '@deepseek-ai/dsh-client-ui-primitives'
+import { IconFolderOpenOutline16, IconRefreshOutline16 } from '@deepseek-ai/dsh-client-ui-primitives'
+import { DetailsHeaderAction } from '@dsh-electron/dsh-client-ui-details-host/client'
 import type { GitClientController } from './controller.ts'
 import css from './GitDetailsHeaderActions.module.css'
 
@@ -15,7 +16,8 @@ export type GitDetailsHeaderActionsProps =
   & { controller: GitClientController }
 
 /**
- * Render Host-header controls for the Git details surface.
+ * Render Host-header controls for the Git details surface: icon-only buttons
+ * with the shared Details Host tooltip/aria treatment.
  * @param props - slot runtime, locale, and shared controller.
  * @returns Reveal (when Desktop is available) and Refresh.
  */
@@ -24,11 +26,18 @@ export function GitDetailsHeaderActions({ controller, t }: GitDetailsHeaderActio
   return (
     <div className={css.root} data-git-details-header-actions="">
       {state.desktopAvailable && (
-        <Button size="sm" variant="ghost" onClick={() => { void controller.reveal() }}>{t('details.reveal')}</Button>
+        <DetailsHeaderAction
+          icon={<IconFolderOpenOutline16 size={14} />}
+          label={t('details.reveal')}
+          onTrigger={() => { void controller.reveal() }}
+        />
       )}
-      <Button size="sm" variant="outline" disabled={state.loading} onClick={() => { void controller.refresh() }}>
-        {t('details.refresh')}
-      </Button>
+      <DetailsHeaderAction
+        icon={<IconRefreshOutline16 size={14} />}
+        label={t('details.refresh')}
+        onTrigger={() => { void controller.refresh() }}
+        disabled={state.loading}
+      />
     </div>
   )
 }
