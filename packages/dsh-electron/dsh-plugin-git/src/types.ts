@@ -63,3 +63,20 @@ export interface GitCommitSummary {
   /** Decorations for the commit: branch names, tags, and `HEAD`. */
   readonly refs: readonly string[]
 }
+
+/** Why commit message generation currently has no usable backend. */
+export type GitGenerationUnavailableReason =
+  /** No selection source is configured and no host default model exists. */
+  | 'not-configured'
+  /** The LLM runtime is not present in this host. */
+  | 'llm-unavailable'
+  /** Inherit mode with a live LLM runtime, but no model selection resolves. */
+  | 'default-model-missing'
+
+/** Capability answer for the `commit-message-capability` endpoint. */
+export interface GitCommitMessageCapability {
+  /** Whether a generation backend is usable right now. */
+  readonly available: boolean
+  /** Why generation is unavailable; absent when available. */
+  readonly reason?: GitGenerationUnavailableReason
+}

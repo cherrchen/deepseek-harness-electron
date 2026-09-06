@@ -37,6 +37,7 @@ const graphStateDefaults = {
   commitMessage: '',
   generating: false,
   generationAvailable: false,
+  generationReason: undefined,
   generationError: undefined,
 } satisfies Partial<GitClientState>
 

@@ -1,6 +1,6 @@
 /** Client-side Git state and RPC orchestration. */
 
-import type { GitCommitSummary, GitDiff, GitLogScope, GitRepositorySnapshot } from '../types.ts'
+import type { GitCommitSummary, GitCommitMessageCapability, GitDiff, GitGenerationUnavailableReason, GitLogScope, GitRepositorySnapshot } from '../types.ts'
 import { layoutGitGraph } from './graph/layout.ts'
 import type { GraphContinuationState, GraphLayoutRow } from './graph/types.ts'
 
@@ -70,6 +70,8 @@ export interface GitClientState {
   readonly generating: boolean
   /** Whether the Host reports a configured generation backend. */
   readonly generationAvailable: boolean
+  /** Why generation is unavailable; absent when available or unknown. */
+  readonly generationReason: GitGenerationUnavailableReason | undefined
   readonly generationError: string | undefined
 }
 
@@ -94,6 +96,7 @@ export class GitClientController {
     commitMessage: '',
     generating: false,
     generationAvailable: false,
+    generationReason: undefined,
     generationError: undefined,
   }
   private readonly listeners = new Set<() => void>()
@@ -385,10 +388,16 @@ export class GitClientController {
   private async loadGenerationCapability(): Promise<void> {
     if (this.state.workspacePath === undefined) return
     try {
-      const capability = await this.call('commit-message-capability', {}) as { available?: unknown }
-      this.patch({ generationAvailable: capability.available === true })
+      const capability = await this.call('commit-message-capability', {}) as Partial<GitCommitMessageCapability>
+      const reason = capability.reason
+      this.patch({
+        generationAvailable: capability.available === true,
+        generationReason: reason === 'not-configured' || reason === 'llm-unavailable' || reason === 'default-model-missing'
+          ? reason
+          : undefined,
+      })
     } catch {
-      this.patch({ generationAvailable: false })
+      this.patch({ generationAvailable: false, generationReason: undefined })
     }
   }
 

@@ -63,6 +63,7 @@ function baseState(overrides: Partial<ReturnType<GitClientController['getSnapsho
     commitMessage: '',
     generating: false,
     generationAvailable: false,
+    generationReason: undefined,
     generationError: undefined,
     ...overrides,
   }

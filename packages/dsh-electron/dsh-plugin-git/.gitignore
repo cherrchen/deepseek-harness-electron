@@ -4,3 +4,4 @@ node_modules/
 *.tgz
 !tests/fixtures/*.tgz
 .pnpm-store/
+.zcode/

@@ -57,6 +57,7 @@ export function GitChangesSurface({ controller, t, useSessions, sessionId }: Git
               commitMessage={state.commitMessage}
               generating={state.generating}
               generationAvailable={state.generationAvailable}
+              generationReason={state.generationReason}
               generationError={state.generationError}
             />
           </>

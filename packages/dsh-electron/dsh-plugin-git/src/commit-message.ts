@@ -4,6 +4,7 @@
  * responsible for staging, committing, and pushing.
  */
 import type { GenerateOptions, LlmRuntime, Message, MessageId, TextBlock } from '@deepseek-ai/dsh-llm'
+import type { GitGenerationUnavailableReason } from './types.ts'
 
 /** Input for one commit message generation. */
 export interface CommitMessageInput {
@@ -24,10 +25,13 @@ export interface CommitMessageProvider {
   generate(input: CommitMessageInput): Promise<string>
 }
 
-/** Thrown when no generation backend is configured. */
+/** Thrown when no generation backend is usable. */
 export class CommitMessageUnavailableError extends Error {
-  constructor() {
-    super('commit message generation is not configured')
+  constructor(
+    /** Machine-readable reason; consumed by the capability endpoint and UI hints. */
+    readonly reason: GitGenerationUnavailableReason = 'not-configured',
+  ) {
+    super(`commit message generation is unavailable (${reason})`)
     this.name = 'CommitMessageUnavailableError'
   }
 }
@@ -82,21 +86,33 @@ export function buildCommitMessagePrompt(input: { repository: string; stagedDiff
   ].join('\n')
 }
 
-/** Configuration for the default LLM-backed provider. */
-export interface LlmCommitMessageOptions {
+/** Provider route and model resolved for one generation. */
+export interface CommitMessageSelection {
   /** Provider route registered with the LLM runtime. */
   readonly provider: string
   /** Model id resolved by the provider route. */
   readonly model: string
+}
+
+/** Configuration for the default LLM-backed provider. */
+export interface LlmCommitMessageOptions {
+  /**
+   * Resolve the selection for one generation. Called per call so settings and
+   * host defaults apply live; `undefined` means no selection resolves and
+   * generation rejects with reason `default-model-missing`.
+   */
+  readonly resolveSelection: () => CommitMessageSelection | undefined
   /** Optional staged-diff byte cap (defaults to {@link STAGED_DIFF_MAX_BYTES}). */
   readonly maxDiffBytes?: number
+  /** Optional system prompt override (defaults to {@link COMMIT_MESSAGE_SYSTEM}). */
+  readonly systemPrompt?: string
 }
 
 let messageSerial = 0
 
 /**
  * Default {@link CommitMessageProvider}: one-shot streaming completion
- * through the DSH LLM runtime. The provider and model are configuration, so
+ * through the DSH LLM runtime. The selection is resolved per generation, so
  * the plugin never binds to one concrete model.
  */
 export class LlmCommitMessageProvider implements CommitMessageProvider {
@@ -106,10 +122,20 @@ export class LlmCommitMessageProvider implements CommitMessageProvider {
   ) {}
 
   /**
+   * Whether a model selection resolves right now.
+   * @returns `true` when the next generate call has a usable selection.
+   */
+  isReady(): boolean {
+    return this.options.resolveSelection() !== undefined
+  }
+
+  /**
    * @param input - Repository identity and staged diff text.
    * @returns The proposed commit message.
    */
   async generate(input: CommitMessageInput): Promise<string> {
+    const selection = this.options.resolveSelection()
+    if (selection === undefined) throw new CommitMessageUnavailableError('default-model-missing')
     const stagedDiff = normalizeStagedDiff(input.stagedDiff, this.options.maxDiffBytes)
     messageSerial += 1
     const message: Message = {
@@ -119,10 +145,10 @@ export class LlmCommitMessageProvider implements CommitMessageProvider {
       source: { kind: 'user' },
     }
     const request: GenerateOptions = {
-      provider: this.options.provider,
-      model: this.options.model,
+      provider: selection.provider,
+      model: selection.model,
       messages: [message],
-      system: COMMIT_MESSAGE_SYSTEM,
+      system: this.options.systemPrompt ?? COMMIT_MESSAGE_SYSTEM,
       temperature: 0.2,
     }
     let text = ''
@@ -153,13 +179,20 @@ export function postProcessCommitMessage(text: string): string {
   return lines.slice(0, 20).join('\n')
 }
 
-/** No-op provider used when generation is not configured. */
+/** No-op provider used when generation is not usable. */
 export class UnavailableCommitMessageProvider implements CommitMessageProvider {
+  /**
+   * @param reason - Why generation is unavailable; surfaced by the capability endpoint.
+   */
+  constructor(
+    readonly reason: GitGenerationUnavailableReason = 'not-configured',
+  ) {}
+
   /**
    * @param _input - Unused input.
    * @throws {@link CommitMessageUnavailableError} always.
    */
   generate(_input: CommitMessageInput): Promise<string> {
-    return Promise.reject(new CommitMessageUnavailableError())
+    return Promise.reject(new CommitMessageUnavailableError(this.reason))
   }
 }

@@ -28,6 +28,7 @@
     "src/status.ts",
     "src/types.ts",
     "src/log.ts",
-    "src/commit-message.ts"
+    "src/commit-message.ts",
+    "src/commit-message-settings.ts"
   ]
 }

@@ -360,4 +360,50 @@ describe('GitClientController', () => {
     expect(controller.getSnapshot().repository?.root).toBe('/workspace-b')
     expect(controller.getSnapshot().repository?.staged).toEqual([])
   })
+
+  it('stores the capability reason reported by the Host', async () => {
+    const rpc = {
+      call: vi.fn(async (_channel: string, endpoint: string) => {
+        if (endpoint === 'discover') return { ok: true as const, value: '/repo' }
+        if (endpoint === 'status') return { ok: true as const, value: snapshot() }
+        if (endpoint === 'log') return { ok: true as const, value: [] }
+        if (endpoint === 'commit-message-capability') {
+          return { ok: true as const, value: { available: false, reason: 'default-model-missing' } }
+        }
+        return { ok: true as const, value: null }
+      }),
+    }
+    const controller = new GitClientController(rpc)
+    await controller.setWorkspace('/workspace-a')
+    await vi.waitFor(() => {
+      expect(controller.getSnapshot().generationAvailable).toBe(false)
+      expect(controller.getSnapshot().generationReason).toBe('default-model-missing')
+    })
+  })
+
+  it('keeps the real generation error message for display', async () => {
+    const rpc = {
+      call: vi.fn(async (_channel: string, endpoint: string) => {
+        if (endpoint === 'discover') return { ok: true as const, value: '/repo' }
+        if (endpoint === 'status') {
+          return {
+            ok: true as const,
+            value: snapshot({ staged: [{ path: 'src/a.ts', status: 'A ' }] }),
+          }
+        }
+        if (endpoint === 'diff') return { ok: true as const, value: { repository: '/repo', staged: true, text: 'diff --git' } }
+        if (endpoint === 'generate-commit-message') {
+          return { ok: false as const, error: { code: 'git/internal', message: 'NO_ADAPTER: no adapter owns route "x"' } }
+        }
+        if (endpoint === 'log') return { ok: true as const, value: [] }
+        if (endpoint === 'commit-message-capability') return { ok: true as const, value: { available: true } }
+        return { ok: true as const, value: null }
+      }),
+    }
+    const controller = new GitClientController(rpc)
+    await controller.setWorkspace('/workspace-a')
+    await controller.generateCommitMessage()
+    expect(controller.getSnapshot().generating).toBe(false)
+    expect(controller.getSnapshot().generationError).toBe('NO_ADAPTER: no adapter owns route "x"')
+  })
 })
