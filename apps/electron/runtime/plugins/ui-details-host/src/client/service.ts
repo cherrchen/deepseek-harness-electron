@@ -511,6 +511,7 @@ export class ShellDetailsService extends Service implements ShellDetailsControll
       this.publishIdle()
       return
     }
+    this.pruneUnavailableSurfaces()
     const session = this.sessions.get(next)
     const active = session?.tabs.find(tab => tab.instanceId === session?.activeInstanceId)
     if (session === undefined || active === undefined) {
@@ -548,23 +549,27 @@ export class ShellDetailsService extends Service implements ShellDetailsControll
     surfaceId: string,
     reason: Extract<DetailsSurfaceCloseReason, 'surface-unload' | 'surface-crash'>,
   ): void {
-    const sessionId = this.currentSessionId()
-    const session = this.sessions.get(sessionId)
-    if (session === undefined) return
-    const previousActiveId = session.activeInstanceId
-    const pruned = pruneSurfaceId(session, surfaceId)
-    for (const instance of pruned.removed) {
-      notifyClosed(this.descriptors, instance, reason, {
-        deactivate: instance.instanceId === previousActiveId,
-      })
-    }
-    const active = session.tabs.find(tab => tab.instanceId === pruned.activeInstanceId)
-    if (active !== undefined && pruned.activeInstanceId !== previousActiveId) {
+    const currentId = this.currentSessionId()
+    for (const sessionId of [...this.sessions.keys()]) {
+      const session = this.sessions.get(sessionId)
+      if (session === undefined) continue
+      const previousActiveId = session.activeInstanceId
+      const pruned = pruneSurfaceId(session, surfaceId)
+      if (pruned.removed.length === 0) continue
+      for (const instance of pruned.removed) {
+        notifyClosed(this.descriptors, instance, reason, {
+          deactivate: sessionId === currentId && instance.instanceId === previousActiveId,
+        })
+      }
+      if (sessionId !== currentId) continue
+      const active = session.tabs.find(tab => tab.instanceId === pruned.activeInstanceId)
+      if (active !== undefined && pruned.activeInstanceId !== previousActiveId) {
+        this.publishSession(session)
+        notifyActivated(this.descriptors, active)
+        continue
+      }
       this.publishSession(session)
-      notifyActivated(this.descriptors, active)
-      return
     }
-    this.publishSession(session)
   }
 
   private disposeAllSessions(reason: DetailsSurfaceCloseReason): void {
@@ -581,16 +586,22 @@ export class ShellDetailsService extends Service implements ShellDetailsControll
     this.releaseTakeover()
   }
 
-  private onSurfacesChanged(): void {
-    const session = this.sessions.get(this.currentSessionId())
-    if (session === undefined) return
+  private pruneUnavailableSurfaces(): void {
     const missing = new Set<string>()
-    for (const tab of session.tabs) {
-      if (!this.surfacePresent(tab.surfaceId)) missing.add(tab.surfaceId)
+    for (const sessionId of this.sessions.keys()) {
+      const session = this.sessions.get(sessionId)
+      if (session === undefined) continue
+      for (const tab of session.tabs) {
+        if (!this.surfacePresent(tab.surfaceId)) missing.add(tab.surfaceId)
+      }
     }
     for (const surfaceId of missing) {
       this.recoverAfterSurfaceLoss(surfaceId, 'surface-unload')
     }
+  }
+
+  private onSurfacesChanged(): void {
+    this.pruneUnavailableSurfaces()
   }
 
   private surfacePresent(surfaceId: string): boolean {

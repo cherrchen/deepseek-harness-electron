@@ -92,4 +92,27 @@ describe('details host lifecycle', () => {
     expect(winner(b.slots)).toBe(DetailsHost)
     await b.fiber.dispose()
   })
+
+  it('prunes unloaded surfaces from background sessions before restore', async () => {
+    const b = await bench()
+    const closed: string[] = []
+    const stopAlpha = contributeSurface(b.ctx, 'test.alpha', 'Alpha', DummyAlpha)
+    b.shellDetails.registerSurface({
+      id: 'test.alpha',
+      onClose: (instance, reason) => { closed.push(`${instance.sessionId}:${reason}`) },
+    })
+    b.shellDetails.open('test.alpha')
+    b.sessions.setCurrent('session-b')
+    b.layout.closeDetails()
+    expect(b.shellDetails.getSnapshot().tabs).toEqual([])
+
+    stopAlpha()
+    await Promise.resolve()
+    expect(closed).toEqual(['session-a:surface-unload'])
+
+    b.sessions.setCurrent('session-a')
+    expect(b.shellDetails.isOpen('test.alpha')).toBe(false)
+    expect(b.shellDetails.getSnapshot().tabs).toEqual([])
+    await b.fiber.dispose()
+  })
 })
