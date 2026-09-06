@@ -206,7 +206,15 @@ export class GitService {
       },
       graceMs: this.options.graceMs,
       signal,
-      env: { GIT_OPTIONAL_LOCKS: '0', GIT_PAGER: 'cat', PAGER: 'cat', NO_COLOR: '1', TERM: 'dumb' },
+      env: {
+        GIT_OPTIONAL_LOCKS: '0',
+        GIT_PAGER: 'cat',
+        PAGER: 'cat',
+        NO_COLOR: '1',
+        TERM: 'dumb',
+        // Filenames are literal pathspecs; magic prefixes such as `:(glob)` stay one path.
+        GIT_LITERAL_PATHSPECS: '1',
+      },
     })
     const outcome = await handle.done
     const stdout = handle.collected.stdout?.readFrom(0).text ?? ''

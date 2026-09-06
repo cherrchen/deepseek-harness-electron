@@ -21,6 +21,18 @@ describe('Git machine output parsers', () => {
     expect(parsed.untracked).toEqual(['new file.txt'])
   })
 
+  it('keeps unmerged paths free of the extra object hashes', () => {
+    const parsed = parsePorcelainV2([
+      '# branch.oid abcdef',
+      '# branch.head main',
+      'u UU N... 100644 100644 100644 100644 1111111111111111111111111111111111111111 2222222222222222222222222222222222222222 3333333333333333333333333333333333333333 conflict.txt',
+      'u UU N... 100644 100644 100644 100644 1111111111111111111111111111111111111111 2222222222222222222222222222222222222222 3333333333333333333333333333333333333333 spaced conflict.txt',
+      '',
+    ].join('\0'))
+    expect(parsed.unstaged.map(change => change.path)).toEqual(['conflict.txt', 'spaced conflict.txt'])
+    expect(parsed.staged.map(change => change.path)).toEqual(['conflict.txt', 'spaced conflict.txt'])
+  })
+
   it('parses local branch identity without human decoration', () => {
     expect(parseBranches('main\0abc\0*\nfeature\0def\0 \n')).toEqual([
       { name: 'main', head: 'abc', current: true },

@@ -48,7 +48,9 @@ export function parsePorcelainV2(output: string): ParsedGitStatus {
     if (status === undefined || status.length !== 2) continue
     const pathField = record.startsWith('1 ')
       ? fields.slice(8).join(' ')
-      : fields.slice(9).join(' ')
+      : record.startsWith('2 ')
+        ? fields.slice(9).join(' ')
+        : fields.slice(10).join(' ')
     const originalPath = record.startsWith('2 ') ? records[++index] : undefined
     const change: GitFileChange = {
       path: pathField,

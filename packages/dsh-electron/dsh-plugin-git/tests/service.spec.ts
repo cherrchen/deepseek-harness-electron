@@ -1,5 +1,5 @@
 import { execFileSync } from 'node:child_process'
-import { chmodSync, mkdtempSync, realpathSync, writeFileSync } from 'node:fs'
+import { chmodSync, mkdtempSync, readFileSync, realpathSync, writeFileSync } from 'node:fs'
 import { rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
@@ -167,6 +167,53 @@ describe('portable Git service', () => {
       // All-refs scope keeps both parents' ancestry (and stays valid).
       const all = await git.log(root, 10, 0, 'all')
       expect(all.map(commit => commit.subject)).toEqual(['merge feature', 'main work', 'feature work', 'initial'])
+    } finally {
+      await dispose()
+    }
+  })
+
+  it.skipIf(process.platform === 'win32')('discards one magic pathspec filename without resetting other files', async () => {
+    // Windows rejects `:` in a basename, so this Git magic filename cannot be created there.
+    const { dispose, git } = await service()
+    try {
+      const root = repository()
+      const magicName = ':(glob)*.txt'
+      writeFileSync(join(root, magicName), 'magic\n')
+      writeFileSync(join(root, 'other.txt'), 'other\n')
+      execFileSync('git', ['add', '--', magicName, 'other.txt'], { cwd: root })
+      execFileSync('git', ['commit', '-m', 'special names'], { cwd: root })
+      writeFileSync(join(root, magicName), 'magic-changed\n')
+      writeFileSync(join(root, 'other.txt'), 'other-changed\n')
+
+      await git.discard(root, magicName)
+      expect(readFileSync(join(root, magicName), 'utf8')).toBe('magic\n')
+      expect(readFileSync(join(root, 'other.txt'), 'utf8')).toBe('other-changed\n')
+    } finally {
+      await dispose()
+    }
+  })
+
+  it('parses unmerged conflict paths without object hashes', async () => {
+    const { dispose, git } = await service()
+    try {
+      const root = repository()
+      writeFileSync(join(root, 'conflict.txt'), 'base\n')
+      execFileSync('git', ['add', 'conflict.txt'], { cwd: root })
+      execFileSync('git', ['commit', '-m', 'base conflict'], { cwd: root })
+      execFileSync('git', ['checkout', '-b', 'other'], { cwd: root })
+      writeFileSync(join(root, 'conflict.txt'), 'other\n')
+      execFileSync('git', ['commit', '-am', 'other'], { cwd: root })
+      execFileSync('git', ['checkout', 'main'], { cwd: root })
+      writeFileSync(join(root, 'conflict.txt'), 'main\n')
+      execFileSync('git', ['commit', '-am', 'main'], { cwd: root })
+      try {
+        execFileSync('git', ['merge', '--no-ff', 'other'], { cwd: root })
+      } catch {
+        // The merge stops on the UU conflict under test.
+      }
+
+      const snapshot = await git.status(root)
+      expect(snapshot.unstaged.map(change => change.path)).toEqual(['conflict.txt'])
     } finally {
       await dispose()
     }
