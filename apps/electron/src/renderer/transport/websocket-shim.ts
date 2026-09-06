@@ -28,7 +28,7 @@ export function installDesktopWebSocket(): void {
     this: unknown,
     url: string | URL,
     protocols?: string | string[],
-  ): WebSocket {
+  ) {
     const parsed = new URL(String(url), globalThis.location.origin)
     if (!EVENT_PATHS.has(parsed.pathname)) {
       if (native === undefined) throw new Error(`desktop websocket: no native WebSocket for ${String(url)}`)
