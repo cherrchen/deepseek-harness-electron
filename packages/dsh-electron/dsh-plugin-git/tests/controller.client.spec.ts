@@ -323,4 +323,41 @@ describe('GitClientController', () => {
     expect(controller.getSnapshot().commitMessage).toBe('')
     expect(controller.getSnapshot().generating).toBe(false)
   })
+
+  it('does not apply a stale mutation to a rebound workspace', async () => {
+    let releaseStage: ((value: GitRpcResult) => void) | undefined
+    let signalStage: (() => void) | undefined
+    const stageStarted = new Promise<void>((resolve) => { signalStage = resolve })
+    const rpc = {
+      call: vi.fn(async (_channel: string, endpoint: string, payload: unknown) => {
+        if (endpoint === 'discover') return { ok: true as const, value: (payload as { path: string }).path }
+        if (endpoint === 'status') {
+          return { ok: true as const, value: snapshot({ root: (payload as { repository: string }).repository }) }
+        }
+        if (endpoint === 'stage') {
+          signalStage?.()
+          return new Promise<GitRpcResult>((resolve) => { releaseStage = resolve })
+        }
+        if (endpoint === 'log') return { ok: true as const, value: [] }
+        if (endpoint === 'commit-message-capability') return { ok: true as const, value: { available: false } }
+        return { ok: true as const, value: null }
+      }),
+    }
+    const controller = new GitClientController(rpc)
+    await controller.setWorkspace('/workspace-a')
+    const pendingStage = controller.stage('tracked.txt')
+    await stageStarted
+    await controller.setWorkspace('/workspace-b')
+    releaseStage?.({
+      ok: true as const,
+      value: snapshot({
+        root: '/workspace-a',
+        staged: [{ path: 'tracked.txt', status: 'M ' }],
+      }),
+    })
+    await pendingStage
+    expect(controller.getSnapshot().workspacePath).toBe('/workspace-b')
+    expect(controller.getSnapshot().repository?.root).toBe('/workspace-b')
+    expect(controller.getSnapshot().repository?.staged).toEqual([])
+  })
 })

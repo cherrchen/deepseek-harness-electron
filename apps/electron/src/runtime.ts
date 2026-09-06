@@ -43,6 +43,37 @@ export function harnessArguments(dshBin: string, patchPath?: string): string[] {
   return args
 }
 
+/** Bytes of Host stdout retained while waiting for the readiness line. */
+export const HARNESS_STARTUP_BUFFER_LIMIT = 256 * 1024
+
+/** Handshake buffer used only until `dsh web` reports a loopback URL. */
+export interface HarnessStartupScan {
+  output: string
+  settled: boolean
+}
+
+/**
+ * Scan one stdout chunk for the readiness URL, then drop the handshake buffer.
+ * Callers must skip this helper after `settled` so Host logs are not retained.
+ * @param scan - Mutable handshake state owned by the supervisor.
+ * @param text - Decoded stdout chunk.
+ * @returns The validated readiness URL when this chunk completes the handshake.
+ */
+export function scanHarnessStartupChunk(scan: HarnessStartupScan, text: string): string | undefined {
+  if (scan.settled) return undefined
+  scan.output += text
+  const url = parseHarnessReadyUrl(scan.output)
+  if (url !== undefined) {
+    scan.settled = true
+    scan.output = ''
+    return url
+  }
+  if (scan.output.length > HARNESS_STARTUP_BUFFER_LIMIT) {
+    scan.output = scan.output.slice(scan.output.length - HARNESS_STARTUP_BUFFER_LIMIT)
+  }
+  return undefined
+}
+
 /**
  * Read the loopback readiness URL emitted by the upstream Web composition.
  * @param output - Accumulated standard output; the readiness line may follow other logs.

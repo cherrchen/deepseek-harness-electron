@@ -75,4 +75,36 @@ describe('desktop WebSocket stand-in', () => {
     })
     expect(socket.readyState).toBe(DESKTOP_WS_CLOSED)
   })
+
+  it('returns a native WebSocket for non-Host URLs so send and readyState work', async () => {
+    class FakeNativeWebSocket {
+      static CONNECTING = 0
+      static OPEN = 1
+      url: string
+      readyState = FakeNativeWebSocket.CONNECTING
+      readonly send = vi.fn()
+      readonly close = vi.fn()
+      readonly addEventListener = vi.fn()
+      readonly removeEventListener = vi.fn()
+      constructor(url: string) {
+        this.url = url
+        queueMicrotask(() => {
+          this.readyState = FakeNativeWebSocket.OPEN
+        })
+      }
+    }
+    globalThis.WebSocket = FakeNativeWebSocket as unknown as typeof WebSocket
+    globalThis.window.deepseekDesktop = {
+      host: { openStream: vi.fn() },
+    } as unknown as DeepseekDesktopBridge
+    installDesktopWebSocket()
+
+    const socket = new WebSocket('ws://127.0.0.1:9/plugin-socket')
+    expect(socket).toBeInstanceOf(FakeNativeWebSocket)
+    await vi.waitFor(() => {
+      expect(socket.readyState).toBe(FakeNativeWebSocket.OPEN)
+    })
+    socket.send('hello')
+    expect((socket as unknown as FakeNativeWebSocket).send).toHaveBeenCalledWith('hello')
+  })
 })

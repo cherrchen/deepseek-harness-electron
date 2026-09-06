@@ -81,6 +81,14 @@ export class PluginLifecycleController {
   }
 
   /**
+   * Stop accepting plugin mutations and wait until in-flight work finishes.
+   * @returns Completion after the shared mutation queue is idle.
+   */
+  shutdown(): Promise<void> {
+    return this.mutations.shutdown()
+  }
+
+  /**
    * Enable one manageable bundled plugin and wait until its Host fiber is active.
    * @param name - Distribution package name.
    */

@@ -99,6 +99,8 @@ export class GitClientController {
   private readonly listeners = new Set<() => void>()
   private desktop: GitDesktopCapability | undefined
   private operationGeneration = 0
+  /** Serializes repository mutations so overlapping RPCs apply in call order. */
+  private mutationTail: Promise<void> = Promise.resolve()
   /** Workspace path of the last completed `setWorkspace` binding (idempotence guard). */
   private boundWorkspace: { path: string | undefined; generation: number } | undefined
   private diffNavigator: ((path: string, staged: boolean) => void) | undefined
@@ -253,7 +255,7 @@ export class GitClientController {
    * @param path - Optional repository-relative tracked path.
    * @returns Completion after state refresh.
    */
-  discard(path?: string): Promise<void> { return this.mutate('discard', { path }) }
+  async discard(path?: string): Promise<void> { await this.mutate('discard', { path }) }
 
   /**
    * Load a graph page, replacing (reset) or appending to the loaded history.
@@ -395,25 +397,25 @@ export class GitClientController {
    * @param path - Optional repository-relative path.
    * @returns Completion after state refresh.
    */
-  stage(path?: string): Promise<void> { return this.mutate('stage', { path }) }
+  async stage(path?: string): Promise<void> { await this.mutate('stage', { path }) }
   /**
    * Unstage one path or the complete index.
    * @param path - Optional repository-relative path.
    * @returns Completion after state refresh.
    */
-  unstage(path?: string): Promise<void> { return this.mutate('unstage', { path }) }
+  async unstage(path?: string): Promise<void> { await this.mutate('unstage', { path }) }
   /**
    * Switch to an existing local branch.
    * @param branch - Local branch name.
    * @returns Completion after state refresh.
    */
-  switchBranch(branch: string): Promise<void> { return this.mutate('switch-branch', { branch }) }
+  async switchBranch(branch: string): Promise<void> { await this.mutate('switch-branch', { branch }) }
   /**
    * Create a local branch without switching to it.
    * @param branch - New local branch name.
    * @returns Completion after state refresh.
    */
-  createBranch(branch: string): Promise<void> { return this.mutate('create-branch', { branch }) }
+  async createBranch(branch: string): Promise<void> { await this.mutate('create-branch', { branch }) }
 
   /**
    * Commit the staged index and optionally show a native notification.
@@ -421,7 +423,8 @@ export class GitClientController {
    * @returns Completion after the mutation and optional notification settle.
    */
   async commit(message: string): Promise<void> {
-    await this.mutate('commit', { message })
+    const applied = await this.mutate('commit', { message })
+    if (!applied) return
     await this.desktop?.notification.show({ title: 'Git commit created', body: message.trim() })
   }
 
@@ -457,21 +460,38 @@ export class GitClientController {
     }
   }
 
-  private async mutate(endpoint: string, fields: Record<string, unknown>): Promise<void> {
-    const repository = this.requireRepository()
-    this.patch({ loading: true, error: undefined })
-    try {
-      const payload = { repository: repository.root, ...fields }
-      const next = decodeSnapshot(await this.call(endpoint, payload))
-      // Commits, discards, and branch switches may change history: invalidate
-      // the loaded graph so the Graph surface reloads instead of rendering the
-      // pre-mutation log.
-      this.patch({ repository: next, diff: undefined, selectedDiff: undefined, loading: false, graphLoaded: false })
-    } catch (error) {
-      const message = error instanceof Error ? error.message : String(error)
-      this.patch({ loading: false, error: message })
-      throw error instanceof Error ? error : new Error(message)
+  /**
+   * Apply one repository mutation and refresh the snapshot when the binding
+   * that scheduled it is still current.
+   * @param endpoint - Host mutation endpoint.
+   * @param fields - Endpoint fields other than `repository`.
+   * @returns `true` when this binding still owns the published snapshot.
+   */
+  private async mutate(endpoint: string, fields: Record<string, unknown>): Promise<boolean> {
+    const generation = this.operationGeneration
+    const repositoryRoot = this.requireRepository().root
+    const run = async (): Promise<boolean> => {
+      if (!this.isGenerationCurrent(generation, repositoryRoot)) return false
+      this.patch({ loading: true, error: undefined })
+      try {
+        const next = decodeSnapshot(await this.call(endpoint, { repository: repositoryRoot, ...fields }))
+        if (!this.isGenerationCurrent(generation, repositoryRoot)) return false
+        // Commits, discards, and branch switches may change history: invalidate
+        // the loaded graph so the Graph surface reloads instead of rendering the
+        // pre-mutation log.
+        this.patch({ repository: next, diff: undefined, selectedDiff: undefined, loading: false, graphLoaded: false })
+        return true
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error)
+        if (this.isGenerationCurrent(generation, repositoryRoot)) {
+          this.patch({ loading: false, error: message })
+        }
+        throw error instanceof Error ? error : new Error(message)
+      }
     }
+    const pending = this.mutationTail.then(run, run)
+    this.mutationTail = pending.then(() => undefined, () => undefined)
+    return pending
   }
 
   private requireRepository(): GitRepositorySnapshot {
