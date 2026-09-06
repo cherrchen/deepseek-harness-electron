@@ -95,7 +95,7 @@ export class HarnessProxy {
    * @returns Plain response suitable for IPC.
    */
   async request(init: HostHttpRequest): Promise<HostHttpResponse> {
-    const target = this.resolveHarnessUrl(init.url)
+    const target = this.bindHarnessUrl(new URL(init.url, 'dsh-electron://localhost/'))
     const headers = { ...init.headers }
     delete headers.host
     delete headers.Host
@@ -107,6 +107,7 @@ export class HarnessProxy {
     const response = await this.fetchImpl(target, {
       method: init.method,
       headers,
+      redirect: 'manual',
       ...(init.body === undefined ? {} : { body: init.body }),
     })
     const responseHeaders: Record<string, string> = {}
@@ -127,8 +128,7 @@ export class HarnessProxy {
    * @returns Upstream response (streaming body preserved when present).
    */
   async proxyRequest(request: Request): Promise<Response> {
-    const incoming = new URL(request.url)
-    const target = new URL(incoming.pathname + incoming.search, this.requireOrigin())
+    const target = this.bindHarnessUrl(new URL(request.url))
     const headers = new Headers(request.headers)
     // Drop browser initiator markers: the Main process is the trusted client.
     // Forwarding `Origin: dsh-electron://localhost` would fail the Host fence
@@ -264,7 +264,25 @@ export class HarnessProxy {
    * @returns Absolute Harness URL.
    */
   resolveHarnessUrl(url: string): string {
-    const parsed = new URL(url, 'dsh-electron://localhost/')
-    return new URL(parsed.pathname + parsed.search, this.requireOrigin()).href
+    return this.bindHarnessUrl(new URL(url, 'dsh-electron://localhost/')).href
+  }
+
+  /**
+   * Copy path and query onto the ready loopback origin.
+   * Scheme-relative paths such as `//host/path` must not become a new authority.
+   * @param resource - Incoming renderer or custom-scheme URL.
+   * @returns Absolute Harness URL whose origin equals the ready origin.
+   */
+  private bindHarnessUrl(resource: URL): URL {
+    const origin = this.requireOrigin()
+    const expected = new URL(origin)
+    const target = new URL(origin)
+    const pathname = resource.pathname.startsWith('/') ? resource.pathname : `/${resource.pathname}`
+    target.pathname = pathname.replace(/^\/{2,}/u, '/')
+    target.search = resource.search
+    if (target.origin !== expected.origin) {
+      throw new Error(`harness proxy: refusing non-origin URL ${target.origin}`)
+    }
+    return target
   }
 }

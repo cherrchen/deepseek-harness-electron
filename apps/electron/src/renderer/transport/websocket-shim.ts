@@ -27,8 +27,14 @@ export function installDesktopWebSocket(): void {
   const StandIn = function DesktopWebSocket(
     this: unknown,
     url: string | URL,
-  ): DesktopWebSocketImpl {
-    return new DesktopWebSocketImpl(String(url), bridge, native)
+    protocols?: string | string[],
+  ): WebSocket {
+    const parsed = new URL(String(url), globalThis.location.origin)
+    if (!EVENT_PATHS.has(parsed.pathname)) {
+      if (native === undefined) throw new Error(`desktop websocket: no native WebSocket for ${String(url)}`)
+      return protocols === undefined ? new native(url) : new native(url, protocols)
+    }
+    return new DesktopWebSocketImpl(String(url), bridge)
   } as unknown as typeof WebSocket
 
   Object.defineProperties(StandIn, {
@@ -49,20 +55,9 @@ class DesktopWebSocketImpl {
   constructor(
     url: string,
     bridge: NonNullable<Window['deepseekDesktop']>,
-    native: typeof WebSocket | undefined,
   ) {
     this.url = url
     const parsed = new URL(url, globalThis.location.origin)
-    if (!EVENT_PATHS.has(parsed.pathname)) {
-      if (native === undefined) throw new Error(`desktop websocket: no native WebSocket for ${url}`)
-      const socket = new native(url)
-      this.url = socket.url
-      this.readyState = socket.readyState
-      this.addEventListener = socket.addEventListener.bind(socket)
-      this.removeEventListener = socket.removeEventListener.bind(socket)
-      this.close = socket.close.bind(socket)
-      return
-    }
     const path = parsed.pathname as '/api/remote.mux'
     this.open(path, bridge)
   }

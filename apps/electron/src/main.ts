@@ -49,9 +49,10 @@ import {
 import {
   HARNESS_START_TIMEOUT_MS,
   harnessArguments,
-  parseHarnessReadyUrl,
   resolveDshBin,
   resolveHarnessHome,
+  scanHarnessStartupChunk,
+  type HarnessStartupScan,
 } from './runtime.ts'
 import { DynamicIncludeCompositionBackend, effectivePluginRoster } from './plugin-runtime-config.ts'
 import { loadPluginState, reconcilePluginState, savePluginState } from './plugin-state.ts'
@@ -106,11 +107,11 @@ async function startHarness(dshBin: string, harnessHome: string, hostPatch: stri
   })
 
   return await new Promise((resolve, reject) => {
-    let output = ''
-    let settled = false
+    const scan: HarnessStartupScan = { output: '', settled: false }
     const timer = setTimeout(() => {
-      if (settled) return
-      settled = true
+      if (scan.settled) return
+      scan.settled = true
+      scan.output = ''
       const timeoutError = new Error(
         `DeepSeek Harness did not become ready within ${String(HARNESS_START_TIMEOUT_MS / 1000)} seconds.`,
       )
@@ -126,8 +127,9 @@ async function startHarness(dshBin: string, harnessHome: string, hostPatch: stri
     }, HARNESS_START_TIMEOUT_MS)
 
     const fail = (error: Error): void => {
-      if (settled) return
-      settled = true
+      if (scan.settled) return
+      scan.settled = true
+      scan.output = ''
       clearTimeout(timer)
       reject(error)
     }
@@ -139,10 +141,8 @@ async function startHarness(dshBin: string, harnessHome: string, hostPatch: stri
     child.stdout.on('data', (chunk: Buffer) => {
       const text = chunk.toString('utf8')
       process.stdout.write(text)
-      output += text
-      const url = parseHarnessReadyUrl(output)
-      if (url === undefined || settled) return
-      settled = true
+      const url = scanHarnessStartupChunk(scan, text)
+      if (url === undefined) return
       clearTimeout(timer)
       resolve({ child, url })
     })
@@ -235,8 +235,7 @@ function requestQuit(): void {
 async function prepareToInstall(): Promise<void> {
   quitting = true
   stopping = true
-  // Drain in-flight plugin mutations before tearing down Host.
-  await pluginLifecycle?.list().catch(() => undefined)
+  await pluginLifecycle?.shutdown().catch(() => undefined)
   await inventoryProbe?.dispose().catch(() => undefined)
   await transport.stop()
   const child = harness
@@ -401,11 +400,9 @@ app.on('second-instance', showMainWindow)
 app.on('before-quit', (event) => {
   if (stopping || harness === undefined) return
   event.preventDefault()
-  quitting = true
-  stopping = true
-  const child = harness
-  harness = undefined
-  void transport.stop().then(() => stopHarness(child)).finally(() => { app.quit() })
+  void prepareToInstall().catch((error: unknown) => {
+    console.error('desktop quit: failed to drain Host before exit', error)
+  }).finally(() => { app.quit() })
 })
 
 const primaryInstance = app.requestSingleInstanceLock()

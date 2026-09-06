@@ -48,6 +48,43 @@ describe('HarnessProxy', () => {
     expect(proxy.resolveHarnessUrl('/plugins/@deepseek-ai/dsh-client-modules/client.js?rev=1')).toBe(
       'http://127.0.0.1:43127/plugins/@deepseek-ai/dsh-client-modules/client.js?rev=1',
     )
+    expect(proxy.resolveHarnessUrl('dsh-electron://localhost//example.invalid/collect')).toBe(
+      'http://127.0.0.1:43127/example.invalid/collect',
+    )
+  })
+
+  it('keeps Host cookies on the loopback origin for scheme-relative renderer URLs', async () => {
+    const requested: string[] = []
+    const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+      requested.push(String(input instanceof Request ? input.url : input))
+      return new Response('{}', { status: 200 })
+    })
+    const proxy = new HarnessProxy(undefined, fetchMock)
+    proxy.setOrigin('http://127.0.0.1:43127')
+    Reflect.set(proxy, 'cookie', 'dsh-auth=FAKE-REVIEW-COOKIE')
+
+    await proxy.request({
+      url: 'dsh-electron://localhost//example.invalid/collect',
+      method: 'POST',
+      headers: {},
+    })
+    const proxied = await proxy.proxyRequest(new Request('dsh-electron://localhost//example.invalid/collect', {
+      method: 'POST',
+      body: '{}',
+    }))
+    await proxied.text()
+
+    expect(requested).toEqual([
+      'http://127.0.0.1:43127/example.invalid/collect',
+      'http://127.0.0.1:43127/example.invalid/collect',
+    ])
+    expect(fetchMock.mock.calls[0]?.[1]).toMatchObject({
+      headers: { cookie: 'dsh-auth=FAKE-REVIEW-COOKIE' },
+      redirect: 'manual',
+    })
+    const protocolRequest = fetchMock.mock.calls[1]?.[0]
+    expect(protocolRequest).toBeInstanceOf(Request)
+    expect((protocolRequest as Request).headers.get('cookie')).toBe('dsh-auth=FAKE-REVIEW-COOKIE')
   })
 
   it('exchanges the launch token and authenticates HTTP and WebSocket requests', async () => {

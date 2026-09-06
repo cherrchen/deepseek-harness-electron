@@ -1,5 +1,12 @@
 import { describe, expect, it } from 'vitest'
-import { harnessArguments, parseHarnessReadyUrl, resolveDshBin, resolveHarnessHome } from '../src/runtime.ts'
+import {
+  HARNESS_STARTUP_BUFFER_LIMIT,
+  harnessArguments,
+  parseHarnessReadyUrl,
+  resolveDshBin,
+  resolveHarnessHome,
+  scanHarnessStartupChunk,
+} from '../src/runtime.ts'
 
 describe('Electron Harness runtime', () => {
   it('stores Harness state below the operating-system user home', () => {
@@ -55,5 +62,27 @@ describe('Electron Harness runtime', () => {
     expect(parseHarnessReadyUrl('dsh web: http://0.0.0.0:3080\n')).toBeUndefined()
     expect(parseHarnessReadyUrl('dsh web: http://127.0.0.1:70000\n')).toBeUndefined()
     expect(parseHarnessReadyUrl('dsh web: http://127.0.0.1:3080/?token=\n')).toBeUndefined()
+  })
+
+  it('drops the handshake buffer after the readiness URL and ignores later chunks', () => {
+    const scan = { output: '', settled: false }
+    expect(scanHarnessStartupChunk(scan, 'booting\n')).toBeUndefined()
+    expect(scan.output.length).toBeGreaterThan(0)
+    expect(scanHarnessStartupChunk(scan, 'dsh web: http://127.0.0.1:43127\n')).toBe(
+      'http://127.0.0.1:43127',
+    )
+    expect(scan.settled).toBe(true)
+    expect(scan.output).toBe('')
+    expect(scanHarnessStartupChunk(scan, 'info: still running\n')).toBeUndefined()
+    expect(scan.output).toBe('')
+  })
+
+  it('retains only the newest handshake window before the readiness line', () => {
+    const scan = { output: '', settled: false }
+    expect(scanHarnessStartupChunk(scan, `${'x'.repeat(HARNESS_STARTUP_BUFFER_LIMIT + 8)}\n`)).toBeUndefined()
+    expect(scan.output.length).toBe(HARNESS_STARTUP_BUFFER_LIMIT)
+    expect(scanHarnessStartupChunk(scan, 'dsh web: http://127.0.0.1:43127\n')).toBe(
+      'http://127.0.0.1:43127',
+    )
   })
 })
