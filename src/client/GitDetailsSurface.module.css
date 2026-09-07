@@ -78,6 +78,10 @@
   padding: 4px 12px 18px;
 }
 
+.diffTabBody {
+  padding: 10px 12px 18px;
+}
+
 .commitRegion {
   flex: none;
   padding: 0 12px 12px;
