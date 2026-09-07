@@ -302,6 +302,11 @@ describe('DetailsToggle', () => {
     fireEvent.click(button)
     expect(toggleDock).toHaveBeenCalledTimes(1)
   })
+
+  it('uses the shared interactive hover wash', () => {
+    const source = readFileSync(join(process.cwd(), 'src/client/DetailsToggle.module.css'), 'utf8')
+    expect(source).toMatch(/\.toggle:hover \{[^}]*background: var\(--dsw-alias-interactive-bg-hover\)/)
+  })
 })
 
 describe('SurfaceErrorBoundary', () => {
