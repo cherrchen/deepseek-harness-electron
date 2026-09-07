@@ -5,7 +5,7 @@
  * not here — tabs close individually.
  */
 import { Button, Tooltip } from '@deepseek-ai/dsh-client-ui-primitives'
-import { useCallback, useEffect, useRef } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import type { KeyboardEvent } from 'react'
 import type { InjectFace, PropsLocale, PropsRenderSlots, PropsRuntime } from '@deepseek-ai/dsh-client-ui-slots'
 import type {} from '@deepseek-ai/dsh-client-locale/client'
@@ -107,7 +107,21 @@ export function DetailsHost({
   t,
 }: DetailsHostProps) {
   const snapshot: DetailsHostState = useDetailsHost((state: DetailsHostState) => state)
-  const { tabs, activeInstance, launcherVisible } = snapshot
+  const { tabs, activeInstance, launcherVisible, openFolder, workspacePath } = snapshot
+  const [folderError, setFolderError] = useState<string | null>(null)
+  const [openingFolder, setOpeningFolder] = useState(false)
+  const openWorkspace = async () => {
+    if (!openFolder || !workspacePath || openingFolder) return
+    setOpeningFolder(true)
+    setFolderError(null)
+    try {
+      await openFolder(workspacePath)
+    } catch (error) {
+      setFolderError(error instanceof Error ? error.message : String(error))
+    } finally {
+      setOpeningFolder(false)
+    }
+  }
   const launcherPage = launcherVisible || tabs.length === 0
   const activeId = activeInstance?.instanceId ?? null
 
@@ -166,8 +180,8 @@ export function DetailsHost({
             </button>
           </Tooltip>
           <div className={css.hostActions} data-details-host-actions="">
-            <Tooltip label={t('actions.openFolderPending')} side="bottom">
-              <button type="button" className={css.headerAction} aria-label={t('actions.openFolder')} aria-disabled="true">
+            <Tooltip label={t('actions.openFolder')} side="bottom">
+              <button type="button" className={css.headerAction} aria-label={t('actions.openFolder')} aria-disabled={!openFolder || !workspacePath || openingFolder || undefined} onClick={() => { void openWorkspace() }}>
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinejoin="round" aria-hidden="true">
                   <path d="M3 9V6a2 2 0 0 1 2-2h5l2 3h7a2 2 0 0 1 2 2v1M5 20h13a2 2 0 0 0 2-1.6l2-8.4H6l-3 8a1.5 1.5 0 0 0 2 2Z" />
                 </svg>
@@ -182,6 +196,7 @@ export function DetailsHost({
         </div>
       )}
       <div className={css.body}>
+        {folderError !== null && <p role="alert">{folderError}</p>}
         {launcherPage
           ? <LauncherPage entries={launcherEntries} onOpen={openRequest} t={t} />
           : activeInstance !== null && (
@@ -217,17 +232,17 @@ function TabChip(props: {
   const { tab, active, onActivate, onClose, t } = props
   return (
     <div className={css.tabWrap} data-active={active || undefined}>
-<Tooltip label={tab.label} side="bottom">
-  <button
-    type="button"
-    role="tab"
-    aria-selected={active}
-    className={css.tab}
-    onClick={() => { onActivate(tab.instanceId) }}
-  >
-    <span className={css.tabLabel}>{tab.label}</span>
-  </button>
-</Tooltip>
+      <Tooltip label={tab.label} side="bottom">
+        <button
+          type="button"
+          role="tab"
+          aria-selected={active}
+          className={css.tab}
+          onClick={() => { onActivate(tab.instanceId) }}
+        >
+          <span className={css.tabLabel}>{tab.label}</span>
+        </button>
+      </Tooltip>
       {tab.closable !== false && (
         <Tooltip label={t('tab.close', { label: tab.label })} side="bottom">
           <button
