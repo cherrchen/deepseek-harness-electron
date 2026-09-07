@@ -12,14 +12,15 @@
  * total height (--app-header-height, defined by the host theme) and its exact
  * divider treatment (1px transparent border reserving the slot + a 0.5px l3
  * hairline ::after), so the two bottom rules read as one continuous line.
- * The shared height splits into two equal rows: the first stays empty, the
- * second holds the tab strip flush against the divider.
+ * Content is bottom-aligned so the tab strip sits on that divider; leftover
+ * height above stays empty.
  */
 .tabbar {
   position: relative;
-  display: grid;
-  grid-template-rows: 1fr 1fr;
+  display: flex;
   flex: none;
+  align-items: flex-end;
+  gap: 2px;
   box-sizing: border-box;
   min-width: 0;
   height: var(--app-header-height, 45px);
@@ -39,16 +40,6 @@
   pointer-events: none;
 }
 
-.tabbarRow {
-  grid-row: 2;
-  display: flex;
-  align-items: flex-end;
-  gap: 2px;
-  min-width: 0;
-  min-height: 0;
-  overflow: visible;
-}
-
 /*
  * Desktop stamps data-dsh-desktop-platform on :root. On Windows the details
  * column shares the top-right corner with the Window Controls Overlay, so the
@@ -57,11 +48,7 @@
  */
 :global(:root[data-dsh-desktop-platform='win32']) .tabbar {
   height: calc(var(--app-header-height, 45px) + var(--dsh-native-control-row-height, 40px));
-  grid-template-rows: var(--dsh-native-control-row-height, 40px) 1fr 1fr;
-}
-
-:global(:root[data-dsh-desktop-platform='win32']) .tabbarRow {
-  grid-row: 3;
+  padding-top: var(--dsh-native-control-row-height, 40px);
 }
 
 .tabWrap {

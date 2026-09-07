@@ -178,7 +178,6 @@ describe('DetailsHost', () => {
     }), [], { showLauncher: vi.fn() })} />)
     const tablist = screen.getByRole('tablist', { name: 'Details tabs' })
     expect(tablist).toBeTruthy()
-    expect(tablist.parentElement?.getAttribute('data-details-tabbar')).toBe('')
     const tabs = screen.getAllByRole('tab')
     expect(tabs.map(tab => tab.getAttribute('aria-selected'))).toEqual(['true', 'false'])
     expect(screen.getByTestId('surface-test.alpha')).toBeTruthy()
@@ -365,18 +364,15 @@ describe('DetailsHost responsive tab strip contract', () => {
     expect(CSS_SOURCE).toMatch(/\.tabbar \{[^}]*overflow: visible/)
     expect(CSS_SOURCE).toMatch(/\.tabbarTrailing \{[^}]*flex: none/)
     // Shared header geometry: token-driven height plus the main header's
-    // transparent-border + hairline ::after divider treatment. The height
-    // splits into two equal rows; tabs occupy the lower row.
+    // transparent-border + hairline ::after divider treatment.
     expect(CSS_SOURCE).toMatch(/\.tabbar \{[^}]*height: var\(--app-header-height, 45px\)/)
-    expect(CSS_SOURCE).toMatch(/\.tabbar \{[^}]*grid-template-rows: 1fr 1fr/)
     expect(CSS_SOURCE).toMatch(/\.tabbar \{[^}]*border-bottom: 1px solid transparent/)
     expect(CSS_SOURCE).toMatch(/\.tabbar::after \{[^}]*height: 0\.5px/)
     expect(CSS_SOURCE).toMatch(/\.tabbar::after \{[^}]*background: var\(--dsw-alias-border-l3\)/)
-    expect(CSS_SOURCE).toMatch(/\.tabbarRow \{[^}]*grid-row: 2/)
   })
 
   it('aligns the round controls with the tab row: no margin-based lift, one bottom-aligned strip', () => {
-    expect(CSS_SOURCE).toMatch(/\.tabbarRow \{[^}]*align-items: flex-end/)
+    expect(CSS_SOURCE).toMatch(/\.tabbar \{[^}]*align-items: flex-end/)
     expect(CSS_SOURCE).not.toMatch(/\.addTab[^{]*\{[^}]*margin-bottom/)
   })
 

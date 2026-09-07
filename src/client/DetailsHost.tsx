@@ -158,43 +158,41 @@ export function DetailsHost({
   return (
     <div ref={rootRef} className={css.root} data-details-host="">
       {tabs.length > 0 && (
-        <div className={css.tabbar} data-details-tabbar="">
-          <div className={css.tabbarRow} role="tablist" aria-label={t('tabs.aria')} onKeyDown={onTablistKeyDown}>
-            {tabs.map((tab: DetailsSurfaceInstance) => (
-              <TabChip
-                key={tab.instanceId}
-                tab={tab}
-                active={tab.instanceId === activeId && !launcherPage}
-                onActivate={activate}
-                onClose={closeTab}
-                t={t}
-              />
-            ))}
-            <Tooltip label={t('tab.open')} side="bottom">
-              <button
-                type="button"
-                className={css.addTab}
-                onClick={showLauncher}
-                aria-label={t('tab.open')}
-              >
-                <PlusGlyph />
+        <div className={css.tabbar} role="tablist" aria-label={t('tabs.aria')} onKeyDown={onTablistKeyDown}>
+          {tabs.map((tab: DetailsSurfaceInstance) => (
+            <TabChip
+              key={tab.instanceId}
+              tab={tab}
+              active={tab.instanceId === activeId && !launcherPage}
+              onActivate={activate}
+              onClose={closeTab}
+              t={t}
+            />
+          ))}
+          <Tooltip label={t('tab.open')} side="bottom">
+            <button
+              type="button"
+              className={css.addTab}
+              onClick={showLauncher}
+              aria-label={t('tab.open')}
+            >
+              <PlusGlyph />
+            </button>
+          </Tooltip>
+          <div className={css.hostActions} data-details-host-actions="">
+            <Tooltip label={t('actions.openFolder')} side="bottom">
+              <button type="button" className={css.headerAction} aria-label={t('actions.openFolder')} aria-disabled={!openFolder || !workspacePath || openingFolder || undefined} onClick={() => { void openWorkspace() }}>
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinejoin="round" aria-hidden="true">
+                  <path d="M3 9V6a2 2 0 0 1 2-2h5l2 3h7a2 2 0 0 1 2 2v1M5 20h13a2 2 0 0 0 2-1.6l2-8.4H6l-3 8a1.5 1.5 0 0 0 2 2Z" />
+                </svg>
               </button>
             </Tooltip>
-            <div className={css.hostActions} data-details-host-actions="">
-              <Tooltip label={t('actions.openFolder')} side="bottom">
-                <button type="button" className={css.headerAction} aria-label={t('actions.openFolder')} aria-disabled={!openFolder || !workspacePath || openingFolder || undefined} onClick={() => { void openWorkspace() }}>
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinejoin="round" aria-hidden="true">
-                    <path d="M3 9V6a2 2 0 0 1 2-2h5l2 3h7a2 2 0 0 1 2 2v1M5 20h13a2 2 0 0 0 2-1.6l2-8.4H6l-3 8a1.5 1.5 0 0 0 2 2Z" />
-                  </svg>
-                </button>
-              </Tooltip>
-            </div>
-            {!launcherPage && activeInstance !== null && (
-              <div className={css.tabbarTrailing} data-details-header-actions="">
-                {renderSlot(DETAILS_HEADER_ACTIONS_SLOT, { detailsInstance: activeInstance }, { only: activeInstance.surfaceId })}
-              </div>
-            )}
           </div>
+          {!launcherPage && activeInstance !== null && (
+            <div className={css.tabbarTrailing} data-details-header-actions="">
+              {renderSlot(DETAILS_HEADER_ACTIONS_SLOT, { detailsInstance: activeInstance }, { only: activeInstance.surfaceId })}
+            </div>
+          )}
         </div>
       )}
       <div className={css.body}>
