@@ -267,7 +267,7 @@ export interface ShellDetailsSnapshot {
 /** Snapshot published into the DetailsHost inject `hooks` compartment. */
 export interface DetailsHostState {
   /** Working directory of the selected session. */
-  readonly workspacePath?: string
+  readonly workspacePath?: string | undefined
 
   /** Platform-supplied folder opener; absent when unavailable. */
   readonly openFolder?: (path: string) => Promise<void>
