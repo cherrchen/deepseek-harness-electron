@@ -66,7 +66,7 @@
 }
 
 .tabWrap[data-active] {
-  background: var(--dsw-alias-fill-hover);
+  background: var(--dsw-alias-interactive-bg-hover);
   border-color: var(--dsw-alias-border-brand, var(--dsw-alias-border-l2));
   color: var(--dsw-alias-label-primary);
 }
@@ -115,7 +115,7 @@
 }
 
 .tabClose:hover {
-  background: var(--dsw-alias-fill-hover);
+  background: var(--dsw-alias-interactive-bg-hover);
 }
 
 .addTab,
@@ -157,7 +157,7 @@
 .tabWrap:hover,
 .addTab:hover,
 .headerAction:hover {
-  background: var(--dsw-alias-fill-hover);
+  background: var(--dsw-alias-interactive-bg-hover);
 }
 
 .tabbarTrailing {
@@ -232,7 +232,7 @@
 }
 
 .card:hover {
-  background: var(--dsw-alias-fill-hover);
+  background: var(--dsw-alias-interactive-bg-hover);
 }
 
 .card:focus-visible {
