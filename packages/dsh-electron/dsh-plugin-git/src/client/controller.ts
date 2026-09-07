@@ -1,6 +1,6 @@
 /** Client-side Git state and RPC orchestration. */
 
-import type { GitCommitSummary, GitCommitMessageCapability, GitDiff, GitGenerationUnavailableReason, GitLogScope, GitRepositorySnapshot } from '../types.ts'
+import type { GitCommitSummary, GitCommitMessageCapability, GitDiff, GitFileChange, GitGenerationUnavailableReason, GitLogScope, GitRepositorySnapshot } from '../types.ts'
 import { layoutGitGraph } from './graph/layout.ts'
 import type { GraphContinuationState, GraphLayoutRow } from './graph/types.ts'
 
@@ -120,6 +120,10 @@ export class GitClientController {
   private diffNavigator: ((path: string, staged: boolean) => void) | undefined
   /** Monotonic request identity for graph pages; stale responses are discarded. */
   private graphRequestGeneration = 0
+  /** Monotonic request identities for independently replaceable async results. */
+  private diffRequestGeneration = 0
+  private generationRequestGeneration = 0
+  private capabilityRequestGeneration = 0
   /** Lane continuation state between loaded graph pages. */
   private graphContinuation: GraphContinuationState | undefined
 
@@ -245,6 +249,8 @@ export class GitClientController {
    */
   async showDiff(path: string, staged: boolean): Promise<void> {
     const repository = this.requireRepository()
+    const bindingGeneration = this.operationGeneration
+    const requestGeneration = ++this.diffRequestGeneration
     const selectedDiff = { path, staged }
     this.patch({ selectedDiff, error: undefined })
     if (repository.untracked.includes(path)) {
@@ -254,11 +260,10 @@ export class GitClientController {
     this.patch({ loading: true })
     try {
       const diff = decodeDiff(await this.call('diff', { repository: repository.root, path, staged }))
-      if (this.state.selectedDiff === undefined
-        || this.state.selectedDiff.path !== path
-        || this.state.selectedDiff.staged !== staged) return
+      if (!this.isRequestCurrent(bindingGeneration, repository.root, requestGeneration, () => this.diffRequestGeneration)) return
       this.patch({ diff, loading: false })
     } catch (error) {
+      if (!this.isRequestCurrent(bindingGeneration, repository.root, requestGeneration, () => this.diffRequestGeneration)) return
       this.patch({ loading: false, error: error instanceof Error ? error.message : String(error) })
     }
   }
@@ -266,12 +271,12 @@ export class GitClientController {
   /**
    * Discard working-tree, HEAD, or untracked content of one path, or every
    * unstaged tracked path when omitted. Destructive; callers confirm first.
-   * @param path - Optional repository-relative path.
+   * @param change - Optional complete file change record.
    * @param mode - `worktree` (default), `head` (restore index+worktree), or `untracked`.
    * @returns Completion after state refresh.
    */
-  async discard(path?: string, mode: 'worktree' | 'head' | 'untracked' = 'worktree'): Promise<void> {
-    await this.mutate('discard', { path, ...(mode === 'worktree' ? {} : { mode }) })
+  async discard(change?: GitFileChange, mode: 'worktree' | 'head' | 'untracked' = 'worktree'): Promise<void> {
+    await this.mutate('discard', { ...(change === undefined ? {} : { change }), ...(mode === 'worktree' ? {} : { mode }) })
   }
 
   /**
@@ -289,6 +294,7 @@ export class GitClientController {
       return
     }
     const requestGeneration = ++this.graphRequestGeneration
+    const bindingGeneration = this.operationGeneration
     const repositoryRoot = repository.root
     const scope = this.state.graphScope
     const skip = reset ? 0 : this.state.graph.length
@@ -300,7 +306,7 @@ export class GitClientController {
         skip,
         scope,
       }))
-      if (!this.isGraphRequestCurrent(requestGeneration, repositoryRoot)) return
+      if (!this.isRequestCurrent(bindingGeneration, repositoryRoot, requestGeneration, () => this.graphRequestGeneration)) return
       const graph = reset ? commits : [...this.state.graph, ...commits]
       if (reset) this.graphContinuation = undefined
       const layout = layoutGitGraph(commits, {
@@ -321,18 +327,13 @@ export class GitClientController {
       // A settled failure counts as loaded: the empty-history auto effect must
       // not turn a failing `git log` into an infinite retry loop. Recovery is
       // an explicit refresh.
-      if (!this.isGraphRequestCurrent(requestGeneration, repositoryRoot)) return
+      if (!this.isRequestCurrent(bindingGeneration, repositoryRoot, requestGeneration, () => this.graphRequestGeneration)) return
       this.patch({
         graphLoading: false,
         graphError: error instanceof Error ? error.message : String(error),
         graphLoaded: true,
       })
     }
-  }
-
-  /** Whether a graph response still belongs to the newest request and binding. */
-  private isGraphRequestCurrent(generation: number, repositoryRoot: string): boolean {
-    return generation === this.graphRequestGeneration && this.state.repository?.root === repositoryRoot
   }
 
   /**
@@ -373,15 +374,16 @@ export class GitClientController {
     }
     const generation = this.operationGeneration
     const repositoryRoot = repository.root
+    const requestGeneration = ++this.generationRequestGeneration
     this.patch({ generating: true, generationError: undefined })
     try {
       const staged = decodeDiff(await this.call('diff', { repository: repositoryRoot, staged: true }))
-      if (!this.isGenerationCurrent(generation, repositoryRoot)) return
+      if (!this.isRequestCurrent(generation, repositoryRoot, requestGeneration, () => this.generationRequestGeneration)) return
       const proposal = await this.call('generate-commit-message', {
         repository: repositoryRoot,
         stagedDiff: staged.text,
       })
-      if (!this.isGenerationCurrent(generation, repositoryRoot)) return
+      if (!this.isRequestCurrent(generation, repositoryRoot, requestGeneration, () => this.generationRequestGeneration)) return
       if (typeof proposal !== 'string' || proposal.trim().length === 0) {
         throw new Error('generation returned an empty message')
       }
@@ -389,20 +391,19 @@ export class GitClientController {
     } catch (error) {
       // Stale requests (workspace switched, repository reloaded) publish
       // neither their proposal nor their failure.
-      if (!this.isGenerationCurrent(generation, repositoryRoot)) return
+      if (!this.isRequestCurrent(generation, repositoryRoot, requestGeneration, () => this.generationRequestGeneration)) return
       this.patch({ generating: false, generationError: error instanceof Error ? error.message : String(error) })
     }
   }
 
-  /** Whether a generation response still belongs to the newest operation and binding. */
-  private isGenerationCurrent(generation: number, repositoryRoot: string): boolean {
-    return generation === this.operationGeneration && this.state.repository?.root === repositoryRoot
-  }
-
   private async loadGenerationCapability(): Promise<void> {
-    if (this.state.workspacePath === undefined) return
+    const repository = this.state.repository
+    if (repository === undefined || repository === null) return
+    const bindingGeneration = this.operationGeneration
+    const requestGeneration = ++this.capabilityRequestGeneration
     try {
       const capability = await this.call('commit-message-capability', {}) as Partial<GitCommitMessageCapability>
+      if (!this.isRequestCurrent(bindingGeneration, repository.root, requestGeneration, () => this.capabilityRequestGeneration)) return
       const reason = capability.reason
       this.patch({
         generationAvailable: capability.available === true,
@@ -411,22 +412,23 @@ export class GitClientController {
           : undefined,
       })
     } catch {
+      if (!this.isRequestCurrent(bindingGeneration, repository.root, requestGeneration, () => this.capabilityRequestGeneration)) return
       this.patch({ generationAvailable: false, generationReason: undefined })
     }
   }
 
   /**
    * Stage one path or every path.
-   * @param path - Optional repository-relative path.
+   * @param change - Optional complete file change record.
    * @returns Completion after state refresh.
    */
-  async stage(path?: string): Promise<void> { await this.mutate('stage', { path }) }
+  async stage(change?: GitFileChange): Promise<void> { await this.mutate('stage', change === undefined ? {} : { change }) }
   /**
    * Unstage one path or the complete index.
-   * @param path - Optional repository-relative path.
+   * @param change - Optional complete file change record.
    * @returns Completion after state refresh.
    */
-  async unstage(path?: string): Promise<void> { await this.mutate('unstage', { path }) }
+  async unstage(change?: GitFileChange): Promise<void> { await this.mutate('unstage', change === undefined ? {} : { change }) }
   /**
    * Switch to an existing local branch.
    * @param branch - Local branch name.
@@ -475,13 +477,13 @@ export class GitClientController {
     this.patch({ workspacePath, loading: true, error: undefined })
     try {
       const root = decodeRoot(await this.call('discover', { path: workspacePath }))
-      if (generation !== this.operationGeneration) return
+      if (!this.isWorkspaceCurrent(generation)) return
       if (root === null) {
         this.patch({ repository: null, diff: undefined, selectedDiff: undefined, loading: false })
         return
       }
       const snapshot = decodeSnapshot(await this.call('status', { repository: root }))
-      if (generation !== this.operationGeneration) return
+      if (!this.isWorkspaceCurrent(generation)) return
       this.patch({
         repository: snapshot,
         diff: undefined,
@@ -489,7 +491,7 @@ export class GitClientController {
         loading: false,
       })
     } catch (error) {
-      if (generation !== this.operationGeneration) return
+      if (!this.isWorkspaceCurrent(generation)) return
       this.patch({ loading: false, error: error instanceof Error ? error.message : String(error) })
     }
   }
@@ -505,11 +507,11 @@ export class GitClientController {
     const generation = this.operationGeneration
     const repositoryRoot = this.requireRepository().root
     const run = async (): Promise<boolean> => {
-      if (!this.isGenerationCurrent(generation, repositoryRoot)) return false
+      if (!this.isBindingCurrent(generation, repositoryRoot)) return false
       this.patch({ loading: true, error: undefined })
       try {
         const next = decodeSnapshot(await this.call(endpoint, { repository: repositoryRoot, ...fields }))
-        if (!this.isGenerationCurrent(generation, repositoryRoot)) return false
+        if (!this.isBindingCurrent(generation, repositoryRoot)) return false
         // Commits, discards, and branch switches may change history: invalidate
         // the loaded graph so the Graph surface reloads instead of rendering the
         // pre-mutation log.
@@ -517,7 +519,7 @@ export class GitClientController {
         return true
       } catch (error) {
         const message = error instanceof Error ? error.message : String(error)
-        if (this.isGenerationCurrent(generation, repositoryRoot)) {
+        if (this.isBindingCurrent(generation, repositoryRoot)) {
           this.patch({ loading: false, error: message })
         }
         throw error instanceof Error ? error : new Error(message)
@@ -532,6 +534,26 @@ export class GitClientController {
     const repository = this.state.repository
     if (repository === undefined || repository === null) throw new Error('no Git repository is selected')
     return repository
+  }
+
+  /** Whether a repository discovery or status result still owns the workspace. */
+  private isWorkspaceCurrent(generation: number): boolean {
+    return generation === this.operationGeneration
+  }
+
+  /** Whether a result still belongs to the current workspace binding. */
+  private isBindingCurrent(generation: number, repositoryRoot: string): boolean {
+    return this.isWorkspaceCurrent(generation) && this.state.repository?.root === repositoryRoot
+  }
+
+  /** Whether an independently replaceable request still owns its result. */
+  private isRequestCurrent(
+    bindingGeneration: number,
+    repositoryRoot: string,
+    requestGeneration: number,
+    latestRequestGeneration: () => number,
+  ): boolean {
+    return requestGeneration === latestRequestGeneration() && this.isBindingCurrent(bindingGeneration, repositoryRoot)
   }
 
   private async call(endpoint: string, payload: unknown): Promise<unknown> {

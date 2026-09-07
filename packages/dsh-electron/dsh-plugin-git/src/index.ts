@@ -19,7 +19,7 @@ import {
   type CommitMessageSettings,
 } from './commit-message-settings.ts'
 import { GitService } from './service.ts'
-import type { GitCommitMessageCapability } from './types.ts'
+import type { GitCommitMessageCapability, GitFileChange } from './types.ts'
 
 export { CommitMessageUnavailableError, LlmCommitMessageProvider, UnavailableCommitMessageProvider } from './commit-message.ts'
 export type { CommitMessageInput, CommitMessageProvider, CommitMessageSelection, LlmCommitMessageOptions } from './commit-message.ts'
@@ -178,12 +178,12 @@ async function invoke(
       optionalStringField(request, 'path'),
       signal,
     )
-    case 'stage': return service.stage(stringField(request, 'repository'), optionalStringField(request, 'path'), signal)
-    case 'unstage': return service.unstage(stringField(request, 'repository'), optionalStringField(request, 'path'), signal)
+    case 'stage': return service.stage(stringField(request, 'repository'), optionalChangeField(request, 'change'), signal)
+    case 'unstage': return service.unstage(stringField(request, 'repository'), optionalChangeField(request, 'change'), signal)
     case 'discard': {
       const modeField = optionalStringField(request, 'mode')
       const mode = modeField === 'head' || modeField === 'untracked' ? modeField : 'worktree'
-      return service.discard(stringField(request, 'repository'), optionalStringField(request, 'path'), signal, mode)
+      return service.discard(stringField(request, 'repository'), optionalChangeField(request, 'change'), signal, mode)
     }
     case 'commit': return service.commit(
       stringField(request, 'repository'),
@@ -239,6 +239,19 @@ function optionalStringField(value: Record<string, unknown>, key: string): strin
   if (field === undefined) return undefined
   if (typeof field !== 'string' || field.length === 0) throw new Error(`Git request ${key} must be a non-empty string`)
   return field
+}
+
+/** Read one complete file-change operation from a Client request. */
+function optionalChangeField(value: Record<string, unknown>, key: string): GitFileChange | undefined {
+  const field = value[key]
+  if (field === undefined) return undefined
+  const change = record(field)
+  const originalPath = optionalStringField(change, 'originalPath')
+  return {
+    path: stringField(change, 'path'),
+    status: stringField(change, 'status'),
+    ...(originalPath === undefined ? {} : { originalPath }),
+  }
 }
 
 function booleanField(value: Record<string, unknown>, key: string): boolean {

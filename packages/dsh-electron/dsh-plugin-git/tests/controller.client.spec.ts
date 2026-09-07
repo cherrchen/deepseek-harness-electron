@@ -259,6 +259,71 @@ describe('GitClientController', () => {
     expect(controller.getSnapshot().graph.map(entry => entry.hash)).toEqual(['b-commit'])
   })
 
+  it('discards a stale Diff response and failure after the repository changes', async () => {
+    let releaseA: ((value: GitRpcResult) => void) | undefined
+    let signalA: (() => void) | undefined
+    const diffARequested = new Promise<void>((resolve) => { signalA = resolve })
+    const rpc = {
+      call: vi.fn(async (_channel: string, endpoint: string, payload: unknown) => {
+        if (endpoint === 'discover') return { ok: true as const, value: (payload as { path: string }).path }
+        if (endpoint === 'status') return { ok: true as const, value: snapshot({ root: (payload as { repository: string }).repository }) }
+        if (endpoint === 'diff') {
+          const repository = (payload as { repository: string }).repository
+          if (repository === '/workspace-a') {
+            signalA?.()
+            return new Promise<GitRpcResult>((resolve) => { releaseA = resolve })
+          }
+          return { ok: true as const, value: { repository, path: 'src/a.ts', staged: false, text: 'diff -- b' } }
+        }
+        if (endpoint === 'log') return { ok: true as const, value: [] }
+        if (endpoint === 'commit-message-capability') return { ok: true as const, value: { available: false } }
+        return { ok: true as const, value: null }
+      }),
+    }
+    const controller = new GitClientController(rpc)
+    await controller.setWorkspace('/workspace-a')
+    const stale = controller.showDiff('src/a.ts', false)
+    await diffARequested
+    await controller.setWorkspace('/workspace-b')
+    await controller.showDiff('src/a.ts', false)
+    releaseA?.({ ok: false as const, error: { message: 'stale diff failure' } })
+    await stale
+    expect(controller.getSnapshot()).toMatchObject({
+      workspacePath: '/workspace-b',
+      error: undefined,
+      diff: { repository: '/workspace-b', text: 'diff -- b' },
+    })
+  })
+
+  it('keeps the latest Diff response for repeated requests of the same file', async () => {
+    const releases: Array<(value: GitRpcResult) => void> = []
+    const rpc = {
+      call: vi.fn(async (_channel: string, endpoint: string) => {
+        if (endpoint === 'discover') return { ok: true as const, value: '/repo' }
+        if (endpoint === 'status') return { ok: true as const, value: snapshot() }
+        if (endpoint === 'diff') {
+          return new Promise<GitRpcResult>((resolve) => {
+            releases.push(resolve)
+          })
+        }
+        if (endpoint === 'log') return { ok: true as const, value: [] }
+        if (endpoint === 'commit-message-capability') return { ok: true as const, value: { available: false } }
+        return { ok: true as const, value: null }
+      }),
+    }
+    const controller = new GitClientController(rpc)
+    await controller.setWorkspace('/workspace')
+    const first = controller.showDiff('src/a.ts', false)
+    await vi.waitFor(() => { expect(releases).toHaveLength(1) })
+    const second = controller.showDiff('src/a.ts', false)
+    await vi.waitFor(() => { expect(releases).toHaveLength(2) })
+    releases[1]!({ ok: true, value: { repository: '/repo', path: 'src/a.ts', staged: false, text: 'newest' } })
+    await second
+    releases[0]!({ ok: true, value: { repository: '/repo', path: 'src/a.ts', staged: false, text: 'stale' } })
+    await first
+    expect(controller.getSnapshot().diff?.text).toBe('newest')
+  })
+
   it('invalidates the loaded graph on refresh and mutation', async () => {
     let logCalls = 0
     const rpc = {

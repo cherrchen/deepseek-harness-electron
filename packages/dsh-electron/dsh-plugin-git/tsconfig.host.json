@@ -11,8 +11,7 @@
     "src/status.ts",
     "src/types.ts",
     "src/log.ts",
-    "src/commit-message.ts",
-    "src/commit-message-settings.ts"
+    "src/commit-message.ts"
   ],
   "references": [
     {
@@ -26,12 +25,6 @@
     },
     {
       "path": "../../client/connection/tsconfig.host.json"
-    },
-    {
-      "path": "../../core/agent-default-model"
-    },
-    {
-      "path": "../../settings/settings"
     }
   ]
 }

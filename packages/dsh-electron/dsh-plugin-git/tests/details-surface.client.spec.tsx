@@ -346,7 +346,7 @@ describe('Git Changes actions', () => {
     const controller = controllerOf(baseState())
     render(<GitChangesSurface {...props(controller)} />)
     fireEvent.click(screen.getByRole('button', { name: en['details.stage'] }))
-    expect(controller.stage).toHaveBeenCalledWith('src/a.ts')
+    expect(controller.stage).toHaveBeenCalledWith({ path: 'src/a.ts', status: ' M' })
   })
 
   it('runs commit from the split button when a message and staged files exist', () => {

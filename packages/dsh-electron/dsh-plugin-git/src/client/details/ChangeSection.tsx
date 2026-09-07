@@ -13,10 +13,10 @@ export function ChangeSection({ title, changes, kind, toggleLabel, toggleAllLabe
   kind: GitChangeKind
   toggleLabel: string
   toggleAllLabel: string
-  onSelect: (path: string) => void
-  onToggle: (path: string) => void
+  onSelect: (change: GitFileChange) => void
+  onToggle: (change: GitFileChange) => void
   onToggleAll: () => void
-  onDiscard?: (path: string) => void
+  onDiscard?: (change: GitFileChange) => void
   onDiscardAll?: () => void
   discardLabel?: string
   discardConfirmLabel?: string
@@ -47,10 +47,10 @@ export function ChangeSection({ title, changes, kind, toggleLabel, toggleAllLabe
           path={change.path}
           kind={kind}
           toggleLabel={toggleLabel}
-          onSelect={() => { onSelect(change.path) }}
-          onToggle={() => { onToggle(change.path) }}
+          onSelect={() => { onSelect(change) }}
+          onToggle={() => { onToggle(change) }}
           {...(onDiscard === undefined ? {} : {
-            onDiscard: () => { onDiscard(change.path) },
+            onDiscard: () => { onDiscard(change) },
             discardLabel: discardLabel ?? '',
             discardConfirmLabel: discardConfirmLabel ?? '',
           })}

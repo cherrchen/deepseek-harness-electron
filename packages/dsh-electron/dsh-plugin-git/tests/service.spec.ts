@@ -14,13 +14,13 @@ afterEach(async () => {
   await Promise.all(roots.splice(0).map(root => rm(root, { recursive: true, force: true })))
 })
 
-async function service(executable = 'git'): Promise<{ dispose: () => Promise<void>; git: GitService }> {
+async function service(executable = 'git', maxOutputBytes = 1024 * 1024): Promise<{ dispose: () => Promise<void>; git: GitService }> {
   const ctx = new Context()
   const fiber = ctx.plugin(LocalSubprocessRuntime)
   await fiber.await()
   return {
     dispose: () => fiber.dispose(),
-    git: new GitService(ctx.subprocess, { executable, maxOutputBytes: 1024 * 1024, graceMs: 1000 }),
+    git: new GitService(ctx.subprocess, { executable, maxOutputBytes, graceMs: 1000 }),
   }
 }
 
@@ -61,9 +61,9 @@ describe('portable Git service', () => {
     expect(snapshot.unstaged.map(change => change.path)).toContain('tracked.txt')
     expect(snapshot.untracked).toContain('new.txt')
     expect((await git.diff(repo, false, 'tracked.txt')).text).toContain('+changed')
-    snapshot = await git.stage(repo, 'tracked.txt')
+    snapshot = await git.stage(repo, { path: 'tracked.txt', status: ' M' })
     expect(snapshot.staged.map(change => change.path)).toContain('tracked.txt')
-    snapshot = await git.unstage(repo, 'tracked.txt')
+    snapshot = await git.unstage(repo, { path: 'tracked.txt', status: 'M ' })
     expect(snapshot.unstaged.map(change => change.path)).toContain('tracked.txt')
     await git.stage(repo)
     expect((await git.diff(repo, true)).text).toContain('+changed')
@@ -112,7 +112,7 @@ describe('portable Git service', () => {
     const executable = join(root, 'failing-git')
     writeFileSync(executable, '#!/bin/sh\nprintf permission-denied >&2\nexit 42\n')
     chmodSync(executable, 0o755)
-    const { dispose, git } = await service(executable)
+    const { dispose, git } = await service(executable, 1024)
     await expect(git.discover(root)).rejects.toMatchObject({ exitCode: 42, stderr: 'permission-denied' })
     await dispose()
   })
@@ -135,7 +135,7 @@ describe('portable Git service', () => {
 
       writeFileSync(join(root, 'tracked.txt'), 'initial\nchanged\n')
       execFileSync('git', ['add', 'tracked.txt'], { cwd: root })
-      await git.discard(root, 'tracked.txt')
+      await git.discard(root, { path: 'tracked.txt', status: 'MM' })
       const snapshot = await git.status(root)
       expect(snapshot.unstaged).toEqual([])
       expect(snapshot.staged.map(change => change.path)).toEqual(['tracked.txt'])
@@ -185,7 +185,7 @@ describe('portable Git service', () => {
       writeFileSync(join(root, magicName), 'magic-changed\n')
       writeFileSync(join(root, 'other.txt'), 'other-changed\n')
 
-      await git.discard(root, magicName)
+      await git.discard(root, { path: magicName, status: ' M' })
       expect(readFileSync(join(root, magicName), 'utf8')).toBe('magic\n')
       expect(readFileSync(join(root, 'other.txt'), 'utf8')).toBe('other-changed\n')
     } finally {
@@ -224,10 +224,10 @@ describe('portable Git service', () => {
     try {
       const root = repository()
       writeFileSync(join(root, 'tracked.txt'), 'changed\n')
-      await git.stage(root, 'tracked.txt')
+      await git.stage(root, { path: 'tracked.txt', status: ' M' })
       await git.commit(root, 'first change')
       writeFileSync(join(root, 'tracked.txt'), 'changed again\n')
-      await git.stage(root, 'tracked.txt')
+      await git.stage(root, { path: 'tracked.txt', status: ' M' })
       await git.commit(root, 'amended', undefined, true)
       const log = await git.log(root, 10, 0)
       expect(log.map(commit => commit.subject)).toEqual(['amended', 'initial'])
@@ -242,8 +242,47 @@ describe('portable Git service', () => {
 
       writeFileSync(join(root, 'scratch.txt'), 'temp\n')
       expect(existsSync(join(root, 'scratch.txt'))).toBe(true)
-      await git.discard(root, 'scratch.txt', undefined, 'untracked')
+      await git.discard(root, { path: 'scratch.txt', status: '??' }, undefined, 'untracked')
       expect(existsSync(join(root, 'scratch.txt'))).toBe(false)
+    } finally {
+      await dispose()
+    }
+  })
+
+  it('discards staged additions and unstages both sides of a rename', async () => {
+    const { dispose, git } = await service()
+    try {
+      const root = repository()
+      writeFileSync(join(root, 'added.txt'), 'added\n')
+      await git.stage(root, { path: 'added.txt', status: '??' })
+      const added = (await git.status(root)).staged.find(change => change.path === 'added.txt')
+      expect(added).toBeDefined()
+      await git.discard(root, added, undefined, 'head')
+      expect(existsSync(join(root, 'added.txt'))).toBe(false)
+      expect((await git.status(root)).staged).toEqual([])
+
+      execFileSync('git', ['mv', 'tracked.txt', 'renamed.txt'], { cwd: root })
+      const renamed = (await git.status(root)).staged.find(change => change.path === 'renamed.txt')
+      expect(renamed).toMatchObject({ originalPath: 'tracked.txt' })
+      await git.unstage(root, renamed)
+      const afterUnstage = await git.status(root)
+      expect(afterUnstage.staged).toEqual([])
+      expect(afterUnstage.untracked).toContain('renamed.txt')
+      expect(afterUnstage.unstaged.map(change => change.path)).toContain('tracked.txt')
+    } finally {
+      await dispose()
+    }
+  })
+
+  it.skipIf(process.platform === 'win32')('fails instead of parsing truncated Git output', async () => {
+    const root = mkdtempSync(join(tmpdir(), 'dsh-plugin-git-lossy-'))
+    roots.push(root)
+    const executable = join(root, 'lossy-git')
+    writeFileSync(executable, '#!/bin/sh\nyes x | head -c 2048\n')
+    chmodSync(executable, 0o755)
+    const { dispose, git } = await service(executable, 1024)
+    try {
+      await expect(git.discover(root)).rejects.toThrow(/output exceeded 1024 bytes/)
     } finally {
       await dispose()
     }

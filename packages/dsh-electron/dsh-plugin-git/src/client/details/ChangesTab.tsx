@@ -25,10 +25,10 @@ export function ChangesTab({ repository, controller, t, loading, error }: {
         changes={repository.staged}
         toggleLabel={t('details.unstage')}
         toggleAllLabel={t('details.unstageAll')}
-        onSelect={(path) => { controller.openDiff(path, true) }}
-        onToggle={(path) => { void controller.unstage(path) }}
+        onSelect={(change) => { controller.openDiff(change.path, true) }}
+        onToggle={(change) => { void controller.unstage(change) }}
         onToggleAll={() => { void controller.unstage() }}
-        onDiscard={(path) => { void controller.discard(path, 'head') }}
+        onDiscard={(change) => { void controller.discard(change, 'head') }}
         discardLabel={t('details.discard')}
         discardConfirmLabel={t('details.discardConfirm')}
       />
@@ -38,10 +38,10 @@ export function ChangesTab({ repository, controller, t, loading, error }: {
         changes={repository.unstaged}
         toggleLabel={t('details.stage')}
         toggleAllLabel={t('details.stageAll')}
-        onSelect={(path) => { controller.openDiff(path, false) }}
-        onToggle={(path) => { void controller.stage(path) }}
+        onSelect={(change) => { controller.openDiff(change.path, false) }}
+        onToggle={(change) => { void controller.stage(change) }}
         onToggleAll={() => { void controller.stage() }}
-        onDiscard={(path) => { void controller.discard(path) }}
+        onDiscard={(change) => { void controller.discard(change) }}
         onDiscardAll={() => { void controller.discard() }}
         discardLabel={t('details.discard')}
         discardConfirmLabel={t('details.discardConfirm')}
@@ -53,10 +53,10 @@ export function ChangesTab({ repository, controller, t, loading, error }: {
         changes={repository.untracked.map(path => ({ path, status: '??' }))}
         toggleLabel={t('details.stage')}
         toggleAllLabel={t('details.stageAll')}
-        onSelect={(path) => { controller.openDiff(path, false) }}
-        onToggle={(path) => { void controller.stage(path) }}
+        onSelect={(change) => { controller.openDiff(change.path, false) }}
+        onToggle={(change) => { void controller.stage(change) }}
         onToggleAll={() => { void controller.stage() }}
-        onDiscard={(path) => { void controller.discard(path, 'untracked') }}
+        onDiscard={(change) => { void controller.discard(change, 'untracked') }}
         discardLabel={t('details.discard')}
         discardConfirmLabel={t('details.discardConfirm')}
       />
