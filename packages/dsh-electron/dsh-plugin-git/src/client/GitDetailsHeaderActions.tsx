@@ -17,8 +17,7 @@ export type GitDetailsHeaderActionsProps =
 /**
  * Render Host-header controls for the Git details surface: icon-only buttons
  * with the shared Details Host tooltip/aria treatment. Compact (Changes branch
- * row and Graph scope bar) is refresh-only; Diff still offers Reveal when
- * Desktop exists.
+ * row, Graph scope bar, and Diff top-right overlay) is refresh-only.
  * @param props - slot runtime, locale, and shared controller.
  * @returns Reveal (when Desktop is available and not compact) and Refresh.
  */

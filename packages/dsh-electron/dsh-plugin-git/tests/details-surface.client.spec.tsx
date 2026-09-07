@@ -191,6 +191,25 @@ describe('GitDiffSurface', () => {
     // fire a doomed `showDiff` (the load-failure regression).
     expect(controller.showDiff).not.toHaveBeenCalled()
   })
+
+  it('places compact refresh in the top-right overlay and hides Reveal even when Desktop exists', () => {
+    const controller = controllerOf(baseState({ desktopAvailable: true }))
+    const { container } = render(<GitDiffSurface {...props(controller)} />)
+    const toolbar = container.querySelector('[data-git-diff-toolbar]')
+    expect(toolbar?.querySelector('[data-git-details-header-actions]')).toBeTruthy()
+    expect(container.querySelector('[data-git-diff-surface] > [data-git-details-header-actions]')).toBeNull()
+    expect(screen.queryByRole('button', { name: en['details.reveal'] })).toBeNull()
+    fireEvent.click(screen.getByRole('button', { name: en['details.refresh'] }))
+    expect(controller.refresh).toHaveBeenCalled()
+  })
+
+  it('keeps Diff refresh overlaid so it does not consume a layout row', () => {
+    const source = readFileSync(join(import.meta.dirname, '../src/client/GitDetailsSurface.module.css'), 'utf8')
+    expect(source).toMatch(/\.diffRoot[^{]*\{[^}]*\n  position: relative/)
+    expect(source).toMatch(/\.diffToolbar[^{]*\{[^}]*\n  position: absolute/)
+    expect(source).toMatch(/\.diffToolbar[^{]*\{[^}]*\n  top: 10px/)
+    expect(source).toMatch(/\.diffToolbar[^{]*\{[^}]*\n  right: 12px/)
+  })
 })
 
 describe('GitGraphSurface', () => {
@@ -281,7 +300,7 @@ describe('GitDetailsHeaderActions', () => {
     expect(screen.getByRole('button', { name: en['details.refresh'] })).toBeTruthy()
   })
 
-  it('hides Reveal on compact Changes and Graph toolbars even when Desktop exists', () => {
+  it('hides Reveal on compact Changes, Graph, and Diff toolbars even when Desktop exists', () => {
     const controller = controllerOf(baseState({ desktopAvailable: true }))
     render(<GitDetailsHeaderActions {...actionProps(controller)} compact />)
     expect(screen.queryByRole('button', { name: en['details.reveal'] })).toBeNull()
