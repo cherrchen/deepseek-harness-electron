@@ -120,7 +120,7 @@ Git also registers two Launcher cards (Changes, Graph) through `ctx.shellDetails
 
 In the conversation composer, Git contributes a branch selector and a changed-files indicator on the left of the input area. Clicking either control opens the `git.changes` surface as a Details Host tab. Creating a branch opens a shared conversation Modal; after `git init` with no commits (unborn HEAD), the menu shows the symbolic default branch as disabled, explains that the first commit is required, and disables create until HEAD exists.
 
-The **Changes** surface shows the current branch beside refresh, then a single-line auto-growing commit message field with a wand **Generate** control and a split **Commit** button (Commit, Amend, Commit & Push, Commit & Sync). Staged, unstaged, and untracked paths follow as icon-action sections: plus or minus toggles the index, undo discards after a two-step confirm, and a porcelain letter badges the row. Clicking a path opens the matching diff. The **Diff** surface renders one file's working-tree or staged diff per tab. The **Graph** surface shows Auto / All / First parent beside refresh, then the commit history as a canvas-drawn lane graph — one continuous coordinate space, so rails and merge edges never break at row boundaries — with subject, author, date, hash, and HEAD/branch/tag decoration badges, paged incrementally with a load-more control. When the host exposes an LLM runtime and `commitMessage` is configured, a staged diff is sent to the configured provider and the streamed suggestion is written into the editable input. Generation never stages, commits, or pushes anything. On Electron, optional Desktop enhancement adds reveal-in-folder and open-path actions when the Desktop provider is present.
+The **Changes** surface shows the current branch beside refresh, then a single-line auto-growing commit message field with a wand **Generate** control and a split **Commit** button (Commit, Amend, Commit & Push, Commit & Sync). Staged, unstaged, and untracked paths follow as icon-action sections: plus or minus toggles the index, undo discards after a two-step confirm, and a porcelain letter badges the row. Clicking a path opens the matching diff. The **Diff** surface renders one file's working-tree or staged diff per tab. The **Graph** surface shows Auto / All / First parent beside refresh, then the commit history as a canvas-drawn lane graph — one continuous coordinate space, so rails and merge edges never break at row boundaries — with subject, author, date, hash, and HEAD/branch/tag decoration badges, paged incrementally with a load-more control. When the host exposes an LLM runtime, a staged diff is sent to the session model — or to a custom provider/model configured under **Settings → Plugins → Plugin configuration → Git** — and the streamed suggestion is written into the editable input. That same card also edits the generation system message. Generation never stages, commits, or pushes anything. On Electron, optional Desktop enhancement adds reveal-in-folder and open-path actions when the Desktop provider is present.
 
 <a id="composition"></a>
 ## Composition
@@ -128,6 +128,8 @@ The **Changes** surface shows the current branch beside refresh, then a single-l
 The Host plugin requires `ctx.subprocess`, provides `ctx.git`, and starts Git with an executable plus separate argv values. It never invokes a shell. When a DSH Web Host is present, an optional Connection child registers the loopback `/git` RPC channel.
 
 The Client plugin requires Connection, locale, renderer, conversation UI, primitives, session UI, and Details Host. Business components receive a controller and `openDetails()` through slot injection and do not access Cordis context.
+
+When `ctx.settingsScope` is present, the Client also registers a card into **Settings → Plugins → Plugin configuration** under the `git-commit-message` namespace. The card is absent in hosts that do not serve that namespace.
 
 The Client main fiber does not require `desktop`. A child `ctx.inject(['desktop'], ...)` fiber accepts only `shell.showItemInFolder`, `shell.openPath`, and `notification.show`; without them, repository, status, diff, stage, commit, and branch operations remain available and native actions are not shown.
 
@@ -141,11 +143,13 @@ No runtime invariant companion is published because Cordis owns the service, RPC
 | `executable` | `git` | Git executable name or absolute path resolved by `ctx.subprocess`. |
 | `maxOutputBytes` | 8 MiB | Per-stream collection cap for one Git command. |
 | `graceMs` | 3000 | Managed subprocess termination grace period. |
-| `commitMessage.provider` | — | Provider route registered with the DSH LLM runtime. Required when the `commitMessage` section is present. |
-| `commitMessage.model` | — | Model id resolved by the provider route. Required when the `commitMessage` section is present. |
+| `commitMessage.provider` | — | Provider route registered with the DSH LLM runtime. Required when `commitMessage.mode` is `custom`. |
+| `commitMessage.model` | — | Model id resolved by the provider route. Required when `commitMessage.mode` is `custom`. |
+| `commitMessage.mode` | inherit | `inherit` uses the host session model; `custom` pins `provider`/`model`. |
+| `commitMessage.systemPrompt` | built-in | System prompt for commit-message generation. Empty/absent uses the package default. |
 | `commitMessage.maxDiffBytes` | 48 KiB | Staged-diff byte cap applied before the generation prompt is built (validated minimum 1024). |
 
-The whole `commitMessage` section is optional. When it is absent, or when the host exposes no LLM runtime, commit message generation is unavailable and the Client reports `git/generation-unavailable`.
+The whole `commitMessage` section is optional and is also the `git-commit-message` settings namespace. Edit it from **Settings → Plugins → Plugin configuration → Git**, or as a composition entry. When the host exposes no LLM runtime, or no session model and no custom route resolve, commit message generation is unavailable and the Client reports `git/generation-unavailable`.
 
 <a id="git-operations"></a>
 ## Git operations
@@ -156,7 +160,7 @@ Discard reverts one unstaged or untracked path through `git checkout --` / `git 
 
 Commit history is read with a paged `git log` (`GIT_LOG_FORMAT`, one commit per line, fixed field count) so the Graph surface appends older commits incrementally through a load-more control instead of materializing the whole history.
 
-Commit message generation is opt-in: when `commitMessage` is configured and the host provides the LLM runtime, a staged diff (capped by `commitMessage.maxDiffBytes`) is sent to the configured provider route and the streamed suggestion is written into the editable commit message input. Generation is suggestion-only — it never stages, commits, or pushes anything.
+Commit message generation is opt-in at the host: it needs an LLM runtime and a resolvable model (the session default, or a custom `provider`/`model`). A staged diff (capped by `commitMessage.maxDiffBytes`) is sent to that route and the streamed suggestion is written into the editable commit message input. The system prompt defaults to a Conventional Commit instruction and can be overridden from Plugin configuration. Generation is suggestion-only — it never stages, commits, or pushes anything.
 
 GitHub authentication, hosting-provider workflows, credential prompts, issues, pull requests, stash, cherry-pick, and merge-conflict editing remain outside this package. Push and sync invoke `git push` / `git pull --rebase` as separate argv values and surface Git's own errors when remotes or credentials are missing.
 
@@ -180,17 +184,17 @@ pnpm pack
 <a id="model-experience"></a>
 ## Model Experience
 
-None, as this package contributes a human-facing repository service and Client UI without registering model tools or prompt content.
+Commit-message generation issues a one-shot LLM request outside the agent loop. The request carries a dedicated system prompt plus the staged diff and is not a session-log event. The default prompt asks for a Conventional Commit subject; **Settings → Plugins → Plugin configuration → Git** can replace the prompt and pin a provider/model.
 
 #### KV Cache effect
 
-None. The package does not add, replace, or retain model-request tokens.
+None. Each generation is an independent request; the package does not add, replace, or retain session tokens.
 
 ## Known Limitations and Deferred Work
 
 - **No credential UI** — push and sync call Git with no prompt for remotes or credentials; a missing `origin` or rejected auth fails as a Git command error.
 - **Bounded command output** — a diff larger than `maxOutputBytes` retains only the subprocess collector's tail, so deployments handling very large diffs must raise that validated setting.
-- **Generation needs host + config** — commit message generation requires a host LLM runtime and a `commitMessage` configuration section; without either, the Generate action stays disabled or reports `git/generation-unavailable`.
+- **Generation needs host + model** — commit message generation requires a host LLM runtime and a resolvable model (session default or a custom route in Plugin configuration); without either, the Generate action stays disabled or reports `git/generation-unavailable`.
 - **Launcher card copy is English** — the two Launcher cards contributed by this plugin ship their own English labels; they are not yet localized through the locale service.
 
 <a id="dev-note"></a>

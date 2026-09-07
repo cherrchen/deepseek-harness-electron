@@ -137,4 +137,39 @@ describe('commit message generation assembly', () => {
     expect(request.provider).toBe('settings-provider')
     expect(request.model).toBe('settings-model')
   })
+
+  it('inherits the host default when settings mode is inherit even with a leftover route', async () => {
+    const llm = fakeLlm()
+    const git = await mounted({
+      llm,
+      defaultModel: { provider: 'main-provider', model: 'main-model' },
+      settings: { mode: 'inherit', provider: 'leftover', model: 'leftover-model' },
+    })
+    await git.call('generate-commit-message', { repository: '/repo', stagedDiff: '+x' })
+    const request = llm.requests[0] as { provider?: string; model?: string }
+    expect(request.provider).toBe('main-provider')
+    expect(request.model).toBe('main-model')
+  })
+
+  it('applies a live settings system prompt', async () => {
+    const llm = fakeLlm()
+    const git = await mounted({
+      llm,
+      defaultModel: { provider: 'main-provider', model: 'main-model' },
+      settings: { systemPrompt: 'Custom live prompt.' },
+    })
+    await git.call('generate-commit-message', { repository: '/repo', stagedDiff: '+x' })
+    expect((llm.requests[0] as { system?: string }).system).toBe('Custom live prompt.')
+  })
+
+  it('uses the composition-entry system prompt when settings are absent', async () => {
+    const llm = fakeLlm()
+    const git = await mounted({
+      llm,
+      defaultModel: { provider: 'main-provider', model: 'main-model' },
+      config: { commitMessage: { systemPrompt: 'From composition.' } },
+    })
+    await git.call('generate-commit-message', { repository: '/repo', stagedDiff: '+x' })
+    expect((llm.requests[0] as { system?: string }).system).toBe('From composition.')
+  })
 })
