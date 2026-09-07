@@ -17,14 +17,14 @@
   position: relative;
   display: flex;
   flex: none;
-  align-items: flex-end;
+  align-items: center;
   gap: 2px;
   box-sizing: border-box;
   min-width: 0;
   height: var(--app-header-height, 45px);
   padding: 8px 8px 5px;
   border-bottom: 1px solid transparent;
-  overflow: hidden;
+  overflow: visible;
 }
 
 .tabbar::after {

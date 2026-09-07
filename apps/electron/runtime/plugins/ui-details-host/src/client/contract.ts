@@ -266,6 +266,12 @@ export interface ShellDetailsSnapshot {
 
 /** Snapshot published into the DetailsHost inject `hooks` compartment. */
 export interface DetailsHostState {
+  /** Working directory of the selected session. */
+  readonly workspacePath?: string
+
+  /** Platform-supplied folder opener; absent when unavailable. */
+  readonly openFolder?: (path: string) => Promise<void>
+
   /** Live tabs of the current session, oldest first. */
   readonly tabs: readonly DetailsSurfaceInstance[]
   /** Currently rendered surface id, or null while no tab is active. */
