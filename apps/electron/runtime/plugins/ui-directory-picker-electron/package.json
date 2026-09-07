@@ -16,6 +16,7 @@
       "inject": [
         "@deepseek-ai/dsh-client-ui-renderer",
         "@deepseek-ai/dsh-client-ui-workspace",
+        "@dsh-electron/dsh-client-ui-details-host",
         "@dsh-electron/dsh-electron-desktop-capabilities"
       ]
     }
