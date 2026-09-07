@@ -106,6 +106,8 @@ class DetailsHostStateSource implements HostObservable<DetailsHostState> {
           && tab.label === before.label
           && tab.payload === before.payload
       })
+      && snapshot.workspacePath === prev.workspacePath
+      && snapshot.openFolder === prev.openFolder
       && snapshot.activeId === prev.activeId
       && snapshot.label === prev.label
       && snapshot.launcherVisible === prev.launcherVisible
@@ -134,6 +136,24 @@ function isOpenRequest(value: string | ShellDetailsOpenRequest): value is ShellD
 /** `ctx.shellDetails` implementation. */
 export class ShellDetailsService extends Service implements ShellDetailsController {
   static inject = ['slots', 'layout', 'sessions', 'locale']
+
+  private folderOpener: ((path: string) => Promise<void>) | undefined
+
+  /**
+   * Register the platform folder action until its provider unloads.
+   * @param open - Open a workspace directory in the system file manager.
+   * @returns Disposer removing this registration.
+   */
+  registerFolderOpener(open: (path: string) => Promise<void>): () => void {
+    if (this.folderOpener) throw new Error('A folder opener is already registered')
+    this.folderOpener = open
+    this.publishCurrent()
+    return () => {
+      if (this.folderOpener !== open) return
+      this.folderOpener = undefined
+      this.publishCurrent()
+    }
+  }
 
   readonly apiVersion = SHELL_DETAILS_API_VERSION
   readonly features: ReadonlySet<ShellDetailsFeature> = new Set(SHELL_DETAILS_ENABLED_FEATURES)
@@ -166,7 +186,10 @@ export class ShellDetailsService extends Service implements ShellDetailsControll
         const snapshot = sessions.list.getSnapshot()
         this.purgeDeletedSessions(snapshot.ids.map(String))
         const next = snapshot.current
-        if (next === current) return
+        if (next === current) {
+          this.publishCurrent()
+          return
+        }
         const previous = current
         current = next
         this.onSessionSwitch(
@@ -672,6 +695,8 @@ export class ShellDetailsService extends Service implements ShellDetailsControll
   }): void {
     const active = session.tabs.find(tab => tab.instanceId === session.activeInstanceId) ?? null
     this.state.set({
+      workspacePath: this.currentWorkspacePath(),
+      ...(this.folderOpener ? { openFolder: this.folderOpener } : {}),
       tabs: [...session.tabs],
       activeId: active?.surfaceId ?? null,
       activeInstance: active,
@@ -684,6 +709,8 @@ export class ShellDetailsService extends Service implements ShellDetailsControll
 
   private publishIdle(): void {
     this.state.set({
+      workspacePath: this.currentWorkspacePath(),
+      ...(this.folderOpener ? { openFolder: this.folderOpener } : {}),
       tabs: [],
       activeId: null,
       activeInstance: null,
@@ -714,6 +741,11 @@ export class ShellDetailsService extends Service implements ShellDetailsControll
       throw new DetailsSurfaceDuplicateError(id, matches.length)
     }
     return matches[0]!
+  }
+
+  private currentWorkspacePath(): string | undefined {
+    const snapshot = (this.owner.sessions as unknown as ISessions).list.getSnapshot()
+    return snapshot.current === undefined ? undefined : snapshot.byId[snapshot.current]?.cwd
   }
 
   private currentSessionId(): string {

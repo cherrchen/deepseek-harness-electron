@@ -4828,6 +4828,9 @@ importers:
       '@deepseek-ai/cordis':
         specifier: '>=4.0.1 <5.0.0'
         version: link:../../../vendor/cordis
+      '@deepseek-ai/dsh-agent-default-model':
+        specifier: 0.1.2-rc.1
+        version: link:../../core/agent-default-model
       '@deepseek-ai/dsh-api-session-controller':
         specifier: 0.1.2-rc.1
         version: link:../../api/session-controller
@@ -4852,12 +4855,21 @@ importers:
       '@deepseek-ai/dsh-client-ui-session':
         specifier: 0.1.2-rc.1
         version: link:../../client/ui-session
+      '@deepseek-ai/dsh-client-ui-settings':
+        specifier: 0.1.2-rc.1
+        version: link:../../client/ui-settings
+      '@deepseek-ai/dsh-client-ui-settings-plugins':
+        specifier: 0.1.2-rc.1
+        version: link:../../client/ui-settings-plugins
       '@deepseek-ai/dsh-client-ui-slots':
         specifier: 0.1.2-rc.1
         version: link:../../client/ui-slots
       '@deepseek-ai/dsh-llm':
         specifier: 0.1.2-rc.1
         version: link:../../llm/llm
+      '@deepseek-ai/dsh-settings':
+        specifier: 0.1.2-rc.1
+        version: link:../../settings/settings
       '@deepseek-ai/dsh-subprocess':
         specifier: 0.1.2-rc.1
         version: link:../../subprocess/subprocess

@@ -3,11 +3,28 @@
 import type { Context } from '@deepseek-ai/cordis'
 import z from '@deepseek-ai/schemastery'
 import type {} from '@deepseek-ai/dsh-client-connection'
-import { CommitMessageUnavailableError, LlmCommitMessageProvider, UnavailableCommitMessageProvider, type CommitMessageProvider } from './commit-message.ts'
+import type {} from '@deepseek-ai/dsh-agent-default-model'
+import type {} from '@deepseek-ai/dsh-settings'
+import {
+  CommitMessageUnavailableError,
+  LlmCommitMessageProvider,
+  UnavailableCommitMessageProvider,
+  type CommitMessageProvider,
+  type CommitMessageSelection,
+} from './commit-message.ts'
+import {
+  GIT_COMMIT_MESSAGE_SETTINGS_NAMESPACE,
+  GIT_COMMIT_MESSAGE_SETTINGS_SCHEMA,
+  validateCommitMessageSettings,
+  type CommitMessageSettings,
+} from './commit-message-settings.ts'
 import { GitService } from './service.ts'
+import type { GitCommitMessageCapability } from './types.ts'
 
 export { CommitMessageUnavailableError, LlmCommitMessageProvider, UnavailableCommitMessageProvider } from './commit-message.ts'
-export type { CommitMessageInput, CommitMessageProvider, LlmCommitMessageOptions } from './commit-message.ts'
+export type { CommitMessageInput, CommitMessageProvider, CommitMessageSelection, LlmCommitMessageOptions } from './commit-message.ts'
+export { GIT_COMMIT_MESSAGE_SETTINGS_NAMESPACE, GIT_COMMIT_MESSAGE_SETTINGS_SCHEMA, validateCommitMessageSettings } from './commit-message-settings.ts'
+export type { CommitMessageSettings } from './commit-message-settings.ts'
 export { GitCommandError, GitService, gitService } from './service.ts'
 export { parseGitLog, parseDecorations } from './log.ts'
 export { parseBranches, parsePorcelainV2 } from './status.ts'
@@ -24,15 +41,8 @@ export interface Config {
   maxOutputBytes?: number
   /** Grace period used when managed subprocess termination is requested. */
   graceMs?: number
-  /** Optional commit message generation backend (provider + model). */
-  commitMessage?: {
-    /** Provider route registered with the DSH LLM runtime. */
-    provider: string
-    /** Model id resolved by the provider route. */
-    model: string
-    /** Optional staged-diff byte cap for the prompt. */
-    maxDiffBytes?: number
-  }
+  /** Optional commit message generation backend. */
+  commitMessage?: CommitMessageSettings
 }
 
 export const Config = z.object({
@@ -40,8 +50,10 @@ export const Config = z.object({
   maxOutputBytes: z.natural().min(1024).default(8 * 1024 * 1024),
   graceMs: z.natural().min(1).default(3000),
   commitMessage: z.object({
+    mode: z.union([z.const('inherit'), z.const('custom')]),
     provider: z.string(),
     model: z.string(),
+    systemPrompt: z.string(),
     maxDiffBytes: z.natural().min(1024),
   }),
 })
@@ -54,24 +66,7 @@ export function apply(ctx: Context, config: Config): void {
     graceMs: config.graceMs ?? 3000,
   })
   ctx.provide('git', service)
-  // Commit message generation is capability-detected: without a configured
-  // provider (or without the LLM runtime) the endpoint reports unavailable
-  // and the UI keeps the action disabled. Generation never mutates the repo.
-  const generation: { provider: CommitMessageProvider | undefined } = {
-    provider: new UnavailableCommitMessageProvider(),
-  }
-  const generationConfig = config.commitMessage
-  if (generationConfig !== undefined) {
-    ctx.inject(['llm'], (llmCtx) => {
-      const llm = llmCtx.llm
-      generation.provider = new LlmCommitMessageProvider(llm, {
-        provider: generationConfig.provider,
-        model: generationConfig.model,
-        ...(generationConfig.maxDiffBytes !== undefined ? { maxDiffBytes: generationConfig.maxDiffBytes } : {}),
-      })
-      return () => { generation.provider = new UnavailableCommitMessageProvider() }
-    })
-  }
+  const generation = assembleGeneration(ctx, config.commitMessage)
   ctx.inject(['connection'], (connectionCtx) => {
     const connection = connectionCtx.connection
     return connection.rpc.handle('/git', async (endpoint, payload, signal) => {
@@ -91,9 +86,84 @@ export function apply(ctx: Context, config: Config): void {
   })
 }
 
+/** Mutable generation assembly; fibers swap the provider as services attach and detach. */
+class GenerationAssembly {
+  constructor(public provider: CommitMessageProvider = new UnavailableCommitMessageProvider('llm-unavailable')) {}
+}
+
+/**
+ * Assemble commit message generation. Without configuration the plugin
+ * inherits the host's default (session) model; a named provider/model — from
+ * the settings section, else the composition entry — overrides the host
+ * default. Generation never mutates the repository.
+ * @param ctx - Plugin context whose fibers track service availability.
+ * @param config - Composition entry for the settings section.
+ * @returns The mutable assembly consumed by the RPC adapter.
+ */
+function assembleGeneration(ctx: Context, config: CommitMessageSettings | undefined): GenerationAssembly {
+  if (config?.mode === 'custom') validateCommitMessageSettings(config)
+  const generation = new GenerationAssembly()
+  const entry: CommitMessageSettings = config ?? {}
+  let readSettings: (() => CommitMessageSettings) | undefined
+  let readHostDefault: (() => CommitMessageSelection) | undefined
+  const resolved = (): CommitMessageSettings => readSettings?.() ?? entry
+  const resolveSelection = (): CommitMessageSelection | undefined => {
+    const source = resolved()
+    if (source.mode !== 'inherit' && source.provider !== undefined && source.model !== undefined) {
+      return { provider: source.provider, model: source.model }
+    }
+    return readHostDefault?.()
+  }
+  const resolveSystemPrompt = (): string | undefined => {
+    const prompt = resolved().systemPrompt
+    return prompt !== undefined && prompt.trim() !== '' ? prompt : undefined
+  }
+  const resolveMaxDiffBytes = (): number | undefined => resolved().maxDiffBytes
+  ctx.inject(['llm'], (llmCtx) => {
+    const llm = llmCtx.llm
+    generation.provider = new LlmCommitMessageProvider(llm, {
+      resolveSelection,
+      resolveSystemPrompt,
+      resolveMaxDiffBytes,
+    })
+    return () => { generation.provider = new UnavailableCommitMessageProvider('llm-unavailable') }
+  })
+  ctx.inject(['agentDefaultModel'], (modelCtx) => {
+    const defaultModel = modelCtx.agentDefaultModel
+    readHostDefault = () => {
+      const selection = defaultModel.currentSelection()
+      return { provider: selection.provider, model: selection.model }
+    }
+    return () => { readHostDefault = undefined }
+  })
+  // Plugin configuration edits this section live; without a settings provider
+  // the composition entry above is the only source.
+  ctx.inject(['settings'], (settingsCtx) => {
+    settingsCtx.settings.installSection(ctx, GIT_COMMIT_MESSAGE_SETTINGS_NAMESPACE, GIT_COMMIT_MESSAGE_SETTINGS_SCHEMA, entry, {
+      setSource: (current) => { readSettings = current },
+      onChange: () => {},
+      validate: validateCommitMessageSettings,
+    })
+    return () => { readSettings = undefined }
+  })
+  return generation
+}
+
+/** Current capability answer for the generation backend, including why it is unavailable. */
+function capability(generation: GenerationAssembly): GitCommitMessageCapability {
+  const provider = generation.provider
+  if (provider instanceof LlmCommitMessageProvider) {
+    return provider.isReady() ? { available: true } : { available: false, reason: 'default-model-missing' }
+  }
+  if (provider instanceof UnavailableCommitMessageProvider) {
+    return { available: false, reason: provider.reason }
+  }
+  return { available: true }
+}
+
 async function invoke(
   service: GitService,
-  generation: { provider: CommitMessageProvider | undefined },
+  generation: GenerationAssembly,
   endpoint: string,
   payload: unknown,
   signal: AbortSignal,
@@ -110,8 +180,19 @@ async function invoke(
     )
     case 'stage': return service.stage(stringField(request, 'repository'), optionalStringField(request, 'path'), signal)
     case 'unstage': return service.unstage(stringField(request, 'repository'), optionalStringField(request, 'path'), signal)
-    case 'discard': return service.discard(stringField(request, 'repository'), optionalStringField(request, 'path'), signal)
-    case 'commit': return service.commit(stringField(request, 'repository'), stringField(request, 'message'), signal)
+    case 'discard': {
+      const modeField = optionalStringField(request, 'mode')
+      const mode = modeField === 'head' || modeField === 'untracked' ? modeField : 'worktree'
+      return service.discard(stringField(request, 'repository'), optionalStringField(request, 'path'), signal, mode)
+    }
+    case 'commit': return service.commit(
+      stringField(request, 'repository'),
+      stringField(request, 'message'),
+      signal,
+      optionalBooleanField(request, 'amend') === true,
+    )
+    case 'push': return service.push(stringField(request, 'repository'), signal)
+    case 'sync': return service.sync(stringField(request, 'repository'), signal)
     case 'create-branch': return service.createBranch(stringField(request, 'repository'), stringField(request, 'branch'), signal)
     case 'switch-branch': return service.switchBranch(stringField(request, 'repository'), stringField(request, 'branch'), signal)
     case 'log': {
@@ -127,16 +208,11 @@ async function invoke(
         signal,
       )
     }
-    case 'commit-message-capability': {
-      const provider = generation.provider
-      return {
-        available: provider !== undefined && !(provider instanceof UnavailableCommitMessageProvider),
-      }
-    }
+    case 'commit-message-capability': return capability(generation)
     case 'generate-commit-message': {
       const provider = generation.provider
-      if (provider === undefined || provider instanceof UnavailableCommitMessageProvider) {
-        throw new CommitMessageUnavailableError()
+      if (provider instanceof UnavailableCommitMessageProvider) {
+        throw new CommitMessageUnavailableError(provider.reason)
       }
       return provider.generate({
         repository: stringField(request, 'repository'),
@@ -167,6 +243,13 @@ function optionalStringField(value: Record<string, unknown>, key: string): strin
 
 function booleanField(value: Record<string, unknown>, key: string): boolean {
   const field = value[key]
+  if (typeof field !== 'boolean') throw new Error(`Git request ${key} must be a boolean`)
+  return field
+}
+
+function optionalBooleanField(value: Record<string, unknown>, key: string): boolean | undefined {
+  const field = value[key]
+  if (field === undefined) return undefined
   if (typeof field !== 'boolean') throw new Error(`Git request ${key} must be a boolean`)
   return field
 }

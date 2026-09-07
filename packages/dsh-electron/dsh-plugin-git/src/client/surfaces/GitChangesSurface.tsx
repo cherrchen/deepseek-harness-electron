@@ -1,13 +1,13 @@
 /**
- * Git Changes surface: repository context row, the staged/unstaged/untracked
- * sections, and the fixed commit region. One of three Git surfaces hosted by
+ * Git Changes surface: repository context row, the commit region, and the
+ * staged/unstaged/untracked sections. One of three Git surfaces hosted by
  * the Details Host tab bar.
  */
 import { useEffect, useSyncExternalStore } from 'react'
 import type { ReactNode } from 'react'
 import type { PropsLocale, PropsRuntime } from '@deepseek-ai/dsh-client-ui-slots'
 import type { GitClientController } from '../controller.ts'
-import { repoFolderName } from '../path-display.ts'
+import { GitDetailsHeaderActions } from '../GitDetailsHeaderActions.tsx'
 import { useGitWorkspace, type GitSessionsHook } from '../use-git-workspace.ts'
 import { ChangesTab } from '../details/ChangesTab.tsx'
 import { CommitRegion } from '../details/CommitRegion.tsx'
@@ -36,32 +36,37 @@ export function GitChangesSurface({ controller, t, useSessions, sessionId }: Git
 
   return (
     <div className={css.root} data-git-changes-surface="">
-      {repository !== undefined && repository !== null && (
-        <div className={css.context}>
-          <span className={css.repoName} title={repository.root}>{repoFolderName(repository.root)}</span>
-          {branchLabel !== undefined && <span className={css.branchName}>{branchLabel}</span>}
-        </div>
-      )}
-      <div className={css.body}>
-        {state.loading && repository === undefined && <p className={css.empty}>{t('details.loading')}</p>}
-        {!state.loading && workspacePath === undefined && <p className={css.empty}>{t('details.noWorkspace')}</p>}
-        {!state.loading && repository === null && <p className={css.empty}>{t('details.notRepository')}</p>}
-        {repository !== undefined && repository !== null && (
-          <>
-            <ChangesTab repository={repository} controller={controller} t={t} loading={state.loading} error={state.error} />
-            <CommitRegion
-              repository={repository}
-              controller={controller}
-              t={t}
-              error={state.error}
-              commitMessage={state.commitMessage}
-              generating={state.generating}
-              generationAvailable={state.generationAvailable}
-              generationError={state.generationError}
-            />
-          </>
-        )}
+      <div className={css.branchRow}>
+        <span
+          className={css.branchChip}
+          {...(repository !== undefined && repository !== null ? { title: repository.root } : {})}
+          aria-label={t('details.currentBranch')}
+        >
+          {branchLabel ?? t('details.currentBranch')}
+        </span>
+        <GitDetailsHeaderActions controller={controller} t={t} compact />
       </div>
+      {state.loading && repository === undefined && <p className={css.empty}>{t('details.loading')}</p>}
+      {!state.loading && workspacePath === undefined && <p className={css.empty}>{t('details.noWorkspace')}</p>}
+      {!state.loading && repository === null && <p className={css.empty}>{t('details.notRepository')}</p>}
+      {repository !== undefined && repository !== null && (
+        <>
+          <CommitRegion
+            repository={repository}
+            controller={controller}
+            t={t}
+            error={state.error}
+            commitMessage={state.commitMessage}
+            generating={state.generating}
+            generationAvailable={state.generationAvailable}
+            generationReason={state.generationReason}
+            generationError={state.generationError}
+          />
+          <div className={css.body}>
+            <ChangesTab repository={repository} controller={controller} t={t} loading={state.loading} error={undefined} />
+          </div>
+        </>
+      )}
     </div>
   )
 }

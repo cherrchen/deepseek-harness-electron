@@ -3,6 +3,7 @@
  * hides the details dock; hiding never destroys retained tabs. Pressed state
  * mirrors the measured dock visibility, not the tab list.
  */
+import { Tooltip } from '@deepseek-ai/dsh-client-ui-primitives'
 import type { InjectFace, PropsLocale, PropsRuntime } from '@deepseek-ai/dsh-client-ui-slots'
 import type {} from '@deepseek-ai/dsh-client-ui-conversation/client'
 import {
@@ -44,17 +45,18 @@ export function DetailsToggle({ useDetailsToggle, toggleDock, t }: DetailsToggle
   const { dockVisible } = useDetailsToggle((state: DetailsHostState) => state)
   const label = t('toggle.label')
   return (
-    <button
-      type="button"
-      className={css.toggle}
-      aria-label={label}
-      aria-pressed={dockVisible}
-      title={dockVisible ? t('toggle.hide') : t('toggle.show')}
-      data-details-toggle=""
-      data-pressed={dockVisible || undefined}
-      onClick={toggleDock}
-    >
-      <PanelRightGlyph />
-    </button>
+    <Tooltip label={dockVisible ? t('toggle.hide') : t('toggle.show')} side="bottom">
+      <button
+        type="button"
+        className={css.toggle}
+        aria-label={label}
+        aria-pressed={dockVisible}
+        data-details-toggle=""
+        data-pressed={dockVisible || undefined}
+        onClick={toggleDock}
+      >
+        <PanelRightGlyph />
+      </button>
+    </Tooltip>
   )
 }

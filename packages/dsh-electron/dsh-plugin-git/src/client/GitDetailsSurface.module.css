@@ -6,27 +6,35 @@
   flex-direction: column;
 }
 
-.context {
+.diffRoot {
+  position: relative;
+}
+
+.diffToolbar {
+  position: absolute;
+  top: 10px;
+  right: 12px;
+  z-index: 1;
+}
+
+.branchRow {
   display: flex;
   flex: none;
-  flex-direction: column;
+  align-items: center;
   gap: 8px;
-  padding: 12px 14px;
-  border-bottom: 0.5px solid var(--dsw-alias-border-l2);
+  padding: 10px 12px 8px;
 }
 
-.repoName {
+.branchChip {
+  min-width: 0;
+  flex: 1;
   overflow: hidden;
-  color: var(--dsw-alias-label-secondary);
+  color: var(--dsw-alias-label-primary);
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
   font-size: 12px;
+  line-height: 28px;
   text-overflow: ellipsis;
   white-space: nowrap;
-}
-
-.branchName {
-  color: var(--dsw-alias-label-tertiary);
-  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
-  font-size: 11px;
 }
 
 .tabs {
@@ -51,6 +59,7 @@
 
 .tab:hover {
   color: var(--dsw-alias-label-primary);
+  background: var(--dsw-alias-interactive-bg-hover);
 }
 
 .tabActive {
@@ -66,36 +75,62 @@
 }
 
 .tabBody {
-  padding: 12px 14px 18px;
+  padding: 4px 12px 18px;
+}
+
+.diffTabBody {
+  padding: 10px 12px 18px;
+}
+
+.commitRegion {
+  flex: none;
+  padding: 0 12px 12px;
 }
 
 .changeSection {
-  margin-bottom: 16px;
+  margin-bottom: 12px;
 }
 
 .changeSection h3 {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin: 0 0 8px;
+  gap: 8px;
+  margin: 0 0 4px;
   color: var(--dsw-alias-label-secondary);
   font-size: 12px;
   font-weight: 600;
 }
 
-.changeSection h3 span {
+.sectionTitle {
+  display: inline-flex;
+  min-width: 0;
+  align-items: center;
+  gap: 8px;
+}
+
+.sectionCount {
   display: inline-grid;
-  min-width: 20px;
-  height: 20px;
+  min-width: 18px;
+  height: 18px;
   place-items: center;
-  border-radius: 10px;
+  border-radius: 9px;
   background: var(--dsw-alias-interactive-bg-hover);
+  font-size: 10px;
+  font-weight: 600;
+}
+
+.sectionActions {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  gap: 2px;
 }
 
 .changeRow {
   display: flex;
   align-items: center;
-  gap: 4px;
+  gap: 2px;
   border-radius: 8px;
 }
 
@@ -109,18 +144,17 @@
   flex: 1;
   align-items: center;
   gap: 8px;
-  padding: 7px 6px;
+  padding: 6px 6px 6px 8px;
   border: 0;
+  border-radius: 8px;
   color: inherit;
   background: transparent;
   cursor: pointer;
   text-align: left;
 }
 
-.pathButton code {
-  flex: none;
-  color: var(--dsw-alias-state-warn-primary);
-  font-size: 11px;
+.pathButton:hover {
+  background: var(--dsw-alias-interactive-bg-hover);
 }
 
 .pathMain {
@@ -145,32 +179,101 @@
   white-space: nowrap;
 }
 
-.bulkActions {
-  display: flex;
-  gap: 6px;
-  margin-top: 8px;
+.rowActions {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  gap: 2px;
+  padding-right: 4px;
+}
+
+.iconButton {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  border: 0;
+  border-radius: 6px;
+  color: var(--dsw-alias-label-secondary);
+  background: transparent;
+  cursor: pointer;
+}
+
+.iconButton:hover:not([aria-disabled='true']) {
+  background: var(--dsw-alias-interactive-bg-hover);
+}
+
+.iconButton:focus-visible {
+  outline: 2px solid var(--dsw-alias-brand-primary);
+  outline-offset: 1px;
+}
+
+.iconButton[aria-disabled='true'] {
+  color: var(--dsw-alias-label-tertiary);
+  cursor: default;
+}
+
+.iconButtonArmed {
+  color: var(--dsw-alias-state-error-primary);
+}
+
+.statusLetter {
+  display: inline-grid;
+  flex: none;
+  width: 18px;
+  height: 18px;
+  place-items: center;
+  border-radius: 4px;
+  color: var(--dsw-alias-state-warn-primary);
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.statusLetter[data-tone='add'] {
+  color: var(--dsw-alias-state-success-primary);
+}
+
+.statusLetter[data-tone='delete'] {
+  color: var(--dsw-alias-state-error-primary);
+}
+
+.statusLetter[data-tone='rename'] {
+  color: var(--dsw-alias-label-secondary);
+}
+
+.statusLetter[data-tone='untracked'] {
+  color: var(--dsw-alias-label-tertiary);
 }
 
 .field {
+  position: relative;
   display: grid;
+  align-items: start;
   gap: 5px;
-  margin: 0 0 12px;
+  margin: 0 0 8px;
   color: var(--dsw-alias-label-secondary);
   font-size: 11px;
 }
 
 .field textarea {
   width: 100%;
-  min-height: 96px;
+  height: 36px;
+  min-height: 36px;
   box-sizing: border-box;
-  padding: 9px;
+  padding: 8px 40px 8px 12px;
   border: 0.5px solid var(--dsw-alias-border-l2);
   border-radius: 8px;
   outline: none;
   color: var(--dsw-alias-label-primary);
   background: var(--dsw-alias-bg-base);
-  font: inherit;
-  resize: vertical;
+  font-family: inherit;
+  font-size: 13px;
+  line-height: 20px;
+  overflow: hidden;
+  resize: none;
 }
 
 .field textarea:focus {
@@ -190,38 +293,70 @@
   font-size: 12px;
 }
 
-.stagedSummary {
-  margin: 0 0 8px;
-  color: var(--dsw-alias-label-secondary);
-  font-size: 12px;
-}
-
-.commitList {
-  margin: 0 0 12px;
-  padding: 0;
-  list-style: none;
-  font-size: 12px;
-}
-
-.commitList li {
-  padding: 4px 0;
-  color: var(--dsw-alias-label-primary);
-}
-
-.commitList code {
-  margin-right: 6px;
-  color: var(--dsw-alias-state-warn-primary);
-}
-
-.commitActions {
+.commitSplit {
   display: flex;
-  justify-content: flex-end;
+  align-items: stretch;
+  width: 100%;
+  overflow: hidden;
+  border-radius: 8px;
+}
+
+.commitMenu {
+  display: flex;
+  flex: none;
+}
+
+.commitMenu > :global(span) {
+  display: flex;
+}
+
+.commitMain,
+.commitChevron {
+  height: 36px;
+  padding: 0;
+  border: 0;
+  color: var(--dsw-alias-label-primary-foreground);
+  background: var(--dsw-alias-button-primary-fill);
+  cursor: pointer;
+}
+
+.commitMain {
+  min-width: 0;
+  flex: 1;
+  padding: 0 12px;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.commitMain:hover:not(:disabled),
+.commitChevron:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--dsw-alias-button-primary-hover) 88%, var(--dsw-alias-interactive-bg-hover));
+}
+
+.commitMain:disabled,
+.commitChevron:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.commitChevron {
+  display: grid;
+  place-items: center;
+  width: 36px;
+  border-left: 0.5px solid var(--dsw-alias-label-primary-foreground);
+}
+
+.commitChevron:focus-visible,
+.commitMain:focus-visible {
+  outline: 2px solid var(--dsw-alias-brand-primary);
+  outline-offset: -2px;
 }
 
 .diffHeader {
   display: grid;
   gap: 2px;
   margin-bottom: 10px;
+  padding-right: 32px;
 }
 
 .diffHeader strong {
@@ -269,4 +404,34 @@
 .diffDel {
   color: var(--dsw-alias-state-error-primary);
   background: rgb(207 34 46 / 8%);
+}
+
+.generateButton {
+  position: absolute;
+  right: 6px;
+  bottom: 4px;
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border: 0;
+  border-radius: 6px;
+  color: var(--dsw-alias-label-secondary);
+  background: transparent;
+  cursor: pointer;
+}
+
+.generateButton:hover:not([aria-disabled='true']) {
+  background: var(--dsw-alias-interactive-bg-hover);
+}
+
+.generateButton:focus-visible {
+  outline: 2px solid var(--dsw-alias-brand-primary);
+  outline-offset: 1px;
+}
+
+.generateButton[aria-disabled='true'] {
+  color: var(--dsw-alias-label-tertiary);
+  cursor: default;
 }

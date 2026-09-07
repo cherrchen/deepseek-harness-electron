@@ -21,6 +21,8 @@ Details Host v2 只承载一个激活 surface，用单一全局 close 控件关�
 
 Git 插件是参考消费者：它贡献 `git.changes`、`git.diff`、`git.graph` 三个 surface 与两张 Launcher 卡片，peer 范围钉住 Details Host `>=0.3.0 <0.4.0`。
 
+Host 工具栏通过可释放的 `registerFolderOpener` 回调打开当前会话的工作目录。Electron 目录适配器提供 `ctx.desktop.shell.openPath`，可移植的 Host 不依赖 Desktop。提供方卸载后按钮禁用。Git 在自己的面板内渲染刷新和仓库操作，提交信息生成保留为显式的输入框操作。已废弃的 header-actions 插槽仍接受现有消费者，但 Git 不再注册它。
+
 ## Alternatives considered
 
 **独立的下游 `ui-details-toggle` 插件。** 拒绝：toggle 是 host chrome，且第二个插件在不新增上游 seam 的前提下无法观测 dock 可见性。

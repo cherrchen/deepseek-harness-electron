@@ -302,6 +302,11 @@ describe('DetailsToggle', () => {
     fireEvent.click(button)
     expect(toggleDock).toHaveBeenCalledTimes(1)
   })
+
+  it('uses the shared interactive hover wash', () => {
+    const source = readFileSync(join(process.cwd(), 'src/client/DetailsToggle.module.css'), 'utf8')
+    expect(source).toMatch(/\.toggle:hover \{[^}]*background: var\(--dsw-alias-interactive-bg-hover\)/)
+  })
 })
 
 describe('SurfaceErrorBoundary', () => {
@@ -361,7 +366,7 @@ describe('DetailsHost responsive tab strip contract', () => {
     expect(CSS_SOURCE).toMatch(/\.tab \{[^}]*min-width: 0/)
     expect(CSS_SOURCE).toMatch(/\.tabLabel \{[^}]*text-overflow: ellipsis/)
     expect(CSS_SOURCE).toMatch(/\.tabClose \{[^}]*flex: none/)
-    expect(CSS_SOURCE).toMatch(/\.tabbar \{[^}]*overflow: hidden/)
+    expect(CSS_SOURCE).toMatch(/\.tabbar \{[^}]*overflow: visible/)
     expect(CSS_SOURCE).toMatch(/\.tabbarTrailing \{[^}]*flex: none/)
     // Shared header geometry: token-driven height plus the main header's
     // transparent-border + hairline ::after divider treatment.
@@ -373,7 +378,17 @@ describe('DetailsHost responsive tab strip contract', () => {
 
   it('aligns the round controls with the tab row: no margin-based lift, one bottom-aligned strip', () => {
     expect(CSS_SOURCE).toMatch(/\.tabbar \{[^}]*align-items: flex-end/)
+    expect(CSS_SOURCE).toMatch(/\.tabbar \{[^}]*padding: 0 8px 6px/)
     expect(CSS_SOURCE).not.toMatch(/\.addTab[^{]*\{[^}]*margin-bottom/)
+  })
+
+  it('fills a tab, the add control, and the folder action on hover like a launcher card', () => {
+    expect(CSS_SOURCE).toMatch(/\.tabWrap:hover[^{]*\{[^}]*background: var\(--dsw-alias-interactive-bg-hover\)/)
+    expect(CSS_SOURCE).toMatch(/\.addTab:hover[^{]*\{[^}]*background: var\(--dsw-alias-interactive-bg-hover\)/)
+    expect(CSS_SOURCE).toMatch(/\.headerAction:hover[^{]*\{[^}]*background: var\(--dsw-alias-interactive-bg-hover\)/)
+    expect(CSS_SOURCE).not.toMatch(/\.tabWrap:hover[^{]*\{[^}]*box-shadow/)
+    expect(CSS_SOURCE).not.toMatch(/\.addTab:hover[^{]*\{[^}]*box-shadow/)
+    expect(CSS_SOURCE).not.toMatch(/\.headerAction:hover[^{]*\{[^}]*box-shadow/)
   })
 })
 
@@ -399,8 +414,54 @@ describe('DetailsHeaderAction', () => {
     const onTrigger = vi.fn()
     render(<DetailsHeaderAction icon={<span />} label="Reveal" onTrigger={onTrigger} disabled />)
     const button = screen.getByRole('button', { name: 'Reveal' }) as HTMLButtonElement
-    expect(button.disabled).toBe(true)
+    expect(button.getAttribute('aria-disabled')).toBe('true')
     fireEvent.click(button)
     expect(onTrigger).not.toHaveBeenCalled()
+  })
+})
+
+
+describe('Details Host hints', () => {
+  it('shows the full tab label and close hint on keyboard focus', () => {
+    const active = instance()
+    render(<DetailsHost {...props(state({ tabs: [active], activeInstance: active }))} />)
+    const tab = screen.getByRole('tab', { name: 'Alpha' })
+    fireEvent.focus(tab)
+    expect(screen.getByRole('tooltip').textContent).toBe('Alpha')
+    fireEvent.blur(tab)
+    fireEvent.focus(screen.getByRole('button', { name: 'Close Alpha' }))
+    expect(screen.getByRole('tooltip').textContent).toBe('Close Alpha')
+  })
+
+  it('disables the file manager action when no opener is registered', () => {
+    const active = instance()
+    render(<DetailsHost {...props(state({ tabs: [active], activeInstance: active }))} />)
+    const button = screen.getByRole('button', { name: 'Open in file manager' })
+    expect(button.getAttribute('aria-disabled')).toBe('true')
+    fireEvent.focus(button)
+    expect(screen.getByRole('tooltip').textContent).toBe(en['actions.openFolder'])
+  })
+})
+
+
+describe('workspace folder action', () => {
+  it('opens the selected session directory and reports failures', async () => {
+    const openFolder = vi.fn().mockRejectedValue(new Error('Folder unavailable'))
+    const active = instance()
+    render(<DetailsHost {...props(state({ tabs: [active], activeInstance: active, workspacePath: '/workspace', openFolder }))} />)
+    fireEvent.click(screen.getByRole('button', { name: 'Open in file manager' }))
+    expect(openFolder).toHaveBeenCalledWith('/workspace')
+    expect(await screen.findByRole('alert')).toHaveProperty('textContent', 'Folder unavailable')
+  })
+
+  it('shows hints on pointer hover for tabs and the add control', () => {
+    const active = instance()
+    render(<DetailsHost {...props(state({ tabs: [active], activeInstance: active }))} />)
+    const tab = screen.getByRole('tab', { name: 'Alpha' })
+    fireEvent.mouseEnter(tab)
+    expect(screen.getByRole('tooltip').textContent).toBe('Alpha')
+    fireEvent.mouseLeave(tab)
+    fireEvent.mouseEnter(screen.getByRole('button', { name: 'Open a tab' }))
+    expect(screen.getByRole('tooltip').textContent).toBe('Open a tab')
   })
 })

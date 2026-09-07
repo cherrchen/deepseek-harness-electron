@@ -113,14 +113,14 @@ declare module '@dsh-electron/dsh-client-ui-details-host/client' {
 }
 ```
 
-Git 还通过 `ctx.shellDetails.registerLauncher` 注册两张 Launcher 卡片（Changes、Graph），并为每个 surface 注册 header actions。AppFrame 详情栏几何、标签栏、Launcher 与 dock 可见性由 Details Host 拥有，不属于本 package。
+Git 还通过 `ctx.shellDetails.registerLauncher` 注册两张 Launcher 卡片（Changes、Graph），并在每个 Git 面板内部渲染仓库操作。Git 不注册已废弃的 `shell.details.header.actions` 插槽。AppFrame 详情栏几何、标签栏、Launcher 与 dock 可见性由 Details Host 拥有，不属于本 package。
 
 <a id="user-experience"></a>
 ## 用户体验
 
 在会话输入区左侧，Git 贡献 branch selector 与 changed-files indicator。点击任一控件会以 Details Host 标签页打开 `git.changes` surface。创建分支会打开共享的 conversation Modal；在仅有 `git init`、尚无提交（unborn HEAD）时，菜单以禁用态展示符号默认分支，说明需要先完成首次提交，并在 HEAD 存在前禁用创建。
 
-**Changes** surface 将 staged、unstaged 与 untracked 路径分组展示；行内可 stage、unstage 或 discard（两步破坏性确认）一条路径，并打开对应的 diff。**Diff** surface 在每个标签页渲染一个文件的 working-tree 或 staged diff。**Graph** surface 以 canvas 绘制的 lane graph 展示提交历史——整页共享一个连续坐标系，rail 与 merge 边不会在行边界断裂——包含 subject、author、date、hash 与 HEAD／branch／tag 装饰徽标，并通过 load-more 控件增量分页。Changes 内的 commit region 提供可编辑的 message 输入框与 **Generate** 按钮：当 host 暴露 LLM runtime 且 `commitMessage` 已配置时，staged diff 会发送到配置的 provider，流式生成的建议写入可编辑输入框。生成绝不 stage、commit 或 push 任何内容。在 Electron 上，optional Desktop enhancement 在 Desktop provider 存在时提供 reveal-in-folder 与 open-path 操作。
+**Changes** surface 顶部展示当前 branch 与 refresh，其下是默认一行、随内容增高的 commit message 输入框，带魔法棒 **Generate** 控件，以及分裂式 **Commit** 按钮（Commit、Amend、Commit & Push、Commit & Sync）。Staged、unstaged 与 untracked 路径以图标操作分区列出：plus／minus 切换 index，undo 在两步确认后 discard，porcelain 字母标记行状态。点击路径打开对应 diff。**Diff** surface 在右上角展示 refresh，并在每个标签页渲染一个文件的 working-tree 或 staged diff。**Graph** surface 顶部在同一行展示自动／全部／首父链与 refresh，其下以 canvas 绘制的 lane graph 展示提交历史——整页共享一个连续坐标系，rail 与 merge 边不会在行边界断裂——包含 subject、author、date、hash 与 HEAD／branch／tag 装饰徽标，并通过 load-more 控件增量分页。当 host 暴露 LLM runtime 时，staged diff 会发送到会话模型——或发送到 **设置 → 插件 → 插件配置 → Git** 里配置的自定义 provider/model——流式生成的建议写入可编辑输入框。同一张卡片也可以编辑生成所用的 system message。生成绝不 stage、commit 或 push 任何内容。在 Electron 上，optional Desktop enhancement 在 Desktop provider 存在时提供 reveal-in-folder 与 open-path 操作。
 
 <a id="composition"></a>
 ## 组合
@@ -128,6 +128,8 @@ Git 还通过 `ctx.shellDetails.registerLauncher` 注册两张 Launcher 卡片�
 Host plugin 要求 `ctx.subprocess`，提供 `ctx.git`，并使用 executable 与独立 argv values 启动 Git。它绝不调用 shell。DSH Web Host 存在时，optional Connection child 注册 loopback `/git` RPC channel。
 
 Client plugin 要求 Connection、locale、renderer、conversation UI、primitives、session UI 与 Details Host。Business components 通过 slot injection 接收 controller 与 `openDetails()`，不访问 Cordis context。
+
+当 `ctx.settingsScope` 存在时，Client 还会把一张卡片注册进 **设置 → 插件 → 插件配置**，命名空间为 `git-commit-message`。Host 不提供该命名空间时，卡片不会出现。
 
 Client main fiber 不要求 `desktop`。Child `ctx.inject(['desktop'], ...)` fiber 只接受 `shell.showItemInFolder`、`shell.openPath` 与 `notification.show`；缺少这些能力时，repository、status、diff、stage、commit 与 branch operations 仍可用，native actions 不显示。
 
@@ -141,24 +143,26 @@ Client main fiber 不要求 `desktop`。Child `ctx.inject(['desktop'], ...)` fib
 | `executable` | `git` | 由 `ctx.subprocess` 解析的 Git executable name 或 absolute path。 |
 | `maxOutputBytes` | 8 MiB | 单条 Git command 每个 stream 的 collection cap。 |
 | `graceMs` | 3000 | Managed subprocess termination grace period。 |
-| `commitMessage.provider` | — | 注册到 DSH LLM runtime 的 provider route。存在 `commitMessage` 节时必填。 |
-| `commitMessage.model` | — | 由 provider route 解析的 model id。存在 `commitMessage` 节时必填。 |
+| `commitMessage.provider` | — | 注册到 DSH LLM runtime 的 provider route。`commitMessage.mode` 为 `custom` 时必填。 |
+| `commitMessage.model` | — | 由 provider route 解析的 model id。`commitMessage.mode` 为 `custom` 时必填。 |
+| `commitMessage.mode` | inherit | `inherit` 使用宿主会话模型；`custom` 固定 `provider`/`model`。 |
+| `commitMessage.systemPrompt` | 内置 | 提交信息生成的 system prompt。空或缺省使用 package 默认值。 |
 | `commitMessage.maxDiffBytes` | 48 KiB | 生成 prompt 构建前对 staged diff 施加的字节上限（validated 最小值 1024）。 |
 
-整个 `commitMessage` 节是 optional。缺省该节、或 host 未暴露 LLM runtime 时，commit message 生成不可用，Client 报告 `git/generation-unavailable`。
+整个 `commitMessage` 节是 optional，同时也是 `git-commit-message` 设置命名空间。可在 **设置 → 插件 → 插件配置 → Git** 中编辑，或作为 composition entry。Host 未暴露 LLM runtime，或既没有会话模型也没有可解析的自定义路由时，commit message 生成不可用，Client 报告 `git/generation-unavailable`。
 
 <a id="git-operations"></a>
 ## Git 操作
 
-首个版本支持 repository discovery、Git version、current branch 与 HEAD、staged／unstaged／untracked status、local branches、working 与 staged diffs、stage／unstage、commit、branch creation 与 branch switching。Status 使用带 NUL path separators 的 porcelain v2；branches 使用 `for-each-ref`；每个 caller-supplied path、branch 与 message 始终作为一个 argv value。
+首个版本支持 repository discovery、Git version、current branch 与 HEAD、staged／unstaged／untracked status、local branches、working 与 staged diffs、stage／unstage、commit、amend、向 `origin` push、rebase-then-push sync、branch creation 与 branch switching。Status 使用带 NUL path separators 的 porcelain v2；branches 使用 `for-each-ref`；每个 caller-supplied path、branch 与 message 始终作为一个 argv value。
 
 Discard 通过 `git checkout --` / `git clean -f --` 还原一条 unstaged 或 untracked 路径，属于破坏性操作：Client 在发送 RPC 前总是要求第二次显式确认，确认正文会点名该路径。
 
 提交历史以分页 `git log` 读取（`GIT_LOG_FORMAT`，每行一条 commit、固定字段数），Graph surface 通过 load-more 控件增量追加更早的提交，而不是一次性物化整个历史。
 
-Commit message 生成是 opt-in：当 `commitMessage` 已配置且 host 提供 LLM runtime 时，staged diff（受 `commitMessage.maxDiffBytes` 上限约束）会发送到配置的 provider route，流式生成的建议写入可编辑的 commit message 输入框。生成只提供建议 —— 它绝不 stage、commit 或 push 任何内容。
+Commit message 生成在宿主侧按需启用：需要 LLM runtime 与可解析的模型（会话默认，或自定义 `provider`/`model`）。staged diff（受 `commitMessage.maxDiffBytes` 上限约束）会发送到该路由，流式生成的建议写入可编辑的 commit message 输入框。System prompt 默认为 Conventional Commit 说明，可在插件配置中覆盖。生成只提供建议 —— 它绝不 stage、commit 或 push 任何内容。
 
-GitHub authentication、remotes、fetch／pull／push UX、issues、pull requests、stash、rebase、cherry-pick、merge-conflict editing 与 credential management 不属于本 package。
+GitHub authentication、hosting-provider workflows、credential prompts、issues、pull requests、stash、cherry-pick 与 merge-conflict editing 不属于本 package。Push 与 sync 以独立 argv values 调用 `git push`／`git pull --rebase`，在缺少 remote 或 credentials 时展示 Git 自身的错误。
 
 <a id="npm-publication"></a>
 ## npm 发布
@@ -180,17 +184,17 @@ pnpm pack
 <a id="model-experience"></a>
 ## Model Experience
 
-无直接影响，因为本 package 贡献 human-facing repository service 与 Client UI，不注册 model tools 或 prompt content。
+提交信息生成会在 agent loop 之外发出一次性 LLM 请求。该请求携带专用 system prompt 与 staged diff，不是 session-log 事件。默认 prompt 要求 Conventional Commit subject；**设置 → 插件 → 插件配置 → Git** 可以替换 prompt 并固定 provider/model。
 
 #### KV Cache effect
 
-无。本 package 不增加、替换或保留 model-request tokens。
+无。每次生成都是独立请求；本 package 不增加、替换或保留会话 token。
 
 ## Known Limitations and Deferred Work
 
-- **仅支持 local repositories** — 所有操作都在配置的 DSH subprocess execution world 中运行；尚未实现 remote repository 与 hosting-provider workflows。
+- **无 credential UI** — push 与 sync 调用 Git 时不提示 remote 或 credentials；缺少 `origin` 或认证被拒时以 Git command error 失败。
 - **Command output 有界** — 大于 `maxOutputBytes` 的 diff 只保留 subprocess collector tail；处理超大 diff 的 deployment 必须提高这一 validated setting。
-- **生成依赖 host 与配置** — commit message 生成需要 host LLM runtime 与 `commitMessage` 配置节；两者缺其一时，Generate 动作保持禁用或报告 `git/generation-unavailable`。
+- **生成依赖 host 与模型** — commit message 生成需要 host LLM runtime 与可解析的模型（会话默认或插件配置中的自定义路由）；两者缺其一时，Generate 动作保持禁用或报告 `git/generation-unavailable`。
 - **Launcher 卡片文案为英文** — 本插件贡献的两张 Launcher 卡片自带英文标签；尚未通过 locale service 本地化。
 
 <a id="dev-note"></a>

@@ -2,5 +2,11 @@
   display: flex;
   flex: none;
   align-items: center;
-  gap: 6px;
+  gap: 4px;
+  justify-content: flex-end;
+  padding: 6px 12px;
+}
+
+.compact {
+  padding: 0;
 }

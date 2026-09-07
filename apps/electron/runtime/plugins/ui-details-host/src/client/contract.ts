@@ -8,7 +8,10 @@ import type { ReactNode } from 'react'
 /** Slot key declared by DetailsHost while it occupies `details`. */
 export const DETAILS_SURFACE_SLOT = 'shell.details.surface' as const
 
-/** Slot key for per-surface Host header action contributions. */
+/**
+ * Slot key for per-surface Host header action contributions.
+ * @deprecated Retained for existing consumers; new dock controls belong to the Host toolbar.
+ */
 export const DETAILS_HEADER_ACTIONS_SLOT = 'shell.details.header.actions' as const
 
 /** Slot key of the session header utilities cluster (Session Log and peers). */
@@ -229,6 +232,7 @@ declare module '@deepseek-ai/dsh-client-ui-slots' {
       owner: DetailsSurfaceOwnerProps
     }
     /**
+     * @deprecated Retained for existing consumers; new dock controls belong to the Host toolbar.
      * Host-header actions for the active surface. Filtered with `only` to the
      * active surface id so inactive plugins do not render controls.
      */
@@ -262,6 +266,12 @@ export interface ShellDetailsSnapshot {
 
 /** Snapshot published into the DetailsHost inject `hooks` compartment. */
 export interface DetailsHostState {
+  /** Working directory of the selected session. */
+  readonly workspacePath?: string | undefined
+
+  /** Platform-supplied folder opener; absent when unavailable. */
+  readonly openFolder?: (path: string) => Promise<void>
+
   /** Live tabs of the current session, oldest first. */
   readonly tabs: readonly DetailsSurfaceInstance[]
   /** Currently rendered surface id, or null while no tab is active. */

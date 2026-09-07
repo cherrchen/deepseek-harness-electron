@@ -38,6 +38,8 @@ Client 半通过 package 的 `exports["./client"]` 入口解析。Peer 依赖（
 
 ## 用户体验
 
+标签页使用圆角以及主题变量定义的背景和边框。启动器卡片复用 DSH outline Button；标签页、关闭和新增按钮、卡片以及详情栏开关均提供原生 DSH 悬停／聚焦提示。Host 工具栏通过 `ctx.shellDetails.registerFolderOpener(open)` 打开当前会话的工作目录。平台适配器以 effect 注册异步回调，并在卸载时释放；缺少提供方或工作目录时按钮禁用，失败信息显示在面板内。`shell.details.header.actions` 插槽已废弃，但仍渲染现有贡献；新增 Host 按钮应在 Host 工具栏内实现。
+
 加载 Details Host 不会打开详情栏。在消费者调用 `ctx.shellDetails.open()` 或用户从会话头部的开关打开 Dock 之前，上游 DetailsPanel 仍保持可见。
 
 Dock 接管后，栏位 chrome 是一个标签栏加 surface 主体。每次 `open()` 会创建或复用一个标签页，标签页可单独关闭（`+` 按钮打开 Launcher），Dock 保持 mounted 直到 Details Host 自身被卸载。关闭最后一个标签页会显示 Launcher 而不是恢复上游面板。隐藏 Dock（头部开关）会保留标签页与 Launcher 状态；再次显示时会原样恢复。
@@ -98,12 +100,12 @@ surface descriptor 可以声明 `dedupeKey(payload)`（标签页复用身份）�
 
 ### Header Actions
 
-激活 surface 所在插件可以向 `shell.details.header.actions` 贡献控件（渲染在 Tab 条尾部、右对齐；该区域永不收缩，空间不足时由 Tab 压缩让位，而不会把 Actions 挤出侧栏）。Actions 是 icon-only 按钮：请使用 host 提供的 `DetailsHeaderAction` primitive，保证尺寸、圆角、hover、tooltip 与无障碍命名跨插件一致：
+已废弃的兼容插槽仍接受现有插件向 `shell.details.header.actions` 贡献控件（渲染在 Tab 条尾部、右对齐；该区域永不收缩，空间不足时由 Tab 压缩让位，而不会把 Actions 挤出侧栏）。Actions 是 icon-only 按钮：请使用 host 提供的 `DetailsHeaderAction` primitive，保证尺寸、圆角、hover、tooltip 与无障碍命名跨插件一致：
 
 ```tsx
 import { DetailsHeaderAction } from '@dsh-electron/dsh-client-ui-details-host/client'
 
-<DetailsHeaderAction icon={<IconRefreshOutline16 />} label="刷新 Git 状态" onTrigger={refresh} />
+<DetailsHeaderAction icon={<IconRefreshOutline16 />} label={refreshLabel} onTrigger={refresh} />
 ```
 
 `label` 同时是 tooltip 文案与按钮 `aria-label` 的唯一来源，不会作为可见文本渲染在按钮上。

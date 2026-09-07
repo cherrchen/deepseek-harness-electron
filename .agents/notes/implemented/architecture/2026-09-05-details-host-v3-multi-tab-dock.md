@@ -21,6 +21,8 @@ Details Host v2 hosted exactly one active surface, closed it with one global clo
 
 The Git plugin is the reference consumer: it contributes `git.changes`, `git.diff`, and `git.graph` surfaces plus two Launcher cards, and its peer range pins Details Host `>=0.3.0 <0.4.0`.
 
+The Host toolbar opens the selected session’s working directory through a disposable `registerFolderOpener` callback. Electron’s directory adapter supplies `ctx.desktop.shell.openPath`; the portable Host has no Desktop dependency. Provider unload disables the action. Git renders refresh and repository controls inside its own frames, while commit-message generation remains an explicit input action. The deprecated header-actions slot accepts existing consumers but Git does not register it.
+
 ## Alternatives considered
 
 **A separate downstream `ui-details-toggle` plugin.** Rejected: the toggle is host chrome, and a second plugin could not observe dock visibility without new upstream seams.

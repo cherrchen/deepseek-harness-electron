@@ -4,7 +4,8 @@
  * `ctx.layout`; the global close button lives in the AppFrame header toggle,
  * not here — tabs close individually.
  */
-import { useCallback, useEffect, useRef } from 'react'
+import { Button, Tooltip } from '@deepseek-ai/dsh-client-ui-primitives'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import type { KeyboardEvent } from 'react'
 import type { InjectFace, PropsLocale, PropsRenderSlots, PropsRuntime } from '@deepseek-ai/dsh-client-ui-slots'
 import type {} from '@deepseek-ai/dsh-client-locale/client'
@@ -68,18 +69,20 @@ function LauncherPage(props: {
         : (
           <div className={css.launcherGrid}>
             {entries.map(entry => (
-              <button
-                key={entry.id}
-                type="button"
-                className={css.card}
-                onClick={() => { onOpen(entry.open()) }}
-              >
-                {entry.icon !== undefined && <span className={css.cardIcon}>{entry.icon}</span>}
-                <span className={css.cardTitle}>{entry.title}</span>
-                {entry.description !== undefined && (
-                  <span className={css.cardDescription}>{entry.description}</span>
-                )}
-              </button>
+              <Tooltip key={entry.id} label={entry.description ?? entry.title} side="top">
+                <Button
+                  variant="outline"
+                  type="button"
+                  className={css.card}
+                  onClick={() => { onOpen(entry.open()) }}
+                >
+                  {entry.icon !== undefined && <span className={css.cardIcon}>{entry.icon}</span>}
+                  <span className={css.cardTitle}>{entry.title}</span>
+                  {entry.description !== undefined && (
+                    <span className={css.cardDescription}>{entry.description}</span>
+                  )}
+                </Button>
+              </Tooltip>
             ))}
           </div>
         )}
@@ -104,7 +107,21 @@ export function DetailsHost({
   t,
 }: DetailsHostProps) {
   const snapshot: DetailsHostState = useDetailsHost((state: DetailsHostState) => state)
-  const { tabs, activeInstance, launcherVisible } = snapshot
+  const { tabs, activeInstance, launcherVisible, openFolder, workspacePath } = snapshot
+  const [folderError, setFolderError] = useState<string | null>(null)
+  const [openingFolder, setOpeningFolder] = useState(false)
+  const openWorkspace = async () => {
+    if (!openFolder || !workspacePath || openingFolder) return
+    setOpeningFolder(true)
+    setFolderError(null)
+    try {
+      await openFolder(workspacePath)
+    } catch (error) {
+      setFolderError(error instanceof Error ? error.message : String(error))
+    } finally {
+      setOpeningFolder(false)
+    }
+  }
   const launcherPage = launcherVisible || tabs.length === 0
   const activeId = activeInstance?.instanceId ?? null
 
@@ -152,15 +169,25 @@ export function DetailsHost({
               t={t}
             />
           ))}
-          <button
-            type="button"
-            className={css.addTab}
-            onClick={showLauncher}
-            aria-label={t('tab.open')}
-            title={t('tab.open')}
-          >
-            <PlusGlyph />
-          </button>
+          <Tooltip label={t('tab.open')} side="bottom">
+            <button
+              type="button"
+              className={css.addTab}
+              onClick={showLauncher}
+              aria-label={t('tab.open')}
+            >
+              <PlusGlyph />
+            </button>
+          </Tooltip>
+          <div className={css.hostActions} data-details-host-actions="">
+            <Tooltip label={t('actions.openFolder')} side="bottom">
+              <button type="button" className={css.headerAction} aria-label={t('actions.openFolder')} aria-disabled={!openFolder || !workspacePath || openingFolder || undefined} onClick={() => { void openWorkspace() }}>
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinejoin="round" aria-hidden="true">
+                  <path d="M3 9V6a2 2 0 0 1 2-2h5l2 3h7a2 2 0 0 1 2 2v1M5 20h13a2 2 0 0 0 2-1.6l2-8.4H6l-3 8a1.5 1.5 0 0 0 2 2Z" />
+                </svg>
+              </button>
+            </Tooltip>
+          </div>
           {!launcherPage && activeInstance !== null && (
             <div className={css.tabbarTrailing} data-details-header-actions="">
               {renderSlot(DETAILS_HEADER_ACTIONS_SLOT, { detailsInstance: activeInstance }, { only: activeInstance.surfaceId })}
@@ -169,6 +196,7 @@ export function DetailsHost({
         </div>
       )}
       <div className={css.body}>
+        {folderError !== null && <p role="alert">{folderError}</p>}
         {launcherPage
           ? <LauncherPage entries={launcherEntries} onOpen={openRequest} t={t} />
           : activeInstance !== null && (
@@ -204,25 +232,28 @@ function TabChip(props: {
   const { tab, active, onActivate, onClose, t } = props
   return (
     <div className={css.tabWrap} data-active={active || undefined}>
-      <button
-        type="button"
-        role="tab"
-        aria-selected={active}
-        className={css.tab}
-        onClick={() => { onActivate(tab.instanceId) }}
-        title={tab.label}
-      >
-        <span className={css.tabLabel}>{tab.label}</span>
-      </button>
-      {tab.closable !== false && (
+      <Tooltip label={tab.label} side="bottom">
         <button
           type="button"
-          className={css.tabClose}
-          onClick={() => { onClose(tab.instanceId) }}
-          aria-label={t('tab.close', { label: tab.label })}
+          role="tab"
+          aria-selected={active}
+          className={css.tab}
+          onClick={() => { onActivate(tab.instanceId) }}
         >
-          <CloseGlyph />
+          <span className={css.tabLabel}>{tab.label}</span>
         </button>
+      </Tooltip>
+      {tab.closable !== false && (
+        <Tooltip label={t('tab.close', { label: tab.label })} side="bottom">
+          <button
+            type="button"
+            className={css.tabClose}
+            onClick={() => { onClose(tab.instanceId) }}
+            aria-label={t('tab.close', { label: tab.label })}
+          >
+            <CloseGlyph />
+          </button>
+        </Tooltip>
       )}
     </div>
   )

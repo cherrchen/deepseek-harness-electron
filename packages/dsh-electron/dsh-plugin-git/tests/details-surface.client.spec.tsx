@@ -1,6 +1,8 @@
 // @vitest-environment jsdom
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { cleanup, fireEvent, render, screen } from '@testing-library/react'
+import { readFileSync } from 'node:fs'
+import { join } from 'node:path'
 import type { PropsLocale } from '@deepseek-ai/dsh-client-ui-slots'
 import type { DetailsSurfaceInstance } from '@dsh-electron/dsh-client-ui-details-host/client'
 import type { GitRepositorySnapshot } from '../src/types.ts'
@@ -63,6 +65,7 @@ function baseState(overrides: Partial<ReturnType<GitClientController['getSnapsho
     commitMessage: '',
     generating: false,
     generationAvailable: false,
+    generationReason: undefined,
     generationError: undefined,
     ...overrides,
   }
@@ -134,7 +137,6 @@ describe('GitChangesSurface', () => {
     const { container } = render(<GitChangesSurface {...props(controller)} />)
     expect(controller.refresh).toHaveBeenCalled()
     expect(controller.setWorkspace).toHaveBeenCalledWith('/workspace')
-    expect(screen.getByText('repo')).toBeTruthy()
     expect(screen.getByText('main')).toBeTruthy()
     expect(container.querySelector('[data-git-changes-surface]')).toBeTruthy()
     expect(container.querySelector('[data-git-commit-region]')).toBeTruthy()
@@ -189,6 +191,31 @@ describe('GitDiffSurface', () => {
     // fire a doomed `showDiff` (the load-failure regression).
     expect(controller.showDiff).not.toHaveBeenCalled()
   })
+
+  it('places compact refresh in the top-right overlay and hides Reveal even when Desktop exists', () => {
+    const controller = controllerOf(baseState({ desktopAvailable: true }))
+    const { container } = render(<GitDiffSurface {...props(controller)} />)
+    const toolbar = container.querySelector('[data-git-diff-toolbar]')
+    expect(toolbar?.querySelector('[data-git-details-header-actions]')).toBeTruthy()
+    expect(container.querySelector('[data-git-diff-surface] > [data-git-details-header-actions]')).toBeNull()
+    expect(screen.queryByRole('button', { name: en['details.reveal'] })).toBeNull()
+    fireEvent.click(screen.getByRole('button', { name: en['details.refresh'] }))
+    expect(controller.refresh).toHaveBeenCalled()
+  })
+
+  it('keeps Diff refresh overlaid so it does not consume a layout row', () => {
+    const source = readFileSync(join(import.meta.dirname, '../src/client/GitDetailsSurface.module.css'), 'utf8')
+    expect(source).toMatch(/\.diffRoot[^{]*\{[^}]*\n  position: relative/)
+    expect(source).toMatch(/\.diffToolbar[^{]*\{[^}]*\n  position: absolute/)
+    expect(source).toMatch(/\.diffToolbar[^{]*\{[^}]*\n  top: 10px/)
+    expect(source).toMatch(/\.diffToolbar[^{]*\{[^}]*\n  right: 12px/)
+  })
+
+  it('gives the Diff title the same 10px top inset as Changes and Graph chrome', () => {
+    const source = readFileSync(join(import.meta.dirname, '../src/client/GitDetailsSurface.module.css'), 'utf8')
+    expect(source).toMatch(/\.diffTabBody[^{]*\{[^}]*\n  padding: 10px 12px 18px/)
+    expect(source).toMatch(/\.branchRow[^{]*\{[^}]*\n  padding: 10px 12px 8px/)
+  })
 })
 
 describe('GitGraphSurface', () => {
@@ -234,6 +261,25 @@ describe('GitGraphSurface', () => {
     expect(canvas.style.width).toBe(`${layout.laneCount * 16}px`)
     expect(canvas.style.height).toBe(`${graph.length * 36}px`)
   })
+
+  it('places refresh on the scope bar and hides Reveal even when Desktop exists', () => {
+    const controller = controllerOf(baseState({ desktopAvailable: true, graphLoaded: true }))
+    const { container } = render(<GitGraphSurface {...props(controller)} />)
+    const toolbar = container.querySelector('[data-git-graph-toolbar]')
+    expect(toolbar?.querySelector('[role="tablist"]')).toBeTruthy()
+    expect(toolbar?.querySelector('[data-git-details-header-actions]')).toBeTruthy()
+    expect(container.querySelector('[data-git-graph-surface] > [data-git-details-header-actions]')).toBeNull()
+    expect(screen.queryByRole('button', { name: en['details.reveal'] })).toBeNull()
+    fireEvent.click(screen.getByRole('button', { name: en['details.refresh'] }))
+    expect(controller.refresh).toHaveBeenCalled()
+  })
+
+  it('keeps the scope bar a single row with compact trailing refresh', () => {
+    const source = readFileSync(join(import.meta.dirname, '../src/client/GitGraphSurface.module.css'), 'utf8')
+    expect(source).toMatch(/\.scopeBar[^{]*\{[^}]*\n  display: flex/)
+    expect(source).toMatch(/\.scopeBar[^{]*\{[^}]*\n  align-items: center/)
+    expect(source).toMatch(/\.scopeTabs[^{]*\{[^}]*\n  flex: 1/)
+  })
 })
 
 describe('GitDetailsHeaderActions', () => {
@@ -258,5 +304,128 @@ describe('GitDetailsHeaderActions', () => {
     render(<GitDetailsHeaderActions {...actionProps(controller)} />)
     expect(screen.queryByRole('button', { name: en['details.reveal'] })).toBeNull()
     expect(screen.getByRole('button', { name: en['details.refresh'] })).toBeTruthy()
+  })
+
+  it('hides Reveal on compact Changes, Graph, and Diff toolbars even when Desktop exists', () => {
+    const controller = controllerOf(baseState({ desktopAvailable: true }))
+    render(<GitDetailsHeaderActions {...actionProps(controller)} compact />)
+    expect(screen.queryByRole('button', { name: en['details.reveal'] })).toBeNull()
+    expect(screen.getByRole('button', { name: en['details.refresh'] })).toBeTruthy()
+  })
+})
+
+
+describe('embedded commit message generation', () => {
+  it('keeps generation inside the input field and fills only through the controller', () => {
+    const controller = controllerOf(baseState({ generationAvailable: true, repository: snapshot({ staged: [{ path: 'src/a.ts', status: 'M ' }] }) }))
+    render(<GitChangesSurface {...({ controller, t, sessionId: 'session-a', useSessions: sessionsHook } as unknown as GitChangesSurfaceProps)} />)
+    const input = screen.getByRole('textbox', { name: en['details.commitPlaceholder'] })
+    const generate = screen.getByRole('button', { name: en['details.generate'] })
+    expect(input.parentElement?.contains(generate)).toBe(true)
+    expect(generate.querySelector('svg')).not.toBeNull()
+    fireEvent.click(generate)
+    expect(controller.generateCommitMessage).toHaveBeenCalledTimes(1)
+    expect(controller.commit).not.toHaveBeenCalled()
+  })
+})
+
+describe('Git Changes actions', () => {
+  const props = (controller: GitControllerMock): GitChangesSurfaceProps =>
+    ({
+      controller,
+      t,
+      sessionId: 'session-a' as never,
+      useSessions: sessionsHook,
+      useSession: vi.fn(),
+      useStore: vi.fn(),
+      useWorkspaces: vi.fn(),
+      detailsInstance: detailsInstanceOf(GIT_CHANGES_SURFACE_ID),
+    }) as unknown as GitChangesSurfaceProps
+
+  it('stages an unstaged path from the row plus control', () => {
+    const controller = controllerOf(baseState())
+    render(<GitChangesSurface {...props(controller)} />)
+    fireEvent.click(screen.getByRole('button', { name: en['details.stage'] }))
+    expect(controller.stage).toHaveBeenCalledWith('src/a.ts')
+  })
+
+  it('runs commit from the split button when a message and staged files exist', () => {
+    const controller = controllerOf(baseState({
+      commitMessage: 'ship it',
+      repository: snapshot({ staged: [{ path: 'src/a.ts', status: 'M ' }], unstaged: [] }),
+    }))
+    render(<GitChangesSurface {...props(controller)} />)
+    fireEvent.click(screen.getByRole('button', { name: en['details.commit'] }))
+    expect(controller.commit).toHaveBeenCalledWith('ship it', {})
+  })
+
+  it('opens commit options and amends HEAD', () => {
+    const controller = controllerOf(baseState({
+      commitMessage: 'revise',
+      repository: snapshot({ staged: [{ path: 'src/a.ts', status: 'M ' }], unstaged: [] }),
+    }))
+    render(<GitChangesSurface {...props(controller)} />)
+    fireEvent.click(screen.getByRole('button', { name: en['details.commitOptions'] }))
+    fireEvent.click(screen.getByRole('menuitem', { name: en['details.commitAmend'] }))
+    expect(controller.commit).toHaveBeenCalledWith('revise', { amend: true })
+  })
+
+  it('disables the commit split and its menu together when the current action cannot run', () => {
+    const controller = controllerOf(baseState({
+      commitMessage: '1',
+      repository: snapshot({ staged: [], unstaged: [{ path: 'README.en.md', status: ' M' }] }),
+    }))
+    render(<GitChangesSurface {...props(controller)} />)
+    expect(screen.getByRole<HTMLButtonElement>('button', { name: en['details.commit'] }).disabled).toBe(true)
+    expect(screen.getByRole<HTMLButtonElement>('button', { name: en['details.commitOptions'] }).disabled).toBe(true)
+    expect(screen.queryByRole('menuitem', { name: en['details.commitAmend'] })).toBeNull()
+  })
+
+  it('starts the commit message on one unresizable row', () => {
+    const controller = controllerOf(baseState())
+    render(<GitChangesSurface {...props(controller)} />)
+    const input = screen.getByRole('textbox', { name: en['details.commitPlaceholder'] })
+    expect(input.getAttribute('rows')).toBe('1')
+    const source = readFileSync(join(import.meta.dirname, '../src/client/GitDetailsSurface.module.css'), 'utf8')
+    expect(source).toMatch(/\.field textarea[^{]*\{[^}]*\n  height: 36px/)
+    expect(source).toMatch(/\.field textarea[^{]*\{[^}]*min-height: 36px/)
+    expect(source).toMatch(/\.field textarea[^{]*\{[^}]*resize: none/)
+    expect(source).not.toMatch(/resize: vertical/)
+  })
+
+  it('fills the commit split from the theme primary button tokens', () => {
+    const source = readFileSync(join(import.meta.dirname, '../src/client/GitDetailsSurface.module.css'), 'utf8')
+    expect(source).toMatch(/\.commitMain[^{]*\{[^}]*background: var\(--dsw-alias-button-primary-fill\)/)
+    expect(source).toMatch(/\.commitMain[^{]*\{[^}]*color: var\(--dsw-alias-label-primary-foreground\)/)
+  })
+
+  it('keeps the commit menu wrapper measurable for portal placement', () => {
+    const source = readFileSync(join(import.meta.dirname, '../src/client/GitDetailsSurface.module.css'), 'utf8')
+    expect(source).toMatch(/\.commitMenu/)
+    expect(source).not.toContain('display: contents')
+  })
+})
+
+describe('Git Graph button hover token', () => {
+  it('uses --dsw-alias-interactive-bg-hover for every hover background', () => {
+    const source = readFileSync(join(import.meta.dirname, '../src/client/GitGraphSurface.module.css'), 'utf8')
+    const blocks = source.match(/[^{}]+\{[^{}]*\}/g) ?? []
+    const hoverBackgrounds = blocks.filter(block => block.includes(':hover') && /background\s*:/.test(block))
+    expect(hoverBackgrounds.length).toBeGreaterThan(0)
+    for (const block of hoverBackgrounds) {
+      expect(block).toContain('--dsw-alias-interactive-bg-hover')
+    }
+  })
+})
+
+describe('Git Changes button hover token', () => {
+  it('uses --dsw-alias-interactive-bg-hover for every hover background', () => {
+    const source = readFileSync(join(import.meta.dirname, '../src/client/GitDetailsSurface.module.css'), 'utf8')
+    const blocks = source.match(/[^{}]+\{[^{}]*\}/g) ?? []
+    const hoverBackgrounds = blocks.filter(block => block.includes(':hover') && /background\s*:/.test(block))
+    expect(hoverBackgrounds.length).toBeGreaterThan(0)
+    for (const block of hoverBackgrounds) {
+      expect(block).toContain('--dsw-alias-interactive-bg-hover')
+    }
   })
 })

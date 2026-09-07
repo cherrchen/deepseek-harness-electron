@@ -11,6 +11,7 @@ import type { ReactNode } from 'react'
 import type { PropsLocale, PropsRuntime } from '@deepseek-ai/dsh-client-ui-slots'
 import type { GitLogScope } from '../../types.ts'
 import type { GitClientController } from '../controller.ts'
+import { GitDetailsHeaderActions } from '../GitDetailsHeaderActions.tsx'
 import { GIT_GRAPH_LANE_GAP } from '../graph-geometry.ts'
 import { GitGraphCanvas } from '../GitGraphCanvas.tsx'
 import { useGitWorkspace, type GitSessionsHook } from '../use-git-workspace.ts'
@@ -52,22 +53,25 @@ export function GitGraphSurface({ controller, t, useSessions, sessionId }: GitGr
 
   return (
     <div className={css.root} data-git-graph-surface="">
-      <div className={css.scopeBar} role="tablist" aria-label={t('details.tabs')}>
-        {GRAPH_SCOPES.map(scope => (
-          <button
-            key={scope}
-            type="button"
-            role="tab"
-            aria-selected={state.graphScope === scope}
-            className={css.scopeButton}
-            data-scope={scope}
-            data-active={state.graphScope === scope || undefined}
-            disabled={state.graphLoading}
-            onClick={() => { void controller.setGraphScope(scope) }}
-          >
-            {t(scopeLabelKey(scope))}
-          </button>
-        ))}
+      <div className={css.scopeBar} data-git-graph-toolbar="">
+        <div className={css.scopeTabs} role="tablist" aria-label={t('details.tabs')}>
+          {GRAPH_SCOPES.map(scope => (
+            <button
+              key={scope}
+              type="button"
+              role="tab"
+              aria-selected={state.graphScope === scope}
+              className={css.scopeButton}
+              data-scope={scope}
+              data-active={state.graphScope === scope || undefined}
+              disabled={state.graphLoading}
+              onClick={() => { void controller.setGraphScope(scope) }}
+            >
+              {t(scopeLabelKey(scope))}
+            </button>
+          ))}
+        </div>
+        <GitDetailsHeaderActions controller={controller} t={t} compact />
       </div>
       <div className={css.body}>
         {!state.graphLoading && state.workspacePath === undefined && <p className={css.empty}>{t('details.noWorkspace')}</p>}

@@ -38,6 +38,8 @@ The Client half resolves through the package `exports["./client"]` entry. Peer d
 
 ## User experience
 
+Tabs use rounded, theme-token backgrounds and borders. Launcher cards reuse the DSH outline Button; tabs, close/add controls, cards, and the dock toggle show native DSH hover/focus hints. The Host toolbar opens the selected session’s working directory through `ctx.shellDetails.registerFolderOpener(open)`. The platform adapter registers this asynchronous callback as an effect and disposes it on unload. The action is disabled without a provider or working directory; failures appear in the panel. The `shell.details.header.actions` slot is deprecated but still renders existing contributions; new Host controls should be implemented in the Host toolbar.
+
 Loading Details Host does not open the details column. The upstream DetailsPanel remains visible until a consumer calls `ctx.shellDetails.open()` or the user toggles the dock from the conversation header.
 
 Once the dock takes over, the column chrome is a tab bar plus a surface body. Every `open()` creates or reuses a tab, tabs close individually (a `+` button opens the Launcher), and the dock stays mounted until Details Host itself unloads. Closing the last tab reveals the Launcher instead of restoring the upstream panel. Hiding the dock (header toggle) preserves tabs and Launcher state; showing it again re-materializes them.
@@ -98,12 +100,12 @@ A surface descriptor may declare `dedupeKey(payload)` (tab identity for reuse) a
 
 ### Header actions
 
-The active surface's plugin may contribute controls to `shell.details.header.actions` (rendered trailing the tab strip, pinned right; the area never shrinks and tabs compress instead of displacing it). Actions are icon-only buttons: render them with the host primitive `DetailsHeaderAction` so size, radius, hover, tooltip, and accessible naming stay uniform across plugins:
+The deprecated compatibility slot accepts existing controls at `shell.details.header.actions` (rendered trailing the tab strip, pinned right; the area never shrinks and tabs compress instead of displacing it). Actions are icon-only buttons: render them with the host primitive `DetailsHeaderAction` so size, radius, hover, tooltip, and accessible naming stay uniform across plugins:
 
 ```tsx
 import { DetailsHeaderAction } from '@dsh-electron/dsh-client-ui-details-host/client'
 
-<DetailsHeaderAction icon={<IconRefreshOutline16 />} label="Refresh Git status" onTrigger={refresh} />
+<DetailsHeaderAction icon={<IconRefreshOutline16 />} label={refreshLabel} onTrigger={refresh} />
 ```
 
 `label` is the single source for both the tooltip text and the button's `aria-label`; it is never rendered as visible button text.

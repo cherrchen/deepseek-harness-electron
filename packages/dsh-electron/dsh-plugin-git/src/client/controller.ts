@@ -1,6 +1,6 @@
 /** Client-side Git state and RPC orchestration. */
 
-import type { GitCommitSummary, GitDiff, GitLogScope, GitRepositorySnapshot } from '../types.ts'
+import type { GitCommitSummary, GitCommitMessageCapability, GitDiff, GitGenerationUnavailableReason, GitLogScope, GitRepositorySnapshot } from '../types.ts'
 import { layoutGitGraph } from './graph/layout.ts'
 import type { GraphContinuationState, GraphLayoutRow } from './graph/types.ts'
 
@@ -70,7 +70,20 @@ export interface GitClientState {
   readonly generating: boolean
   /** Whether the Host reports a configured generation backend. */
   readonly generationAvailable: boolean
+  /** Why generation is unavailable; absent when available or unknown. */
+  readonly generationReason: GitGenerationUnavailableReason | undefined
   readonly generationError: string | undefined
+}
+
+/** Follow-up remote action after a successful local commit. */
+export type GitCommitFollowUp = 'push' | 'sync'
+
+/** Options for {@link GitClientController.commit}. */
+export interface GitCommitOptions {
+  /** Rewrite HEAD instead of creating a new commit. */
+  readonly amend?: boolean
+  /** Push or rebase-then-push after the commit lands. */
+  readonly followUp?: GitCommitFollowUp
 }
 
 /** Observable controller shared by the composer control and details surface. */
@@ -94,6 +107,7 @@ export class GitClientController {
     commitMessage: '',
     generating: false,
     generationAvailable: false,
+    generationReason: undefined,
     generationError: undefined,
   }
   private readonly listeners = new Set<() => void>()
@@ -250,12 +264,15 @@ export class GitClientController {
   }
 
   /**
-   * Discard unstaged working-tree changes of one tracked path, or of every
-   * tracked path when omitted. Destructive; callers confirm first.
-   * @param path - Optional repository-relative tracked path.
+   * Discard working-tree, HEAD, or untracked content of one path, or every
+   * unstaged tracked path when omitted. Destructive; callers confirm first.
+   * @param path - Optional repository-relative path.
+   * @param mode - `worktree` (default), `head` (restore index+worktree), or `untracked`.
    * @returns Completion after state refresh.
    */
-  async discard(path?: string): Promise<void> { await this.mutate('discard', { path }) }
+  async discard(path?: string, mode: 'worktree' | 'head' | 'untracked' = 'worktree'): Promise<void> {
+    await this.mutate('discard', { path, ...(mode === 'worktree' ? {} : { mode }) })
+  }
 
   /**
    * Load a graph page, replacing (reset) or appending to the loaded history.
@@ -385,10 +402,16 @@ export class GitClientController {
   private async loadGenerationCapability(): Promise<void> {
     if (this.state.workspacePath === undefined) return
     try {
-      const capability = await this.call('commit-message-capability', {}) as { available?: unknown }
-      this.patch({ generationAvailable: capability.available === true })
+      const capability = await this.call('commit-message-capability', {}) as Partial<GitCommitMessageCapability>
+      const reason = capability.reason
+      this.patch({
+        generationAvailable: capability.available === true,
+        generationReason: reason === 'not-configured' || reason === 'llm-unavailable' || reason === 'default-model-missing'
+          ? reason
+          : undefined,
+      })
     } catch {
-      this.patch({ generationAvailable: false })
+      this.patch({ generationAvailable: false, generationReason: undefined })
     }
   }
 
@@ -418,14 +441,25 @@ export class GitClientController {
   async createBranch(branch: string): Promise<void> { await this.mutate('create-branch', { branch }) }
 
   /**
-   * Commit the staged index and optionally show a native notification.
+   * Commit the staged index (or amend HEAD), optionally push or sync, and
+   * optionally show a native notification.
    * @param message - Non-empty commit message.
+   * @param options - Amend and follow-up remote action.
    * @returns Completion after the mutation and optional notification settle.
    */
-  async commit(message: string): Promise<void> {
-    const applied = await this.mutate('commit', { message })
+  async commit(message: string, options: GitCommitOptions = {}): Promise<void> {
+    const applied = await this.mutate('commit', {
+      message,
+      ...(options.amend === true ? { amend: true } : {}),
+    })
     if (!applied) return
-    await this.desktop?.notification.show({ title: 'Git commit created', body: message.trim() })
+    try {
+      if (options.followUp === 'push') await this.mutate('push', {})
+      if (options.followUp === 'sync') await this.mutate('sync', {})
+      await this.desktop?.notification.show({ title: 'Git commit created', body: message.trim() })
+    } finally {
+      this.patch({ commitMessage: '' })
+    }
   }
 
   /**

@@ -7,6 +7,7 @@ import type { ReactNode } from 'react'
 import type { PropsLocale, PropsRuntime } from '@deepseek-ai/dsh-client-ui-slots'
 import type { GitClientController } from '../controller.ts'
 import type { GitDiffPayload } from '../contract.ts'
+import { GitDetailsHeaderActions } from '../GitDetailsHeaderActions.tsx'
 import { useGitWorkspace, type GitSessionsHook } from '../use-git-workspace.ts'
 import { DiffTab } from '../details/DiffTab.tsx'
 import css from '../GitDetailsSurface.module.css'
@@ -34,7 +35,10 @@ export function GitDiffSurface({ controller, t, useSessions, sessionId, detailsI
   }, [controller, payload.path, payload.staged, state.repository])
 
   return (
-    <div className={css.root} data-git-diff-surface="">
+    <div className={`${css.root} ${css.diffRoot}`} data-git-diff-surface="">
+      <div className={css.diffToolbar} data-git-diff-toolbar="">
+        <GitDetailsHeaderActions controller={controller} t={t} compact />
+      </div>
       <div className={css.body}>
         {state.workspacePath === undefined && <p className={css.empty}>{t('details.noWorkspace')}</p>}
         {state.repository === null && <p className={css.empty}>{t('details.notRepository')}</p>}

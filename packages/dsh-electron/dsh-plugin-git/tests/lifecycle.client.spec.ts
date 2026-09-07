@@ -12,7 +12,7 @@ import type { GitClientController, GitDesktopCapability } from '../src/client/co
 describe('Git client lifecycle', () => {
   it('registers composer control and details surface without shell.overlay', async () => {
     const ctx = new Context()
-    const registrations: Array<{ name?: string; id?: string }> = []
+    const registrations: Array<{ name?: string; id?: string; key?: string }> = []
     const shellDetails = {
       activeId: null as string | null,
       activeInstance: null as { surfaceId: string; payload?: unknown } | null,
@@ -49,7 +49,7 @@ describe('Git client lifecycle', () => {
     }
     ctx.provide('slots', {
       inject: (_name: string, callback: () => unknown) => ctx.effect(() => callback() as () => void),
-      register: (entry: { name?: string; id?: string }) => {
+      register: (entry: { name?: string; id?: string; key?: string }) => {
         registrations.push(entry)
         return () => { registrations.splice(registrations.indexOf(entry), 1) }
       },
@@ -65,15 +65,15 @@ describe('Git client lifecycle', () => {
     await fiber.await()
     expect(registrations.map(entry => entry.id)).toEqual([
       'git-context',
-      GIT_CHANGES_SURFACE_ID, GIT_CHANGES_SURFACE_ID,
-      GIT_DIFF_SURFACE_ID, GIT_DIFF_SURFACE_ID,
-      GIT_GRAPH_SURFACE_ID, GIT_GRAPH_SURFACE_ID,
+      GIT_CHANGES_SURFACE_ID,
+      GIT_DIFF_SURFACE_ID,
+      GIT_GRAPH_SURFACE_ID,
     ])
     expect(registrations.map(entry => entry.name)).toEqual([
       'conversation.input.left',
-      'shell.details.surface', 'shell.details.header.actions',
-      'shell.details.surface', 'shell.details.header.actions',
-      'shell.details.surface', 'shell.details.header.actions',
+      'shell.details.surface',
+      'shell.details.surface',
+      'shell.details.surface',
     ])
     expect(shellDetails.registerSurface).toHaveBeenCalledTimes(3)
     const changesDescriptor = shellDetails.registerSurface.mock.calls[0]![0]
@@ -108,7 +108,116 @@ describe('Git client lifecycle', () => {
     // Diff tabs dedupe per path + comparison side.
     expect(diffDescriptor.dedupeKey?.({ path: 'a.ts', staged: false })).toBe('git:diff:a.ts:worktree')
     expect(diffDescriptor.dedupeKey?.({ path: 'a.ts', staged: true })).toBe('git:diff:a.ts:staged')
+    expect(registrations.some(entry => entry.name === 'settings.plugin.item')).toBe(false)
 
+    await fiber.dispose()
+  })
+
+  it('registers the commit-message card when settingsScope is present', async () => {
+    const ctx = new Context()
+    const registrations: Array<{ name?: string; key?: string }> = []
+    ctx.provide('slots', {
+      inject: (_name: string, callback: () => unknown) => ctx.effect(() => callback() as () => void),
+      register: (entry: { name?: string; key?: string }) => {
+        registrations.push(entry)
+        return () => { registrations.splice(registrations.indexOf(entry), 1) }
+      },
+    } as never)
+    ctx.provide('connection', { rpc: { call: vi.fn() } } as never)
+    ctx.provide('locale', {
+      register: () => () => {},
+      bind: () => (key: string) => key,
+      subscribe: () => () => {},
+    } as never)
+    ctx.provide('shellDetails', {
+      open: vi.fn(),
+      registerSurface: vi.fn(() => () => {}),
+      registerLauncher: vi.fn(() => () => {}),
+    } as never)
+    ctx.provide('settingsScope', {
+      bind: () => ({
+        getSnapshot: () => ({
+          status: 'unavailable',
+          value: undefined,
+          base: undefined,
+          user: undefined,
+          revision: undefined,
+          writable: false,
+          mode: 'host',
+        }),
+        subscribe: () => () => {},
+        mutate: vi.fn(async () => {}),
+        set: vi.fn(async () => {}),
+        unset: vi.fn(async () => {}),
+      }),
+    } as never)
+    const fiber = ctx.plugin({ inject, apply })
+    await fiber.await()
+    expect(registrations.filter(entry => entry.name === 'settings.plugin.item').map(entry => entry.key))
+      .toEqual(['git-commit-message'])
+    await fiber.dispose()
+    expect(registrations.some(entry => entry.name === 'settings.plugin.item')).toBe(false)
+  })
+
+  it('loads the model catalog through remote.session.modelCatalog', async () => {
+    const ctx = new Context()
+    const registrations: Array<{ name?: string; inject?: () => { controller: { setMode: (mode: 'inherit' | 'custom') => void; getSnapshot: () => { catalogStatus: string } } } }> = []
+    ctx.provide('slots', {
+      inject: (_name: string, callback: () => unknown) => ctx.effect(() => callback() as () => void),
+      register: (entry: { name?: string; inject?: () => { controller: { setMode: (mode: 'inherit' | 'custom') => void; getSnapshot: () => { catalogStatus: string } } } }) => {
+        registrations.push(entry)
+        return () => { registrations.splice(registrations.indexOf(entry), 1) }
+      },
+    } as never)
+    ctx.provide('connection', { rpc: { call: vi.fn() } } as never)
+    ctx.provide('locale', {
+      register: () => () => {},
+      bind: () => (key: string) => key,
+      subscribe: () => () => {},
+    } as never)
+    ctx.provide('shellDetails', {
+      open: vi.fn(),
+      registerSurface: vi.fn(() => () => {}),
+      registerLauncher: vi.fn(() => () => {}),
+    } as never)
+    ctx.provide('settingsScope', {
+      bind: () => ({
+        getSnapshot: () => ({
+          status: 'ready',
+          value: {},
+          base: {},
+          user: {},
+          revision: 0,
+          writable: true,
+          mode: 'host',
+        }),
+        subscribe: () => () => {},
+        mutate: vi.fn(async () => {}),
+        set: vi.fn(async () => {}),
+        unset: vi.fn(async () => {}),
+      }),
+    } as never)
+    const session = {
+      token: 'bound',
+      modelCatalog() {
+        expect(this.token).toBe('bound')
+        return Promise.resolve({
+          ok: true as const,
+          value: {
+            groups: [{ id: 'deepseek', name: 'DeepSeek', models: [{ id: 'chat', name: 'Chat' }] }],
+            failures: [],
+          },
+        })
+      },
+    }
+    ctx.provide('remote.session', session)
+    const fiber = ctx.plugin({ inject, apply })
+    await fiber.await()
+    const card = registrations.find(entry => entry.name === 'settings.plugin.item')
+    card?.inject?.().controller.setMode('custom')
+    await vi.waitFor(() => {
+      expect(card?.inject?.().controller.getSnapshot().catalogStatus).toBe('ready')
+    })
     await fiber.dispose()
   })
 })

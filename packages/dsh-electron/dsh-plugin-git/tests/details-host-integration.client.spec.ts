@@ -89,7 +89,7 @@ describe('Git + Details Host integration', () => {
     const bench = await integrationBench()
     const opened = bench.shellDetails.open({ surfaceId: GIT_CHANGES_SURFACE_ID })
     expect(bench.shellDetails.activeId).toBe(GIT_CHANGES_SURFACE_ID)
-    expect(bench.slots.entries('shell.details.header.actions').some(entry => entry.options.id === GIT_CHANGES_SURFACE_ID)).toBe(true)
+    expect(bench.slots.entries('shell.details.header.actions')).toHaveLength(0)
 
     bench.sessions.setCurrent('session-b')
     expect(bench.shellDetails.activeId).toBeNull()
