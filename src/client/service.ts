@@ -695,7 +695,7 @@ export class ShellDetailsService extends Service implements ShellDetailsControll
   }): void {
     const active = session.tabs.find(tab => tab.instanceId === session.activeInstanceId) ?? null
     this.state.set({
-      workspacePath: (this.owner.sessions as unknown as ISessions).list.getSnapshot().byId[this.currentSessionId()]?.cwd,
+      workspacePath: this.currentWorkspacePath(),
       ...(this.folderOpener ? { openFolder: this.folderOpener } : {}),
       tabs: [...session.tabs],
       activeId: active?.surfaceId ?? null,
@@ -709,7 +709,7 @@ export class ShellDetailsService extends Service implements ShellDetailsControll
 
   private publishIdle(): void {
     this.state.set({
-      workspacePath: (this.owner.sessions as unknown as ISessions).list.getSnapshot().byId[this.currentSessionId()]?.cwd,
+      workspacePath: this.currentWorkspacePath(),
       ...(this.folderOpener ? { openFolder: this.folderOpener } : {}),
       tabs: [],
       activeId: null,
@@ -741,6 +741,11 @@ export class ShellDetailsService extends Service implements ShellDetailsControll
       throw new DetailsSurfaceDuplicateError(id, matches.length)
     }
     return matches[0]!
+  }
+
+  private currentWorkspacePath(): string | undefined {
+    const snapshot = (this.owner.sessions as unknown as ISessions).list.getSnapshot()
+    return snapshot.current === undefined ? undefined : snapshot.byId[snapshot.current]?.cwd
   }
 
   private currentSessionId(): string {
