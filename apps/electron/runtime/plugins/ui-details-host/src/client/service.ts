@@ -72,6 +72,7 @@ class DetailsHostStateSource implements HostObservable<DetailsHostState> {
     launcherVisible: false,
     dockVisible: false,
     canGoBack: false,
+    launcherEntries: [],
   }
   readonly #listeners = new Set<() => void>()
 
@@ -113,6 +114,8 @@ class DetailsHostStateSource implements HostObservable<DetailsHostState> {
       && snapshot.launcherVisible === prev.launcherVisible
       && snapshot.dockVisible === prev.dockVisible
       && snapshot.canGoBack === prev.canGoBack
+      && snapshot.launcherEntries.length === prev.launcherEntries.length
+      && snapshot.launcherEntries.every((entry, index) => entry === prev.launcherEntries[index])
       && snapshot.activeInstance?.instanceId === prev.activeInstance?.instanceId
       && snapshot.activeInstance?.payload === prev.activeInstance?.payload
     ) {
@@ -331,7 +334,12 @@ export class ShellDetailsService extends Service implements ShellDetailsControll
    * @returns disposer that removes the contribution.
    */
   registerLauncher(contribution: DetailsLauncherContribution): () => void {
-    return this.launchers.register(contribution)
+    const dispose = this.launchers.register(contribution)
+    this.publishCurrent()
+    return () => {
+      dispose()
+      this.publishCurrent()
+    }
   }
 
   /**
@@ -668,7 +676,6 @@ export class ShellDetailsService extends Service implements ShellDetailsControll
       },
       inject: (): DetailsHostInjected => ({
         hooks: { detailsHost: this.state },
-        launcherEntries: this.launchers.list(),
         reportDockVisible: (visible: boolean) => { this.reportDockVisible(visible) },
         activate: (instanceId: string) => { this.activate(instanceId) },
         closeTab: (instanceId: string) => { this.closeTab(instanceId) },
@@ -704,6 +711,7 @@ export class ShellDetailsService extends Service implements ShellDetailsControll
       launcherVisible: session.launcherVisible,
       dockVisible: this.dockVisible,
       canGoBack: sessionCanGoBack(session),
+      launcherEntries: this.launchers.list(),
     })
   }
 
@@ -718,6 +726,7 @@ export class ShellDetailsService extends Service implements ShellDetailsControll
       launcherVisible: false,
       dockVisible: this.dockVisible,
       canGoBack: false,
+      launcherEntries: this.launchers.list(),
     })
   }
 
