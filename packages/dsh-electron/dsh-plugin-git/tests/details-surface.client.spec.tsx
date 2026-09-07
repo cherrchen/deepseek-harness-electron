@@ -210,6 +210,12 @@ describe('GitDiffSurface', () => {
     expect(source).toMatch(/\.diffToolbar[^{]*\{[^}]*\n  top: 10px/)
     expect(source).toMatch(/\.diffToolbar[^{]*\{[^}]*\n  right: 12px/)
   })
+
+  it('gives the Diff title the same 10px top inset as Changes and Graph chrome', () => {
+    const source = readFileSync(join(import.meta.dirname, '../src/client/GitDetailsSurface.module.css'), 'utf8')
+    expect(source).toMatch(/\.diffTabBody[^{]*\{[^}]*\n  padding: 10px 12px 18px/)
+    expect(source).toMatch(/\.branchRow[^{]*\{[^}]*\n  padding: 10px 12px 8px/)
+  })
 })
 
 describe('GitGraphSurface', () => {

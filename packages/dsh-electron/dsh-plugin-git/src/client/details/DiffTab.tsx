@@ -29,7 +29,7 @@ export function DiffTab({ repository, selectedDiff, diff, clean, t, error }: {
   const { name, dir } = splitRepoPath(selectedDiff.path)
   const mode = selectedDiff.staged ? t('details.stagedLabel') : t('details.workingTree')
   return (
-    <div className={css.tabBody}>
+    <div className={css.diffTabBody}>
       {error !== undefined && <p className={css.error} role="alert">{error}</p>}
       <header className={css.diffHeader}>
         <strong>{name}</strong>
