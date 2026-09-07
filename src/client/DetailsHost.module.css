@@ -12,8 +12,8 @@
  * total height (--app-header-height, defined by the host theme) and its exact
  * divider treatment (1px transparent border reserving the slot + a 0.5px l3
  * hairline ::after), so the two bottom rules read as one continuous line.
- * Content is bottom-aligned so the tab strip sits on that divider; leftover
- * height above stays empty.
+ * Content is bottom-aligned toward that divider, with a short inset so the
+ * tab chips do not rest on the hairline; leftover height above stays empty.
  */
 .tabbar {
   position: relative;
@@ -24,7 +24,7 @@
   box-sizing: border-box;
   min-width: 0;
   height: var(--app-header-height, 45px);
-  padding: 0 8px;
+  padding: 0 8px 6px;
   border-bottom: 1px solid transparent;
   overflow: visible;
 }

@@ -373,6 +373,7 @@ describe('DetailsHost responsive tab strip contract', () => {
 
   it('aligns the round controls with the tab row: no margin-based lift, one bottom-aligned strip', () => {
     expect(CSS_SOURCE).toMatch(/\.tabbar \{[^}]*align-items: flex-end/)
+    expect(CSS_SOURCE).toMatch(/\.tabbar \{[^}]*padding: 0 8px 6px/)
     expect(CSS_SOURCE).not.toMatch(/\.addTab[^{]*\{[^}]*margin-bottom/)
   })
 
