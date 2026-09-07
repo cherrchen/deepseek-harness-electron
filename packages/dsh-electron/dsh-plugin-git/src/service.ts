@@ -121,17 +121,10 @@ export class GitService {
    * @param repository - Repository working directory.
    * @param message - Commit message passed as one argv value.
    * @param signal - Optional command cancellation signal.
-   * @returns Repository snapshot after the commit.
-   */
-  /**
-   * Commit the staged index with a non-empty message.
-   * @param repository - Repository working directory.
-   * @param message - Commit message passed as one argv value.
-   * @param signal - Optional command cancellation signal.
    * @param amend - When true, rewrite HEAD instead of creating a new commit.
    * @returns Repository snapshot after the commit.
    */
-  async commit(repository: string, message: string, signal?: AbortSignal, amend = false): Promise<GitRepositorySnapshot> {
+  async commit(repository: string, message: string, signal?: AbortSignal, amend: boolean = false): Promise<GitRepositorySnapshot> {
     const normalized = message.trim()
     if (normalized.length === 0) throw new Error('commit message must not be empty')
     await this.run(
