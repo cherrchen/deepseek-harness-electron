@@ -12,17 +12,18 @@
  * total height (--app-header-height, defined by the host theme) and its exact
  * divider treatment (1px transparent border reserving the slot + a 0.5px l3
  * hairline ::after), so the two bottom rules read as one continuous line.
+ * The shared height splits into two equal rows: the first stays empty, the
+ * second holds the tab strip flush against the divider.
  */
 .tabbar {
   position: relative;
-  display: flex;
+  display: grid;
+  grid-template-rows: 1fr 1fr;
   flex: none;
-  align-items: center;
-  gap: 2px;
   box-sizing: border-box;
   min-width: 0;
   height: var(--app-header-height, 45px);
-  padding: 8px 8px 5px;
+  padding: 0 8px;
   border-bottom: 1px solid transparent;
   overflow: visible;
 }
@@ -38,6 +39,16 @@
   pointer-events: none;
 }
 
+.tabbarRow {
+  grid-row: 2;
+  display: flex;
+  align-items: flex-end;
+  gap: 2px;
+  min-width: 0;
+  min-height: 0;
+  overflow: visible;
+}
+
 /*
  * Desktop stamps data-dsh-desktop-platform on :root. On Windows the details
  * column shares the top-right corner with the Window Controls Overlay, so the
@@ -46,7 +57,11 @@
  */
 :global(:root[data-dsh-desktop-platform='win32']) .tabbar {
   height: calc(var(--app-header-height, 45px) + var(--dsh-native-control-row-height, 40px));
-  padding-top: max(8px, var(--dsh-native-control-row-height, 40px));
+  grid-template-rows: var(--dsh-native-control-row-height, 40px) 1fr 1fr;
+}
+
+:global(:root[data-dsh-desktop-platform='win32']) .tabbarRow {
+  grid-row: 3;
 }
 
 .tabWrap {
@@ -60,6 +75,7 @@
   border: 1px solid transparent;
   border-radius: 8px;
   color: var(--dsw-alias-label-secondary);
+  transition: background-color 120ms ease, box-shadow 120ms ease;
 }
 
 .tabWrap[data-active] {
@@ -130,6 +146,10 @@
   cursor: pointer;
 }
 
+.addTab {
+  transition: background-color 120ms ease, box-shadow 120ms ease;
+}
+
 .addTab:hover,
 .headerAction:hover {
   background: var(--dsw-alias-fill-hover);
@@ -155,8 +175,10 @@
   cursor: default;
 }
 
-.tabWrap:hover {
+.tabWrap:hover,
+.addTab:hover {
   background: var(--dsw-alias-fill-hover);
+  box-shadow: var(--dsw-shadow-lv2);
 }
 
 .tabbarTrailing {
