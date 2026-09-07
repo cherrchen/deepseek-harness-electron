@@ -236,6 +236,25 @@ describe('GitGraphSurface', () => {
     expect(canvas.style.width).toBe(`${layout.laneCount * 16}px`)
     expect(canvas.style.height).toBe(`${graph.length * 36}px`)
   })
+
+  it('places refresh on the scope bar and hides Reveal even when Desktop exists', () => {
+    const controller = controllerOf(baseState({ desktopAvailable: true, graphLoaded: true }))
+    const { container } = render(<GitGraphSurface {...props(controller)} />)
+    const toolbar = container.querySelector('[data-git-graph-toolbar]')
+    expect(toolbar?.querySelector('[role="tablist"]')).toBeTruthy()
+    expect(toolbar?.querySelector('[data-git-details-header-actions]')).toBeTruthy()
+    expect(container.querySelector('[data-git-graph-surface] > [data-git-details-header-actions]')).toBeNull()
+    expect(screen.queryByRole('button', { name: en['details.reveal'] })).toBeNull()
+    fireEvent.click(screen.getByRole('button', { name: en['details.refresh'] }))
+    expect(controller.refresh).toHaveBeenCalled()
+  })
+
+  it('keeps the scope bar a single row with compact trailing refresh', () => {
+    const source = readFileSync(join(import.meta.dirname, '../src/client/GitGraphSurface.module.css'), 'utf8')
+    expect(source).toMatch(/\.scopeBar[^{]*\{[^}]*\n  display: flex/)
+    expect(source).toMatch(/\.scopeBar[^{]*\{[^}]*\n  align-items: center/)
+    expect(source).toMatch(/\.scopeTabs[^{]*\{[^}]*\n  flex: 1/)
+  })
 })
 
 describe('GitDetailsHeaderActions', () => {
@@ -262,7 +281,7 @@ describe('GitDetailsHeaderActions', () => {
     expect(screen.getByRole('button', { name: en['details.refresh'] })).toBeTruthy()
   })
 
-  it('hides Reveal on the compact Changes branch row even when Desktop exists', () => {
+  it('hides Reveal on compact Changes and Graph toolbars even when Desktop exists', () => {
     const controller = controllerOf(baseState({ desktopAvailable: true }))
     render(<GitDetailsHeaderActions {...actionProps(controller)} compact />)
     expect(screen.queryByRole('button', { name: en['details.reveal'] })).toBeNull()
@@ -359,6 +378,18 @@ describe('Git Changes actions', () => {
     const source = readFileSync(join(import.meta.dirname, '../src/client/GitDetailsSurface.module.css'), 'utf8')
     expect(source).toMatch(/\.commitMenu/)
     expect(source).not.toContain('display: contents')
+  })
+})
+
+describe('Git Graph button hover token', () => {
+  it('uses --dsw-alias-interactive-bg-hover for every hover background', () => {
+    const source = readFileSync(join(import.meta.dirname, '../src/client/GitGraphSurface.module.css'), 'utf8')
+    const blocks = source.match(/[^{}]+\{[^{}]*\}/g) ?? []
+    const hoverBackgrounds = blocks.filter(block => block.includes(':hover') && /background\s*:/.test(block))
+    expect(hoverBackgrounds.length).toBeGreaterThan(0)
+    for (const block of hoverBackgrounds) {
+      expect(block).toContain('--dsw-alias-interactive-bg-hover')
+    }
   })
 })
 
