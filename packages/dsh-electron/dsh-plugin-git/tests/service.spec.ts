@@ -249,26 +249,29 @@ describe('portable Git service', () => {
     }
   })
 
-  it('discards staged additions and unstages both sides of a rename', async () => {
+  it('discards staged additions and renames after their working-tree content changes', async () => {
     const { dispose, git } = await service()
     try {
       const root = repository()
       writeFileSync(join(root, 'added.txt'), 'added\n')
       await git.stage(root, { path: 'added.txt', status: '??' })
+      writeFileSync(join(root, 'added.txt'), 'edited after staging\n')
       const added = (await git.status(root)).staged.find(change => change.path === 'added.txt')
-      expect(added).toBeDefined()
+      expect(added).toMatchObject({ status: 'AM' })
       await git.discard(root, added, undefined, 'head')
       expect(existsSync(join(root, 'added.txt'))).toBe(false)
       expect((await git.status(root)).staged).toEqual([])
 
       execFileSync('git', ['mv', 'tracked.txt', 'renamed.txt'], { cwd: root })
+      writeFileSync(join(root, 'renamed.txt'), 'edited after staging\n')
       const renamed = (await git.status(root)).staged.find(change => change.path === 'renamed.txt')
-      expect(renamed).toMatchObject({ originalPath: 'tracked.txt' })
-      await git.unstage(root, renamed)
-      const afterUnstage = await git.status(root)
-      expect(afterUnstage.staged).toEqual([])
-      expect(afterUnstage.untracked).toContain('renamed.txt')
-      expect(afterUnstage.unstaged.map(change => change.path)).toContain('tracked.txt')
+      expect(renamed).toMatchObject({ status: 'RM', originalPath: 'tracked.txt' })
+      await git.discard(root, renamed, undefined, 'head')
+      expect(readFileSync(join(root, 'tracked.txt'), 'utf8')).toBe('initial\n')
+      expect(existsSync(join(root, 'renamed.txt'))).toBe(false)
+      const afterDiscard = await git.status(root)
+      expect(afterDiscard.staged).toEqual([])
+      expect(afterDiscard.unstaged).toEqual([])
     } finally {
       await dispose()
     }

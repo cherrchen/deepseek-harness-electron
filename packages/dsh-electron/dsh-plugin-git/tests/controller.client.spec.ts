@@ -259,6 +259,39 @@ describe('GitClientController', () => {
     expect(controller.getSnapshot().graph.map(entry => entry.hash)).toEqual(['b-commit'])
   })
 
+  it('releases Graph loading when refresh invalidates an in-flight page', async () => {
+    let releaseStaleGraph: ((value: GitRpcResult) => void) | undefined
+    let signalStaleGraph: (() => void) | undefined
+    let firstGraphRequest = true
+    const staleGraphPending = new Promise<void>((resolve) => { signalStaleGraph = resolve })
+    const rpc = {
+      call: vi.fn(async (_channel: string, endpoint: string) => {
+        if (endpoint === 'discover') return { ok: true as const, value: '/repo' }
+        if (endpoint === 'status') return { ok: true as const, value: snapshot() }
+        if (endpoint === 'log') {
+          if (!firstGraphRequest) return { ok: true as const, value: [] }
+          firstGraphRequest = false
+          signalStaleGraph?.()
+          signalStaleGraph = undefined
+          return new Promise<GitRpcResult>((resolve) => { releaseStaleGraph = resolve })
+        }
+        if (endpoint === 'commit-message-capability') return { ok: true as const, value: { available: false } }
+        return { ok: true as const, value: null }
+      }),
+    }
+    const controller = new GitClientController(rpc)
+    await controller.setWorkspace('/workspace')
+    await staleGraphPending
+    expect(controller.getSnapshot().graphLoading).toBe(true)
+
+    await controller.refresh()
+    expect(controller.getSnapshot()).toMatchObject({ graphLoading: false, graphLoaded: false })
+
+    releaseStaleGraph?.({ ok: true as const, value: [] })
+    await controller.loadGraph(true)
+    expect(controller.getSnapshot()).toMatchObject({ graphLoading: false, graphLoaded: true })
+  })
+
   it('discards a stale Diff response and failure after the repository changes', async () => {
     let releaseA: ((value: GitRpcResult) => void) | undefined
     let signalA: (() => void) | undefined
