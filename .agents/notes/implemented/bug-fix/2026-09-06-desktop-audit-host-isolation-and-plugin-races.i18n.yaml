@@ -2,5 +2,5 @@
 # side as of the last confirmed-consistent state. Both languages carry equal authority;
 # after editing either side, bring the other along and re-record with:
 #   pnpm run verify-translation-pairing --write .agents/notes/implemented/bug-fix/2026-09-06-desktop-audit-host-isolation-and-plugin-races.md
-2026-09-06-desktop-audit-host-isolation-and-plugin-races.md: 36675ffa851056e1d55e5474b12a437fe75abc7c
-2026-09-06-desktop-audit-host-isolation-and-plugin-races.zh.md: 2ca860a610db66f63f0f8d398c3b1b23fc039a09
+2026-09-06-desktop-audit-host-isolation-and-plugin-races.md: af9db444be72d3c998b1d2695c4bc630de872f54
+2026-09-06-desktop-audit-host-isolation-and-plugin-races.zh.md: c782ac70b0817b21029833d8f5f8b2b71d2bb539
