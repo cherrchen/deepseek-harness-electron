@@ -184,11 +184,11 @@ pnpm pack
 <a id="model-experience"></a>
 ## Model Experience
 
-Commit-message generation issues a one-shot LLM request outside the agent loop. The request carries a dedicated system prompt plus the staged diff and is not a session-log event. The default prompt asks for a Conventional Commit subject; **Settings → Plugins → Plugin configuration → Git** can replace the prompt and pin a provider/model.
+None, as this package registers no model tools, prompt sections, or request context.
 
 #### KV Cache effect
 
-None. Each generation is an independent request; the package does not add, replace, or retain session tokens.
+None. Commit-message generation is an independent Host LLM request and does not add, replace, or retain session tokens.
 
 ## Known Limitations and Deferred Work
 
