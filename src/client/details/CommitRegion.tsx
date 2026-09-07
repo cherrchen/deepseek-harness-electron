@@ -16,7 +16,7 @@ import css from '../GitDetailsSurface.module.css'
 type CommitMode = 'commit' | 'amend' | 'commit-push' | 'commit-sync'
 
 function fitTextareaToContent(el: HTMLTextAreaElement): void {
-  el.style.height = 'auto'
+  el.style.height = '0px'
   el.style.height = `${el.scrollHeight}px`
 }
 

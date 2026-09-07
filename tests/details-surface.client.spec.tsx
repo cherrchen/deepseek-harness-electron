@@ -343,6 +343,8 @@ describe('Git Changes actions', () => {
     const input = screen.getByRole('textbox', { name: en['details.commitPlaceholder'] })
     expect(input.getAttribute('rows')).toBe('1')
     const source = readFileSync(join(import.meta.dirname, '../src/client/GitDetailsSurface.module.css'), 'utf8')
+    expect(source).toMatch(/\.field textarea[^{]*\{[^}]*\n  height: 36px/)
+    expect(source).toMatch(/\.field textarea[^{]*\{[^}]*min-height: 36px/)
     expect(source).toMatch(/\.field textarea[^{]*\{[^}]*resize: none/)
     expect(source).not.toMatch(/resize: vertical/)
   })
