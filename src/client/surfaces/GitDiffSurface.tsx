@@ -1,3 +1,4 @@
+import { GitDetailsHeaderActions } from '../GitDetailsHeaderActions.tsx'
 /**
  * Git Diff surface: one changed path per tab, payload-driven. The open
  * payload decides the compared sides (worktree↔index or index↔HEAD).
@@ -35,6 +36,7 @@ export function GitDiffSurface({ controller, t, useSessions, sessionId, detailsI
 
   return (
     <div className={css.root} data-git-diff-surface="">
+      <GitDetailsHeaderActions controller={controller} t={t} />
       <div className={css.body}>
         {state.workspacePath === undefined && <p className={css.empty}>{t('details.noWorkspace')}</p>}
         {state.repository === null && <p className={css.empty}>{t('details.notRepository')}</p>}

@@ -152,6 +152,7 @@
 }
 
 .field {
+  position: relative;
   display: grid;
   gap: 5px;
   margin: 0 0 12px;
@@ -161,15 +162,17 @@
 
 .field textarea {
   width: 100%;
-  min-height: 96px;
+  min-height: 64px;
   box-sizing: border-box;
-  padding: 9px;
+  padding: 10px 42px 10px 12px;
   border: 0.5px solid var(--dsw-alias-border-l2);
   border-radius: 8px;
   outline: none;
   color: var(--dsw-alias-label-primary);
   background: var(--dsw-alias-bg-base);
-  font: inherit;
+  font-family: inherit;
+  font-size: 13px;
+  line-height: 20px;
   resize: vertical;
 }
 
@@ -269,4 +272,39 @@
 .diffDel {
   color: var(--dsw-alias-state-error-primary);
   background: rgb(207 34 46 / 8%);
+}
+
+.generateButton {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border: 0;
+  border-radius: 6px;
+  color: var(--dsw-alias-label-secondary);
+  background: transparent;
+  cursor: pointer;
+}
+
+.generateButton:hover {
+  background: var(--dsw-alias-fill-hover);
+}
+
+.generateButton:focus-visible {
+  outline: 2px solid var(--dsw-alias-brand-primary);
+  outline-offset: 1px;
+}
+
+.generateButton[aria-disabled='true'] {
+  color: var(--dsw-alias-label-tertiary);
+  cursor: default;
+}
+
+.commitActions > button {
+  width: 100%;
+  border-radius: 8px;
 }

@@ -8,7 +8,6 @@ import type {} from '@deepseek-ai/dsh-client-locale/client'
 import type {} from '@deepseek-ai/dsh-client-ui-renderer/client'
 import type {} from '@deepseek-ai/dsh-client-ui-session/client'
 import {
-  DETAILS_HEADER_ACTIONS_SLOT,
   DETAILS_SURFACE_SLOT,
 } from '@dsh-electron/dsh-client-ui-details-host/client'
 import type {} from '@dsh-electron/dsh-client-ui-details-host/client'
@@ -125,12 +124,6 @@ export function apply(ctx: ClientContext): void {
       locale: NS,
       inject: () => ({ controller }),
     }, surface.component))
-    ctx.slots.inject(DETAILS_HEADER_ACTIONS_SLOT, () => ctx.slots.register({
-      name: DETAILS_HEADER_ACTIONS_SLOT,
-      id: surface.id,
-      locale: NS,
-      inject: () => ({ controller }),
-    }, GitDetailsHeaderActions))
   }
 
   ctx.inject(['desktop'], (desktopCtx) => {

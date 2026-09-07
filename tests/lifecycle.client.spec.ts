@@ -65,15 +65,15 @@ describe('Git client lifecycle', () => {
     await fiber.await()
     expect(registrations.map(entry => entry.id)).toEqual([
       'git-context',
-      GIT_CHANGES_SURFACE_ID, GIT_CHANGES_SURFACE_ID,
-      GIT_DIFF_SURFACE_ID, GIT_DIFF_SURFACE_ID,
-      GIT_GRAPH_SURFACE_ID, GIT_GRAPH_SURFACE_ID,
+      GIT_CHANGES_SURFACE_ID,
+      GIT_DIFF_SURFACE_ID,
+      GIT_GRAPH_SURFACE_ID,
     ])
     expect(registrations.map(entry => entry.name)).toEqual([
       'conversation.input.left',
-      'shell.details.surface', 'shell.details.header.actions',
-      'shell.details.surface', 'shell.details.header.actions',
-      'shell.details.surface', 'shell.details.header.actions',
+      'shell.details.surface',
+      'shell.details.surface',
+      'shell.details.surface',
     ])
     expect(shellDetails.registerSurface).toHaveBeenCalledTimes(3)
     const changesDescriptor = shellDetails.registerSurface.mock.calls[0]![0]

@@ -113,7 +113,7 @@ declare module '@dsh-electron/dsh-client-ui-details-host/client' {
 }
 ```
 
-Git 还通过 `ctx.shellDetails.registerLauncher` 注册两张 Launcher 卡片（Changes、Graph），并为每个 surface 注册 header actions。AppFrame 详情栏几何、标签栏、Launcher 与 dock 可见性由 Details Host 拥有，不属于本 package。
+Git 还通过 `ctx.shellDetails.registerLauncher` 注册两张 Launcher 卡片（Changes、Graph），并在每个 Git 面板内部渲染仓库操作。Git 不注册已废弃的 `shell.details.header.actions` 插槽。AppFrame 详情栏几何、标签栏、Launcher 与 dock 可见性由 Details Host 拥有，不属于本 package。
 
 <a id="user-experience"></a>
 ## 用户体验
@@ -197,3 +197,5 @@ pnpm pack
 ### 开发备注
 
 无。
+
+提交区域使用紧凑的主题样式输入框，内嵌带无障碍提示的星光图标来生成提交信息，下方提供全宽提交按钮。
