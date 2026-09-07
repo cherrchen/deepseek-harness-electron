@@ -164,7 +164,7 @@ export class GitService {
    * @param repository - Repository working directory.
    * @param change - Optional complete change record. Required for `head` and `untracked`.
    * @param signal - Optional command cancellation signal.
-   * @param mode - `worktree` restores the index, `head` restores HEAD, `untracked` deletes the path.
+   * @param mode - `worktree` restores the index, `head` restores both index and working tree from HEAD, `untracked` deletes the path.
    * @returns Repository snapshot after the discard.
    */
   async discard(
@@ -188,16 +188,16 @@ export class GitService {
     return this.status(repository, signal)
   }
 
-  /** Restore one staged change to HEAD, including paths absent from HEAD. */
+  /** Restore one staged change to HEAD, including paths absent from HEAD with later working-tree edits. */
   private async discardHead(repository: string, change: GitFileChange, signal?: AbortSignal): Promise<void> {
     const indexStatus = change.status[0]
     if (indexStatus === 'A' || indexStatus === 'C') {
-      await this.run(repository, ['rm', '--cached', '--', change.path], signal)
+      await this.run(repository, ['rm', '-f', '--cached', '--', change.path], signal)
       await this.run(repository, ['clean', '-f', '--', change.path], signal)
       return
     }
     if (indexStatus === 'R' && change.originalPath !== undefined) {
-      await this.run(repository, ['rm', '--cached', '--', change.path], signal)
+      await this.run(repository, ['rm', '-f', '--cached', '--', change.path], signal)
       await this.run(repository, ['clean', '-f', '--', change.path], signal)
       await this.run(repository, ['checkout', 'HEAD', '--', change.originalPath], signal)
       return

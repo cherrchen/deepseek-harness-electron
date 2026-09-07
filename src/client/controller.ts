@@ -238,7 +238,9 @@ export class GitClientController {
     // Keep the binding bookkeeping current so surface remounts after a
     // refresh stay idempotent.
     this.boundWorkspace = { path: workspacePath, generation }
-    this.patch({ graphLoaded: false, generating: false, generationError: undefined })
+    // The binding generation invalidates an in-flight page. Clear its visible
+    // loading state as well, so the Graph surface can schedule its replacement.
+    this.patch({ graphLoading: false, graphLoaded: false, generating: false, generationError: undefined })
   }
 
   /**
