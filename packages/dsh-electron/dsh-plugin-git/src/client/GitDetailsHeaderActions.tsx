@@ -16,15 +16,16 @@ export type GitDetailsHeaderActionsProps =
 
 /**
  * Render Host-header controls for the Git details surface: icon-only buttons
- * with the shared Details Host tooltip/aria treatment.
+ * with the shared Details Host tooltip/aria treatment. Compact (Changes branch
+ * row) is refresh-only; Diff and Graph still offer Reveal when Desktop exists.
  * @param props - slot runtime, locale, and shared controller.
- * @returns Reveal (when Desktop is available) and Refresh.
+ * @returns Reveal (when Desktop is available and not compact) and Refresh.
  */
 export function GitDetailsHeaderActions({ controller, t, compact }: GitDetailsHeaderActionsProps): ReactNode {
   const state = useSyncExternalStore(controller.subscribe, controller.getSnapshot)
   return (
     <div className={compact === true ? `${css.root} ${css.compact}` : css.root} data-git-details-header-actions="">
-      {state.desktopAvailable && (
+      {compact !== true && state.desktopAvailable && (
         <DetailsHeaderAction
           icon={<IconFolderOpenOutline16 size={14} />}
           label={t('details.reveal')}

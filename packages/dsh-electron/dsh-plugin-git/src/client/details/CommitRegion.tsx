@@ -3,7 +3,7 @@
  * optional AI proposal, and a split commit action. Generation only fills
  * the editable input — it never stages, commits, or pushes.
  */
-import { useMemo, useState } from 'react'
+import { useCallback, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import type { ReactNode } from 'react'
 import type { GitGenerationUnavailableReason, GitRepositorySnapshot } from '../../types.ts'
 import type { GitClientController, GitCommitFollowUp } from '../controller.ts'
@@ -14,6 +14,11 @@ import { IconGitWand } from './GitActionIcons.tsx'
 import css from '../GitDetailsSurface.module.css'
 
 type CommitMode = 'commit' | 'amend' | 'commit-push' | 'commit-sync'
+
+function fitTextareaToContent(el: HTMLTextAreaElement): void {
+  el.style.height = 'auto'
+  el.style.height = `${el.scrollHeight}px`
+}
 
 function modeLabel(mode: CommitMode, t: (key: GitLocaleKey) => string): string {
   if (mode === 'amend') return t('details.commitAmend')
@@ -42,7 +47,16 @@ export function CommitRegion({ repository, controller, t, error, commitMessage, 
   const canGenerate = generationAvailable && stagedCount > 0 && !generating
   const [mode, setMode] = useState<CommitMode>('commit')
   const [menuOpen, setMenuOpen] = useState(false)
+  const chevronRef = useRef<HTMLButtonElement>(null)
+  const messageRef = useRef<HTMLTextAreaElement>(null)
+  const getAnchorRect = useCallback(() => chevronRef.current?.getBoundingClientRect() ?? null, [])
   const canRun = mode === 'amend' ? canAmend : canCommit
+  useLayoutEffect(() => {
+    if (messageRef.current !== null) fitTextareaToContent(messageRef.current)
+  }, [commitMessage])
+  useLayoutEffect(() => {
+    if (!canRun) setMenuOpen(false)
+  }, [canRun])
   const unavailableHint = generationReason === 'llm-unavailable'
     ? t('details.generateLlmUnavailable')
     : generationReason === 'default-model-missing'
@@ -77,8 +91,9 @@ export function CommitRegion({ repository, controller, t, error, commitMessage, 
       {error !== undefined && <p className={css.error} role="alert">{error}</p>}
       <div className={css.field}>
         <textarea
+          ref={messageRef}
           aria-label={t('details.commitPlaceholder')}
-          rows={3}
+          rows={1}
           value={commitMessage}
           onChange={(event) => { controller.setCommitMessage(event.target.value) }}
           placeholder={t('details.commitPlaceholder')}
@@ -105,30 +120,35 @@ export function CommitRegion({ repository, controller, t, error, commitMessage, 
         >
           {modeLabel(mode, t)}
         </button>
-        <Menu
-          open={menuOpen}
-          items={items}
-          selectedId={mode}
-          align="end"
-          side="bottom"
-          portal
-          onSelect={(id) => {
-            setMenuOpen(false)
-            run(id as CommitMode)
-          }}
-          onClose={() => { setMenuOpen(false) }}
-          anchor={(
-            <button
-              type="button"
-              className={css.commitChevron}
-              aria-label={t('details.commitOptions')}
-              aria-expanded={menuOpen}
-              onClick={() => { setMenuOpen(open => !open) }}
-            >
-              <IconChevronDownOutline14 />
-            </button>
-          )}
-        />
+        <div className={css.commitMenu}>
+          <Menu
+            open={menuOpen}
+            items={items}
+            selectedId={mode}
+            align="end"
+            side="bottom"
+            portal
+            getAnchorRect={getAnchorRect}
+            onSelect={(id) => {
+              setMenuOpen(false)
+              run(id as CommitMode)
+            }}
+            onClose={() => { setMenuOpen(false) }}
+            anchor={(
+              <button
+                ref={chevronRef}
+                type="button"
+                className={css.commitChevron}
+                aria-label={t('details.commitOptions')}
+                aria-expanded={menuOpen}
+                disabled={!canRun}
+                onClick={() => { setMenuOpen(open => !open) }}
+              >
+                <IconChevronDownOutline14 />
+              </button>
+            )}
+          />
+        </div>
       </div>
       {generationError !== undefined && (
         <p className={css.error} role="alert">

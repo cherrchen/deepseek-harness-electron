@@ -261,6 +261,13 @@ describe('GitDetailsHeaderActions', () => {
     expect(screen.queryByRole('button', { name: en['details.reveal'] })).toBeNull()
     expect(screen.getByRole('button', { name: en['details.refresh'] })).toBeTruthy()
   })
+
+  it('hides Reveal on the compact Changes branch row even when Desktop exists', () => {
+    const controller = controllerOf(baseState({ desktopAvailable: true }))
+    render(<GitDetailsHeaderActions {...actionProps(controller)} compact />)
+    expect(screen.queryByRole('button', { name: en['details.reveal'] })).toBeNull()
+    expect(screen.getByRole('button', { name: en['details.refresh'] })).toBeTruthy()
+  })
 })
 
 
@@ -317,6 +324,39 @@ describe('Git Changes actions', () => {
     fireEvent.click(screen.getByRole('button', { name: en['details.commitOptions'] }))
     fireEvent.click(screen.getByRole('menuitem', { name: en['details.commitAmend'] }))
     expect(controller.commit).toHaveBeenCalledWith('revise', { amend: true })
+  })
+
+  it('disables the commit split and its menu together when the current action cannot run', () => {
+    const controller = controllerOf(baseState({
+      commitMessage: '1',
+      repository: snapshot({ staged: [], unstaged: [{ path: 'README.en.md', status: ' M' }] }),
+    }))
+    render(<GitChangesSurface {...props(controller)} />)
+    expect(screen.getByRole<HTMLButtonElement>('button', { name: en['details.commit'] }).disabled).toBe(true)
+    expect(screen.getByRole<HTMLButtonElement>('button', { name: en['details.commitOptions'] }).disabled).toBe(true)
+    expect(screen.queryByRole('menuitem', { name: en['details.commitAmend'] })).toBeNull()
+  })
+
+  it('starts the commit message on one unresizable row', () => {
+    const controller = controllerOf(baseState())
+    render(<GitChangesSurface {...props(controller)} />)
+    const input = screen.getByRole('textbox', { name: en['details.commitPlaceholder'] })
+    expect(input.getAttribute('rows')).toBe('1')
+    const source = readFileSync(join(import.meta.dirname, '../src/client/GitDetailsSurface.module.css'), 'utf8')
+    expect(source).toMatch(/\.field textarea[^{]*\{[^}]*resize: none/)
+    expect(source).not.toMatch(/resize: vertical/)
+  })
+
+  it('fills the commit split from the theme primary button tokens', () => {
+    const source = readFileSync(join(import.meta.dirname, '../src/client/GitDetailsSurface.module.css'), 'utf8')
+    expect(source).toMatch(/\.commitMain[^{]*\{[^}]*background: var\(--dsw-alias-button-primary-fill\)/)
+    expect(source).toMatch(/\.commitMain[^{]*\{[^}]*color: var\(--dsw-alias-label-primary-foreground\)/)
+  })
+
+  it('keeps the commit menu wrapper measurable for portal placement', () => {
+    const source = readFileSync(join(import.meta.dirname, '../src/client/GitDetailsSurface.module.css'), 'utf8')
+    expect(source).toMatch(/\.commitMenu/)
+    expect(source).not.toContain('display: contents')
   })
 })
 
