@@ -102,6 +102,17 @@ export interface LlmCommitMessageOptions {
    * generation rejects with reason `default-model-missing`.
    */
   readonly resolveSelection: () => CommitMessageSelection | undefined
+  /**
+   * Resolve the system prompt for one generation. Called per call so a
+   * settings override applies live; `undefined` keeps {@link systemPrompt}
+   * or {@link COMMIT_MESSAGE_SYSTEM}.
+   */
+  readonly resolveSystemPrompt?: () => string | undefined
+  /**
+   * Resolve the staged-diff byte cap for one generation. Called per call so
+   * a settings override applies live; `undefined` keeps {@link maxDiffBytes}.
+   */
+  readonly resolveMaxDiffBytes?: () => number | undefined
   /** Optional staged-diff byte cap (defaults to {@link STAGED_DIFF_MAX_BYTES}). */
   readonly maxDiffBytes?: number
   /** Optional system prompt override (defaults to {@link COMMIT_MESSAGE_SYSTEM}). */
@@ -136,7 +147,11 @@ export class LlmCommitMessageProvider implements CommitMessageProvider {
   async generate(input: CommitMessageInput): Promise<string> {
     const selection = this.options.resolveSelection()
     if (selection === undefined) throw new CommitMessageUnavailableError('default-model-missing')
-    const stagedDiff = normalizeStagedDiff(input.stagedDiff, this.options.maxDiffBytes)
+    const stagedDiff = normalizeStagedDiff(
+      input.stagedDiff,
+      this.options.resolveMaxDiffBytes?.() ?? this.options.maxDiffBytes,
+    )
+    const system = this.options.resolveSystemPrompt?.() ?? this.options.systemPrompt ?? COMMIT_MESSAGE_SYSTEM
     messageSerial += 1
     const message: Message = {
       id: `git-commit-message-${messageSerial}` as MessageId,
@@ -148,7 +163,7 @@ export class LlmCommitMessageProvider implements CommitMessageProvider {
       provider: selection.provider,
       model: selection.model,
       messages: [message],
-      system: this.options.systemPrompt ?? COMMIT_MESSAGE_SYSTEM,
+      system,
       temperature: 0.2,
     }
     let text = ''

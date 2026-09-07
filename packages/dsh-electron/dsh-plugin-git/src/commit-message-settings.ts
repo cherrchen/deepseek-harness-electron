@@ -1,7 +1,8 @@
 /**
  * Settings seam for commit message generation. The namespace and schema are
  * installed whenever a settings provider is mounted (composition entry is the
- * base layer); the L2 settings page only needs to render this section.
+ * base layer). The Client half registers the matching card into
+ * Settings → Plugins → Plugin configuration under this namespace.
  */
 import z from '@deepseek-ai/schemastery'
 
@@ -10,7 +11,11 @@ export const GIT_COMMIT_MESSAGE_SETTINGS_NAMESPACE = 'git-commit-message'
 
 /** Stored shape of the commit message generation settings section. */
 export interface CommitMessageSettings {
-  /** Selection strategy; informational today — a named provider/model always wins. */
+  /**
+   * Selection strategy. `inherit` uses the host session model; `custom`
+   * requires both `provider` and `model`. A named provider/model without
+   * `inherit` still wins, matching a composition entry that omits `mode`.
+   */
   mode?: 'inherit' | 'custom'
   /** Provider route registered with the DSH LLM runtime. */
   provider?: string

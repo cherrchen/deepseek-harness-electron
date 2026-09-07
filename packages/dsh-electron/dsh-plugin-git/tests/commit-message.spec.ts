@@ -116,4 +116,17 @@ describe('providers', () => {
     await provider.generate({ repository: '/repo', stagedDiff: '+x' })
     expect((llm.requests[0] as { system?: string }).system).toBe('Custom prompt.')
   })
+
+  it('re-resolves the system prompt on every generation', async () => {
+    const llm = fakeLlm([{ type: 'text-delta', text: 'ok' }])
+    let prompt = 'first'
+    const provider = new LlmCommitMessageProvider(llm as never, {
+      resolveSelection: () => ({ provider: 'test', model: 'test-model' }),
+      resolveSystemPrompt: () => prompt,
+    })
+    await provider.generate({ repository: '/repo', stagedDiff: '+x' })
+    prompt = 'second'
+    await provider.generate({ repository: '/repo', stagedDiff: '+y' })
+    expect(llm.requests.map(request => (request as { system?: string }).system)).toEqual(['first', 'second'])
+  })
 })

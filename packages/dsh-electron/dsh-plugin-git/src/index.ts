@@ -103,23 +103,29 @@ class GenerationAssembly {
 function assembleGeneration(ctx: Context, config: CommitMessageSettings | undefined): GenerationAssembly {
   if (config?.mode === 'custom') validateCommitMessageSettings(config)
   const generation = new GenerationAssembly()
-  const options = {
-    ...(config?.maxDiffBytes !== undefined ? { maxDiffBytes: config.maxDiffBytes } : {}),
-    ...(config?.systemPrompt !== undefined ? { systemPrompt: config.systemPrompt } : {}),
-  }
   const entry: CommitMessageSettings = config ?? {}
   let readSettings: (() => CommitMessageSettings) | undefined
   let readHostDefault: (() => CommitMessageSelection) | undefined
+  const resolved = (): CommitMessageSettings => readSettings?.() ?? entry
   const resolveSelection = (): CommitMessageSelection | undefined => {
-    const source = readSettings?.() ?? entry
-    if (source.provider !== undefined && source.model !== undefined) {
+    const source = resolved()
+    if (source.mode !== 'inherit' && source.provider !== undefined && source.model !== undefined) {
       return { provider: source.provider, model: source.model }
     }
     return readHostDefault?.()
   }
+  const resolveSystemPrompt = (): string | undefined => {
+    const prompt = resolved().systemPrompt
+    return prompt !== undefined && prompt.trim() !== '' ? prompt : undefined
+  }
+  const resolveMaxDiffBytes = (): number | undefined => resolved().maxDiffBytes
   ctx.inject(['llm'], (llmCtx) => {
     const llm = llmCtx.llm
-    generation.provider = new LlmCommitMessageProvider(llm, { resolveSelection, ...options })
+    generation.provider = new LlmCommitMessageProvider(llm, {
+      resolveSelection,
+      resolveSystemPrompt,
+      resolveMaxDiffBytes,
+    })
     return () => { generation.provider = new UnavailableCommitMessageProvider('llm-unavailable') }
   })
   ctx.inject(['agentDefaultModel'], (modelCtx) => {
@@ -130,8 +136,8 @@ function assembleGeneration(ctx: Context, config: CommitMessageSettings | undefi
     }
     return () => { readHostDefault = undefined }
   })
-  // The settings page (L2) renders this section; without a provider the
-  // composition entry above is the only source.
+  // Plugin configuration edits this section live; without a settings provider
+  // the composition entry above is the only source.
   ctx.inject(['settings'], (settingsCtx) => {
     settingsCtx.settings.installSection(ctx, GIT_COMMIT_MESSAGE_SETTINGS_NAMESPACE, GIT_COMMIT_MESSAGE_SETTINGS_SCHEMA, entry, {
       setSource: (current) => { readSettings = current },

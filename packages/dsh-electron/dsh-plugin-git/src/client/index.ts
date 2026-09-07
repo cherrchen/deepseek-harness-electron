@@ -7,6 +7,8 @@ import type {} from '@deepseek-ai/dsh-client-ui-conversation/client'
 import type {} from '@deepseek-ai/dsh-client-locale/client'
 import type {} from '@deepseek-ai/dsh-client-ui-renderer/client'
 import type {} from '@deepseek-ai/dsh-client-ui-session/client'
+import type {} from '@deepseek-ai/dsh-client-ui-settings/client'
+import type {} from '@deepseek-ai/dsh-client-ui-settings-plugins/client'
 import {
   DETAILS_SURFACE_SLOT,
 } from '@dsh-electron/dsh-client-ui-details-host/client'
@@ -17,6 +19,13 @@ import { GitChangesSurface } from './surfaces/GitChangesSurface.tsx'
 import { GitDiffSurface } from './surfaces/GitDiffSurface.tsx'
 import { GitGraphSurface } from './surfaces/GitGraphSurface.tsx'
 import { GitClientController, type GitDesktopCapability } from './controller.ts'
+import {
+  CommitMessageSettingsCardController,
+  GIT_COMMIT_MESSAGE_SETTINGS_NAMESPACE,
+  type CommitMessageCatalogGroup,
+  type CommitMessageCatalogLoader,
+} from './settings/commit-message-card-controller.ts'
+import { CommitMessageSettingsCard } from './settings/CommitMessageSettingsCard.tsx'
 import { createLauncherCards } from './launcher-cards.tsx'
 import {
   GIT_CHANGES_SURFACE_ID,
@@ -129,6 +138,35 @@ export function apply(ctx: ClientContext): void {
   ctx.inject(['desktop'], (desktopCtx) => {
     controller.setDesktop(desktopCtx.desktop)
     return () => { controller.setDesktop(undefined) }
+  })
+
+  ctx.inject(['settingsScope'], (settingsCtx) => {
+    const loadCatalog: CommitMessageCatalogLoader = async () => {
+      const remote = settingsCtx.get('remote') as {
+        session?: {
+          modelCatalog: () => Promise<
+            | { ok: true; value: { groups: readonly CommitMessageCatalogGroup[]; failures: readonly unknown[] } }
+            | { ok: false }
+          >
+        }
+      } | undefined
+      const catalog = remote?.session?.modelCatalog
+      if (catalog === undefined) return undefined
+      const response = await catalog()
+      if (!response.ok) return undefined
+      return { groups: response.value.groups, partial: response.value.failures.length > 0 }
+    }
+    const card = new CommitMessageSettingsCardController(
+      settingsCtx.settingsScope.bind({ namespace: GIT_COMMIT_MESSAGE_SETTINGS_NAMESPACE }),
+      loadCatalog,
+    )
+    settingsCtx.effect(() => () => { card.dispose() }, 'git: commit-message settings dispose')
+    settingsCtx.effect(() => settingsCtx.slots.inject('settings.plugin.item', () => settingsCtx.slots.register({
+      name: 'settings.plugin.item',
+      key: GIT_COMMIT_MESSAGE_SETTINGS_NAMESPACE,
+      locale: NS,
+      inject: () => ({ controller: card }),
+    }, CommitMessageSettingsCard)), 'git: commit-message settings card')
   })
 }
 

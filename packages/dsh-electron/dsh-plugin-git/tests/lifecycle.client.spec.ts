@@ -12,7 +12,7 @@ import type { GitClientController, GitDesktopCapability } from '../src/client/co
 describe('Git client lifecycle', () => {
   it('registers composer control and details surface without shell.overlay', async () => {
     const ctx = new Context()
-    const registrations: Array<{ name?: string; id?: string }> = []
+    const registrations: Array<{ name?: string; id?: string; key?: string }> = []
     const shellDetails = {
       activeId: null as string | null,
       activeInstance: null as { surfaceId: string; payload?: unknown } | null,
@@ -49,7 +49,7 @@ describe('Git client lifecycle', () => {
     }
     ctx.provide('slots', {
       inject: (_name: string, callback: () => unknown) => ctx.effect(() => callback() as () => void),
-      register: (entry: { name?: string; id?: string }) => {
+      register: (entry: { name?: string; id?: string; key?: string }) => {
         registrations.push(entry)
         return () => { registrations.splice(registrations.indexOf(entry), 1) }
       },
@@ -108,7 +108,54 @@ describe('Git client lifecycle', () => {
     // Diff tabs dedupe per path + comparison side.
     expect(diffDescriptor.dedupeKey?.({ path: 'a.ts', staged: false })).toBe('git:diff:a.ts:worktree')
     expect(diffDescriptor.dedupeKey?.({ path: 'a.ts', staged: true })).toBe('git:diff:a.ts:staged')
+    expect(registrations.some(entry => entry.name === 'settings.plugin.item')).toBe(false)
 
     await fiber.dispose()
+  })
+
+  it('registers the commit-message card when settingsScope is present', async () => {
+    const ctx = new Context()
+    const registrations: Array<{ name?: string; key?: string }> = []
+    ctx.provide('slots', {
+      inject: (_name: string, callback: () => unknown) => ctx.effect(() => callback() as () => void),
+      register: (entry: { name?: string; key?: string }) => {
+        registrations.push(entry)
+        return () => { registrations.splice(registrations.indexOf(entry), 1) }
+      },
+    } as never)
+    ctx.provide('connection', { rpc: { call: vi.fn() } } as never)
+    ctx.provide('locale', {
+      register: () => () => {},
+      bind: () => (key: string) => key,
+      subscribe: () => () => {},
+    } as never)
+    ctx.provide('shellDetails', {
+      open: vi.fn(),
+      registerSurface: vi.fn(() => () => {}),
+      registerLauncher: vi.fn(() => () => {}),
+    } as never)
+    ctx.provide('settingsScope', {
+      bind: () => ({
+        getSnapshot: () => ({
+          status: 'unavailable',
+          value: undefined,
+          base: undefined,
+          user: undefined,
+          revision: undefined,
+          writable: false,
+          mode: 'host',
+        }),
+        subscribe: () => () => {},
+        mutate: vi.fn(async () => {}),
+        set: vi.fn(async () => {}),
+        unset: vi.fn(async () => {}),
+      }),
+    } as never)
+    const fiber = ctx.plugin({ inject, apply })
+    await fiber.await()
+    expect(registrations.filter(entry => entry.name === 'settings.plugin.item').map(entry => entry.key))
+      .toEqual(['git-commit-message'])
+    await fiber.dispose()
+    expect(registrations.some(entry => entry.name === 'settings.plugin.item')).toBe(false)
   })
 })
