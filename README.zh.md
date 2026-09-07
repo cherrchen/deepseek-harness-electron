@@ -184,11 +184,11 @@ pnpm pack
 <a id="model-experience"></a>
 ## Model Experience
 
-提交信息生成会在 agent loop 之外发出一次性 LLM 请求。该请求携带专用 system prompt 与 staged diff，不是 session-log 事件。默认 prompt 要求 Conventional Commit subject；**设置 → 插件 → 插件配置 → Git** 可以替换 prompt 并固定 provider/model。
+无，因为本 package 不注册 model tools、prompt sections 或 request context。
 
 #### KV Cache effect
 
-无。每次生成都是独立请求；本 package 不增加、替换或保留会话 token。
+无。Commit message 生成是独立的 Host LLM 请求，不增加、替换或保留会话 token。
 
 ## Known Limitations and Deferred Work
 
