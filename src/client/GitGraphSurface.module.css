@@ -14,15 +14,24 @@
 }
 
 /*
- * History scope switcher (Auto / All / First parent). Pure view policy:
- * switching only changes which history the Host queries, never the topology
- * the renderer draws.
+ * History scope switcher (Auto / All / First parent) with compact refresh on
+ * the right. Switching only changes which history the Host queries, never
+ * the topology the renderer draws.
  */
 .scopeBar {
   display: flex;
   flex: none;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 12px 8px;
+}
+
+.scopeTabs {
+  display: flex;
+  min-width: 0;
+  flex: 1;
+  align-items: center;
   gap: 4px;
-  padding: 8px 12px 0;
 }
 
 .scopeButton {
@@ -37,7 +46,7 @@
 }
 
 .scopeButton:hover:not(:disabled) {
-  background: var(--dsw-alias-fill-hover);
+  background: var(--dsw-alias-interactive-bg-hover);
 }
 
 .scopeButton[data-active] {
@@ -89,7 +98,7 @@
 }
 
 .row:hover {
-  background: var(--dsw-alias-fill-hover);
+  background: var(--dsw-alias-interactive-bg-hover);
 }
 
 .commitCell {
@@ -156,7 +165,7 @@
 }
 
 .loadMore:hover:not(:disabled) {
-  background: var(--dsw-alias-fill-hover);
+  background: var(--dsw-alias-interactive-bg-hover);
 }
 
 .loadMore:disabled {
