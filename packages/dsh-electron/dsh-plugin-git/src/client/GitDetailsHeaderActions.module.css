@@ -3,4 +3,6 @@
   flex: none;
   align-items: center;
   gap: 6px;
+  justify-content: flex-end;
+  padding: 6px 12px;
 }

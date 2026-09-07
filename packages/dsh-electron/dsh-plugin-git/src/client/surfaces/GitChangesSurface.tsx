@@ -1,3 +1,4 @@
+import { GitDetailsHeaderActions } from '../GitDetailsHeaderActions.tsx'
 /**
  * Git Changes surface: repository context row, the staged/unstaged/untracked
  * sections, and the fixed commit region. One of three Git surfaces hosted by
@@ -36,6 +37,7 @@ export function GitChangesSurface({ controller, t, useSessions, sessionId }: Git
 
   return (
     <div className={css.root} data-git-changes-surface="">
+      <GitDetailsHeaderActions controller={controller} t={t} />
       {repository !== undefined && repository !== null && (
         <div className={css.context}>
           <span className={css.repoName} title={repository.root}>{repoFolderName(repository.root)}</span>

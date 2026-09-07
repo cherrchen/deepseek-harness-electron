@@ -261,3 +261,18 @@ describe('GitDetailsHeaderActions', () => {
     expect(screen.getByRole('button', { name: en['details.refresh'] })).toBeTruthy()
   })
 })
+
+
+describe('embedded commit message generation', () => {
+  it('keeps generation inside the input field and fills only through the controller', () => {
+    const controller = controllerOf(baseState({ generationAvailable: true, repository: snapshot({ staged: [{ path: 'src/a.ts', status: 'M ' }] }) }))
+    render(<GitChangesSurface {...({ controller, t, sessionId: 'session-a', useSessions: sessionsHook } as unknown as GitChangesSurfaceProps)} />)
+    const input = screen.getByRole('textbox', { name: en['details.commitPlaceholder'] })
+    const generate = screen.getByRole('button', { name: en['details.generate'] })
+    expect(input.parentElement?.contains(generate)).toBe(true)
+    expect(generate.querySelector('svg')).not.toBeNull()
+    fireEvent.click(generate)
+    expect(controller.generateCommitMessage).toHaveBeenCalledTimes(1)
+    expect(controller.commit).not.toHaveBeenCalled()
+  })
+})

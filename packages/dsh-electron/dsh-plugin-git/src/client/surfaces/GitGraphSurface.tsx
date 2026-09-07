@@ -1,3 +1,4 @@
+import { GitDetailsHeaderActions } from '../GitDetailsHeaderActions.tsx'
 /**
  * Git Graph surface: commit history visualization. Data flows through the
  * controller (paged `git log` with a history scope) and the pure layout
@@ -52,6 +53,7 @@ export function GitGraphSurface({ controller, t, useSessions, sessionId }: GitGr
 
   return (
     <div className={css.root} data-git-graph-surface="">
+      <GitDetailsHeaderActions controller={controller} t={t} />
       <div className={css.scopeBar} role="tablist" aria-label={t('details.tabs')}>
         {GRAPH_SCOPES.map(scope => (
           <button

@@ -1,17 +1,16 @@
 /**
- * Git panel-level Host header actions (Reveal / Refresh) as icon buttons.
+ * Repository controls rendered inside each Git frame.
  */
 import { useSyncExternalStore } from 'react'
 import type { ReactNode } from 'react'
-import type { PropsLocale, PropsRuntime } from '@deepseek-ai/dsh-client-ui-slots'
+import type { PropsLocale } from '@deepseek-ai/dsh-client-ui-slots'
 import { IconFolderOpenOutline16, IconRefreshOutline16 } from '@deepseek-ai/dsh-client-ui-primitives'
 import { DetailsHeaderAction } from '@dsh-electron/dsh-client-ui-details-host/client'
 import type { GitClientController } from './controller.ts'
 import css from './GitDetailsHeaderActions.module.css'
 
-/** Props for the Git contribution to `shell.details.header.actions`. */
+/** Props for the repository controls. */
 export type GitDetailsHeaderActionsProps =
-  & PropsRuntime<'shell.details.header.actions'>
   & PropsLocale<'git'>
   & { controller: GitClientController }
 

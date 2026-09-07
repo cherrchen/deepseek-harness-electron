@@ -113,14 +113,14 @@ declare module '@dsh-electron/dsh-client-ui-details-host/client' {
 }
 ```
 
-Git also registers two Launcher cards (Changes, Graph) through `ctx.shellDetails.registerLauncher`, plus header actions for every surface. AppFrame details geometry, the tab bar, the Launcher, and dock visibility are owned by Details Host, not this package.
+Git also registers two Launcher cards (Changes, Graph) through `ctx.shellDetails.registerLauncher`, and renders repository controls inside each Git frame. Git does not register the deprecated `shell.details.header.actions` slot. AppFrame details geometry, the tab bar, the Launcher, and dock visibility are owned by Details Host, not this package.
 
 <a id="user-experience"></a>
 ## User experience
 
 In the conversation composer, Git contributes a branch selector and a changed-files indicator on the left of the input area. Clicking either control opens the `git.changes` surface as a Details Host tab. Creating a branch opens a shared conversation Modal; after `git init` with no commits (unborn HEAD), the menu shows the symbolic default branch as disabled, explains that the first commit is required, and disables create until HEAD exists.
 
-The **Changes** surface groups staged, unstaged, and untracked paths into sections; rows stage, unstage, or discard (a two-step destructive confirm) a path and open the matching diff. The **Diff** surface renders one file's working-tree or staged diff per tab. The **Graph** surface shows the commit history as a canvas-drawn lane graph — one continuous coordinate space, so rails and merge edges never break at row boundaries — with subject, author, date, hash, and HEAD/branch/tag decoration badges, paged incrementally with a load-more control. A commit region inside Changes accepts an editable message and offers **Generate**: when the host exposes an LLM runtime and `commitMessage` is configured, a staged diff is sent to the configured provider and the streamed suggestion is written into the editable input. Generation never stages, commits, or pushes anything. On Electron, optional Desktop enhancement adds reveal-in-folder and open-path actions when the Desktop provider is present.
+The **Changes** surface groups staged, unstaged, and untracked paths into sections; rows stage, unstage, or discard (a two-step destructive confirm) a path and open the matching diff. The **Diff** surface renders one file's working-tree or staged diff per tab. The **Graph** surface shows the commit history as a canvas-drawn lane graph — one continuous coordinate space, so rails and merge edges never break at row boundaries — with subject, author, date, hash, and HEAD/branch/tag decoration badges, paged incrementally with a load-more control. A commit region inside Changes uses a compact theme-styled message input with an embedded sparkle icon for **Generate**, an accessible hint, and a full-width commit button: when the host exposes an LLM runtime and `commitMessage` is configured, a staged diff is sent to the configured provider and the streamed suggestion is written into the editable input. Generation never stages, commits, or pushes anything. On Electron, optional Desktop enhancement adds reveal-in-folder and open-path actions when the Desktop provider is present.
 
 <a id="composition"></a>
 ## Composition
