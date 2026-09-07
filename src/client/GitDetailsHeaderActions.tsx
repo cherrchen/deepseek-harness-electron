@@ -12,7 +12,7 @@ import css from './GitDetailsHeaderActions.module.css'
 /** Props for the repository controls. */
 export type GitDetailsHeaderActionsProps =
   & PropsLocale<'git'>
-  & { controller: GitClientController }
+  & { controller: GitClientController; compact?: boolean }
 
 /**
  * Render Host-header controls for the Git details surface: icon-only buttons
@@ -20,10 +20,10 @@ export type GitDetailsHeaderActionsProps =
  * @param props - slot runtime, locale, and shared controller.
  * @returns Reveal (when Desktop is available) and Refresh.
  */
-export function GitDetailsHeaderActions({ controller, t }: GitDetailsHeaderActionsProps): ReactNode {
+export function GitDetailsHeaderActions({ controller, t, compact }: GitDetailsHeaderActionsProps): ReactNode {
   const state = useSyncExternalStore(controller.subscribe, controller.getSnapshot)
   return (
-    <div className={css.root} data-git-details-header-actions="">
+    <div className={compact === true ? `${css.root} ${css.compact}` : css.root} data-git-details-header-actions="">
       {state.desktopAvailable && (
         <DetailsHeaderAction
           icon={<IconFolderOpenOutline16 size={14} />}

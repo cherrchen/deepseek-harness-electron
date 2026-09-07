@@ -174,8 +174,19 @@ async function invoke(
     )
     case 'stage': return service.stage(stringField(request, 'repository'), optionalStringField(request, 'path'), signal)
     case 'unstage': return service.unstage(stringField(request, 'repository'), optionalStringField(request, 'path'), signal)
-    case 'discard': return service.discard(stringField(request, 'repository'), optionalStringField(request, 'path'), signal)
-    case 'commit': return service.commit(stringField(request, 'repository'), stringField(request, 'message'), signal)
+    case 'discard': {
+      const modeField = optionalStringField(request, 'mode')
+      const mode = modeField === 'head' || modeField === 'untracked' ? modeField : 'worktree'
+      return service.discard(stringField(request, 'repository'), optionalStringField(request, 'path'), signal, mode)
+    }
+    case 'commit': return service.commit(
+      stringField(request, 'repository'),
+      stringField(request, 'message'),
+      signal,
+      optionalBooleanField(request, 'amend') === true,
+    )
+    case 'push': return service.push(stringField(request, 'repository'), signal)
+    case 'sync': return service.sync(stringField(request, 'repository'), signal)
     case 'create-branch': return service.createBranch(stringField(request, 'repository'), stringField(request, 'branch'), signal)
     case 'switch-branch': return service.switchBranch(stringField(request, 'repository'), stringField(request, 'branch'), signal)
     case 'log': {
@@ -226,6 +237,13 @@ function optionalStringField(value: Record<string, unknown>, key: string): strin
 
 function booleanField(value: Record<string, unknown>, key: string): boolean {
   const field = value[key]
+  if (typeof field !== 'boolean') throw new Error(`Git request ${key} must be a boolean`)
+  return field
+}
+
+function optionalBooleanField(value: Record<string, unknown>, key: string): boolean | undefined {
+  const field = value[key]
+  if (field === undefined) return undefined
   if (typeof field !== 'boolean') throw new Error(`Git request ${key} must be a boolean`)
   return field
 }

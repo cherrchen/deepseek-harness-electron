@@ -120,7 +120,7 @@ Git also registers two Launcher cards (Changes, Graph) through `ctx.shellDetails
 
 In the conversation composer, Git contributes a branch selector and a changed-files indicator on the left of the input area. Clicking either control opens the `git.changes` surface as a Details Host tab. Creating a branch opens a shared conversation Modal; after `git init` with no commits (unborn HEAD), the menu shows the symbolic default branch as disabled, explains that the first commit is required, and disables create until HEAD exists.
 
-The **Changes** surface groups staged, unstaged, and untracked paths into sections; rows stage, unstage, or discard (a two-step destructive confirm) a path and open the matching diff. The **Diff** surface renders one file's working-tree or staged diff per tab. The **Graph** surface shows the commit history as a canvas-drawn lane graph — one continuous coordinate space, so rails and merge edges never break at row boundaries — with subject, author, date, hash, and HEAD/branch/tag decoration badges, paged incrementally with a load-more control. A commit region inside Changes uses a compact theme-styled message input with an embedded sparkle icon for **Generate**, an accessible hint, and a full-width commit button: when the host exposes an LLM runtime and `commitMessage` is configured, a staged diff is sent to the configured provider and the streamed suggestion is written into the editable input. Generation never stages, commits, or pushes anything. On Electron, optional Desktop enhancement adds reveal-in-folder and open-path actions when the Desktop provider is present.
+The **Changes** surface shows the current branch beside refresh/reveal, then a commit message field with a wand **Generate** control and a split **Commit** button (Commit, Amend, Commit & Push, Commit & Sync). Staged, unstaged, and untracked paths follow as icon-action sections: plus or minus toggles the index, undo discards after a two-step confirm, and a porcelain letter badges the row. Clicking a path opens the matching diff. The **Diff** surface renders one file's working-tree or staged diff per tab. The **Graph** surface shows the commit history as a canvas-drawn lane graph — one continuous coordinate space, so rails and merge edges never break at row boundaries — with subject, author, date, hash, and HEAD/branch/tag decoration badges, paged incrementally with a load-more control. When the host exposes an LLM runtime and `commitMessage` is configured, a staged diff is sent to the configured provider and the streamed suggestion is written into the editable input. Generation never stages, commits, or pushes anything. On Electron, optional Desktop enhancement adds reveal-in-folder and open-path actions when the Desktop provider is present.
 
 <a id="composition"></a>
 ## Composition
@@ -150,7 +150,7 @@ The whole `commitMessage` section is optional. When it is absent, or when the ho
 <a id="git-operations"></a>
 ## Git operations
 
-The first release supports repository discovery, Git version, current branch and HEAD, staged/unstaged/untracked status, local branches, working and staged diffs, stage/unstage, commit, branch creation, and branch switching. Status uses porcelain v2 with NUL path separators; branches use `for-each-ref`; every caller-supplied path, branch, and message remains one argv value.
+The first release supports repository discovery, Git version, current branch and HEAD, staged/unstaged/untracked status, local branches, working and staged diffs, stage/unstage, commit, amend, push to `origin`, rebase-then-push sync, branch creation, and branch switching. Status uses porcelain v2 with NUL path separators; branches use `for-each-ref`; every caller-supplied path, branch, and message remains one argv value.
 
 Discard reverts one unstaged or untracked path through `git checkout --` / `git clean -f --` and is destructive: the Client always asks for a second, explicit confirmation before sending the RPC, and the surface names the path in the confirm body.
 
@@ -158,7 +158,7 @@ Commit history is read with a paged `git log` (`GIT_LOG_FORMAT`, one commit per 
 
 Commit message generation is opt-in: when `commitMessage` is configured and the host provides the LLM runtime, a staged diff (capped by `commitMessage.maxDiffBytes`) is sent to the configured provider route and the streamed suggestion is written into the editable commit message input. Generation is suggestion-only — it never stages, commits, or pushes anything.
 
-GitHub authentication, remotes, fetch/pull/push UX, issues, pull requests, stash, rebase, cherry-pick, merge-conflict editing, and credential management are outside this package.
+GitHub authentication, hosting-provider workflows, credential prompts, issues, pull requests, stash, cherry-pick, and merge-conflict editing remain outside this package. Push and sync invoke `git push` / `git pull --rebase` as separate argv values and surface Git's own errors when remotes or credentials are missing.
 
 <a id="npm-publication"></a>
 ## npm publication
@@ -188,7 +188,7 @@ None. The package does not add, replace, or retain model-request tokens.
 
 ## Known Limitations and Deferred Work
 
-- **Local repositories only** — all operations run through the configured DSH subprocess execution world; remote repository and hosting-provider workflows are not implemented.
+- **No credential UI** — push and sync call Git with no prompt for remotes or credentials; a missing `origin` or rejected auth fails as a Git command error.
 - **Bounded command output** — a diff larger than `maxOutputBytes` retains only the subprocess collector's tail, so deployments handling very large diffs must raise that validated setting.
 - **Generation needs host + config** — commit message generation requires a host LLM runtime and a `commitMessage` configuration section; without either, the Generate action stays disabled or reports `git/generation-unavailable`.
 - **Launcher card copy is English** — the two Launcher cards contributed by this plugin ship their own English labels; they are not yet localized through the locale service.
