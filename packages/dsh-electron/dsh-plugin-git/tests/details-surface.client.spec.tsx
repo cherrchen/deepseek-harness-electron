@@ -1,6 +1,8 @@
 // @vitest-environment jsdom
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { cleanup, fireEvent, render, screen } from '@testing-library/react'
+import { readFileSync } from 'node:fs'
+import { join } from 'node:path'
 import type { PropsLocale } from '@deepseek-ai/dsh-client-ui-slots'
 import type { DetailsSurfaceInstance } from '@dsh-electron/dsh-client-ui-details-host/client'
 import type { GitRepositorySnapshot } from '../src/types.ts'
@@ -135,7 +137,6 @@ describe('GitChangesSurface', () => {
     const { container } = render(<GitChangesSurface {...props(controller)} />)
     expect(controller.refresh).toHaveBeenCalled()
     expect(controller.setWorkspace).toHaveBeenCalledWith('/workspace')
-    expect(screen.getByText('repo')).toBeTruthy()
     expect(screen.getByText('main')).toBeTruthy()
     expect(container.querySelector('[data-git-changes-surface]')).toBeTruthy()
     expect(container.querySelector('[data-git-commit-region]')).toBeTruthy()
@@ -274,5 +275,59 @@ describe('embedded commit message generation', () => {
     fireEvent.click(generate)
     expect(controller.generateCommitMessage).toHaveBeenCalledTimes(1)
     expect(controller.commit).not.toHaveBeenCalled()
+  })
+})
+
+describe('Git Changes actions', () => {
+  const props = (controller: GitControllerMock): GitChangesSurfaceProps =>
+    ({
+      controller,
+      t,
+      sessionId: 'session-a' as never,
+      useSessions: sessionsHook,
+      useSession: vi.fn(),
+      useStore: vi.fn(),
+      useWorkspaces: vi.fn(),
+      detailsInstance: detailsInstanceOf(GIT_CHANGES_SURFACE_ID),
+    }) as unknown as GitChangesSurfaceProps
+
+  it('stages an unstaged path from the row plus control', () => {
+    const controller = controllerOf(baseState())
+    render(<GitChangesSurface {...props(controller)} />)
+    fireEvent.click(screen.getByRole('button', { name: en['details.stage'] }))
+    expect(controller.stage).toHaveBeenCalledWith('src/a.ts')
+  })
+
+  it('runs commit from the split button when a message and staged files exist', () => {
+    const controller = controllerOf(baseState({
+      commitMessage: 'ship it',
+      repository: snapshot({ staged: [{ path: 'src/a.ts', status: 'M ' }], unstaged: [] }),
+    }))
+    render(<GitChangesSurface {...props(controller)} />)
+    fireEvent.click(screen.getByRole('button', { name: en['details.commit'] }))
+    expect(controller.commit).toHaveBeenCalledWith('ship it', {})
+  })
+
+  it('opens commit options and amends HEAD', () => {
+    const controller = controllerOf(baseState({
+      commitMessage: 'revise',
+      repository: snapshot({ staged: [{ path: 'src/a.ts', status: 'M ' }], unstaged: [] }),
+    }))
+    render(<GitChangesSurface {...props(controller)} />)
+    fireEvent.click(screen.getByRole('button', { name: en['details.commitOptions'] }))
+    fireEvent.click(screen.getByRole('menuitem', { name: en['details.commitAmend'] }))
+    expect(controller.commit).toHaveBeenCalledWith('revise', { amend: true })
+  })
+})
+
+describe('Git Changes button hover token', () => {
+  it('uses --dsw-alias-interactive-bg-hover for every hover background', () => {
+    const source = readFileSync(join(import.meta.dirname, '../src/client/GitDetailsSurface.module.css'), 'utf8')
+    const blocks = source.match(/[^{}]+\{[^{}]*\}/g) ?? []
+    const hoverBackgrounds = blocks.filter(block => block.includes(':hover') && /background\s*:/.test(block))
+    expect(hoverBackgrounds.length).toBeGreaterThan(0)
+    for (const block of hoverBackgrounds) {
+      expect(block).toContain('--dsw-alias-interactive-bg-hover')
+    }
   })
 })

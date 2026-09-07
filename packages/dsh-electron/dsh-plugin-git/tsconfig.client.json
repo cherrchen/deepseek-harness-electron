@@ -33,7 +33,10 @@
     "src/client/surfaces/GitChangesSurface.tsx",
     "src/client/surfaces/GitDiffSurface.tsx",
     "src/client/surfaces/GitGraphSurface.tsx",
-    "src/client/details/CommitRegion.tsx"
+    "src/client/details/CommitRegion.tsx",
+    "src/client/details/GitIconButton.tsx",
+    "src/client/details/GitActionIcons.tsx",
+    "src/client/status-letter.ts"
   ],
   "references": [
     {

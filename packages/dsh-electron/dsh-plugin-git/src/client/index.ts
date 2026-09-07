@@ -49,7 +49,7 @@ export {
   type GitDiffPayload,
   type GitGraphPayload,
 } from './contract.ts'
-export type { GitDesktopCapability } from './controller.ts'
+export type { GitCommitFollowUp, GitCommitOptions, GitDesktopCapability } from './controller.ts'
 
 export const inject = ['slots', 'connection', 'locale', 'shellDetails']
 

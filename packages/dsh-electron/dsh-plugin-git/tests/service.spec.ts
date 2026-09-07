@@ -1,5 +1,5 @@
 import { execFileSync } from 'node:child_process'
-import { chmodSync, mkdtempSync, readFileSync, realpathSync, writeFileSync } from 'node:fs'
+import { chmodSync, existsSync, mkdtempSync, readFileSync, realpathSync, writeFileSync } from 'node:fs'
 import { rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
@@ -214,6 +214,36 @@ describe('portable Git service', () => {
 
       const snapshot = await git.status(root)
       expect(snapshot.unstaged.map(change => change.path)).toEqual(['conflict.txt'])
+    } finally {
+      await dispose()
+    }
+  })
+
+  it('amends HEAD, pushes to a bare origin, and discards an untracked path', async () => {
+    const { dispose, git } = await service()
+    try {
+      const root = repository()
+      writeFileSync(join(root, 'tracked.txt'), 'changed\n')
+      await git.stage(root, 'tracked.txt')
+      await git.commit(root, 'first change')
+      writeFileSync(join(root, 'tracked.txt'), 'changed again\n')
+      await git.stage(root, 'tracked.txt')
+      await git.commit(root, 'amended', undefined, true)
+      const log = await git.log(root, 10, 0)
+      expect(log.map(commit => commit.subject)).toEqual(['amended', 'initial'])
+
+      const bare = mkdtempSync(join(tmpdir(), 'dsh-plugin-git-bare-'))
+      roots.push(bare)
+      execFileSync('git', ['init', '--bare'], { cwd: bare })
+      execFileSync('git', ['remote', 'add', 'origin', bare], { cwd: root })
+      await git.push(root)
+      const remoteLog = execFileSync('git', ['-C', bare, 'log', '--format=%s'], { encoding: 'utf8' })
+      expect(remoteLog).toContain('amended')
+
+      writeFileSync(join(root, 'scratch.txt'), 'temp\n')
+      expect(existsSync(join(root, 'scratch.txt'))).toBe(true)
+      await git.discard(root, 'scratch.txt', undefined, 'untracked')
+      expect(existsSync(join(root, 'scratch.txt'))).toBe(false)
     } finally {
       await dispose()
     }

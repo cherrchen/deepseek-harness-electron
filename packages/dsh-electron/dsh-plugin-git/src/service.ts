@@ -123,22 +123,73 @@ export class GitService {
    * @param signal - Optional command cancellation signal.
    * @returns Repository snapshot after the commit.
    */
-  async commit(repository: string, message: string, signal?: AbortSignal): Promise<GitRepositorySnapshot> {
+  /**
+   * Commit the staged index with a non-empty message.
+   * @param repository - Repository working directory.
+   * @param message - Commit message passed as one argv value.
+   * @param signal - Optional command cancellation signal.
+   * @param amend - When true, rewrite HEAD instead of creating a new commit.
+   * @returns Repository snapshot after the commit.
+   */
+  async commit(repository: string, message: string, signal?: AbortSignal, amend = false): Promise<GitRepositorySnapshot> {
     const normalized = message.trim()
     if (normalized.length === 0) throw new Error('commit message must not be empty')
-    await this.run(repository, ['commit', '-m', normalized], signal)
+    await this.run(
+      repository,
+      amend ? ['commit', '--amend', '-m', normalized] : ['commit', '-m', normalized],
+      signal,
+    )
     return this.status(repository, signal)
   }
 
   /**
-   * Discard unstaged working-tree changes of one tracked path, or of every
-   * tracked path when omitted. Destructive: callers confirm before invoking.
+   * Push the current branch to `origin`, creating upstream tracking on first push.
    * @param repository - Repository working directory.
-   * @param path - Optional repository-relative tracked path.
    * @param signal - Optional command cancellation signal.
+   * @returns Repository snapshot after the push.
+   */
+  async push(repository: string, signal?: AbortSignal): Promise<GitRepositorySnapshot> {
+    await this.run(repository, ['push', '--set-upstream', 'origin', 'HEAD'], signal)
+    return this.status(repository, signal)
+  }
+
+  /**
+   * Rebase the current branch onto its upstream, then push.
+   * @param repository - Repository working directory.
+   * @param signal - Optional command cancellation signal.
+   * @returns Repository snapshot after the sync.
+   */
+  async sync(repository: string, signal?: AbortSignal): Promise<GitRepositorySnapshot> {
+    await this.run(repository, ['pull', '--rebase', '--autostash'], signal)
+    await this.run(repository, ['push'], signal)
+    return this.status(repository, signal)
+  }
+
+  /**
+   * Discard working-tree, HEAD, or untracked content. Destructive: callers
+   * confirm before invoking.
+   * @param repository - Repository working directory.
+   * @param path - Optional repository-relative path. Required for `head` and `untracked`.
+   * @param signal - Optional command cancellation signal.
+   * @param mode - `worktree` restores the index, `head` restores HEAD, `untracked` deletes the path.
    * @returns Repository snapshot after the discard.
    */
-  async discard(repository: string, path?: string, signal?: AbortSignal): Promise<GitRepositorySnapshot> {
+  async discard(
+    repository: string,
+    path?: string,
+    signal?: AbortSignal,
+    mode: 'worktree' | 'head' | 'untracked' = 'worktree',
+  ): Promise<GitRepositorySnapshot> {
+    if (mode === 'untracked') {
+      if (path === undefined) throw new Error('untracked discard requires a path')
+      await this.run(repository, ['clean', '-f', '--', path], signal)
+      return this.status(repository, signal)
+    }
+    if (mode === 'head') {
+      if (path === undefined) throw new Error('HEAD discard requires a path')
+      await this.run(repository, ['checkout', 'HEAD', '--', path], signal)
+      return this.status(repository, signal)
+    }
     await this.run(repository, path === undefined ? ['checkout', '--', '.'] : ['checkout', '--', path], signal)
     return this.status(repository, signal)
   }

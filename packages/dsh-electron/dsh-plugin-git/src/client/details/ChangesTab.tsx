@@ -3,7 +3,7 @@ import type { GitRepositorySnapshot } from '../../types.ts'
 import type { GitClientController } from '../controller.ts'
 import type { GitLocaleKey } from '../locales.ts'
 import { changedPathCount } from '../changed-path-count.ts'
-import { BulkActions, ChangeSection } from './ChangeSection.tsx'
+import { ChangeSection } from './ChangeSection.tsx'
 import css from '../GitDetailsSurface.module.css'
 
 /** Render the Changes tab with staged, unstaged, and untracked sections. */
@@ -21,36 +21,45 @@ export function ChangesTab({ repository, controller, t, loading, error }: {
       {clean && <p className={css.empty}>{t('details.clean')}</p>}
       <ChangeSection
         title={t('details.staged')}
+        kind="staged"
         changes={repository.staged}
-        action={t('details.unstage')}
+        toggleLabel={t('details.unstage')}
+        toggleAllLabel={t('details.unstageAll')}
         onSelect={(path) => { controller.openDiff(path, true) }}
-        onAction={(path) => { void controller.unstage(path) }}
-      />
-      <ChangeSection
-        title={t('details.unstaged')}
-        changes={repository.unstaged}
-        action={t('details.stage')}
-        onSelect={(path) => { controller.openDiff(path, false) }}
-        onAction={(path) => { void controller.stage(path) }}
-        onDiscard={(path) => { void controller.discard(path) }}
+        onToggle={(path) => { void controller.unstage(path) }}
+        onToggleAll={() => { void controller.unstage() }}
+        onDiscard={(path) => { void controller.discard(path, 'head') }}
         discardLabel={t('details.discard')}
         discardConfirmLabel={t('details.discardConfirm')}
       />
       <ChangeSection
-        title={t('details.untracked')}
-        changes={repository.untracked.map(path => ({ path, status: '??' }))}
-        action={t('details.stage')}
+        title={t('details.unstaged')}
+        kind="unstaged"
+        changes={repository.unstaged}
+        toggleLabel={t('details.stage')}
+        toggleAllLabel={t('details.stageAll')}
         onSelect={(path) => { controller.openDiff(path, false) }}
-        onAction={(path) => { void controller.stage(path) }}
+        onToggle={(path) => { void controller.stage(path) }}
+        onToggleAll={() => { void controller.stage() }}
+        onDiscard={(path) => { void controller.discard(path) }}
+        onDiscardAll={() => { void controller.discard() }}
+        discardLabel={t('details.discard')}
+        discardConfirmLabel={t('details.discardConfirm')}
+        discardAllLabel={t('details.discardAll')}
       />
-      {!clean && (
-        <BulkActions
-          stageAllLabel={t('details.stageAll')}
-          unstageAllLabel={t('details.unstageAll')}
-          onStageAll={() => { void controller.stage() }}
-          onUnstageAll={() => { void controller.unstage() }}
-        />
-      )}
+      <ChangeSection
+        title={t('details.untracked')}
+        kind="untracked"
+        changes={repository.untracked.map(path => ({ path, status: '??' }))}
+        toggleLabel={t('details.stage')}
+        toggleAllLabel={t('details.stageAll')}
+        onSelect={(path) => { controller.openDiff(path, false) }}
+        onToggle={(path) => { void controller.stage(path) }}
+        onToggleAll={() => { void controller.stage() }}
+        onDiscard={(path) => { void controller.discard(path, 'untracked') }}
+        discardLabel={t('details.discard')}
+        discardConfirmLabel={t('details.discardConfirm')}
+      />
       {loading && <p className={css.loadingHint}>{t('details.loading')}</p>}
     </div>
   )
