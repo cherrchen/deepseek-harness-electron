@@ -158,4 +158,66 @@ describe('Git client lifecycle', () => {
     await fiber.dispose()
     expect(registrations.some(entry => entry.name === 'settings.plugin.item')).toBe(false)
   })
+
+  it('loads the model catalog through remote.session.modelCatalog', async () => {
+    const ctx = new Context()
+    const registrations: Array<{ name?: string; inject?: () => { controller: { setMode: (mode: 'inherit' | 'custom') => void; getSnapshot: () => { catalogStatus: string } } } }> = []
+    ctx.provide('slots', {
+      inject: (_name: string, callback: () => unknown) => ctx.effect(() => callback() as () => void),
+      register: (entry: { name?: string; inject?: () => { controller: { setMode: (mode: 'inherit' | 'custom') => void; getSnapshot: () => { catalogStatus: string } } } }) => {
+        registrations.push(entry)
+        return () => { registrations.splice(registrations.indexOf(entry), 1) }
+      },
+    } as never)
+    ctx.provide('connection', { rpc: { call: vi.fn() } } as never)
+    ctx.provide('locale', {
+      register: () => () => {},
+      bind: () => (key: string) => key,
+      subscribe: () => () => {},
+    } as never)
+    ctx.provide('shellDetails', {
+      open: vi.fn(),
+      registerSurface: vi.fn(() => () => {}),
+      registerLauncher: vi.fn(() => () => {}),
+    } as never)
+    ctx.provide('settingsScope', {
+      bind: () => ({
+        getSnapshot: () => ({
+          status: 'ready',
+          value: {},
+          base: {},
+          user: {},
+          revision: 0,
+          writable: true,
+          mode: 'host',
+        }),
+        subscribe: () => () => {},
+        mutate: vi.fn(async () => {}),
+        set: vi.fn(async () => {}),
+        unset: vi.fn(async () => {}),
+      }),
+    } as never)
+    const session = {
+      token: 'bound',
+      modelCatalog() {
+        expect(this.token).toBe('bound')
+        return Promise.resolve({
+          ok: true as const,
+          value: {
+            groups: [{ id: 'deepseek', name: 'DeepSeek', models: [{ id: 'chat', name: 'Chat' }] }],
+            failures: [],
+          },
+        })
+      },
+    }
+    ctx.provide('remote.session', session)
+    const fiber = ctx.plugin({ inject, apply })
+    await fiber.await()
+    const card = registrations.find(entry => entry.name === 'settings.plugin.item')
+    card?.inject?.().controller.setMode('custom')
+    await vi.waitFor(() => {
+      expect(card?.inject?.().controller.getSnapshot().catalogStatus).toBe('ready')
+    })
+    await fiber.dispose()
+  })
 })

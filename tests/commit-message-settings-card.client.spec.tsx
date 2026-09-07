@@ -9,6 +9,7 @@ import {
 } from '../src/client/settings/commit-message-card-controller.ts'
 import { CommitMessageSettingsCard } from '../src/client/settings/CommitMessageSettingsCard.tsx'
 import { en } from '../src/client/locales.ts'
+import { zh } from '../src/client/locales.ts'
 
 afterEach(() => {
   cleanup()
@@ -52,6 +53,10 @@ function ready(overrides: Partial<CommitMessageSettingsCardState> = {}): CommitM
 }
 
 describe('CommitMessageSettingsCard', () => {
+  it('uses the same discard copy as other plugin configuration cards', () => {
+    expect(zh['settings.discard']).toBe('放弃修改')
+    expect(en['settings.discard']).toBe('Discard')
+  })
   it('renders nothing while the namespace is unavailable', () => {
     const { container } = render(
       <CommitMessageSettingsCard
@@ -90,6 +95,7 @@ describe('CommitMessageSettingsCard', () => {
     expect(controller.setSystemPrompt).toHaveBeenCalledWith('Be terse.')
     fireEvent.click(screen.getByRole('button', { name: en['settings.save'] }))
     expect(controller.save).toHaveBeenCalled()
+    expect(screen.getByRole('button', { name: en['settings.discard'] })).toBeTruthy()
   })
 
   it('falls back to typed provider and model ids when the catalog is empty', () => {
