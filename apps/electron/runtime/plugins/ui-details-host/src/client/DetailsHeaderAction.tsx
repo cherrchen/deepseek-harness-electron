@@ -1,5 +1,5 @@
 /**
- * Details Host header action primitive: one 28px round icon button with the
+ * Details Host header action primitive: one 28px rounded icon button with the
  * shared hover/focus feedback and a host-styled tooltip. Plugins contributing
  * to `shell.details.header.actions` render these instead of bespoke buttons so
  * every plugin's actions share size, radius, and spacing. `label` is the
@@ -17,7 +17,7 @@ export interface DetailsHeaderActionProps {
   label: string
   /** Invoked on click. */
   onTrigger: () => void
-  /** Disables the button; the tooltip stays suppressed while disabled. */
+  /** Disables activation while preserving the hover/focus hint. */
   disabled?: boolean
 }
 
@@ -28,12 +28,12 @@ export interface DetailsHeaderActionProps {
  */
 export function DetailsHeaderAction({ icon, label, onTrigger, disabled }: DetailsHeaderActionProps): ReactNode {
   return (
-    <Tooltip label={label} side="bottom" delayMs={500} disabled={disabled ?? false}>
+    <Tooltip label={label} side="bottom" delayMs={500}>
       <button
         type="button"
         className={css.headerAction}
-        onClick={onTrigger}
-        disabled={disabled}
+        onClick={disabled ? undefined : onTrigger}
+        aria-disabled={disabled || undefined}
         aria-label={label}
       >
         {icon}

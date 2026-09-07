@@ -22,7 +22,7 @@
   box-sizing: border-box;
   min-width: 0;
   height: var(--app-header-height, 45px);
-  padding: 8px 8px 0;
+  padding: 8px 8px 5px;
   border-bottom: 1px solid transparent;
   overflow: hidden;
 }
@@ -49,12 +49,6 @@
   padding-top: max(8px, var(--dsh-native-control-row-height, 40px));
 }
 
-/*
- * Tabs sit flush on the divider (active tab merges into the body below) and
- * shrink under pressure: flex-shrink + min-width: 0 let the label ellipsis
- * while the close button stays; the round buttons carry the same 28px height
- * and bottom alignment, so label / close / + share one centerline.
- */
 .tabWrap {
   position: relative;
   z-index: 1;
@@ -64,14 +58,13 @@
   min-width: 0;
   max-width: 180px;
   border: 1px solid transparent;
-  border-bottom: none;
-  border-radius: 8px 8px 0 0;
+  border-radius: 8px;
   color: var(--dsw-alias-label-secondary);
 }
 
 .tabWrap[data-active] {
-  background: var(--dsw-alias-bg-base);
-  border-color: var(--dsw-alias-border-l3);
+  background: var(--dsw-alias-fill-hover);
+  border-color: var(--dsw-alias-border-brand, var(--dsw-alias-border-l2));
   color: var(--dsw-alias-label-primary);
 }
 
@@ -93,7 +86,7 @@
 .tab:focus-visible {
   outline: 2px solid var(--dsw-alias-border-brand, var(--dsw-alias-border-l2));
   outline-offset: -2px;
-  border-radius: 8px 8px 0 0;
+  border-radius: 8px;
 }
 
 .tabLabel {
@@ -112,7 +105,7 @@
   height: 24px;
   padding: 0;
   border: none;
-  border-radius: 999px;
+  border-radius: 6px;
   background: transparent;
   color: inherit;
   cursor: pointer;
@@ -131,7 +124,7 @@
   height: 28px;
   padding: 0;
   border: none;
-  border-radius: 999px;
+  border-radius: 6px;
   background: transparent;
   color: var(--dsw-alias-label-secondary);
   cursor: pointer;
@@ -149,12 +142,29 @@
   outline-offset: -2px;
 }
 
-.tabbarTrailing {
+.hostActions {
   display: flex;
   flex: none;
   align-items: center;
   gap: 4px;
   margin-left: auto;
+}
+
+.headerAction[aria-disabled="true"] {
+  color: var(--dsw-alias-label-tertiary);
+  cursor: default;
+}
+
+.tabWrap:hover {
+  background: var(--dsw-alias-fill-hover);
+}
+
+.tabbarTrailing {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: 4px;
+
 }
 
 .body {
@@ -203,12 +213,14 @@
   max-width: 420px;
 }
 
-.card {
+.launcherGrid .card {
   display: flex;
   flex-direction: column;
   align-items: center;
   gap: 4px;
   width: 124px;
+  height: auto;
+  white-space: normal;
   padding: 14px 10px;
   border: 1px solid var(--dsw-alias-border-l2);
   border-radius: 10px;

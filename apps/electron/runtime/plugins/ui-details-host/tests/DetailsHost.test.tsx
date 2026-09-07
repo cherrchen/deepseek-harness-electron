@@ -399,8 +399,31 @@ describe('DetailsHeaderAction', () => {
     const onTrigger = vi.fn()
     render(<DetailsHeaderAction icon={<span />} label="Reveal" onTrigger={onTrigger} disabled />)
     const button = screen.getByRole('button', { name: 'Reveal' }) as HTMLButtonElement
-    expect(button.disabled).toBe(true)
+    expect(button.getAttribute('aria-disabled')).toBe('true')
     fireEvent.click(button)
     expect(onTrigger).not.toHaveBeenCalled()
+  })
+})
+
+
+describe('Details Host hints', () => {
+  it('shows the full tab label and close hint on keyboard focus', () => {
+    const active = instance()
+    render(<DetailsHost {...props(state({ tabs: [active], activeInstance: active }))} />)
+    const tab = screen.getByRole('tab', { name: 'Alpha' })
+    fireEvent.focus(tab)
+    expect(screen.getByRole('tooltip').textContent).toBe('Alpha')
+    fireEvent.blur(tab)
+    fireEvent.focus(screen.getByRole('button', { name: 'Close Alpha' }))
+    expect(screen.getByRole('tooltip').textContent).toBe('Close Alpha')
+  })
+
+  it('keeps the reserved file manager action inert and explains availability', () => {
+    const active = instance()
+    render(<DetailsHost {...props(state({ tabs: [active], activeInstance: active }))} />)
+    const button = screen.getByRole('button', { name: 'Open in file manager' })
+    expect(button.getAttribute('aria-disabled')).toBe('true')
+    fireEvent.focus(button)
+    expect(screen.getByRole('tooltip').textContent).toBe(en['actions.openFolderPending'])
   })
 })

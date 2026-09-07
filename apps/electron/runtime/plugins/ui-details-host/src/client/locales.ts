@@ -15,6 +15,8 @@ export type DetailsToggleKey =
   | 'tabs.aria'
   | 'tab.open'
   | 'tab.close'
+  | 'actions.openFolder'
+  | 'actions.openFolderPending'
 
 /** English dictionary. */
 export const en: Record<DetailsToggleKey, string> = {
@@ -27,6 +29,8 @@ export const en: Record<DetailsToggleKey, string> = {
   'tabs.aria': 'Details tabs',
   'tab.open': 'Open a tab',
   'tab.close': 'Close {label}',
+  'actions.openFolder': 'Open in file manager',
+  'actions.openFolderPending': 'Open in file manager (not connected yet)',
 }
 
 /** Chinese dictionary. */
@@ -40,6 +44,8 @@ export const zh: Record<DetailsToggleKey, string> = {
   'tabs.aria': '详情标签页',
   'tab.open': '打开标签页',
   'tab.close': '关闭 {label}',
+  'actions.openFolder': '在文件管理器中打开',
+  'actions.openFolderPending': '在文件管理器中打开（暂未接入）',
 }
 
 declare module '@deepseek-ai/dsh-client-ui-slots' {

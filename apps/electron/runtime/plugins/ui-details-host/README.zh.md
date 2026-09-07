@@ -38,6 +38,8 @@ Client 半通过 package 的 `exports["./client"]` 入口解析。Peer 依赖（
 
 ## 用户体验
 
+标签页使用圆角以及主题变量定义的背景和边框。启动器卡片复用 DSH outline Button；标签页、关闭和新增按钮、卡片以及详情栏开关均提供原生 DSH 悬停／聚焦提示。Host 拥有独立的右侧工具栏，当前仅包含文件管理器按钮的禁用预留位及可用性提示，尚未接入文件管理器功能。`shell.details.header.actions` 插槽已废弃，但仍渲染现有贡献；新增 Host 按钮应在 Host 工具栏内实现。
+
 加载 Details Host 不会打开详情栏。在消费者调用 `ctx.shellDetails.open()` 或用户从会话头部的开关打开 Dock 之前，上游 DetailsPanel 仍保持可见。
 
 Dock 接管后，栏位 chrome 是一个标签栏加 surface 主体。每次 `open()` 会创建或复用一个标签页，标签页可单独关闭（`+` 按钮打开 Launcher），Dock 保持 mounted 直到 Details Host 自身被卸载。关闭最后一个标签页会显示 Launcher 而不是恢复上游面板。隐藏 Dock（头部开关）会保留标签页与 Launcher 状态；再次显示时会原样恢复。

@@ -38,6 +38,8 @@ The Client half resolves through the package `exports["./client"]` entry. Peer d
 
 ## User experience
 
+Tabs use rounded, theme-token backgrounds and borders. Launcher cards reuse the DSH outline Button; tabs, close/add controls, cards, and the dock toggle show native DSH hover/focus hints. The Host owns a separate trailing toolbar, currently containing an inert file-manager button with an availability hint. File-manager integration is not connected. The `shell.details.header.actions` slot is deprecated but still renders existing contributions; new Host controls should be implemented in the Host toolbar.
+
 Loading Details Host does not open the details column. The upstream DetailsPanel remains visible until a consumer calls `ctx.shellDetails.open()` or the user toggles the dock from the conversation header.
 
 Once the dock takes over, the column chrome is a tab bar plus a surface body. Every `open()` creates or reuses a tab, tabs close individually (a `+` button opens the Launcher), and the dock stays mounted until Details Host itself unloads. Closing the last tab reveals the Launcher instead of restoring the upstream panel. Hiding the dock (header toggle) preserves tabs and Launcher state; showing it again re-materializes them.
