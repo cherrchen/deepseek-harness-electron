@@ -234,7 +234,7 @@ describe('portable Git service', () => {
 
       const bare = mkdtempSync(join(tmpdir(), 'dsh-plugin-git-bare-'))
       roots.push(bare)
-      execFileSync('git', ['init', '--bare'], { cwd: bare })
+      execFileSync('git', ['init', '--bare', '-b', 'main'], { cwd: bare })
       execFileSync('git', ['remote', 'add', 'origin', bare], { cwd: root })
       await git.push(root)
       const remoteLog = execFileSync('git', ['-C', bare, 'log', '--format=%s'], { encoding: 'utf8' })
