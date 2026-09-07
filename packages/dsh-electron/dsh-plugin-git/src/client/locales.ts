@@ -167,7 +167,7 @@ export const zh: Record<keyof typeof en, string> = {
   'settings.readOnly': '当前部署以只读方式存储设置。',
   'settings.save': '保存',
   'settings.saving': '正在保存…',
-  'settings.discard': '丢弃',
+  'settings.discard': '放弃修改',
   'settings.saveFailed': '部署未接受这些值，已保留供你修改。',
   'settings.model': '模型',
   'settings.modelHint': '继承使用当前会话模型。自定义会将生成发送到指定的 provider 路由。',

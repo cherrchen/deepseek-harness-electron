@@ -304,18 +304,28 @@ export class CommitMessageSettingsCardController {
   }
 
   private async ensureCatalog(): Promise<void> {
-    if (this.disposed || this.loadCatalog === undefined || this.catalogStatus === 'loading') return
+    if (this.disposed || this.catalogStatus === 'loading') return
+    if (this.loadCatalog === undefined) {
+      this.catalogStatus = 'error'
+      this.publish()
+      return
+    }
     const generation = this.catalogGeneration
     this.catalogStatus = 'loading'
     this.publish()
-    const loaded = await this.loadCatalog()
-    if (this.disposed || generation !== this.catalogGeneration) return
-    if (loaded === undefined) {
+    try {
+      const loaded = await this.loadCatalog()
+      if (this.disposed || generation !== this.catalogGeneration) return
+      if (loaded === undefined) {
+        this.catalogStatus = 'error'
+      } else {
+        this.catalogGroups = loaded.groups
+        this.catalogPartial = loaded.partial
+        this.catalogStatus = 'ready'
+      }
+    } catch {
+      if (this.disposed || generation !== this.catalogGeneration) return
       this.catalogStatus = 'error'
-    } else {
-      this.catalogGroups = loaded.groups
-      this.catalogPartial = loaded.partial
-      this.catalogStatus = 'ready'
     }
     this.publish()
   }
@@ -384,7 +394,9 @@ export class CommitMessageSettingsCardController {
       available: snapshot.status === 'ready',
       writable: snapshot.writable,
       dirty: this.dirty(),
-      invalid: mode === 'custom' && (provider.trim() === '' || model.trim() === ''),
+      invalid: mode === 'custom'
+        && this.catalogStatus !== 'loading'
+        && (provider.trim() === '' || model.trim() === ''),
       saving: this.saving,
       failed: this.failed,
       mode,

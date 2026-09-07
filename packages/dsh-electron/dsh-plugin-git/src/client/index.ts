@@ -142,17 +142,14 @@ export function apply(ctx: ClientContext): void {
 
   ctx.inject(['settingsScope'], (settingsCtx) => {
     const loadCatalog: CommitMessageCatalogLoader = async () => {
-      const remote = settingsCtx.get('remote') as {
-        session?: {
-          modelCatalog: () => Promise<
-            | { ok: true; value: { groups: readonly CommitMessageCatalogGroup[]; failures: readonly unknown[] } }
-            | { ok: false }
-          >
-        }
+      const session = settingsCtx.get('remote.session') as {
+        modelCatalog?: () => Promise<
+          | { ok: true; value: { groups: readonly CommitMessageCatalogGroup[]; failures: readonly unknown[] } }
+          | { ok: false }
+        >
       } | undefined
-      const catalog = remote?.session?.modelCatalog
-      if (catalog === undefined) return undefined
-      const response = await catalog()
+      if (session?.modelCatalog === undefined) return undefined
+      const response = await session.modelCatalog()
       if (!response.ok) return undefined
       return { groups: response.value.groups, partial: response.value.failures.length > 0 }
     }

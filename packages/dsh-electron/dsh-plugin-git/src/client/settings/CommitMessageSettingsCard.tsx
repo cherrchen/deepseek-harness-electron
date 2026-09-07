@@ -141,10 +141,12 @@ export function CommitMessageSettingsCard(props: CommitMessageSettingsCardProps)
                         ))}
                       </select>
                     )
-                    : state.catalogStatus === 'ready'
+                    : state.catalogStatus === 'ready' || state.catalogStatus === 'error'
                       ? (
                         <>
-                          <p className={css.notice}>{t('settings.catalogEmpty')}</p>
+                          {state.catalogStatus === 'ready'
+                            ? <p className={css.notice}>{t('settings.catalogEmpty')}</p>
+                            : null}
                           <label className={css.label} htmlFor="git-commit-message-provider">{t('settings.provider')}</label>
                           <input
                             id="git-commit-message-provider"

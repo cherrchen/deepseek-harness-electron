@@ -158,6 +158,25 @@ describe('CommitMessageSettingsCardController', () => {
     subject.dispose()
   })
 
+  it('settles a rejected catalog load as an error instead of spinning', async () => {
+    const host = fakeScope()
+    const subject = new CommitMessageSettingsCardController(host.scope, async () => {
+      throw new Error('catalog exploded')
+    })
+    subject.setMode('custom')
+    await vi.waitFor(() => { expect(subject.getSnapshot().catalogStatus).toBe('error') })
+    expect(subject.getSnapshot().invalid).toBe(true)
+    subject.dispose()
+  })
+
+  it('treats a missing catalog loader as an error rather than leaving loading idle', () => {
+    const host = fakeScope()
+    const subject = new CommitMessageSettingsCardController(host.scope)
+    subject.setMode('custom')
+    expect(subject.getSnapshot().catalogStatus).toBe('error')
+    subject.dispose()
+  })
+
   it('refuses to save custom without both halves of the route', async () => {
     const host = fakeScope()
     const subject = new CommitMessageSettingsCardController(host.scope)
