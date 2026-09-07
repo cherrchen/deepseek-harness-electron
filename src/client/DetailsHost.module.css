@@ -62,7 +62,7 @@
   border: 1px solid transparent;
   border-radius: 8px;
   color: var(--dsw-alias-label-secondary);
-  transition: background-color 120ms ease, box-shadow 120ms ease;
+  transition: background-color 120ms ease;
 }
 
 .tabWrap[data-active] {
@@ -131,15 +131,7 @@
   background: transparent;
   color: var(--dsw-alias-label-secondary);
   cursor: pointer;
-}
-
-.addTab {
-  transition: background-color 120ms ease, box-shadow 120ms ease;
-}
-
-.addTab:hover,
-.headerAction:hover {
-  background: var(--dsw-alias-fill-hover);
+  transition: background-color 120ms ease;
 }
 
 .tabClose:focus-visible,
@@ -163,9 +155,9 @@
 }
 
 .tabWrap:hover,
-.addTab:hover {
+.addTab:hover,
+.headerAction:hover {
   background: var(--dsw-alias-fill-hover);
-  box-shadow: var(--dsw-shadow-lv2);
 }
 
 .tabbarTrailing {

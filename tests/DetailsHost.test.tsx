@@ -377,9 +377,13 @@ describe('DetailsHost responsive tab strip contract', () => {
     expect(CSS_SOURCE).not.toMatch(/\.addTab[^{]*\{[^}]*margin-bottom/)
   })
 
-  it('lifts a tab and the add control with a drop shadow on hover', () => {
-    expect(CSS_SOURCE).toMatch(/\.tabWrap:hover[^{]*\{[^}]*box-shadow: var\(--dsw-shadow-lv2\)/)
-    expect(CSS_SOURCE).toMatch(/\.addTab:hover[^{]*\{[^}]*box-shadow: var\(--dsw-shadow-lv2\)/)
+  it('fills a tab, the add control, and the folder action on hover like a launcher card', () => {
+    expect(CSS_SOURCE).toMatch(/\.tabWrap:hover[^{]*\{[^}]*background: var\(--dsw-alias-fill-hover\)/)
+    expect(CSS_SOURCE).toMatch(/\.addTab:hover[^{]*\{[^}]*background: var\(--dsw-alias-fill-hover\)/)
+    expect(CSS_SOURCE).toMatch(/\.headerAction:hover[^{]*\{[^}]*background: var\(--dsw-alias-fill-hover\)/)
+    expect(CSS_SOURCE).not.toMatch(/\.tabWrap:hover[^{]*\{[^}]*box-shadow/)
+    expect(CSS_SOURCE).not.toMatch(/\.addTab:hover[^{]*\{[^}]*box-shadow/)
+    expect(CSS_SOURCE).not.toMatch(/\.headerAction:hover[^{]*\{[^}]*box-shadow/)
   })
 })
 
