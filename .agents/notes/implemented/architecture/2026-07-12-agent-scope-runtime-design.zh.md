@@ -236,6 +236,8 @@ Scope 直接解决了真正的隔离问题。结构化输出贡献注册在子�
 
 <a id="structured-output-commits-only-authoritative-outcomes"></a>
 
+<a id="structured-output-commits-only-authoritative-outcomes"></a>
+
 ### 结构化输出仅提交权威结果
 
 结构化输出将子作用域组合与两阶段执行提交相结合。子级在发布前注册其 `structured_output` 工具和指令；可信的 assembly 监听器可以变换这些普通贡献，并有责任在期望子级完成时保持协议。工具体验证候选值并按当前 `ToolExecution` 暂存，但成功捕获仅由不可变的 `tools/result` 观察决定。
@@ -247,6 +249,8 @@ Scope 直接解决了真正的隔离问题。结构化输出贡献注册在子�
 一旦值处于待定或已提交状态，作用域单调守卫拒绝后续工具调用。成功的结构化输出执行会调用 `exec.concludeTurn()`，因此其自身不可变结果携带 `concludesTurn: true`，循环在该步骤结束工具循环。Schema 验证失败仍然是普通的 `INVALID_ARGS` 工具错误，子级可以在同一轮次内重试。
 
 纯 PTC mode 的注册表贡献从原生 wire schema 中省略 `structured_output`，并通过生成的 SDK 暴露它。Assembly waterfall 可以有意改变该展示；执行仍然针对子作用域定义进行验证，监听器拥有其创建的任何替代模型可见路由的一致性。
+
+<a id="three-execution-boundaries-are-deliberately-one-way"></a>
 
 <a id="three-execution-boundaries-are-deliberately-one-way"></a>
 
