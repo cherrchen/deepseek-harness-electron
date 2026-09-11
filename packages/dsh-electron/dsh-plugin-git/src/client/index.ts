@@ -1,20 +1,38 @@
 /** Portable Git client slots with an optional structural Desktop enhancement. */
 
-import type { ClientContext } from '@deepseek-ai/dsh-client-runtime/client'
+import type { Context as ClientContext } from '@deepseek-ai/cordis'
 import type { ConnectionHandle } from '@deepseek-ai/dsh-client-connection/client'
 import type {} from '@deepseek-ai/cordis'
 import type {} from '@deepseek-ai/dsh-client-ui-conversation/client'
 import type {} from '@deepseek-ai/dsh-client-locale/client'
+import type {} from '@deepseek-ai/dsh-client-ui-renderer/client'
+import type {} from '@deepseek-ai/dsh-client-ui-session/client'
+import type {} from '@deepseek-ai/dsh-client-ui-settings/client'
+import type {} from '@deepseek-ai/dsh-client-ui-settings-plugins/client'
 import {
-  DETAILS_HEADER_ACTIONS_SLOT,
   DETAILS_SURFACE_SLOT,
 } from '@dsh-electron/dsh-client-ui-details-host/client'
 import type {} from '@dsh-electron/dsh-client-ui-details-host/client'
 import { GitBranchControl } from './GitBranchControl.tsx'
 import { GitDetailsHeaderActions } from './GitDetailsHeaderActions.tsx'
-import { GitDetailsSurface } from './GitDetailsSurface.tsx'
+import { GitChangesSurface } from './surfaces/GitChangesSurface.tsx'
+import { GitDiffSurface } from './surfaces/GitDiffSurface.tsx'
+import { GitGraphSurface } from './surfaces/GitGraphSurface.tsx'
 import { GitClientController, type GitDesktopCapability } from './controller.ts'
-import { GIT_DETAILS_SURFACE_ID, type GitDetailsTab } from './contract.ts'
+import {
+  CommitMessageSettingsCardController,
+  GIT_COMMIT_MESSAGE_SETTINGS_NAMESPACE,
+  type CommitMessageCatalogGroup,
+  type CommitMessageCatalogLoader,
+} from './settings/commit-message-card-controller.ts'
+import { CommitMessageSettingsCard } from './settings/CommitMessageSettingsCard.tsx'
+import { createLauncherCards } from './launcher-cards.tsx'
+import {
+  GIT_CHANGES_SURFACE_ID,
+  GIT_DIFF_SURFACE_ID,
+  GIT_GRAPH_SURFACE_ID,
+  gitDiffTabKey,
+} from './contract.ts'
 import { en, NS, zh, type GitLocaleKey } from './locales.ts'
 
 declare module '@deepseek-ai/dsh-client-ui-slots' {
@@ -29,9 +47,18 @@ declare module '@deepseek-ai/cordis' {
   }
 }
 
-export { GitBranchControl, GitDetailsHeaderActions, GitDetailsSurface, GitClientController }
-export { GIT_DETAILS_SURFACE_ID, type GitDetailsTab, type GitDetailsPayload } from './contract.ts'
-export type { GitDesktopCapability } from './controller.ts'
+export { GitBranchControl, GitDetailsHeaderActions, GitChangesSurface, GitDiffSurface, GitGraphSurface, GitClientController }
+export {
+  GIT_CHANGES_SURFACE_ID,
+  GIT_DIFF_SURFACE_ID,
+  GIT_GRAPH_SURFACE_ID,
+  gitDiffTabKey,
+  type GitChangesPayload,
+  type GitDiffMode,
+  type GitDiffPayload,
+  type GitGraphPayload,
+} from './contract.ts'
+export type { GitCommitFollowUp, GitCommitOptions, GitDesktopCapability } from './controller.ts'
 
 export const inject = ['slots', 'connection', 'locale', 'shellDetails']
 
@@ -39,37 +66,109 @@ export const inject = ['slots', 'connection', 'locale', 'shellDetails']
 export function apply(ctx: ClientContext): void {
   const connection = ctx.get('connection') as ConnectionHandle
   const controller = new GitClientController(connection.rpc)
-  const openDetails = (tab: GitDetailsTab = 'changes'): void => {
-    ctx.shellDetails.open({
-      surfaceId: GIT_DETAILS_SURFACE_ID,
-      payload: { tab },
-    })
+
+  // Unified navigation: every Git entry point (composer chip, changes rows,
+  // launcher cards) converges on details.open(...) create-or-reuse tabs.
+  const openChanges = (): void => {
+    ctx.shellDetails.open({ surfaceId: GIT_CHANGES_SURFACE_ID })
   }
+  const openDiff = (path: string, staged: boolean): void => {
+    ctx.shellDetails.open({ surfaceId: GIT_DIFF_SURFACE_ID, payload: { path, staged } })
+  }
+  controller.setDiffNavigator(openDiff)
+
   ctx.effect(() => ctx.locale.register(NS, { en, zh }), 'git: dictionaries')
   ctx.effect(() => ctx.shellDetails.registerSurface({
-    id: GIT_DETAILS_SURFACE_ID,
-  }), 'git: details descriptor')
+    id: GIT_CHANGES_SURFACE_ID,
+    dedupeKey: () => `git:changes:${controller.getSnapshot().workspacePath ?? ''}`,
+  }), 'git: changes descriptor')
+  ctx.effect(() => ctx.shellDetails.registerSurface({
+    id: GIT_DIFF_SURFACE_ID,
+    dedupeKey: payload => gitDiffTabKeyOf(payload),
+  }), 'git: diff descriptor')
+  ctx.effect(() => ctx.shellDetails.registerSurface({
+    id: GIT_GRAPH_SURFACE_ID,
+    dedupeKey: () => `git:graph:${controller.getSnapshot().workspacePath ?? ''}`,
+  }), 'git: graph descriptor')
+
+  // Launcher cards resolve their copy through the bound translate function,
+  // and a locale revision change (language switch or late dictionary)
+  // rebuilds the registration so cards follow the active language.
+  ctx.effect(() => {
+    const t = ctx.locale.bind(NS)
+    let registered: readonly (() => void)[] = []
+    const register = (): void => {
+      for (const dispose of registered) dispose()
+      registered = createLauncherCards(t).map(card => ctx.shellDetails.registerLauncher(card))
+    }
+    register()
+    const unsubscribe = ctx.locale.subscribe(register)
+    return () => {
+      unsubscribe()
+      for (const dispose of registered) dispose()
+      registered = []
+    }
+  }, 'git: launcher cards')
+
   ctx.slots.inject('conversation.input.left', () => ctx.slots.register({
     name: 'conversation.input.left',
     id: 'git-context',
     locale: NS,
-    inject: () => ({ controller, openDetails }),
+    inject: () => ({ controller, openDetails: openChanges }),
   }, GitBranchControl))
-  ctx.slots.inject(DETAILS_SURFACE_SLOT, () => ctx.slots.register({
-    name: DETAILS_SURFACE_SLOT,
-    id: GIT_DETAILS_SURFACE_ID,
-    label: 'Git',
-    locale: NS,
-    inject: () => ({ controller }),
-  }, GitDetailsSurface))
-  ctx.slots.inject(DETAILS_HEADER_ACTIONS_SLOT, () => ctx.slots.register({
-    name: DETAILS_HEADER_ACTIONS_SLOT,
-    id: GIT_DETAILS_SURFACE_ID,
-    locale: NS,
-    inject: () => ({ controller }),
-  }, GitDetailsHeaderActions))
+
+  // One surface entry per Details tab; the Details Host tab bar renders them
+  // as tabs, so Git ships independent surfaces instead of a nested tab set.
+  type GitSurfaceId = typeof GIT_CHANGES_SURFACE_ID | typeof GIT_DIFF_SURFACE_ID | typeof GIT_GRAPH_SURFACE_ID
+  const surfaces: ReadonlyArray<{ id: GitSurfaceId; component: typeof GitChangesSurface }> = [
+    { id: GIT_CHANGES_SURFACE_ID, component: GitChangesSurface },
+    { id: GIT_DIFF_SURFACE_ID, component: GitDiffSurface },
+    { id: GIT_GRAPH_SURFACE_ID, component: GitGraphSurface },
+  ]
+  for (const surface of surfaces) {
+    ctx.slots.inject(DETAILS_SURFACE_SLOT, () => ctx.slots.register({
+      name: DETAILS_SURFACE_SLOT,
+      id: surface.id,
+      label: surface.id === GIT_DIFF_SURFACE_ID ? 'Diff' : surface.id === GIT_GRAPH_SURFACE_ID ? 'Git Graph' : 'Git Changes',
+      locale: NS,
+      inject: () => ({ controller }),
+    }, surface.component))
+  }
+
   ctx.inject(['desktop'], (desktopCtx) => {
     controller.setDesktop(desktopCtx.desktop)
     return () => { controller.setDesktop(undefined) }
   })
+
+  ctx.inject(['settingsScope'], (settingsCtx) => {
+    const loadCatalog: CommitMessageCatalogLoader = async () => {
+      const session = settingsCtx.get('remote.session') as {
+        modelCatalog?: () => Promise<
+          | { ok: true; value: { groups: readonly CommitMessageCatalogGroup[]; failures: readonly unknown[] } }
+          | { ok: false }
+        >
+      } | undefined
+      if (session?.modelCatalog === undefined) return undefined
+      const response = await session.modelCatalog()
+      if (!response.ok) return undefined
+      return { groups: response.value.groups, partial: response.value.failures.length > 0 }
+    }
+    const card = new CommitMessageSettingsCardController(
+      settingsCtx.settingsScope.bind({ namespace: GIT_COMMIT_MESSAGE_SETTINGS_NAMESPACE }),
+      loadCatalog,
+    )
+    settingsCtx.effect(() => () => { card.dispose() }, 'git: commit-message settings dispose')
+    settingsCtx.effect(() => settingsCtx.slots.inject('settings.plugin.item', () => settingsCtx.slots.register({
+      name: 'settings.plugin.item',
+      key: GIT_COMMIT_MESSAGE_SETTINGS_NAMESPACE,
+      locale: NS,
+      inject: () => ({ controller: card }),
+    }, CommitMessageSettingsCard)), 'git: commit-message settings card')
+  })
+}
+
+function gitDiffTabKeyOf(payload: unknown): string | undefined {
+  const request = payload as { path?: unknown; staged?: unknown }
+  if (typeof request.path !== 'string' || request.path.length === 0) return undefined
+  return gitDiffTabKey({ path: request.path, staged: request.staged === true })
 }

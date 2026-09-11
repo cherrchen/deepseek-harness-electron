@@ -109,6 +109,7 @@ export type HostStreamPortMessage =
   | { type: 'message'; data: string }
   | { type: 'close' }
   | { type: 'error'; message: string }
+  | { type: 'send'; data: string }
   | { type: 'abort' }
 
 /**
@@ -126,6 +127,14 @@ export interface HostStreamHandlers {
   onError(message: string): void
 }
 
+/** Renderer control handle for one bidirectional Host WebSocket. */
+export interface HostStreamHandle {
+  /** Send one text frame to the Host. */
+  send(data: string): void
+  /** Close the renderer side and abort the Host socket. */
+  close(): void
+}
+
 /** Unsubscribe handle returned by bridge subscriptions. */
 export type DesktopUnsubscribe = () => void
 
@@ -139,12 +148,12 @@ export interface DeepseekDesktopBridge {
     /**
      * Open a Host event stream. Preload owns the MessagePort and fans
      * {@link HostStreamPortMessage} frames into `handlers`; the returned
-     * disposer aborts the stream.
+     * handle sends client frames and aborts the stream.
      */
     openStream(
-      path: '/api/events.mux' | '/api/events.host',
+      path: '/api/remote.mux',
       handlers: HostStreamHandlers,
-    ): DesktopUnsubscribe
+    ): HostStreamHandle
   }
   app: {
     /** Packaged application version. */

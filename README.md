@@ -4,9 +4,21 @@ English | [中文](README.zh.md)
 
 DeepSeek Harness Desktop packages [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness) as a native desktop application for macOS, Windows, and Linux. It keeps the upstream Web application, agent runtime, profiles, and workspace workflow while providing an operating-system window and desktop installers.
 
+<a id="status"></a>
+
 ## Status
 
-This project and its upstream runtime are in developer preview. Releases may introduce compatibility-breaking changes.
+This project and its upstream runtime are in developer preview.
+
+### Maintenance outlook
+
+Upstream [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness) now ships a first-party Desktop application in its monorepo with foundational functionality. This Electron distribution may therefore stop receiving regular updates and move to an **archived** maintenance posture. The capability it still uniquely provides is first-class Electron desktop integration (`ctx.desktop`) for portable plugins—upstream Desktop does not expose this surface today.
+
+Select standalone plugin repositories mirrored in this monorepo may continue to receive occasional updates; version bumps will be slow and irregular.
+
+### Details panel and release `0.1.2-rc.1`
+
+Release [`0.1.2-rc.1`](https://github.com/cherrchen/deepseek-harness-electron/releases/tag/v0.1.2-rc.1) is the last version that supports and pre-installs [dsh-client-ui-details-host](https://github.com/cherrchen/dsh-client-ui-details-host). Later upstream Harness versions removed the Client Details panel, so Details Host will be archived. [dsh-plugin-git](https://github.com/cherrchen/dsh-plugin-git) is planned to migrate toward the upstream **Sidebar** extension point that replaces Details; that migration is not implemented yet.
 
 ## Install
 
@@ -40,7 +52,9 @@ Harness profiles and state live in the platform-specific application-data direct
 
 ## Bundled plugins
 
-DeepSeek Harness Desktop ships two portable DSH plugins from standalone canonical repositories. Both run unchanged in the desktop app and in a standard DSH Web host when installed separately.
+DeepSeek Harness Desktop ships three portable DSH plugins from standalone canonical repositories. They run unchanged in the desktop app and in a standard DSH Web host when installed separately.
+
+> **Note:** The table below reflects the plugin set shipped with `0.1.2-rc.1`. Details Host will not be carried forward after this release; see [Status](#status) above.
 
 | Plugin | Desktop role | Summary |
 |---|---|---|

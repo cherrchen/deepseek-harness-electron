@@ -4,6 +4,18 @@ export const DESKTOP_ENTRY_WORKSPACE_DEPENDENCIES = Object.freeze([
 ])
 
 /**
+ * Workspace packages the Electron app must retain outside the CLI production graph.
+ * @param {{ dshElectron?: { ecosystemPlugins?: string[] } }} [manifest]
+ * @returns {string[]}
+ */
+export function requiredDesktopWorkspaceDependencies(manifest = {}) {
+  return [
+    ...DESKTOP_ENTRY_WORKSPACE_DEPENDENCIES,
+    ...(manifest.dshElectron?.ecosystemPlugins ?? []),
+  ]
+}
+
+/**
  * Replace generated workspace dependencies while retaining desktop-owned registry dependencies.
  *
  * A leftover `workspace:` specifier whose package is absent from the merged

@@ -4,7 +4,7 @@ import { readdir, readFile, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import {
-  DESKTOP_ENTRY_WORKSPACE_DEPENDENCIES,
+  requiredDesktopWorkspaceDependencies,
   synchronizeDependencies,
   assertResolvedWorkspaceDependencies,
 } from './sync-version-dependencies.mjs'
@@ -72,7 +72,7 @@ const dependencies = synchronizeDependencies(
   electronManifest.dependencies,
   workspaceDependencies,
   workspaceNames,
-  DESKTOP_ENTRY_WORKSPACE_DEPENDENCIES,
+  requiredDesktopWorkspaceDependencies(electronManifest),
 )
 assertResolvedWorkspaceDependencies(dependencies, workspaceNames)
 const changed = electronManifest.version !== upstreamManifest.version

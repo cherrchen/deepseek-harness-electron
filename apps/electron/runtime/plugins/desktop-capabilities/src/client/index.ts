@@ -1,7 +1,7 @@
 /**
  * Desktop capability provider: adapts window.deepseekDesktop into ctx.desktop.
  */
-import type { ClientContext } from '@deepseek-ai/dsh-client-runtime/client'
+import type { Context as ClientContext } from '@deepseek-ai/cordis'
 import { DesktopCapabilitiesService } from './service.ts'
 
 export type { DesktopCapabilitiesContract } from './contract.ts'

@@ -29,10 +29,54 @@ export interface GitRepositorySnapshot {
   readonly branches: readonly GitBranch[]
 }
 
+/** History scope of a `git log` query. */
+export type GitLogScope =
+  /** HEAD ancestry (default `git log` behavior). */
+  | 'auto'
+  /** All refs and their ancestry (`git log --all`). */
+  | 'all'
+  /** First-parent chain of HEAD (`git log --first-parent`). */
+  | 'first-parent'
+
 /** Diff text with its normalized repository identity. */
 export interface GitDiff {
   readonly repository: string
   readonly staged: boolean
   readonly path?: string
   readonly text: string
+}
+
+/** One parsed commit from `git log`, in topological/date order. */
+export interface GitCommitSummary {
+  /** Full commit hash. */
+  readonly hash: string
+  /** Abbreviated commit hash. */
+  readonly shortHash: string
+  /** Parent hashes, oldest first; empty for a root commit. */
+  readonly parents: readonly string[]
+  /** Commit subject line. */
+  readonly subject: string
+  /** Author name. */
+  readonly author: string
+  /** Author date, ISO-8601. */
+  readonly date: string
+  /** Decorations for the commit: branch names, tags, and `HEAD`. */
+  readonly refs: readonly string[]
+}
+
+/** Why commit message generation currently has no usable backend. */
+export type GitGenerationUnavailableReason =
+  /** No selection source is configured and no host default model exists. */
+  | 'not-configured'
+  /** The LLM runtime is not present in this host. */
+  | 'llm-unavailable'
+  /** Inherit mode with a live LLM runtime, but no model selection resolves. */
+  | 'default-model-missing'
+
+/** Capability answer for the `commit-message-capability` endpoint. */
+export interface GitCommitMessageCapability {
+  /** Whether a generation backend is usable right now. */
+  readonly available: boolean
+  /** Why generation is unavailable; absent when available. */
+  readonly reason?: GitGenerationUnavailableReason
 }

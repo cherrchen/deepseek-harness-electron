@@ -8,6 +8,12 @@
 
 Stage 1 提供内置主题浏览、预览、应用、持久化与插件生命周期恢复。Theme Schema、导入导出与 Theme Creator Agent 属于后续阶段。
 
+## DSH 兼容性
+
+此兼容分支面向 **DeepSeek Harness [`v0.1.2-alpha.4`](https://github.com/deepseek-ai/deepseek-harness/releases/tag/v0.1.2-alpha.4)**。
+
+若你使用的是 **DeepSeek Harness [`v0.1.1-rc.2`](https://github.com/deepseek-ai/deepseek-harness/releases/tag/v0.1.1-rc.2)**，请改用 [`main`](https://github.com/cherrchen/dsh-theme-studio/tree/main) 分支。
+
 ## 安装
 
 本包仍处于试验开发阶段，计划以 `@dsh-electron/dsh-theme-studio` 发布到 npm；在此之前请从本仓库安装。
@@ -66,7 +72,7 @@ theme-studio.activeThemeId   null | dsh-theme-studio.*
 
 ## 组装
 
-Host 插件在存在 `ctx.settings` 时注册 `theme-studio` 设置命名空间，否则为空操作。Client 插件需要 `theme`、`settingsScope`、`slots`、`locale`、`connection` 与 `remote`。Headless profile 只加载 Host 半，不会启动浏览器 UI。
+Host 插件在存在 `ctx.settings` 时注册 `theme-studio` 设置命名空间，否则为空操作。Client 插件需要 `theme`、`settingsScope`、`slots`、`locale`、`connection` 与 `remote`。Headless profile 只加载 Host 半，不会启动浏览器 UI。本包有意不导出 `./invariant`，因为 ThemeRuntime 负责覆盖层一致性，设置服务负责持久化。
 
 ## npm 发布
 

@@ -28,7 +28,7 @@ const clientExternals = new Set([
   'react-dom',
   'react-dom/client',
   '@deepseek-ai/cordis',
-  '@deepseek-ai/dsh-client-runtime/client',
+  '@deepseek-ai/dsh-client-ui-renderer/client',
   '@deepseek-ai/dsh-client-ui-slots',
   '@deepseek-ai/dsh-client-ui-primitives',
   '@dsh-electron/dsh-client-ui-details-host',
@@ -66,7 +66,8 @@ function styleModule(file: string, css: string, classes: Readonly<Record<string,
 
 export const nodeConfig: UserConfig = {
   name: PACKAGE_NAME,
-  entry: ['lib/types/index.js', 'lib/types/invariant.js', 'lib/types/types.js'],
+  entry: ['lib/types/index.js', 'lib/types/types.js'],
+  tsconfig: 'tsconfig.standalone.host.json',
   outDir: 'lib',
   format: 'esm',
   platform: 'node',
@@ -83,6 +84,7 @@ export const nodeConfig: UserConfig = {
 export const clientConfig: UserConfig = {
   name: `${PACKAGE_NAME}/client`,
   entry: { client: 'lib/types/client/index.js' },
+  tsconfig: 'tsconfig.standalone.client.json',
   outDir: 'lib',
   format: 'cjs',
   platform: 'browser',

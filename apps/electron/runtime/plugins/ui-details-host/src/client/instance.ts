@@ -1,8 +1,8 @@
 /**
- * Surface instance identity helpers. P0 keeps at most one active instance;
- * history and dedupe arrive in later gates.
+ * Surface instance identity helpers. Instances double as tabs; one per
+ * dedupe key per surface id.
  */
-import type { DetailsSurfaceInstance } from './contract.ts'
+import type { DetailsSurfaceDescriptor, DetailsSurfaceInstance } from './contract.ts'
 
 let nextInstanceSerial = 0
 
@@ -21,6 +21,7 @@ export function createInstanceId(): string {
  * @param payload - open arguments for this instance.
  * @param label - resolved display label.
  * @param sessionId - current session id at creation time.
+ * @param descriptor - surface descriptor supplying tab metadata.
  * @returns a new instance record.
  */
 export function createSurfaceInstance<P = unknown>(
@@ -28,6 +29,7 @@ export function createSurfaceInstance<P = unknown>(
   payload: P,
   label: string,
   sessionId: string,
+  descriptor?: DetailsSurfaceDescriptor<P>,
 ): DetailsSurfaceInstance<P> {
   return {
     instanceId: createInstanceId(),
@@ -35,6 +37,7 @@ export function createSurfaceInstance<P = unknown>(
     payload,
     label,
     sessionId,
+    ...(descriptor?.closable === false ? { closable: false } : {}),
   }
 }
 

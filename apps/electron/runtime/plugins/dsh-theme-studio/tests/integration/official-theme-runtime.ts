@@ -1,6 +1,6 @@
 /**
  * Overlay composition copied from `@deepseek-ai/dsh-client-ui-theme` ThemeRuntime
- * (0.1.1-rc.2). The published client artifact is a ModuleLoader bundle that
+ * (0.1.2-alpha.4). The published client artifact is a ModuleLoader bundle that
  * pulls CSS modules through primitives, so tests instantiate this replica
  * instead of importing `/client`. Layer stacking, same-source replacement,
  * disposer identity, and light/dark/system selection match the official class.

@@ -1,6 +1,11 @@
 /** Workspace packages imported by desktop entry code outside the CLI production graph. */
 export const DESKTOP_ENTRY_WORKSPACE_DEPENDENCIES: readonly string[]
 
+/** Workspace packages the Electron app must retain outside the CLI production graph. */
+export function requiredDesktopWorkspaceDependencies(
+  manifest?: { dshElectron?: { ecosystemPlugins?: string[] } },
+): string[]
+
 /**
  * Replace generated workspace dependencies while retaining desktop-owned registry dependencies.
  * Drops leftover `workspace:` specifiers whose packages are absent from the workspace.

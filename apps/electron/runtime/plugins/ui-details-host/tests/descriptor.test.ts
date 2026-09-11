@@ -60,19 +60,26 @@ describe('shellDetails descriptors and lifecycle', () => {
     b.shellDetails.open('test.alpha')
     expect(events).toEqual(['alpha:open', 'alpha:activate'])
 
+    // v3: navigation is a tab activation — the alpha tab deactivates but
+    // stays open (the legacy `navigation: 'replace'` argument is ignored).
     b.shellDetails.open({ surfaceId: 'test.beta', navigation: 'replace' })
     expect(events).toEqual([
       'alpha:open',
       'alpha:activate',
       'alpha:deactivate',
-      'alpha:close:replace',
       'beta:open',
       'beta:activate',
     ])
 
+    // Closing the active tab deactivates then closes it, and the retained
+    // alpha tab reactivates via the MRU fallback.
     b.shellDetails.close()
-    expect(events.at(-2)).toBe('beta:deactivate')
-    expect(events.at(-1)).toBe('beta:close:user')
+    expect(events.slice(-3)).toEqual(['beta:deactivate', 'beta:close:user', 'alpha:activate'])
+
+    // Closing the last tab leaves no activation.
+    b.shellDetails.close()
+    expect(events.at(-2)).toBe('alpha:deactivate')
+    expect(events.at(-1)).toBe('alpha:close:user')
     await b.fiber.dispose()
   })
 

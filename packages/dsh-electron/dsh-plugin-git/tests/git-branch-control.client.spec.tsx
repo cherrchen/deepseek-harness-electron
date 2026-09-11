@@ -2,7 +2,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { cleanup, render, waitFor, fireEvent, screen } from '@testing-library/react'
 import type { SessionId } from '@deepseek-ai/dsh-client-connection/client'
-import type { SessionListState, SessionSummary } from '@deepseek-ai/dsh-client-runtime/client'
+import type { SessionListState, SessionSummary } from '@deepseek-ai/dsh-api-session-controller/client'
 import type { PropsLocale } from '@deepseek-ai/dsh-client-ui-slots'
 import type { GitRepositorySnapshot } from '../src/types.ts'
 import {
@@ -10,7 +10,6 @@ import {
   GitBranchControl,
 } from '../src/client/GitBranchControl.tsx'
 import type { GitClientController, GitClientState } from '../src/client/controller.ts'
-import type { GitDetailsTab } from '../src/client/contract.ts'
 import { en } from '../src/client/locales.ts'
 
 const SESSION_A = 'session-a' as SessionId
@@ -30,10 +29,23 @@ function snapshot(overrides: Partial<GitRepositorySnapshot> = {}): GitRepository
   }
 }
 
-function controllerOf(state: GitClientState): GitClientController {
+const graphStateDefaults = {
+  graph: [],
+  graphLoading: false,
+  graphHasMore: false,
+  graphError: undefined,
+  commitMessage: '',
+  generating: false,
+  generationAvailable: false,
+  generationReason: undefined,
+  generationError: undefined,
+} satisfies Partial<GitClientState>
+
+function controllerOf(state: Partial<GitClientState>): GitClientController {
   const listeners = new Set<() => void>()
+  const snapshot = { ...graphStateDefaults, ...state }
   return {
-    getSnapshot: () => state,
+    getSnapshot: () => snapshot,
     subscribe: (listener: () => void) => {
       listeners.add(listener)
       return () => { listeners.delete(listener) }
@@ -86,15 +98,19 @@ describe('GitBranchControl', () => {
   const baseProps = (
     controller: GitClientController,
     list: SessionListState,
-    openDetails: (tab?: GitDetailsTab) => void = vi.fn(),
+    openDetails: () => void = vi.fn(),
   ) => ({
     controller,
     openDetails,
     t,
     useSessions: <S,>(selector: (s: SessionListState) => S): S => selector(list),
     useSession: unused,
+    useConversation: unused,
+    useChat: unused,
+    useTrajectory: unused,
     useWorkspaces: unused,
     useProjection: unused,
+    useSessionPendingInteraction: unused,
     useInput: unused,
     inputActions: {
       setDraft: unused,
@@ -111,7 +127,6 @@ describe('GitBranchControl', () => {
     const controller = controllerOf({
       workspacePath: undefined,
       repository: snapshot({ branch: 'develop' }),
-      activeTab: 'changes',
       selectedDiff: undefined,
       diff: undefined,
       loading: false,
@@ -122,10 +137,12 @@ describe('GitBranchControl', () => {
     const props = baseProps(controller, list)
     const { rerender } = render(<GitBranchControl {...props} sessionId={SESSION_A} />)
     await waitFor(() => {
+      // oxlint-disable-next-line typescript/unbound-method -- Vitest inspects the controller mock without invoking it
       expect(controller.setWorkspace).toHaveBeenCalledWith('/projects/alpha')
     })
     rerender(<GitBranchControl {...props} sessionId={SESSION_B} />)
     await waitFor(() => {
+      // oxlint-disable-next-line typescript/unbound-method -- Vitest inspects the controller mock without invoking it
       expect(controller.setWorkspace).toHaveBeenCalledWith('/projects/beta')
     })
   })
@@ -135,7 +152,6 @@ describe('GitBranchControl', () => {
     const pending = controllerOf({
       workspacePath: '/projects/plain',
       repository: undefined,
-      activeTab: 'changes',
       selectedDiff: undefined,
       diff: undefined,
       loading: true,
@@ -150,7 +166,6 @@ describe('GitBranchControl', () => {
     const nonRepo = controllerOf({
       workspacePath: '/projects/plain',
       repository: null,
-      activeTab: 'changes',
       selectedDiff: undefined,
       diff: undefined,
       loading: false,
@@ -166,7 +181,6 @@ describe('GitBranchControl', () => {
     const controller = controllerOf({
       workspacePath: '/projects/alpha',
       repository: snapshot({ unstaged: [{ path: 'src/a.ts', status: ' M' }] }),
-      activeTab: 'changes',
       selectedDiff: undefined,
       diff: undefined,
       loading: false,
@@ -176,7 +190,7 @@ describe('GitBranchControl', () => {
     const list = sessionsOf({ [SESSION_A]: '/projects/alpha' })
     render(<GitBranchControl {...baseProps(controller, list, openDetails)} sessionId={SESSION_A} />)
     fireEvent.click(screen.getByRole('button', { name: /1 changes/i }))
-    expect(openDetails).toHaveBeenCalledWith('changes')
+    expect(openDetails).toHaveBeenCalled()
   })
 
   it('opens a conversation Modal to create a branch', async () => {
@@ -184,7 +198,6 @@ describe('GitBranchControl', () => {
     const controller = controllerOf({
       workspacePath: '/projects/alpha',
       repository: snapshot(),
-      activeTab: 'changes',
       selectedDiff: undefined,
       diff: undefined,
       loading: false,
@@ -212,7 +225,6 @@ describe('GitBranchControl', () => {
         branches: [],
         branch: 'main',
       }),
-      activeTab: 'changes',
       selectedDiff: undefined,
       diff: undefined,
       loading: false,
@@ -223,7 +235,7 @@ describe('GitBranchControl', () => {
     render(<GitBranchControl {...baseProps(controller, list)} sessionId={SESSION_A} />)
     fireEvent.click(screen.getByRole('button', { name: 'main' }))
     expect(await screen.findByText(/No commits yet/i)).toBeTruthy()
-    expect((screen.getByRole('menuitem', { name: 'Create new branch' }) as HTMLButtonElement).disabled).toBe(true)
+    expect(screen.getByRole<HTMLButtonElement>('menuitem', { name: 'Create new branch' }).disabled).toBe(true)
   })
 })
 

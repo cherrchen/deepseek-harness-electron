@@ -20,7 +20,7 @@ Package removal 只对 hot-activated package soft-refresh Renderer。`profile-re
 
 ## 后果
 
-Bundle 卸载不再把 Desktop 打进失败插件全屏。Pending composition 仍需 relaunch；Desktop 不会 hot-unload startup Bundle。更广的 mutation 与 restart-tracker 规则见 [profile package lifecycle](2026-08-25-electron-profile-plugin-package-lifecycle.md)。
+Bundle 卸载不再把 Desktop 打进失败插件全屏。Pending composition 仍需 relaunch；Desktop 不会 hot-unload startup Bundle。更广的 mutation 与 restart-tracker 规则见 [profile package lifecycle](../architecture/2026-08-25-electron-profile-plugin-package-lifecycle.zh.md)。
 
 ## 必要验证
 

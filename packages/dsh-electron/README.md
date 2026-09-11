@@ -1,6 +1,14 @@
+---
+description: "The public downstream DSH ecosystem plugin group for portable Host and Client features mirrored into DeepSeek Harness Desktop."
+kind: "package-group"
+---
+
 # Public DSH ecosystem plugins
 
 English | [中文](README.zh.md)
+
+<a id="summary"></a>
+## Summary
 
 Packages under this downstream-owned namespace island are standard DSH/Cordis plugins mirrored from their canonical repositories with Git subtree. The canonical repository is the npm release source; this monorepo copy validates integration against the synchronized Harness source.
 
@@ -11,3 +19,14 @@ Packages under this downstream-owned namespace island are standard DSH/Cordis pl
 Each subtree package owns one npm version and one set of Host and Client artifacts used unchanged by Native DSH and Electron. Do not introduce Electron imports, preload globals, Electron provider dependencies, `workspace:` publication ranges, or a second Desktop-specific package variant here.
 
 Emergency integration fixes made in this mirror must be split to a review branch in the canonical plugin repository before the downstream change lands. Upstream sync stops if upstream claims `packages/dsh-electron`; maintainers must decide ownership instead of letting automation overwrite either source.
+
+<a id="table-of-contents"></a>
+## Table of Contents
+
+- [Summary](#summary)
+- [Dev Note](#dev-note)
+
+<a id="dev-note"></a>
+## Dev Note
+
+None.

@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from 'vitest'
 import { fileURLToPath } from 'node:url'
 import { PluginLifecycleController } from '../src/plugin-lifecycle.ts'
+import { PluginMutationCoordinator } from '../src/plugin-mutation.ts'
 import type { PluginCompositionBackend } from '../src/plugin-runtime-config.ts'
 import type { ManagedPlugin } from '../src/runtime-plugins.ts'
 import type { PluginInventoryProbe, PluginInventorySnapshot } from '../src/plugin-inventory-probe.ts'
@@ -280,5 +281,36 @@ describe('plugin lifecycle controller', () => {
     await disabling
     expect(apply.mock.calls.map(([roster]) => roster.map(plugin => plugin.name)))
       .toEqual([[clientPlugin.name], []])
+  })
+
+  it('lists inventory without waiting for an in-flight mutation, then shutdown drains the queue', async () => {
+    const mutations = new PluginMutationCoordinator()
+    let release!: () => void
+    const blocked = new Promise<void>((resolve) => { release = resolve })
+    const installing = mutations.run({ kind: 'install' }, async () => {
+      await blocked
+    })
+    const controller = new PluginLifecycleController(
+      [clientPlugin],
+      { version: 2, disabled: [clientPlugin.name], profileManaged: [] },
+      '/tmp/plugin-state.json',
+      new FakeBackend(),
+      new FakeInventory([absent()]),
+      () => {},
+      async () => {},
+      { timeoutMs: 500, pollIntervalMs: 0, hmrQuietMs: 0 },
+      mutations,
+    )
+
+    const listed = await controller.list()
+    expect(listed.entries).toHaveLength(1)
+    expect(mutations.getActiveOperation()).toEqual({ kind: 'install' })
+
+    const shuttingDown = controller.shutdown()
+    await expect(controller.enable(clientPlugin.name)).rejects.toThrow(/shutdown/u)
+    release()
+    await installing
+    await shuttingDown
+    expect(mutations.getActiveOperation()).toBeUndefined()
   })
 })

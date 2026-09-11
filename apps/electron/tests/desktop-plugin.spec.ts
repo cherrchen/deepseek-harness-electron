@@ -52,7 +52,7 @@ describe('desktop brand feature plugin regression', () => {
     ) as { name?: string; dsh?: { client?: { inject?: string[]; external?: string[] } } }
     expect(manifest.name).toBe('@dsh-electron/dsh-electron-ui-brand')
     expect(manifest.dsh?.client?.inject).toEqual(expect.arrayContaining([
-      '@deepseek-ai/dsh-client-runtime',
+      '@deepseek-ai/dsh-client-ui-renderer',
       '@deepseek-ai/dsh-client-ui-conversation',
       '@deepseek-ai/dsh-client-ui-sidebar',
     ]))
@@ -71,8 +71,12 @@ describe('details host portable runtime plugin regression', () => {
     expect(manifest.name).toBe('@dsh-electron/dsh-client-ui-details-host')
     expect(manifest.dsh?.client?.platform).toBe('web')
     expect(manifest.dsh?.client?.inject).toEqual([
-      '@deepseek-ai/dsh-client-runtime',
+      '@deepseek-ai/dsh-api-session-controller',
+      '@deepseek-ai/dsh-client-ui-renderer',
       '@deepseek-ai/dsh-client-ui-layout',
+      '@deepseek-ai/dsh-client-locale',
+      '@deepseek-ai/dsh-client-ui-conversation',
+      '@deepseek-ai/dsh-client-ui-primitives',
     ])
     const clientRoot = join(electronRoot, 'runtime', 'plugins', 'ui-details-host', 'src', 'client')
     for (const file of readdirSync(clientRoot)) {
@@ -115,7 +119,7 @@ describe('desktop plugin manager feature plugin regression', () => {
     ) as { name?: string; dsh?: { client?: { inject?: string[]; external?: string[] } } }
     expect(manifest.name).toBe('@dsh-electron/dsh-electron-ui-plugin-manager')
     expect(manifest.dsh?.client?.inject).toEqual([
-      '@deepseek-ai/dsh-client-runtime',
+      '@deepseek-ai/dsh-client-ui-renderer',
       '@deepseek-ai/dsh-client-ui-settings',
       '@deepseek-ai/dsh-client-locale',
       '@dsh-electron/dsh-electron-desktop-capabilities',
@@ -136,9 +140,13 @@ describe('production runtime plugin packaging inventory', () => {
       const pluginRoot = join(pluginsRoot, entry.name)
       expect(existsSync(join(pluginRoot, 'package.json'))).toBe(true)
       expect(existsSync(join(pluginRoot, 'lib', 'index.js'))).toBe(true)
-      const manifest = JSON.parse(readFileSync(join(pluginRoot, 'package.json'), 'utf8')) as { dsh?: { client?: unknown } }
+      const manifest = JSON.parse(readFileSync(join(pluginRoot, 'package.json'), 'utf8')) as {
+        dsh?: { client?: unknown }
+        exports?: Record<string, { default?: string }>
+      }
       if (manifest.dsh?.client !== undefined) {
-        expect(existsSync(join(pluginRoot, 'lib', 'client.js'))).toBe(true)
+        const clientTarget = manifest.exports?.['./client']?.default ?? './lib/client.js'
+        expect(existsSync(join(pluginRoot, clientTarget))).toBe(true)
       }
     }
     expect(existsSync(join(electronRoot, 'runtime', 'host.patch.yml'))).toBe(true)

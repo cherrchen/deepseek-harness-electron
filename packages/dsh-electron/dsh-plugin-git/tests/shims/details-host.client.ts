@@ -10,6 +10,12 @@ export const SHELL_DETAILS_API_VERSION = detailsHost.SHELL_DETAILS_API_VERSION a
 export const SHELL_DETAILS_ENABLED_FEATURES = detailsHost.SHELL_DETAILS_ENABLED_FEATURES as readonly string[]
 export const SHELL_DETAILS_P0_FEATURES = detailsHost.SHELL_DETAILS_P0_FEATURES as readonly string[]
 export const ShellDetailsService = detailsHost.ShellDetailsService as new (...args: never[]) => unknown
+export const DetailsHeaderAction = detailsHost.DetailsHeaderAction as (props: {
+  icon: unknown
+  label: string
+  onTrigger: () => void
+  disabled?: boolean
+}) => unknown
 export const DetailsSurfaceNotFoundError = detailsHost.DetailsSurfaceNotFoundError as typeof Error
 export const DetailsSurfaceDuplicateError = detailsHost.DetailsSurfaceDuplicateError as typeof Error
 export const DetailsTakeoverConflictError = detailsHost.DetailsTakeoverConflictError as typeof Error

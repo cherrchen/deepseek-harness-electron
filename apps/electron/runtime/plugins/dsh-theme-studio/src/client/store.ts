@@ -2,7 +2,7 @@
  * Themes row slot store: a mirror of ThemeStudioRuntime. The plugin apply
  * listener is the only writer; the row reads via props.useStore.
  */
-import { defineStore, type EngineStoreHandle } from '@deepseek-ai/dsh-client-runtime/client'
+import { defineStore, type EngineStoreHandle } from '@deepseek-ai/dsh-client-store'
 import type { ThemePreview } from './types.ts'
 import type { ThemeStudioSnapshot } from './runtime.ts'
 

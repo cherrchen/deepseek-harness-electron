@@ -20,7 +20,7 @@ Package removal soft-refreshes the Renderer only for hot-activated packages. `pr
 
 ## Consequences
 
-Bundle removal no longer collapses Desktop into the failed-plugin screen. Pending composition still requires relaunch; Desktop does not hot-unload startup Bundles. See [profile package lifecycle](2026-08-25-electron-profile-plugin-package-lifecycle.md) for the broader mutation and restart-tracker rules.
+Bundle removal no longer collapses Desktop into the failed-plugin screen. Pending composition still requires relaunch; Desktop does not hot-unload startup Bundles. See [profile package lifecycle](../architecture/2026-08-25-electron-profile-plugin-package-lifecycle.md) for the broader mutation and restart-tracker rules.
 
 ## Required verification
 

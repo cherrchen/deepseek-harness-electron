@@ -1,7 +1,7 @@
 import { cpSync, existsSync, readFileSync, symlinkSync, writeFileSync } from 'node:fs'
 import { mkdtemp, readFile, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
-import { dirname, join } from 'node:path'
+import { basename, dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { spawnSync } from 'node:child_process'
 import { describe, expect, it } from 'vitest'
@@ -20,6 +20,14 @@ import {
 const electronRoot = fileURLToPath(new URL('..', import.meta.url))
 const fixtureRoot = join(electronRoot, 'tests', 'fixtures', 'runtime-plugins', 'example-plugin')
 const buildScript = join(electronRoot, 'scripts', 'build-runtime-plugins.mjs')
+
+/** Resolve the client bundle filename a plugin manifest declares for "./client". */
+function manifestClientTarget(pluginRoot: string): string {
+  const manifest = JSON.parse(readFileSync(join(pluginRoot, 'package.json'), 'utf8')) as {
+    exports?: Record<string, { default?: string }>
+  }
+  return basename(manifest.exports?.['./client']?.default ?? './lib/client.js')
+}
 
 /** Build one fixture plugin by copying it into a temporary inventory root. */
 async function buildFixtureInInventory(appPath: string): Promise<string> {
@@ -44,7 +52,7 @@ const pluginRoot = join(pluginsRoot, 'example-plugin')
 const manifest = JSON.parse(readFileSync(join(pluginRoot, 'package.json'), 'utf8'))
 mkdirSync(join(pluginRoot, 'lib'), { recursive: true })
 await build({ entryPoints: [join(pluginRoot, 'src', 'index.ts')], outfile: join(pluginRoot, 'lib', 'index.js'), bundle: true, platform: 'node', packages: 'external', format: 'esm', target: 'node22', logLevel: 'silent' })
-const result = await build({ entryPoints: [join(pluginRoot, 'src', 'client', 'index.ts')], bundle: true, platform: 'browser', format: 'cjs', target: 'es2022', write: false, jsx: 'automatic', external: ['react','react/jsx-runtime','react-dom','@deepseek-ai/cordis','@deepseek-ai/dsh-client-runtime/client'], logLevel: 'silent' })
+const result = await build({ entryPoints: [join(pluginRoot, 'src', 'client', 'index.ts')], bundle: true, platform: 'browser', format: 'cjs', target: 'es2022', write: false, jsx: 'automatic', external: ['react','react/jsx-runtime','react-dom','@deepseek-ai/cordis','@deepseek-ai/dsh-client-ui-renderer/client'], logLevel: 'silent' })
 const code = result.outputFiles[0].text
 writeFileSync(join(pluginRoot, 'lib', 'client.js'), 'window.__ModuleLoader__.load({ id: ' + JSON.stringify(manifest.name) + ', factory: (require) => { var module = { exports: {} }; var exports = module.exports; ' + code + ' return module.exports; } });')
 `
@@ -74,6 +82,41 @@ describe('runtime plugin discovery', () => {
     expect(plugins.map(plugin => plugin.name)).toContain('@dsh-electron/dsh-plugin-git')
     expect(plugins.map(plugin => plugin.name)).not.toContain('@dsh-electron/dsh-theme-studio')
     expect(readFileSync(buildScript, 'utf8')).not.toContain('packages/dsh-electron')
+  })
+
+  it('resolves declared ecosystem plugins from the packaged app node_modules tree', async () => {
+    const appPath = await mkdtemp(join(tmpdir(), 'dsh-electron-ecosystem-'))
+    try {
+      const installed = join(appPath, 'node_modules', '@dsh-electron', 'dsh-plugin-git')
+      const { mkdirSync } = await import('node:fs')
+      mkdirSync(installed, { recursive: true })
+      writeFileSync(join(appPath, 'package.json'), JSON.stringify({
+        dshElectron: { ecosystemPlugins: ['@dsh-electron/dsh-plugin-git'] },
+      }), 'utf8')
+      writeFileSync(join(installed, 'package.json'), JSON.stringify({
+        name: '@dsh-electron/dsh-plugin-git',
+        version: '0.2.0',
+      }), 'utf8')
+      const plugins = discoverEcosystemPlugins(appPath)
+      expect(plugins).toEqual([expect.objectContaining({
+        name: '@dsh-electron/dsh-plugin-git',
+        rootPath: installed,
+      })])
+    } finally {
+      await rm(appPath, { recursive: true, force: true })
+    }
+  })
+
+  it('rejects a declared ecosystem plugin missing from a packaged app node_modules', async () => {
+    const appPath = await mkdtemp(join(tmpdir(), 'dsh-electron-ecosystem-missing-'))
+    try {
+      writeFileSync(join(appPath, 'package.json'), JSON.stringify({
+        dshElectron: { ecosystemPlugins: ['@dsh-electron/dsh-plugin-git'] },
+      }), 'utf8')
+      expect(() => discoverEcosystemPlugins(appPath)).toThrow(/declared but not installed/)
+    } finally {
+      await rm(appPath, { recursive: true, force: true })
+    }
   })
 
   it('declares Details Host as Git\'s module-table request so boot arrives that factory first', () => {
@@ -281,9 +324,10 @@ describe('generic runtime plugin builder', () => {
     for (const plugin of discoverRuntimePlugins(electronRoot)) {
       expect(existsSync(join(plugin.rootPath, 'lib', 'index.js'))).toBe(true)
       if (plugin.hasClient) {
-        const client = readFileSync(join(plugin.rootPath, 'lib', 'client.js'), 'utf8')
+        const clientTarget = manifestClientTarget(plugin.rootPath)
+        const client = readFileSync(join(plugin.rootPath, 'lib', clientTarget), 'utf8')
         expect(client).toContain(`id: ${JSON.stringify(plugin.name)}`)
-        expect(existsSync(join(plugin.rootPath, 'lib', 'client.js'))).toBe(true)
+        expect(existsSync(join(plugin.rootPath, 'lib', clientTarget))).toBe(true)
       }
     }
   })
@@ -295,7 +339,7 @@ describe('generic runtime plugin builder', () => {
     const plugin = discoverRuntimePlugins(electronRoot)
       .find(candidate => candidate.name === '@dsh-electron/dsh-client-ui-details-host')
     if (plugin === undefined) throw new Error('Details Host runtime plugin is missing')
-    const client = readFileSync(join(plugin.rootPath, 'lib', 'client.js'), 'utf8')
+    const client = readFileSync(join(plugin.rootPath, 'lib', manifestClientTarget(plugin.rootPath)), 'utf8')
     expect(client).toContain('react/jsx-runtime')
     expect(client).not.toMatch(/\bReact\.createElement\b/)
   })

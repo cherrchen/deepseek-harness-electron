@@ -51,6 +51,8 @@ pnpm --filter @dsh-electron/dsh-electron build
 pnpm --filter @dsh-electron/dsh-electron test
 ```
 
+仓库的 Python 集成测试要求 PATH 中的 `python3` 指向 CPython 3.10+。若 mise 提示 shim 未激活，可为命令激活已安装版本，例如 `mise exec python@3.13.12 -- pnpm test packages/experimental/code-runtime-python/tests/runtime.spec.ts packages/experimental/code-runtime-python/tests/boot-write-failure.spec.ts`。请使用本机已安装的版本；运行测试前，`python3 --version` 必须成功。发布成员与维护脚本分类遵循[下游测试决策](../../.agents/notes/implemented/bug-fix/2026-09-05-desktop-repository-test-classification.zh.md)。
+
 ## 桌面集成
 
 主窗口使用隐藏标题栏，不绘制独立 Heading。侧栏和会话背景延伸至窗口顶部：macOS 在侧栏顶部保留可拖拽的“交通信号灯”区域；Windows 和 Linux 的 Window Controls Overlay 只占据右上角，因此侧栏内容从窗口顶边开始。活动会话 Header 的非交互部分可拖拽，空白会话背景顶部则覆盖一个透明的 40 像素命中面。Header 控件被明确排除拖拽；模态对话框打开期间，页面的所有拖拽区域均会暂停，使对话框遮罩和控件能够保持指针输入。关闭主窗口会隐藏窗口，Harness 进程继续运行。通过托盘菜单可以重新打开窗口，也可以退出应用并停止受监管的子进程。

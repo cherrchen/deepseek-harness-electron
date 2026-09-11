@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from 'vitest'
 import type { GitRepositorySnapshot } from '../src/types.ts'
 import { changedPathCount } from '../src/client/changed-path-count.ts'
+import type { GitRpcResult } from '../src/client/controller.ts'
 import { GitClientController } from '../src/client/controller.ts'
 
 function snapshot(overrides: Partial<GitRepositorySnapshot> = {}): GitRepositorySnapshot {
@@ -37,6 +38,8 @@ describe('GitClientController', () => {
           return { ok: true as const, value: '/repo' }
         }
         if (endpoint === 'status') return { ok: true as const, value: snapshot() }
+        if (endpoint === 'log') return { ok: true as const, value: [] }
+        if (endpoint === 'commit-message-capability') return { ok: true as const, value: { available: false } }
         return { ok: true as const, value: null }
       }),
     }
@@ -48,19 +51,22 @@ describe('GitClientController', () => {
     expect(controller.getSnapshot().repository?.root).toBe('/repo')
   })
 
-  it('resets activeTab when the workspace changes', async () => {
+  it('clears retained surface state when the workspace changes', async () => {
     const rpc = {
       call: vi.fn(async (_channel: string, endpoint: string) => {
         if (endpoint === 'discover') return { ok: true as const, value: '/repo' }
         if (endpoint === 'status') return { ok: true as const, value: snapshot() }
+        if (endpoint === 'log') return { ok: true as const, value: [] }
+        if (endpoint === 'commit-message-capability') return { ok: true as const, value: { available: false } }
         return { ok: true as const, value: null }
       }),
     }
     const controller = new GitClientController(rpc)
     await controller.setWorkspace('/workspace-a')
-    controller.selectTab('diff')
+    controller.setCommitMessage('draft message')
     await controller.setWorkspace('/workspace-b')
-    expect(controller.getSnapshot().activeTab).toBe('changes')
+    expect(controller.getSnapshot().commitMessage).toBe('')
+    expect(controller.getSnapshot().graph).toEqual([])
   })
 
   it('surfaces switch-branch errors without mutating repository state', async () => {
@@ -80,5 +86,464 @@ describe('GitClientController', () => {
     await expect(controller.switchBranch('dev')).rejects.toThrow('Your local changes would be overwritten')
     expect(controller.getSnapshot().repository?.branch).toBe('main')
     expect(controller.getSnapshot().error).toBe('Your local changes would be overwritten')
+  })
+
+  it('passes the graph scope to log and reloads the first page on switch', async () => {
+    const logPayloads: Record<string, unknown>[] = []
+    const commit = (hash: string, parents: string[]) => ({
+      hash,
+      parents,
+      shortHash: hash.slice(0, 7),
+      subject: hash,
+      author: 'tester',
+      date: '2026-01-01T00:00:00Z',
+      refs: hash === 'c2' ? ['HEAD'] : [],
+    })
+    const rpc = {
+      call: vi.fn(async (_channel: string, endpoint: string, payload: unknown) => {
+        if (endpoint === 'discover') return { ok: true as const, value: '/repo' }
+        if (endpoint === 'status') return { ok: true as const, value: snapshot() }
+        if (endpoint === 'log') {
+          logPayloads.push(payload as Record<string, unknown>)
+          return { ok: true as const, value: [commit('c2', ['c1']), commit('c1', [])] }
+        }
+        return { ok: true as const, value: null }
+      }),
+    }
+    const controller = new GitClientController(rpc)
+    await controller.setWorkspace('/workspace')
+    expect(logPayloads.at(-1)!.scope).toBe('auto')
+    await controller.setGraphScope('first-parent')
+    expect(logPayloads.at(-1)!.scope).toBe('first-parent')
+    expect(controller.getSnapshot().graphScope).toBe('first-parent')
+    expect(controller.getSnapshot().graphRows).toHaveLength(2)
+  })
+
+  it('continues graph lanes across appended pages instead of restarting', async () => {
+    const commit = (hash: string, parents: string[]) => ({
+      hash,
+      parents,
+      shortHash: hash.slice(0, 7),
+      subject: hash,
+      author: 'tester',
+      date: '2026-01-01T00:00:00Z',
+      refs: [],
+    })
+    const pageOne = [commit('m', ['a', 's'])]
+    const pageTwo = [commit('s', ['base']), commit('a', ['base']), commit('base', [])]
+    const rpc = {
+      call: vi.fn(async (_channel: string, endpoint: string, payload: unknown) => {
+        if (endpoint === 'discover') return { ok: true as const, value: '/repo' }
+        if (endpoint === 'status') return { ok: true as const, value: snapshot() }
+        if (endpoint === 'log') {
+          const skip = (payload as { skip?: number }).skip ?? 0
+          return { ok: true as const, value: skip === 0 ? pageOne : pageTwo }
+        }
+        return { ok: true as const, value: null }
+      }),
+    }
+    const controller = new GitClientController(rpc)
+    await controller.setWorkspace('/workspace')
+    // The first-page load fires without being awaited inside setWorkspace;
+    // flush pending tasks so the paged assertions below are deterministic.
+    await new Promise((resolve) => { setTimeout(resolve, 0) })
+    expect(controller.getSnapshot().graphRows).toHaveLength(1)
+    await controller.loadMoreGraph()
+    const state = controller.getSnapshot()
+    expect(state.graphRows).toHaveLength(4)
+    // The pending lanes of page one (spine + side lane) continue into page
+    // two: the first appended row carries an entry column instead of
+    // appearing without a rail.
+    expect(state.graphRows[1]!.nodeEntryColumn).toBeDefined()
+    // The shared parent folds both pending lanes in and releases them.
+    expect(state.graphRows.at(-1)!.merging).toHaveLength(1)
+    expect(state.graphLaneCount).toBeGreaterThanOrEqual(2)
+  })
+
+  it('keeps the commit draft when the same workspace rebinds', async () => {
+    const rpc = {
+      call: vi.fn(async (_channel: string, endpoint: string) => {
+        if (endpoint === 'discover') return { ok: true as const, value: '/repo' }
+        if (endpoint === 'status') return { ok: true as const, value: snapshot() }
+        if (endpoint === 'log') return { ok: true as const, value: [] }
+        if (endpoint === 'commit-message-capability') return { ok: true as const, value: { available: false } }
+        return { ok: true as const, value: null }
+      }),
+    }
+    const controller = new GitClientController(rpc)
+    await controller.setWorkspace('/workspace-a')
+    controller.setCommitMessage('draft to keep')
+    // Details Host remounts surfaces on tab switches; the same binding must
+    // not clear retained state.
+    await controller.setWorkspace('/workspace-a')
+    expect(controller.getSnapshot().commitMessage).toBe('draft to keep')
+    expect(controller.getSnapshot().repository?.root).toBe('/repo')
+  })
+
+  it('marks the first graph page as loaded when empty or failed', async () => {
+    let failLog = false
+    const logCalls: Record<string, unknown>[] = []
+    const rpc = {
+      call: vi.fn(async (_channel: string, endpoint: string, payload: unknown) => {
+        if (endpoint === 'discover') return { ok: true as const, value: '/repo' }
+        if (endpoint === 'status') return { ok: true as const, value: snapshot() }
+        if (endpoint === 'log') {
+          logCalls.push(payload as Record<string, unknown>)
+          if (failLog) return { ok: false as const, error: { message: 'fatal: bad object' } }
+          return { ok: true as const, value: [] }
+        }
+        if (endpoint === 'commit-message-capability') return { ok: true as const, value: { available: false } }
+        return { ok: true as const, value: null }
+      }),
+    }
+    const controller = new GitClientController(rpc)
+    await controller.setWorkspace('/workspace')
+    await new Promise((resolve) => { setTimeout(resolve, 0) })
+    // An empty history counts as loaded: the Graph surface auto effect keys on
+    // graphLoaded, so no further requests may fire without explicit refresh.
+    expect(controller.getSnapshot().graphLoaded).toBe(true)
+    expect(logCalls).toHaveLength(1)
+
+    await controller.loadGraph(true)
+    expect(logCalls).toHaveLength(2)
+
+    failLog = true
+    await controller.loadGraph(true)
+    expect(controller.getSnapshot().graphLoaded).toBe(true)
+    expect(controller.getSnapshot().graphError).toBe('fatal: bad object')
+    expect(logCalls).toHaveLength(3)
+  })
+
+  it('discards a stale graph page whose workspace was rebound mid-flight', async () => {
+    let releaseA: ((value: GitRpcResult) => void) | undefined
+    let signalALog: (() => void) | undefined
+    const aLogPending = new Promise<void>((resolve) => { signalALog = resolve })
+    const commit = (hash: string) => ({
+      hash,
+      parents: [],
+      shortHash: hash.slice(0, 7),
+      subject: hash,
+      author: 'tester',
+      date: '2026-01-01T00:00:00Z',
+      refs: [],
+    })
+    const rpc = {
+      call: vi.fn(async (_channel: string, endpoint: string, payload: unknown) => {
+        if (endpoint === 'discover') return { ok: true as const, value: (payload as { path: string }).path }
+        if (endpoint === 'status') {
+          return { ok: true as const, value: snapshot({ root: (payload as { repository: string }).repository }) }
+        }
+        if (endpoint === 'log') {
+          const repository = (payload as { repository: string }).repository
+          if (repository === '/workspace-a') {
+            signalALog?.()
+            return new Promise<GitRpcResult>((resolve) => { releaseA = resolve })
+          }
+          return { ok: true as const, value: [commit('b-commit')] }
+        }
+        if (endpoint === 'commit-message-capability') return { ok: true as const, value: { available: false } }
+        return { ok: true as const, value: null }
+      }),
+    }
+    const controller = new GitClientController(rpc)
+    const staleBinding = controller.setWorkspace('/workspace-a')
+    await aLogPending
+    await controller.setWorkspace('/workspace-b')
+    await new Promise((resolve) => { setTimeout(resolve, 0) })
+    expect(controller.getSnapshot().graph.map(entry => entry.hash)).toEqual(['b-commit'])
+    releaseA?.({ ok: true as const, value: [commit('a-commit')] })
+    await staleBinding
+    await new Promise((resolve) => { setTimeout(resolve, 0) })
+    // The late response belongs to the abandoned binding and must not
+    // replace workspace B's graph.
+    expect(controller.getSnapshot().graph.map(entry => entry.hash)).toEqual(['b-commit'])
+  })
+
+  it('releases Graph loading when refresh invalidates an in-flight page', async () => {
+    let releaseStaleGraph: ((value: GitRpcResult) => void) | undefined
+    let signalStaleGraph: (() => void) | undefined
+    let firstGraphRequest = true
+    const staleGraphPending = new Promise<void>((resolve) => { signalStaleGraph = resolve })
+    const rpc = {
+      call: vi.fn(async (_channel: string, endpoint: string) => {
+        if (endpoint === 'discover') return { ok: true as const, value: '/repo' }
+        if (endpoint === 'status') return { ok: true as const, value: snapshot() }
+        if (endpoint === 'log') {
+          if (!firstGraphRequest) return { ok: true as const, value: [] }
+          firstGraphRequest = false
+          signalStaleGraph?.()
+          signalStaleGraph = undefined
+          return new Promise<GitRpcResult>((resolve) => { releaseStaleGraph = resolve })
+        }
+        if (endpoint === 'commit-message-capability') return { ok: true as const, value: { available: false } }
+        return { ok: true as const, value: null }
+      }),
+    }
+    const controller = new GitClientController(rpc)
+    await controller.setWorkspace('/workspace')
+    await staleGraphPending
+    expect(controller.getSnapshot().graphLoading).toBe(true)
+
+    await controller.refresh()
+    expect(controller.getSnapshot()).toMatchObject({ graphLoading: false, graphLoaded: false })
+
+    releaseStaleGraph?.({ ok: true as const, value: [] })
+    await controller.loadGraph(true)
+    expect(controller.getSnapshot()).toMatchObject({ graphLoading: false, graphLoaded: true })
+  })
+
+  it('discards a stale Diff response and failure after the repository changes', async () => {
+    let releaseA: ((value: GitRpcResult) => void) | undefined
+    let signalA: (() => void) | undefined
+    const diffARequested = new Promise<void>((resolve) => { signalA = resolve })
+    const rpc = {
+      call: vi.fn(async (_channel: string, endpoint: string, payload: unknown) => {
+        if (endpoint === 'discover') return { ok: true as const, value: (payload as { path: string }).path }
+        if (endpoint === 'status') return { ok: true as const, value: snapshot({ root: (payload as { repository: string }).repository }) }
+        if (endpoint === 'diff') {
+          const repository = (payload as { repository: string }).repository
+          if (repository === '/workspace-a') {
+            signalA?.()
+            return new Promise<GitRpcResult>((resolve) => { releaseA = resolve })
+          }
+          return { ok: true as const, value: { repository, path: 'src/a.ts', staged: false, text: 'diff -- b' } }
+        }
+        if (endpoint === 'log') return { ok: true as const, value: [] }
+        if (endpoint === 'commit-message-capability') return { ok: true as const, value: { available: false } }
+        return { ok: true as const, value: null }
+      }),
+    }
+    const controller = new GitClientController(rpc)
+    await controller.setWorkspace('/workspace-a')
+    const stale = controller.showDiff('src/a.ts', false)
+    await diffARequested
+    await controller.setWorkspace('/workspace-b')
+    await controller.showDiff('src/a.ts', false)
+    releaseA?.({ ok: false as const, error: { message: 'stale diff failure' } })
+    await stale
+    expect(controller.getSnapshot()).toMatchObject({
+      workspacePath: '/workspace-b',
+      error: undefined,
+      diff: { repository: '/workspace-b', text: 'diff -- b' },
+    })
+  })
+
+  it('keeps the latest Diff response for repeated requests of the same file', async () => {
+    const releases: Array<(value: GitRpcResult) => void> = []
+    const rpc = {
+      call: vi.fn(async (_channel: string, endpoint: string) => {
+        if (endpoint === 'discover') return { ok: true as const, value: '/repo' }
+        if (endpoint === 'status') return { ok: true as const, value: snapshot() }
+        if (endpoint === 'diff') {
+          return new Promise<GitRpcResult>((resolve) => {
+            releases.push(resolve)
+          })
+        }
+        if (endpoint === 'log') return { ok: true as const, value: [] }
+        if (endpoint === 'commit-message-capability') return { ok: true as const, value: { available: false } }
+        return { ok: true as const, value: null }
+      }),
+    }
+    const controller = new GitClientController(rpc)
+    await controller.setWorkspace('/workspace')
+    const first = controller.showDiff('src/a.ts', false)
+    await vi.waitFor(() => { expect(releases).toHaveLength(1) })
+    const second = controller.showDiff('src/a.ts', false)
+    await vi.waitFor(() => { expect(releases).toHaveLength(2) })
+    releases[1]!({ ok: true, value: { repository: '/repo', path: 'src/a.ts', staged: false, text: 'newest' } })
+    await second
+    releases[0]!({ ok: true, value: { repository: '/repo', path: 'src/a.ts', staged: false, text: 'stale' } })
+    await first
+    expect(controller.getSnapshot().diff?.text).toBe('newest')
+  })
+
+  it('invalidates the loaded graph on refresh and mutation', async () => {
+    let logCalls = 0
+    const rpc = {
+      call: vi.fn(async (_channel: string, endpoint: string) => {
+        if (endpoint === 'discover') return { ok: true as const, value: '/repo' }
+        if (endpoint === 'status') return { ok: true as const, value: snapshot() }
+        if (endpoint === 'log') {
+          logCalls += 1
+          return { ok: true as const, value: [] }
+        }
+        if (endpoint === 'stage') return { ok: true as const, value: snapshot() }
+        if (endpoint === 'commit-message-capability') return { ok: true as const, value: { available: false } }
+        return { ok: true as const, value: null }
+      }),
+    }
+    const controller = new GitClientController(rpc)
+    await controller.setWorkspace('/workspace')
+    await new Promise((resolve) => { setTimeout(resolve, 0) })
+    expect(controller.getSnapshot().graphLoaded).toBe(true)
+
+    await controller.refresh()
+    expect(controller.getSnapshot().graphLoaded).toBe(false)
+    await controller.loadGraph(true)
+    const callsAfterRefresh = logCalls
+    expect(callsAfterRefresh).toBeGreaterThanOrEqual(2)
+
+    await controller.stage()
+    expect(controller.getSnapshot().graphLoaded).toBe(false)
+    await controller.loadGraph(true)
+    expect(logCalls).toBe(callsAfterRefresh + 1)
+  })
+
+  it('discards a commit message proposal whose workspace was rebound mid-flight', async () => {
+    let releaseGeneration: ((value: GitRpcResult) => void) | undefined
+    let signalGeneration: (() => void) | undefined
+    const generationRequested = new Promise<void>((resolve) => { signalGeneration = resolve })
+    const stagedSnapshot = snapshot({
+      root: '/repo',
+      staged: [{ path: 'src/a.ts', status: 'A ' }],
+    })
+    const rpc = {
+      call: vi.fn(async (_channel: string, endpoint: string, _payload: unknown) => {
+        if (endpoint === 'discover') return { ok: true as const, value: '/repo' }
+        if (endpoint === 'status') return { ok: true as const, value: stagedSnapshot }
+        if (endpoint === 'diff') return { ok: true as const, value: { repository: '/repo', staged: true, text: 'diff --git' } }
+        if (endpoint === 'generate-commit-message') {
+          signalGeneration?.()
+          return new Promise<GitRpcResult>((resolve) => { releaseGeneration = resolve })
+        }
+        if (endpoint === 'log') return { ok: true as const, value: [] }
+        if (endpoint === 'commit-message-capability') return { ok: true as const, value: { available: false } }
+        return { ok: true as const, value: null }
+      }),
+    }
+    const controller = new GitClientController(rpc)
+    await controller.setWorkspace('/workspace-a')
+    const pending = controller.generateCommitMessage()
+    await generationRequested
+    await controller.setWorkspace('/workspace-b')
+    releaseGeneration?.({ ok: true as const, value: 'stale proposal' })
+    await pending
+    expect(controller.getSnapshot().commitMessage).toBe('')
+    expect(controller.getSnapshot().generating).toBe(false)
+  })
+
+  it('does not apply a stale mutation to a rebound workspace', async () => {
+    let releaseStage: ((value: GitRpcResult) => void) | undefined
+    let signalStage: (() => void) | undefined
+    const stageStarted = new Promise<void>((resolve) => { signalStage = resolve })
+    const rpc = {
+      call: vi.fn(async (_channel: string, endpoint: string, payload: unknown) => {
+        if (endpoint === 'discover') return { ok: true as const, value: (payload as { path: string }).path }
+        if (endpoint === 'status') {
+          return { ok: true as const, value: snapshot({ root: (payload as { repository: string }).repository }) }
+        }
+        if (endpoint === 'stage') {
+          signalStage?.()
+          return new Promise<GitRpcResult>((resolve) => { releaseStage = resolve })
+        }
+        if (endpoint === 'log') return { ok: true as const, value: [] }
+        if (endpoint === 'commit-message-capability') return { ok: true as const, value: { available: false } }
+        return { ok: true as const, value: null }
+      }),
+    }
+    const controller = new GitClientController(rpc)
+    await controller.setWorkspace('/workspace-a')
+    const pendingStage = controller.stage({ path: 'tracked.txt', status: ' M' })
+    await stageStarted
+    await controller.setWorkspace('/workspace-b')
+    releaseStage?.({
+      ok: true as const,
+      value: snapshot({
+        root: '/workspace-a',
+        staged: [{ path: 'tracked.txt', status: 'M ' }],
+      }),
+    })
+    await pendingStage
+    expect(controller.getSnapshot().workspacePath).toBe('/workspace-b')
+    expect(controller.getSnapshot().repository?.root).toBe('/workspace-b')
+    expect(controller.getSnapshot().repository?.staged).toEqual([])
+  })
+
+  it('stores the capability reason reported by the Host', async () => {
+    const rpc = {
+      call: vi.fn(async (_channel: string, endpoint: string) => {
+        if (endpoint === 'discover') return { ok: true as const, value: '/repo' }
+        if (endpoint === 'status') return { ok: true as const, value: snapshot() }
+        if (endpoint === 'log') return { ok: true as const, value: [] }
+        if (endpoint === 'commit-message-capability') {
+          return { ok: true as const, value: { available: false, reason: 'default-model-missing' } }
+        }
+        return { ok: true as const, value: null }
+      }),
+    }
+    const controller = new GitClientController(rpc)
+    await controller.setWorkspace('/workspace-a')
+    await vi.waitFor(() => {
+      expect(controller.getSnapshot().generationAvailable).toBe(false)
+      expect(controller.getSnapshot().generationReason).toBe('default-model-missing')
+    })
+  })
+
+  it('keeps the real generation error message for display', async () => {
+    const rpc = {
+      call: vi.fn(async (_channel: string, endpoint: string) => {
+        if (endpoint === 'discover') return { ok: true as const, value: '/repo' }
+        if (endpoint === 'status') {
+          return {
+            ok: true as const,
+            value: snapshot({ staged: [{ path: 'src/a.ts', status: 'A ' }] }),
+          }
+        }
+        if (endpoint === 'diff') return { ok: true as const, value: { repository: '/repo', staged: true, text: 'diff --git' } }
+        if (endpoint === 'generate-commit-message') {
+          return { ok: false as const, error: { code: 'git/internal', message: 'NO_ADAPTER: no adapter owns route "x"' } }
+        }
+        if (endpoint === 'log') return { ok: true as const, value: [] }
+        if (endpoint === 'commit-message-capability') return { ok: true as const, value: { available: true } }
+        return { ok: true as const, value: null }
+      }),
+    }
+    const controller = new GitClientController(rpc)
+    await controller.setWorkspace('/workspace-a')
+    await controller.generateCommitMessage()
+    expect(controller.getSnapshot().generating).toBe(false)
+    expect(controller.getSnapshot().generationError).toBe('NO_ADAPTER: no adapter owns route "x"')
+  })
+
+  it('passes amend to commit and clears the draft', async () => {
+    const payloads: unknown[] = []
+    const rpc = {
+      call: vi.fn(async (_channel: string, endpoint: string, payload: unknown) => {
+        if (endpoint === 'discover') return { ok: true as const, value: '/repo' }
+        if (endpoint === 'status') return { ok: true as const, value: snapshot({ staged: [{ path: 'a.ts', status: 'M ' }] }) }
+        if (endpoint === 'log') return { ok: true as const, value: [] }
+        if (endpoint === 'commit-message-capability') return { ok: true as const, value: { available: false } }
+        if (endpoint === 'commit') {
+          payloads.push(payload)
+          return { ok: true as const, value: snapshot() }
+        }
+        return { ok: true as const, value: null }
+      }),
+    }
+    const controller = new GitClientController(rpc)
+    await controller.setWorkspace('/workspace')
+    controller.setCommitMessage('revise')
+    await controller.commit('revise', { amend: true })
+    expect(payloads).toEqual([{ repository: '/repo', message: 'revise', amend: true }])
+    expect(controller.getSnapshot().commitMessage).toBe('')
+  })
+
+  it('pushes after a successful commit when followUp is push', async () => {
+    const endpoints: string[] = []
+    const rpc = {
+      call: vi.fn(async (_channel: string, endpoint: string) => {
+        endpoints.push(endpoint)
+        if (endpoint === 'discover') return { ok: true as const, value: '/repo' }
+        if (endpoint === 'status') return { ok: true as const, value: snapshot({ staged: [{ path: 'a.ts', status: 'M ' }] }) }
+        if (endpoint === 'log') return { ok: true as const, value: [] }
+        if (endpoint === 'commit-message-capability') return { ok: true as const, value: { available: false } }
+        if (endpoint === 'commit' || endpoint === 'push') return { ok: true as const, value: snapshot() }
+        return { ok: true as const, value: null }
+      }),
+    }
+    const controller = new GitClientController(rpc)
+    await controller.setWorkspace('/workspace')
+    await controller.commit('ship', { followUp: 'push' })
+    expect(endpoints.filter(endpoint => endpoint === 'commit' || endpoint === 'push')).toEqual(['commit', 'push'])
   })
 })

@@ -4,9 +4,21 @@
 
 DeepSeek Harness Desktop 将 [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness) 打包为适用于 macOS、Windows 和 Linux 的原生桌面应用。它保留上游 Web 应用、智能体运行时、profile 和工作区流程，并提供操作系统窗口与桌面安装包。
 
+<a id="status"></a>
+
 ## 状态
 
-本项目及其上游运行时均处于开发者预览阶段。发布版本可能包含破坏兼容性的变更。
+本项目及其上游运行时均处于开发者预览阶段。
+
+### 维护展望
+
+上游 [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness) 已在 monorepo 中提供具备基础能力的第一方 Desktop 应用。因此本 Electron 发行版可能停止常规更新，并转入 **archived（归档）** 维护状态。它目前仍独有的能力是向可移植插件暴露 Electron 桌面集成（`ctx.desktop`）；上游 Desktop 尚未提供该能力。
+
+本 monorepo 镜像的部分独立插件仓库可能仍会不定期更新；版本推进会较慢、且无固定节奏。
+
+### Details 面板与 `0.1.2-rc.1` 版本
+
+[`0.1.2-rc.1`](https://github.com/cherrchen/deepseek-harness-electron/releases/tag/v0.1.2-rc.1) 是最后一个支持并预装 [dsh-client-ui-details-host](https://github.com/cherrchen/dsh-client-ui-details-host) 的版本。上游 Harness 在后续版本中移除了 Client Details 面板，因此 Details Host 将归档。[dsh-plugin-git](https://github.com/cherrchen/dsh-plugin-git) 计划迁移到上游用于替代 Details 的 **Sidebar** 扩展点；该迁移尚未实现。
 
 ## 安装
 
@@ -40,7 +52,9 @@ Harness profile 和状态存储在对应平台的应用数据目录。智能体 
 
 ## 内置插件
 
-DeepSeek Harness Desktop 随附两个来自独立 canonical repository 的可移植 DSH 插件。两者在桌面应用中原样运行；单独安装后也可在标准 DSH Web host 中使用。
+DeepSeek Harness Desktop 随附三个来自独立 canonical repository 的可移植 DSH 插件。它们在桌面应用中原样运行；单独安装后也可在标准 DSH Web host 中使用。
+
+> **说明：** 下表描述的是 `0.1.2-rc.1` 随附的插件组合。Details Host 不会在此版本之后继续维护；详见上文[状态](#status)一节。
 
 | 插件 | 桌面角色 | 简介 |
 |---|---|---|

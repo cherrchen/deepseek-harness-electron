@@ -1,6 +1,14 @@
+---
+description: "Portable Git repository operations and Client UI for DeepSeek Harness Desktop and standard DSH Web profiles."
+kind: "package-bundle"
+---
+
 # dsh-plugin-git
 
 English | [中文](README.zh.md)
+
+<a id="summary"></a>
+## Summary
 
 Standard DSH/Cordis Git plugin with one portable Host service, one Client bundle, and optional Desktop enhancement. The package runs unchanged in DeepSeek Harness Desktop and in a standard DSH Web host; the npm scope `@dsh-electron/` identifies the publisher, not a runtime requirement.
 
@@ -8,6 +16,30 @@ Standard DSH/Cordis Git plugin with one portable Host service, one Client bundle
 
 [DeepSeek Harness Desktop](https://github.com/cherrchen/deepseek-harness-electron) pre-installs this plugin and mirrors this repository with git subtree. Users may disable Git from the Plugins settings; Details Host remains a required built-in.
 
+<a id="table-of-contents"></a>
+## Table of Contents
+
+- [DSH compatibility](#dsh-compatibility)
+- [Installation](#installation)
+- [Pairing with Details Host](#pairing-with-details-host)
+- [User experience](#user-experience)
+- [Composition](#composition)
+- [Configuration](#configuration)
+- [Git operations](#git-operations)
+- [npm publication](#npm-publication)
+- [Development](#development)
+- [Model Experience](#model-experience)
+- [Known Limitations and Deferred Work](#known-limitations-and-deferred-work)
+- [Dev Note](#dev-note)
+
+<a id="dsh-compatibility"></a>
+## DSH compatibility
+
+This `develop` branch targets **DeepSeek Harness `v0.1.2`** starting with [`v0.1.2-alpha.4`](https://github.com/deepseek-ai/deepseek-harness/releases/tag/dsh-v0.1.2-alpha.4).
+
+For **DeepSeek Harness [`v0.1.1-rc.2`](https://github.com/deepseek-ai/deepseek-harness/releases/tag/v0.1.1-rc.2)**, use the [`main`](https://github.com/cherrchen/dsh-plugin-git/tree/main) branch instead.
+
+<a id="installation"></a>
 ## Installation
 
 The package is in experimental development. A public npm release under `@dsh-electron/dsh-plugin-git` is planned; until then, install from this repository.
@@ -37,6 +69,7 @@ Each `dsh plugin add` activates the package's bundled `cordis.patch.yml` layer. 
 
 Until `@dsh-electron/dsh-client-ui-details-host` is on npm, local development in this repository uses the pinned fixture tarball under `tests/fixtures/`.
 
+<a id="pairing-with-details-host"></a>
 ## Pairing with Details Host
 
 Git is the reference consumer of Details Host. The Client manifest wires the dependency explicitly:
@@ -58,41 +91,51 @@ Git is the reference consumer of Details Host. The Client manifest wires the dep
 
 `external` ensures the module table materializes the Details Host Client factory before this bundle `require`s it. `inject` declares `ctx.shellDetails` as a runtime dependency.
 
-Git registers surface id `git`, optional payload tabs (`changes`, `diff`, `commit`), and opens the column with:
+Git ships three independent surfaces — `git.changes`, `git.diff`, and `git.graph` — one Details Host tab each, and opens them through the unified `ctx.shellDetails.open(...)` create-or-reuse navigation:
 
-```ts
-ctx.shellDetails.open({
-  surfaceId: 'git',
-  payload: { tab: 'changes' },
-})
+```text
+ctx.shellDetails.open({ surfaceId: 'git.changes' })
+ctx.shellDetails.open({ surfaceId: 'git.diff', payload: { path, staged: false } })
+ctx.shellDetails.open({ surfaceId: 'git.graph' })
 ```
+
+Surface descriptors declare `dedupeKey`s so repeated opens converge on one tab: changes and graph key on the current workspace path (`git:changes:<workspacePath>`, `git:graph:<workspacePath>`); diff keys on path plus comparison side (`git:diff:<path>:<staged|worktree>`), so a staged and a working-tree diff of one file can sit side by side. The changed-files indicator and Launcher cards open `git.changes`; clicking a file row opens `git.diff` for that path.
 
 Payload typing augments Details Host:
 
 ```ts
 declare module '@dsh-electron/dsh-client-ui-details-host/client' {
   interface DetailsSurfacePayloadMap {
-    git: { tab?: 'changes' | 'diff' | 'commit'; path?: string }
+    'git.changes': GitChangesPayload
+    'git.diff': GitDiffPayload
+    'git.graph': GitGraphPayload
   }
 }
 ```
 
-AppFrame details geometry, resize handle, and close button are owned by Details Host, not this package.
+Git also registers two Launcher cards (Changes, Graph) through `ctx.shellDetails.registerLauncher`, and renders repository controls inside each Git frame. Git does not register the deprecated `shell.details.header.actions` slot. AppFrame details geometry, the tab bar, the Launcher, and dock visibility are owned by Details Host, not this package.
 
+<a id="user-experience"></a>
 ## User experience
 
-In the conversation composer, Git contributes a branch selector and a changed-files indicator on the left of the input area. Clicking either control opens the Git details surface in the third column. Creating a branch opens a shared conversation Modal; after `git init` with no commits (unborn HEAD), the menu shows the symbolic default branch as disabled, explains that the first commit is required, and disables create until HEAD exists.
+In the conversation composer, Git contributes a branch selector and a changed-files indicator on the left of the input area. Clicking either control opens the `git.changes` surface as a Details Host tab. Creating a branch opens a shared conversation Modal; after `git init` with no commits (unborn HEAD), the menu shows the symbolic default branch as disabled, explains that the first commit is required, and disables create until HEAD exists.
 
-Inside the panel, users can review staged, unstaged, and untracked changes, inspect diffs, stage or unstage paths, write commit messages, and switch or create local branches. On Electron, optional Desktop enhancement adds reveal-in-folder and open-path actions when the Desktop provider is present.
+The **Changes** surface shows the current branch beside refresh, then a single-line auto-growing commit message field with a wand **Generate** control and a split **Commit** button (Commit, Amend, Commit & Push, Commit & Sync). Staged, unstaged, and untracked paths follow as icon-action sections: plus or minus toggles the index, undo discards after a two-step confirm, and a porcelain letter badges the row. Clicking a path opens the matching diff. The **Diff** surface shows refresh in the top-right and renders one file's working-tree or staged diff per tab. The **Graph** surface shows Auto / All / First parent beside refresh, then the commit history as a canvas-drawn lane graph — one continuous coordinate space, so rails and merge edges never break at row boundaries — with subject, author, date, hash, and HEAD/branch/tag decoration badges, paged incrementally with a load-more control. When the host exposes an LLM runtime, a staged diff is sent to the session model — or to a custom provider/model configured under **Settings → Plugins → Plugin configuration → Git** — and the streamed suggestion is written into the editable input. That same card also edits the generation system message. Generation never stages, commits, or pushes anything. On Electron, optional Desktop enhancement adds reveal-in-folder and open-path actions when the Desktop provider is present.
 
+<a id="composition"></a>
 ## Composition
 
 The Host plugin requires `ctx.subprocess`, provides `ctx.git`, and starts Git with an executable plus separate argv values. It never invokes a shell. When a DSH Web Host is present, an optional Connection child registers the loopback `/git` RPC channel.
 
-The Client plugin requires Connection, locale, runtime, conversation UI, primitives, and Details Host. Business components receive a controller and `openDetails()` through slot injection and do not access Cordis context.
+The Client plugin requires Connection, locale, renderer, conversation UI, primitives, session UI, and Details Host. Business components receive a controller and `openDetails()` through slot injection and do not access Cordis context.
+
+When `ctx.settingsScope` is present, the Client also registers a card into **Settings → Plugins → Plugin configuration** under the `git-commit-message` namespace. The card is absent in hosts that do not serve that namespace.
 
 The Client main fiber does not require `desktop`. A child `ctx.inject(['desktop'], ...)` fiber accepts only `shell.showItemInFolder`, `shell.openPath`, and `notification.show`; without them, repository, status, diff, stage, commit, and branch operations remain available and native actions are not shown.
 
+No runtime invariant companion is published because Cordis owns the service, RPC registration, and child-fiber lifetimes this package uses.
+
+<a id="configuration"></a>
 ## Configuration
 
 | Field | Default | Meaning |
@@ -100,17 +143,33 @@ The Client main fiber does not require `desktop`. A child `ctx.inject(['desktop'
 | `executable` | `git` | Git executable name or absolute path resolved by `ctx.subprocess`. |
 | `maxOutputBytes` | 8 MiB | Per-stream collection cap for one Git command. |
 | `graceMs` | 3000 | Managed subprocess termination grace period. |
+| `commitMessage.provider` | — | Provider route registered with the DSH LLM runtime. Required when `commitMessage.mode` is `custom`. |
+| `commitMessage.model` | — | Model id resolved by the provider route. Required when `commitMessage.mode` is `custom`. |
+| `commitMessage.mode` | inherit | `inherit` uses the host session model; `custom` pins `provider`/`model`. |
+| `commitMessage.systemPrompt` | built-in | System prompt for commit-message generation. Empty/absent uses the package default. |
+| `commitMessage.maxDiffBytes` | 48 KiB | Staged-diff byte cap applied before the generation prompt is built (validated minimum 1024). |
 
+The whole `commitMessage` section is optional and is also the `git-commit-message` settings namespace. Edit it from **Settings → Plugins → Plugin configuration → Git**, or as a composition entry. When the host exposes no LLM runtime, or no session model and no custom route resolve, commit message generation is unavailable and the Client reports `git/generation-unavailable`.
+
+<a id="git-operations"></a>
 ## Git operations
 
-The first release supports repository discovery, Git version, current branch and HEAD, staged/unstaged/untracked status, local branches, working and staged diffs, stage/unstage, commit, branch creation, and branch switching. Status uses porcelain v2 with NUL path separators; branches use `for-each-ref`; every caller-supplied path, branch, and message remains one argv value.
+The first release supports repository discovery, Git version, current branch and HEAD, staged/unstaged/untracked status, local branches, working and staged diffs, stage/unstage, commit, amend, push to `origin`, rebase-then-push sync, branch creation, and branch switching. Status uses porcelain v2 with NUL path separators; branches use `for-each-ref`; every caller-supplied path, branch, and message remains one argv value.
 
-GitHub authentication, remotes, fetch/pull/push UX, issues, pull requests, stash, rebase, cherry-pick, merge-conflict editing, and credential management are outside this package.
+Discard restores one staged, unstaged, or untracked change, including an addition or rename edited after staging, through explicit index, worktree, and clean operations. It is destructive: the Client always asks for a second, explicit confirmation before sending the RPC, and the surface names the path in the confirm body.
 
+Commit history is read with a paged `git log` (`GIT_LOG_FORMAT`, one commit per line, fixed field count) so the Graph surface appends older commits incrementally through a load-more control instead of materializing the whole history.
+
+Commit message generation is opt-in at the host: it needs an LLM runtime and a resolvable model (the session default, or a custom `provider`/`model`). A staged diff (capped by `commitMessage.maxDiffBytes`) is sent to that route and the streamed suggestion is written into the editable commit message input. The system prompt defaults to a Conventional Commit instruction and can be overridden from Plugin configuration. Generation is suggestion-only — it never stages, commits, or pushes anything.
+
+GitHub authentication, hosting-provider workflows, credential prompts, issues, pull requests, stash, cherry-pick, and merge-conflict editing remain outside this package. Push and sync invoke `git push` / `git pull --rebase` as separate argv values and surface Git's own errors when remotes or credentials are missing.
+
+<a id="npm-publication"></a>
 ## npm publication
 
 The package will publish to npm as `@dsh-electron/dsh-plugin-git`. Publication is not available yet; treat API and versioning as pre-release. Details Host must remain a separate installed dependency.
 
+<a id="development"></a>
 ## Development
 
 Use Node.js `^22.19` or `>=24` with pnpm 11.
@@ -122,15 +181,23 @@ pnpm build
 pnpm pack
 ```
 
+<a id="model-experience"></a>
 ## Model Experience
 
-None, as this package contributes a human-facing repository service and Client UI without registering model tools or prompt content.
+None, as this package registers no model tools, prompt sections, or request context.
 
 #### KV Cache effect
 
-None. The package does not add, replace, or retain model-request tokens.
+None. Commit-message generation is an independent Host LLM request and does not add, replace, or retain session tokens.
 
 ## Known Limitations and Deferred Work
 
-- **Local repositories only** — all operations run through the configured DSH subprocess execution world; remote repository and hosting-provider workflows are not implemented.
+- **No credential UI** — push and sync call Git with no prompt for remotes or credentials; a missing `origin` or rejected auth fails as a Git command error.
 - **Bounded command output** — a diff larger than `maxOutputBytes` retains only the subprocess collector's tail, so deployments handling very large diffs must raise that validated setting.
+- **Generation needs host + model** — commit message generation requires a host LLM runtime and a resolvable model (session default or a custom route in Plugin configuration); without either, the Generate action stays disabled or reports `git/generation-unavailable`.
+- **Launcher card copy is English** — the two Launcher cards contributed by this plugin ship their own English labels; they are not yet localized through the locale service.
+
+<a id="dev-note"></a>
+### Dev Note
+
+None.

@@ -2,5 +2,5 @@
 # side as of the last confirmed-consistent state. Both languages carry equal authority;
 # after editing either side, bring the other along and re-record with:
 #   pnpm run verify-translation-pairing --write .agents/notes/implemented/bug-fix/2026-08-26-electron-plugin-remove-restart.md
-2026-08-26-electron-plugin-remove-restart.md: 57abd1d71664ec762bcfc4781b298130788ec410
-2026-08-26-electron-plugin-remove-restart.zh.md: 3d19444fbae8d33fe13ce2716a2b48ecbabaab88
+2026-08-26-electron-plugin-remove-restart.md: 414a7bde0033739cb9125afcd994be8b0843985c
+2026-08-26-electron-plugin-remove-restart.zh.md: 0cfa139827a316d7ad9802c2cf75c8d9a3abb479

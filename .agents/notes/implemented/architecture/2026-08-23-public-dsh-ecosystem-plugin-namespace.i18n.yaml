@@ -2,5 +2,5 @@
 # side as of the last confirmed-consistent state. Both languages carry equal authority;
 # after editing either side, bring the other along and re-record with:
 #   pnpm run verify-translation-pairing --write .agents/notes/implemented/architecture/2026-08-23-public-dsh-ecosystem-plugin-namespace.md
-2026-08-23-public-dsh-ecosystem-plugin-namespace.md: cbc0bb4664ae332a45569c4383c4a6de968e1701
-2026-08-23-public-dsh-ecosystem-plugin-namespace.zh.md: f16ef2d6d32af99b96b7968946cab02da040c4f1
+2026-08-23-public-dsh-ecosystem-plugin-namespace.md: ea2208a649b3a51e8d0b998eba9fe14eb2dff87d
+2026-08-23-public-dsh-ecosystem-plugin-namespace.zh.md: e761240a7e8d08aa760c9d8dbc27ae736689fbe9

@@ -60,7 +60,7 @@ describe('desktop bridge constants', () => {
   it('proxies plugin-owned RPC channels without treating their paths as renderer files', () => {
     expect(shouldProxyHarnessRequest('POST', '/git/discover')).toBe(true)
     expect(shouldProxyHarnessRequest('GET', '/git/discover')).toBe(false)
-    expect(shouldProxyHarnessRequest('GET', '/api/events.mux')).toBe(true)
+    expect(shouldProxyHarnessRequest('GET', '/api/remote.mux')).toBe(true)
     expect(shouldProxyHarnessRequest('GET', '/plugins/git/client.js')).toBe(true)
     expect(shouldProxyHarnessRequest('HEAD', '/index.html')).toBe(false)
   })

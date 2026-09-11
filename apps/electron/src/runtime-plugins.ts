@@ -8,7 +8,7 @@ import {
   symlinkSync,
   unlinkSync,
 } from 'node:fs'
-import { dirname, join } from 'node:path'
+import { basename, dirname, join } from 'node:path'
 import type {
   PluginActivationMode,
   PluginPackageActions,
@@ -115,6 +115,7 @@ export function discoverRuntimePlugins(appPath: string): RuntimePluginManifest[]
 
 /**
  * Resolve prebuilt standard DSH packages declared by the Electron distribution.
+ * Packaged apps require each name as a production dependency so electron-builder copies it into `node_modules`.
  * @param appPath - Electron application root.
  * @returns manifests backed by installed package artifacts or workspace sources in development.
  */
@@ -154,6 +155,17 @@ interface PackageManifest {
   version?: string
   description?: string
   dsh?: { client?: unknown }
+  exports?: Record<string, { default?: string }>
+}
+
+/** Resolve the built client bundle filename a plugin manifest declares for "./client". */
+function clientBundleFile(rootPath: string): string {
+  try {
+    const manifest = JSON.parse(readFileSync(join(rootPath, 'package.json'), 'utf8')) as PackageManifest
+    return basename(manifest.exports?.['./client']?.default ?? './lib/client.js')
+  } catch {
+    return 'client.js'
+  }
 }
 
 /**
@@ -212,8 +224,11 @@ export function validateRuntimePlugin(plugin: RuntimePluginManifest): void {
   if (!existsSync(join(rootPath, 'lib', 'index.js'))) {
     throw new Error(`runtime plugins: ${name} missing lib/index.js at ${rootPath}`)
   }
-  if (plugin.hasClient && !existsSync(join(rootPath, 'lib', 'client.js'))) {
-    throw new Error(`runtime plugins: ${name} missing lib/client.js at ${rootPath}`)
+  if (plugin.hasClient) {
+    const clientFile = clientBundleFile(rootPath)
+    if (!existsSync(join(rootPath, 'lib', clientFile))) {
+      throw new Error(`runtime plugins: ${name} missing lib/${clientFile} at ${rootPath}`)
+    }
   }
 }
 
