@@ -156,7 +156,7 @@ Client main fiber 不要求 `desktop`。Child `ctx.inject(['desktop'], ...)` fib
 
 首个版本支持 repository discovery、Git version、current branch 与 HEAD、staged／unstaged／untracked status、local branches、working 与 staged diffs、stage／unstage、commit、amend、向 `origin` push、rebase-then-push sync、branch creation 与 branch switching。Status 使用带 NUL path separators 的 porcelain v2；branches 使用 `for-each-ref`；每个 caller-supplied path、branch 与 message 始终作为一个 argv value。
 
-Discard 通过 `git checkout --` / `git clean -f --` 还原一条 unstaged 或 untracked 路径，属于破坏性操作：Client 在发送 RPC 前总是要求第二次显式确认，确认正文会点名该路径。
+Discard 通过明确的 index、working tree 与 clean 操作还原一条 staged、unstaged 或 untracked 变更，包括暂存后再次编辑的新增和重命名，属于破坏性操作：Client 在发送 RPC 前总是要求第二次显式确认，确认正文会点名该路径。
 
 提交历史以分页 `git log` 读取（`GIT_LOG_FORMAT`，每行一条 commit、固定字段数），Graph surface 通过 load-more 控件增量追加更早的提交，而不是一次性物化整个历史。
 
@@ -184,11 +184,11 @@ pnpm pack
 <a id="model-experience"></a>
 ## Model Experience
 
-提交信息生成会在 agent loop 之外发出一次性 LLM 请求。该请求携带专用 system prompt 与 staged diff，不是 session-log 事件。默认 prompt 要求 Conventional Commit subject；**设置 → 插件 → 插件配置 → Git** 可以替换 prompt 并固定 provider/model。
+无，因为本 package 不注册 model tools、prompt sections 或 request context。
 
 #### KV Cache effect
 
-无。每次生成都是独立请求；本 package 不增加、替换或保留会话 token。
+无。Commit message 生成是独立的 Host LLM 请求，不增加、替换或保留会话 token。
 
 ## Known Limitations and Deferred Work
 

@@ -4,7 +4,7 @@ import type { Context } from '@deepseek-ai/cordis'
 import type { SubprocessRuntime } from '@deepseek-ai/dsh-subprocess'
 import { GIT_LOG_FORMAT, parseGitLog } from './log.ts'
 import { parseBranches, parsePorcelainV2 } from './status.ts'
-import type { GitCommitSummary, GitDiff, GitLogScope, GitRepositorySnapshot } from './types.ts'
+import type { GitCommitSummary, GitDiff, GitFileChange, GitLogScope, GitRepositorySnapshot } from './types.ts'
 
 /** Extra `git log` arguments implementing one history scope. */
 function logScopeArgs(scope: GitLogScope): readonly string[] {
@@ -95,24 +95,24 @@ export class GitService {
   /**
    * Stage one path, or all paths when omitted.
    * @param repository - Repository working directory.
-   * @param path - Optional repository-relative path.
+   * @param change - Optional complete change record. Its target path is staged.
    * @param signal - Optional command cancellation signal.
    * @returns Repository snapshot after the index update.
    */
-  async stage(repository: string, path?: string, signal?: AbortSignal): Promise<GitRepositorySnapshot> {
-    await this.run(repository, path === undefined ? ['add', '--all'] : ['add', '--', path], signal)
+  async stage(repository: string, change?: GitFileChange, signal?: AbortSignal): Promise<GitRepositorySnapshot> {
+    await this.run(repository, change === undefined ? ['add', '--all'] : ['add', '--', change.path], signal)
     return this.status(repository, signal)
   }
 
   /**
    * Remove one path, or every path, from the index without changing the working tree.
    * @param repository - Repository working directory.
-   * @param path - Optional repository-relative path.
+   * @param change - Optional complete change record. Renames reset both paths.
    * @param signal - Optional command cancellation signal.
    * @returns Repository snapshot after the index update.
    */
-  async unstage(repository: string, path?: string, signal?: AbortSignal): Promise<GitRepositorySnapshot> {
-    await this.run(repository, path === undefined ? ['reset', '--mixed'] : ['reset', '--mixed', '--', path], signal)
+  async unstage(repository: string, change?: GitFileChange, signal?: AbortSignal): Promise<GitRepositorySnapshot> {
+    await this.run(repository, change === undefined ? ['reset', '--mixed'] : ['reset', '--mixed', '--', ...changePaths(change)], signal)
     return this.status(repository, signal)
   }
 
@@ -162,29 +162,62 @@ export class GitService {
    * Discard working-tree, HEAD, or untracked content. Destructive: callers
    * confirm before invoking.
    * @param repository - Repository working directory.
-   * @param path - Optional repository-relative path. Required for `head` and `untracked`.
+   * @param change - Optional complete change record. Required for `head` and `untracked`.
    * @param signal - Optional command cancellation signal.
-   * @param mode - `worktree` restores the index, `head` restores HEAD, `untracked` deletes the path.
+   * @param mode - `worktree` restores the index, `head` restores both index and working tree from HEAD, `untracked` deletes the path.
    * @returns Repository snapshot after the discard.
    */
   async discard(
     repository: string,
-    path?: string,
+    change?: GitFileChange,
     signal?: AbortSignal,
     mode: 'worktree' | 'head' | 'untracked' = 'worktree',
   ): Promise<GitRepositorySnapshot> {
     if (mode === 'untracked') {
-      if (path === undefined) throw new Error('untracked discard requires a path')
-      await this.run(repository, ['clean', '-f', '--', path], signal)
+      if (change === undefined) throw new Error('untracked discard requires a change record')
+      await this.run(repository, ['clean', '-f', '--', change.path], signal)
       return this.status(repository, signal)
     }
     if (mode === 'head') {
-      if (path === undefined) throw new Error('HEAD discard requires a path')
-      await this.run(repository, ['checkout', 'HEAD', '--', path], signal)
+      if (change === undefined) throw new Error('HEAD discard requires a change record')
+      await this.discardHead(repository, change, signal)
       return this.status(repository, signal)
     }
-    await this.run(repository, path === undefined ? ['checkout', '--', '.'] : ['checkout', '--', path], signal)
+    if (change === undefined) await this.run(repository, ['checkout', '--', '.'], signal)
+    else await this.discardWorktree(repository, change, signal)
     return this.status(repository, signal)
+  }
+
+  /** Restore one staged change to HEAD, including paths absent from HEAD with later working-tree edits. */
+  private async discardHead(repository: string, change: GitFileChange, signal?: AbortSignal): Promise<void> {
+    const indexStatus = change.status[0]
+    if (indexStatus === 'A' || indexStatus === 'C') {
+      await this.run(repository, ['rm', '-f', '--cached', '--', change.path], signal)
+      await this.run(repository, ['clean', '-f', '--', change.path], signal)
+      return
+    }
+    if (indexStatus === 'R' && change.originalPath !== undefined) {
+      await this.run(repository, ['rm', '-f', '--cached', '--', change.path], signal)
+      await this.run(repository, ['clean', '-f', '--', change.path], signal)
+      await this.run(repository, ['checkout', 'HEAD', '--', change.originalPath], signal)
+      return
+    }
+    await this.run(repository, ['checkout', 'HEAD', '--', change.path], signal)
+  }
+
+  /** Restore one working-tree change while retaining the index. */
+  private async discardWorktree(repository: string, change: GitFileChange, signal?: AbortSignal): Promise<void> {
+    const worktreeStatus = change.status[1]
+    if (worktreeStatus === 'A' || worktreeStatus === 'C') {
+      await this.run(repository, ['clean', '-f', '--', change.path], signal)
+      return
+    }
+    if (worktreeStatus === 'R' && change.originalPath !== undefined) {
+      await this.run(repository, ['clean', '-f', '--', change.path], signal)
+      await this.run(repository, ['checkout', '--', change.originalPath], signal)
+      return
+    }
+    await this.run(repository, ['checkout', '--', change.path], signal)
   }
 
   /**
@@ -261,12 +294,15 @@ export class GitService {
       },
     })
     const outcome = await handle.done
-    const stdout = handle.collected.stdout?.readFrom(0).text ?? ''
-    const stderr = handle.collected.stderr?.readFrom(0).text ?? ''
-    if (outcome.exitCode !== 0) {
-      throw new GitCommandError(stderr.trim() || `git ${args[0] ?? 'command'} failed`, outcome.exitCode, stderr)
+    const stdout = handle.collected.stdout?.readFrom(0)
+    const stderr = handle.collected.stderr?.readFrom(0)
+    if (stdout?.lossy === true || stderr?.lossy === true) {
+      throw new GitCommandError(`git ${args[0] ?? 'command'} output exceeded ${this.options.maxOutputBytes} bytes`, outcome.exitCode, stderr?.text ?? '')
     }
-    return stdout
+    if (outcome.exitCode !== 0) {
+      throw new GitCommandError(stderr?.text.trim() || `git ${args[0] ?? 'command'} failed`, outcome.exitCode, stderr?.text ?? '')
+    }
+    return stdout?.text ?? ''
   }
 }
 
@@ -290,4 +326,9 @@ function requireBranch(value: string): string {
   const normalized = value.trim()
   if (normalized.length === 0) throw new Error('branch name must not be empty')
   return normalized
+}
+
+/** Paths that represent one rename as a single index operation. */
+function changePaths(change: GitFileChange): readonly string[] {
+  return change.originalPath === undefined ? [change.path] : [change.path, change.originalPath]
 }

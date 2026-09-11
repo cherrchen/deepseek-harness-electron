@@ -25,6 +25,12 @@ function winner(slots: Awaited<ReturnType<typeof bench>>['slots']): unknown {
   return slots.entriesOfSlot('details')[0]?.component
 }
 
+function launcherIds(slots: Awaited<ReturnType<typeof bench>>['slots']): string[] {
+  const injected = slots.entriesOfSlot('details')[0]?.inject?.()
+  const observable = (injected?.['hooks'] as { detailsHost: { getSnapshot(): { launcherEntries: readonly { id: string }[] } } } | undefined)?.detailsHost
+  return observable?.getSnapshot().launcherEntries.map(entry => entry.id) ?? []
+}
+
 describe('shellDetails service', () => {
   it('does not occupy details until open', async () => {
     const b = await bench()
@@ -213,6 +219,7 @@ describe('shellDetails service', () => {
     b.shellDetails.showLauncher()
     expect(b.shellDetails.getSnapshot().launcherVisible).toBe(true)
     expect(b.layout.openDetails).toHaveBeenCalled()
+    expect(launcherIds(b.slots)).toEqual(['test.card'])
 
     b.shellDetails.open({ surfaceId: 'test.alpha', payload: { source: 'launcher' } })
     expect(b.shellDetails.activeId).toBe('test.alpha')
@@ -225,6 +232,7 @@ describe('shellDetails service', () => {
       open: () => ({ surfaceId: 'test.alpha' }),
     })).toThrow(/already registered/)
     disposeCard()
+    expect(launcherIds(b.slots)).toEqual([])
     await b.fiber.dispose()
   })
 

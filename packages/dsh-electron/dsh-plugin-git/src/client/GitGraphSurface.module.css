@@ -11,6 +11,8 @@
   flex-direction: column;
   min-height: 0;
   overflow: auto;
+  --dsh-scrollbar-thumb: var(--dsw-alias-scrollbar-bg-l2);
+  --dsh-scrollbar-thumb-hover: var(--dsw-alias-scrollbar-hover-l2);
 }
 
 /*
@@ -38,6 +40,7 @@
   padding: 0 10px;
   border: 0.5px solid transparent;
   border-radius: 999px;
+  corner-shape: round;
   background: transparent;
   color: var(--dsw-alias-label-secondary);
   font-size: 11px;

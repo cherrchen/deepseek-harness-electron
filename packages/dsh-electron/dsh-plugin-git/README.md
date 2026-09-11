@@ -156,7 +156,7 @@ The whole `commitMessage` section is optional and is also the `git-commit-messag
 
 The first release supports repository discovery, Git version, current branch and HEAD, staged/unstaged/untracked status, local branches, working and staged diffs, stage/unstage, commit, amend, push to `origin`, rebase-then-push sync, branch creation, and branch switching. Status uses porcelain v2 with NUL path separators; branches use `for-each-ref`; every caller-supplied path, branch, and message remains one argv value.
 
-Discard reverts one unstaged or untracked path through `git checkout --` / `git clean -f --` and is destructive: the Client always asks for a second, explicit confirmation before sending the RPC, and the surface names the path in the confirm body.
+Discard restores one staged, unstaged, or untracked change, including an addition or rename edited after staging, through explicit index, worktree, and clean operations. It is destructive: the Client always asks for a second, explicit confirmation before sending the RPC, and the surface names the path in the confirm body.
 
 Commit history is read with a paged `git log` (`GIT_LOG_FORMAT`, one commit per line, fixed field count) so the Graph surface appends older commits incrementally through a load-more control instead of materializing the whole history.
 
@@ -184,11 +184,11 @@ pnpm pack
 <a id="model-experience"></a>
 ## Model Experience
 
-Commit-message generation issues a one-shot LLM request outside the agent loop. The request carries a dedicated system prompt plus the staged diff and is not a session-log event. The default prompt asks for a Conventional Commit subject; **Settings → Plugins → Plugin configuration → Git** can replace the prompt and pin a provider/model.
+None, as this package registers no model tools, prompt sections, or request context.
 
 #### KV Cache effect
 
-None. Each generation is an independent request; the package does not add, replace, or retain session tokens.
+None. Commit-message generation is an independent Host LLM request and does not add, replace, or retain session tokens.
 
 ## Known Limitations and Deferred Work
 

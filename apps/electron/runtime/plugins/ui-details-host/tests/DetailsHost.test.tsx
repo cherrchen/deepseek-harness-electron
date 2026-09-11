@@ -63,6 +63,7 @@ function state(overrides: Partial<DetailsHostState> = {}): DetailsHostState {
     launcherVisible: false,
     dockVisible: false,
     canGoBack: false,
+    launcherEntries: [],
     ...overrides,
   }
 }
@@ -127,8 +128,7 @@ function props(
       }
       return null
     },
-    useDetailsHost: selector => selector(snapshot),
-    launcherEntries: entries,
+    useDetailsHost: selector => selector({ ...snapshot, launcherEntries: entries }),
     reportDockVisible: vi.fn(),
     activate: handlers.activate ?? vi.fn(),
     closeTab: handlers.closeTab ?? vi.fn(),

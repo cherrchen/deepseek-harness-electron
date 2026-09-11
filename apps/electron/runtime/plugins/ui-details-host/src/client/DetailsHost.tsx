@@ -98,7 +98,6 @@ function LauncherPage(props: {
 export function DetailsHost({
   renderSlot,
   useDetailsHost,
-  launcherEntries,
   reportDockVisible,
   activate,
   closeTab,
@@ -107,7 +106,7 @@ export function DetailsHost({
   t,
 }: DetailsHostProps) {
   const snapshot: DetailsHostState = useDetailsHost((state: DetailsHostState) => state)
-  const { tabs, activeInstance, launcherVisible, openFolder, workspacePath } = snapshot
+  const { tabs, activeInstance, launcherVisible, openFolder, workspacePath, launcherEntries } = snapshot
   const [folderError, setFolderError] = useState<string | null>(null)
   const [openingFolder, setOpeningFolder] = useState(false)
   const openWorkspace = async () => {

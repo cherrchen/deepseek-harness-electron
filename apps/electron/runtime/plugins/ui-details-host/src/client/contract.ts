@@ -290,6 +290,8 @@ export interface DetailsHostState {
   readonly dockVisible: boolean
   /** Whether {@link ShellDetailsController.back} can restore an MRU tab. */
   readonly canGoBack: boolean
+  /** Launcher cards currently contributed by loaded plugins. */
+  readonly launcherEntries: readonly DetailsLauncherContribution[]
 }
 
 /** Injected business face of the DetailsHost `details` occupant. */
@@ -298,8 +300,6 @@ export interface DetailsHostInjected {
     /** Tab/launcher snapshot bound by the renderer as `useDetailsHost`. */
     detailsHost: HostObservable<DetailsHostState>
   }
-  /** Live Launcher contributions, resolved at inject time. */
-  launcherEntries: readonly DetailsLauncherContribution[]
   /** Report the measured column visibility from the mounted DetailsHost. */
   reportDockVisible(visible: boolean): void
   /** Activate the tab with this instance id (hides the Launcher). */
