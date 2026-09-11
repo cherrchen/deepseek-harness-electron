@@ -103,6 +103,7 @@
 .pending {
   flex: none;
   border-radius: 999px;
+  corner-shape: round;
   padding: 1px 8px;
   font-size: 11px;
   line-height: 17px;
@@ -196,7 +197,7 @@
 
 .retry {
   appearance: none;
-  border: 1px solid var(--dsw-alias-border-l2);
+  border: 0.5px solid var(--dsw-alias-border-l2);
   border-radius: 8px;
   padding: 3px 10px;
   font: inherit;

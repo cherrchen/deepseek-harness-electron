@@ -443,7 +443,7 @@ describe('GitClientController', () => {
     }
     const controller = new GitClientController(rpc)
     await controller.setWorkspace('/workspace-a')
-    const pendingStage = controller.stage('tracked.txt')
+    const pendingStage = controller.stage({ path: 'tracked.txt', status: ' M' })
     await stageStarted
     await controller.setWorkspace('/workspace-b')
     releaseStage?.({
