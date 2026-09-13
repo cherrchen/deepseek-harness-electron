@@ -12,7 +12,7 @@ The 0.1.5-rc.2 pin left Plugin Manager and Git uncomposed because Git occupied t
 
 `apps/electron/runtime/host.patch.yml` inserts `@dsh-electron/dsh-electron-ui-plugin-manager`. Details Host stays unmounted.
 
-`packages/dsh-electron/dsh-plugin-git` tracks `cherrchen/dsh-plugin-git` branch `chore/0.1.5-adapt`. That client injects `sidebarRight` / `sidebarRightTabs` and has no runtime dependency on `details`, `shellDetails`, or `@dsh-electron/dsh-client-ui-details-host`. Desktop lists `@dsh-electron/dsh-plugin-git` in `dshElectron.ecosystemPlugins` and keeps it as a production `workspace:` dependency. Host and Client aggregates include `packages/dsh-electron/**` again.
+`packages/dsh-electron/dsh-plugin-git` tracks `cherrchen/dsh-plugin-git` branch `chore/0.1.5-adapt`. That client injects `sidebarRight` / `sidebarRightTabs` and has no runtime dependency on `details`, `shellDetails`, or `@dsh-electron/dsh-client-ui-details-host`. Desktop lists `@dsh-electron/dsh-plugin-git` in `dshElectron.ecosystemPlugins` and keeps it as a production `workspace:` dependency. Host and Client aggregates reference that package's host and client projects; subtree tests stay out of those programs.
 
 ## Alternatives considered
 

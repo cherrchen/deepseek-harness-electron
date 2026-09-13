@@ -12,7 +12,7 @@ Status: implemented
 
 `apps/electron/runtime/host.patch.yml` 插入 `@dsh-electron/dsh-electron-ui-plugin-manager`。Details Host 保持不挂载。
 
-`packages/dsh-electron/dsh-plugin-git` 跟踪 `cherrchen/dsh-plugin-git` 的 `chore/0.1.5-adapt` 分支。该 Client 注入 `sidebarRight` / `sidebarRightTabs`，运行时不依赖 `details`、`shellDetails` 或 `@dsh-electron/dsh-client-ui-details-host`。Desktop 把 `@dsh-electron/dsh-plugin-git` 列入 `dshElectron.ecosystemPlugins`，并保留为 production `workspace:` 依赖。Host 与 Client 聚合再次纳入 `packages/dsh-electron/**`。
+`packages/dsh-electron/dsh-plugin-git` 跟踪 `cherrchen/dsh-plugin-git` 的 `chore/0.1.5-adapt` 分支。该 Client 注入 `sidebarRight` / `sidebarRightTabs`，运行时不依赖 `details`、`shellDetails` 或 `@dsh-electron/dsh-client-ui-details-host`。Desktop 把 `@dsh-electron/dsh-plugin-git` 列入 `dshElectron.ecosystemPlugins`，并保留为 production `workspace:` 依赖。Host 与 Client 聚合引用该包的 host 与 client 工程；subtree 测试不进入这两个程序。
 
 ## Alternatives considered
 
