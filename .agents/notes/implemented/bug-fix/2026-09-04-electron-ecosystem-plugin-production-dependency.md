@@ -10,7 +10,7 @@ English | [中文](2026-09-04-electron-ecosystem-plugin-production-dependency.zh
 
 ## Decision
 
-Every name in `dshElectron.ecosystemPlugins` is a production `workspace:` dependency of `@dsh-electron/dsh-electron`. `requiredDesktopWorkspaceDependencies()` concatenates those names with `DESKTOP_ENTRY_WORKSPACE_DEPENDENCIES`, so `sync-version` cannot drop them when it regenerates the CLI workspace graph. Discovery still prefers `app/node_modules/<name>` and keeps the workspace fallback for unpackaged checkouts. The public namespace decision that ecosystem plugins are standard DSH packages remains [the namespace note](../architecture/2026-08-23-public-dsh-ecosystem-plugin-namespace.md).
+Every name in `dshElectron.ecosystemPlugins` is a production `workspace:` dependency of `@dsh-electron/dsh-electron`. `requiredDesktopWorkspaceDependencies()` concatenates those names with `DESKTOP_ENTRY_WORKSPACE_DEPENDENCIES`, so `sync-version` cannot drop them when it regenerates the CLI workspace graph. Discovery still prefers `app/node_modules/<name>` and keeps the workspace fallback for unpackaged checkouts. The public namespace decision that ecosystem plugins are standard DSH packages remains the [ecosystem plugin group map](../../../../packages/dsh-electron/README.md).
 
 ## Alternatives considered
 

@@ -2,5 +2,5 @@
 # side as of the last confirmed-consistent state. Both languages carry equal authority;
 # after editing either side, bring the other along and re-record with:
 #   pnpm run verify-translation-pairing --write .agents/notes/implemented/bug-fix/2026-09-04-electron-ecosystem-plugin-production-dependency.md
-2026-09-04-electron-ecosystem-plugin-production-dependency.md: 4d08a6bb77aca69b512636da3dbc4427b22de85e
-2026-09-04-electron-ecosystem-plugin-production-dependency.zh.md: 5413604af84c1c98f78b5757d1e876e4e70960d6
+2026-09-04-electron-ecosystem-plugin-production-dependency.md: eca5a07383b7c40471c4875406d9bbeae8ab544b
+2026-09-04-electron-ecosystem-plugin-production-dependency.zh.md: ff5ee6b65984aa92068791e7b16a34304869b439

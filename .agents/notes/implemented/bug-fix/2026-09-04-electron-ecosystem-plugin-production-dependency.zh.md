@@ -10,7 +10,7 @@ Status: implemented
 
 ## 决策
 
-`dshElectron.ecosystemPlugins` 中的每个名称都是 `@dsh-electron/dsh-electron` 的 production `workspace:` 依赖。`requiredDesktopWorkspaceDependencies()` 把这些名称与 `DESKTOP_ENTRY_WORKSPACE_DEPENDENCIES` 拼接，因此 `sync-version` 在重生 CLI workspace graph 时不能丢掉它们。发现仍然优先 `app/node_modules/<name>`，并保留 workspace 回退给未打包的 checkout。生态插件仍是标准 DSH 包这一公共 namespace 决策仍由[该 namespace 说明](../architecture/2026-08-23-public-dsh-ecosystem-plugin-namespace.zh.md)拥有。
+`dshElectron.ecosystemPlugins` 中的每个名称都是 `@dsh-electron/dsh-electron` 的 production `workspace:` 依赖。`requiredDesktopWorkspaceDependencies()` 把这些名称与 `DESKTOP_ENTRY_WORKSPACE_DEPENDENCIES` 拼接，因此 `sync-version` 在重生 CLI workspace graph 时不能丢掉它们。发现仍然优先 `app/node_modules/<name>`，并保留 workspace 回退给未打包的 checkout。生态插件仍是标准 DSH 包这一公共 namespace 决策仍由[生态插件组说明](../../../../packages/dsh-electron/README.zh.md)拥有。
 
 ## 考虑过的替代方案
 

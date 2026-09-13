@@ -90,7 +90,7 @@ After each upstream merge that touches `AGENTS.md`:
 2. Do not maintain long-lived edits to upstream `AGENTS.md` prose
 3. Ensure the file ends with `@AGENTS.downstream.md`
 
-Run `node apps/electron/scripts/restore-agents-downstream.mjs` when the marker is missing.
+Run `node apps/electron/scripts/restore-agents-downstream.mjs` when the marker is missing. `verify-doc-budgets` skips root `AGENTS.md` so an upstream word-count ceiling cannot force downstream edits; fork rules stay in this file.
 
 ## Downstream file protection
 
@@ -118,7 +118,7 @@ Standing rules (do not duplicate the full architecture doc here):
 - Electron remains the stable desktop platform; DSH/Cordis plugins are the extensible product feature layer. Do not make the Electron app itself a Cordis plugin, and do not rebuild a second product frontend in `apps/electron/src/renderer`.
 - Keep Renderer bootstrap thin (`bootstrap.ts` / `renderer/main.ts`). Portable and Desktop-aware product features belong in standard DSH packages under `packages/dsh-electron/**`; `apps/electron/runtime/plugins/` holds Desktop adapters, Electron carrier plugins, Desktop-only integration, and Electron-required portable DSH UI infrastructure. Host composition stays explicit in `runtime/host.patch.yml`.
 - Feature plugins MUST NOT import Electron, `ipcRenderer`, or Node. Native OS operations cross the Desktop Capability Provider (`ctx.desktop`); only renderer infrastructure and the provider may read `window.deepseekDesktop` directly. Do not add a generic IPC escape hatch.
-- `@dsh-electron/dsh-plugin-*` packages are Native-compatible by default and MUST NOT depend on an Electron provider. Optional native enhancement runs in a child `ctx.inject(['desktop'], ...)` fiber so the portable core remains active when `desktop` is absent or unloads. Reserve `@dsh-electron/dsh-electron-*` for Desktop-required infrastructure. Electron-required portable UI infrastructure under `runtime/plugins/` uses a public package name (currently `@dsh-electron/dsh-client-ui-details-host` and `@dsh-electron/dsh-theme-studio`), is a required `host.patch.yml` mount, and MUST NOT join `dshElectron.ecosystemPlugins`.
+- `@dsh-electron/dsh-plugin-*` packages are Native-compatible by default and MUST NOT depend on an Electron provider. Optional native enhancement runs in a child `ctx.inject(['desktop'], ...)` fiber so the portable core remains active when `desktop` is absent or unloads. Reserve `@dsh-electron/dsh-electron-*` for Desktop-required infrastructure. Electron-required portable UI infrastructure under `runtime/plugins/` uses a public package name (currently `@dsh-electron/dsh-theme-studio`), is a required `host.patch.yml` mount when composed, and MUST NOT join `dshElectron.ecosystemPlugins`. `@dsh-electron/dsh-client-ui-details-host` remains in that directory and is not composed while upstream has no Client `details` slot.
 - Prefer existing upstream Cordis/DSH seams before inventing Desktop-specific APIs; only the privileged portion should enter Electron Main.
 - Retain the supervised loopback `dsh web` Host transport unless measured evidence justifies replacement ([architecture §24](docs/electron/architecture.md#24-optional-milestone-4--transport-optimization)).
 - Update CURRENT architecture prose only after behavior ships; update TARGET prose only after an explicit architecture decision.
