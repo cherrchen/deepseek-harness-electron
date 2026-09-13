@@ -39,6 +39,9 @@ async function mounted(options: {
   const ctx = new Context()
   ctx.provide('subprocess', {} as never)
   let captured: CapturedEndpoint | undefined
+  // Both rows come from the host in production; the channel adapter declares
+  // `webServer` so its callback only runs once the route table exists.
+  ctx.provide('webServer', {} as never)
   ctx.provide('connection', {
     rpc: {
       handle(channel: string, handler: (endpoint: string, payload: unknown, signal: AbortSignal) => Promise<unknown>) {

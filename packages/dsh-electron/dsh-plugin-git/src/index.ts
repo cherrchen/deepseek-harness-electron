@@ -67,8 +67,24 @@ export function apply(ctx: Context, config: Config): void {
   })
   ctx.provide('git', service)
   const generation = assembleGeneration(ctx, config.commitMessage)
-  ctx.inject(['connection'], (connectionCtx) => {
-    const connection = connectionCtx.connection
+  // Soft: a profile without a web server (headless, sdk) has no browser to
+  // serve, and the service is unaffected.
+  //
+  // `webServer` MUST be in the dependency list so this callback only runs once
+  // the route table exists, and the service MUST be read off `ctx.root`:
+  // `connection.rpc.handle` resolves `webServer` as a property of the context
+  // the service was READ from, and cordis property resolution from a plugin
+  // fiber can only see that fiber's own injected services — a sibling row's
+  // `webServer` is invisible, the registration dies with `cannot get property
+  // "webServer" without inject`, and every client request then falls through
+  // to the static SPA fallback as HTTP 405. Reading at the root (what the
+  // upstream connection tests do) resolves against the shared service store.
+  ctx.inject(['connection', 'webServer'], (connectionCtx) => {
+    const connection = connectionCtx.root.get('connection')
+    if (connection === undefined) {
+      ctx.logger?.warn('dsh-plugin-git: connection resolved without the service; the RPC adapter is not mounted')
+      return
+    }
     return connection.rpc.handle('/git', async (endpoint, payload, signal) => {
       try {
         return { ok: true, value: await invoke(service, generation, endpoint, payload, signal) }

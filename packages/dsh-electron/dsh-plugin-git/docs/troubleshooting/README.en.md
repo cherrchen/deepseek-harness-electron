@@ -10,4 +10,4 @@ Holds **recurring problems, or problems whose diagnosis was expensive**: symptom
 
 ## Entries
 
-None yet. Register the index here when the first entry lands.
+- [`git-rpc-channel-405.md`](git-rpc-channel-405.md) — `/git` RPC channel 405: a cordis nested fiber's property resolution cannot see `webServer`, so the channel silently never registers and all client UI goes blank. (Chinese canonical.)

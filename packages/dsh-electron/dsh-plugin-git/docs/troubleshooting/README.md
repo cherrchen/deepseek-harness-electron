@@ -10,4 +10,4 @@
 
 ## 条目
 
-暂无。首次沉淀时在本 README 登记索引。
+- [`git-rpc-channel-405.md`](git-rpc-channel-405.md) —— `/git` RPC 通道 405：cordis 嵌套 fiber 属性访问不可见 `webServer`，通道静默未注册，客户端 UI 全部空白。
