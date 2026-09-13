@@ -300,6 +300,7 @@ export class PluginLifecycleController {
         activationMode: plugin.activationMode,
         health: plugin.health,
         packageActions: plugin.packageActions,
+        ...(plugin.desktopInstalled === undefined ? {} : { desktopInstalled: plugin.desktopInstalled }),
       })),
       pendingRestart: this.restartTracker?.list() ?? [],
       ...(activeOperation === undefined ? {} : { activeOperation }),

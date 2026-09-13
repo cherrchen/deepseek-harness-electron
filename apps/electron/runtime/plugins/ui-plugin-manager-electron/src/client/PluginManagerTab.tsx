@@ -90,6 +90,13 @@ export function pluginDisplayName(plugin: PluginLifecycleEntry): string {
     .join(' ')
 }
 
+/** Locale key for the category line shown on one catalog row. */
+export function pluginKindHintKey(plugin: PluginLifecycleEntry): 'kindBundle' | 'kindRuntime' | undefined {
+  if (plugin.kind === 'bundle') return 'kindBundle'
+  if (plugin.kind === 'runtime-plugin') return 'kindRuntime'
+  return undefined
+}
+
 /** Whether one plugin matches the local search query. */
 export function matchesPlugin(plugin: PluginLifecycleEntry, normalizedQuery: string): boolean {
   if (normalizedQuery.length === 0) return true
@@ -144,6 +151,7 @@ function PluginRow({ plugin, state, mutate, t, readOnly = false, onRemove, updat
   const [menuOpen, setMenuOpen] = useState(false)
   const title = pluginDisplayName(plugin)
   const presentation = lifecyclePresentation(plugin, state.activeOperation, t)
+  const kindHint = pluginKindHintKey(plugin)
   const actions = readOnly ? [] : availableActions(plugin)
   const globallyLocked = state.activeOperation !== undefined || state.snapshot?.activeOperation !== undefined
   const packageItems = readOnly ? [] : [
@@ -157,6 +165,7 @@ function PluginRow({ plugin, state, mutate, t, readOnly = false, onRemove, updat
         <strong>{title}</strong>
         <code>{plugin.name}</code>
         {plugin.description === undefined ? null : <p>{plugin.description}</p>}
+        {kindHint === undefined ? null : <span className={css.kindHint}>{t(kindHint)}</span>}
         {plugin.requestedSpec === undefined ? null : <span className={css.sourceSpec}>{plugin.requestedSpec}</span>}
       </div>
       <div className={css.pluginControl}>

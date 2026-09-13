@@ -69,16 +69,17 @@ export class ProfilePluginCatalog implements PluginCatalog {
           activationMode: kind === 'bundle' ? 'profile-restart' : 'none',
           health: 'reconcile-required',
           packageActions: packageActions(installSource, requestedSpec, 'reconcile-required'),
+          desktopInstalled: managedNames.has(dependencyName),
         })
         continue
       }
       const inspected = inspectProfilePackageState(profileDir, dependencyName)
       const incomplete = inspected.entryProblem !== undefined
       const declaredKind = inspected.kind
-      const managedRuntime = !incomplete && declaredKind === 'runtime-plugin' && managedNames.has(dependencyName)
+      const desktopInstalled = managedNames.has(dependencyName)
       const kind = declaredKind === 'bundle'
         ? 'bundle'
-        : declaredKind === 'runtime-plugin' && (managedRuntime || incomplete) ? 'runtime-plugin' : 'dependency'
+        : declaredKind === 'runtime-plugin' ? 'runtime-plugin' : 'dependency'
       const activationMode = kind === 'runtime-plugin'
         ? 'hot'
         : kind === 'bundle' ? 'profile-restart' : 'none'
@@ -97,11 +98,12 @@ export class ProfilePluginCatalog implements PluginCatalog {
         kind,
         installSource,
         requestedSpec,
-        manageable: activationMode === 'hot' && health === 'healthy' && managedRuntime,
+        manageable: activationMode === 'hot' && health === 'healthy',
         required: false,
         activationMode,
         health,
         packageActions: packageActions(installSource, requestedSpec, health),
+        desktopInstalled,
       })
     }
     return [...entries.values()]

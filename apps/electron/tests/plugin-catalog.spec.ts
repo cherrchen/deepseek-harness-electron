@@ -64,7 +64,9 @@ describe('profile plugin catalog', () => {
         ['@fixture/broken-runtime', 'profile', 'runtime-plugin', 'hot', 'reconcile-required'],
         ['@fixture/library', 'profile', 'dependency', 'none', 'healthy'],
       ])
-      expect(entries.find(entry => entry.name === '@fixture/runtime')).toMatchObject({ manageable: true, hasClient: true, installSource: 'local' })
+      expect(entries.find(entry => entry.name === '@fixture/runtime')).toMatchObject({
+        manageable: true, hasClient: true, installSource: 'local', desktopInstalled: true,
+      })
       expect(entries.find(entry => entry.name === '@fixture/broken-runtime')).toMatchObject({ manageable: false, hasClient: true })
       expect(effectivePluginRoster(entries, state).map(entry => entry.name)).not.toContain('@fixture/broken-runtime')
     } finally {
@@ -106,6 +108,33 @@ describe('profile plugin catalog', () => {
         health: 'reconcile-required',
         packageActions: { checkUpdates: true, update: 'registry', reinstall: true, remove: true },
       })
+    } finally {
+      await rm(root, { recursive: true, force: true })
+    }
+  })
+
+  it('treats a healthy CLI-installed runtime plugin as manageable without profileManaged', async () => {
+    const root = await mkdtemp(join(tmpdir(), 'dsh-electron-catalog-cli-'))
+    const appPath = join(root, 'app')
+    const harnessHome = join(root, 'home')
+    mkdirSync(join(appPath, 'runtime', 'plugins'), { recursive: true })
+    writeManifest(appPath, { dshElectron: { ecosystemPlugins: [] } })
+    const profileDir = join(harnessHome, 'profiles', 'web')
+    writeManifest(profileDir, { dependencies: { '@fixture/cli-runtime': 'github:fixture/cli-runtime' } })
+    const runtimeRoot = join(profileDir, 'node_modules', '@fixture', 'cli-runtime')
+    writeManifest(runtimeRoot, { name: '@fixture/cli-runtime', version: '1.0.0', main: 'index.js' })
+    writePackageFile(runtimeRoot, 'index.js')
+    const state: PluginState = { version: 2, disabled: [], profileManaged: [] }
+    try {
+      const entries = await new ProfilePluginCatalog(appPath, harnessHome, 'web', () => state).list()
+      expect(entries.find(entry => entry.name === '@fixture/cli-runtime')).toMatchObject({
+        kind: 'runtime-plugin',
+        manageable: true,
+        desktopInstalled: false,
+        activationMode: 'hot',
+        health: 'healthy',
+      })
+      expect(effectivePluginRoster(entries, state).map(entry => entry.name)).toContain('@fixture/cli-runtime')
     } finally {
       await rm(root, { recursive: true, force: true })
     }

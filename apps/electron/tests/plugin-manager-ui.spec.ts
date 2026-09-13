@@ -16,6 +16,7 @@ import {
   matchesPlugin,
   PluginManagerTab,
   pluginDisplayName,
+  pluginKindHintKey,
 } from '../runtime/plugins/ui-plugin-manager-electron/src/client/PluginManagerTab.tsx'
 import { apply, inject, NS } from '../runtime/plugins/ui-plugin-manager-electron/src/client/index.ts'
 import { en } from '../runtime/plugins/ui-plugin-manager-electron/src/client/locales.ts'
@@ -444,5 +445,26 @@ describe('Electron Plugin Manager view', () => {
     expect(pluginDisplayName(plugin({ name: '@dsh-electron/dsh-client-ui-details-host' }))).toBe('Details Host')
     expect(pluginDisplayName(plugin({ name: '@dsh-electron/dsh-theme-studio' }))).toBe('Theme Studio')
     expect(matchesPlugin(plugin(), 'integration')).toBe(true)
+    expect(pluginKindHintKey(plugin({ kind: 'bundle', activationMode: 'profile-restart', runtime: undefined }))).toBe('kindBundle')
+    expect(pluginKindHintKey(plugin({ kind: 'runtime-plugin', ownership: 'profile' }))).toBe('kindRuntime')
+    expect(pluginKindHintKey(plugin({ kind: 'dependency', activationMode: 'none', runtime: undefined }))).toBeUndefined()
+  })
+
+  it('explains CLI-installed removal and category copy', async () => {
+    const cliPlugin = plugin({
+      name: '@fixture/cli-runtime',
+      ownership: 'profile',
+      kind: 'runtime-plugin',
+      installSource: 'git',
+      requestedSpec: 'github:fixture/cli-runtime',
+      desktopInstalled: false,
+      packageActions: { checkUpdates: false, update: 'source-refresh', reinstall: true, remove: true },
+    })
+    const plugins = capabilities(snapshot(cliPlugin))
+    render(createElement(PluginManagerTab, { plugins, dialog, app, t }))
+    expect(await screen.findByText(en.kindRuntime)).toBeTruthy()
+    fireEvent.click(screen.getByRole('button', { name: `Package actions for ${pluginDisplayName(cliPlugin)}` }))
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Remove' }))
+    expect(screen.getByText(en.removeExternal)).toBeTruthy()
   })
 })

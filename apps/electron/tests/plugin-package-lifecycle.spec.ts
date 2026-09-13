@@ -256,6 +256,29 @@ describe('plugin package lifecycle', () => {
     }
   })
 
+  it('removes a CLI-installed runtime plugin that Desktop did not record in profileManaged', async () => {
+    const f = await fixture()
+    writeFileSync(f.statePath, JSON.stringify({ version: 2, disabled: [], profileManaged: [] }), 'utf8')
+    try {
+      const service = new PluginPackageService(
+        f.profileDir,
+        f.statePath,
+        async () => {
+          f.removeDependency()
+          return { exitCode: 0, stdout: '', stderr: '' }
+        },
+        f.lifecycle,
+        new PluginMutationCoordinator(),
+        new Set(),
+        f.catalog,
+      )
+      await expect(service.remove('@fixture/plugin')).resolves.toMatchObject({ operation: 'remove' })
+      expect(JSON.parse(readFileSync(f.statePath, 'utf8'))).toMatchObject({ disabled: [], profileManaged: [] })
+    } finally {
+      await rm(f.root, { recursive: true, force: true })
+    }
+  })
+
   it('uses upstream update for Git and force-resolves copied local packages from their requested spec', async () => {
     for (const [requestedSpec, expected] of [
       ['github:fixture/plugin#main', { kind: 'update', name: '@fixture/plugin' }],
