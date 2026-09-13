@@ -46,7 +46,7 @@ The Installed view owns the three-source dialog. It uses the existing native dir
 
 ## Consequences
 
-Profile package installation and runtime lifecycle share one refreshable catalog and one mutation authority. The bundled Git plugin retains bundled ownership and hot lifecycle behavior, while a same-named profile dependency cannot create a duplicate card.
+Profile package installation and runtime lifecycle share one refreshable catalog and one mutation authority. A name declared in `dshElectron.ecosystemPlugins` retains bundled ownership and hot lifecycle behavior, while a same-named profile dependency cannot create a duplicate card. The current pin declares no ecosystem plugins ([unmount note](2026-09-13-electron-unmount-git-plugin.md)).
 
 The installation path executes third-party package and plugin code with Harness process permissions, outside the agent sandbox. The UI states this explicitly. Install-time build scripts may still require pnpm `allowBuilds`; Main names the packages from pnpm's blocked-build diagnostic without assuming the requested plugin owns the script, and retains the upstream details.
 

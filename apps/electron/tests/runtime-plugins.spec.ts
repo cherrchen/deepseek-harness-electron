@@ -77,10 +77,9 @@ describe('runtime plugin discovery', () => {
       .toBe('Desktop capability provider for Electron feature plugins')
   })
 
-  it('discovers prebuilt ecosystem plugins without routing them through the Desktop builder', () => {
+  it('discovers no pre-mounted ecosystem plugins while Git stays uncomposed', () => {
     const plugins = discoverEcosystemPlugins(electronRoot)
-    expect(plugins.map(plugin => plugin.name)).toContain('@dsh-electron/dsh-plugin-git')
-    expect(plugins.map(plugin => plugin.name)).not.toContain('@dsh-electron/dsh-theme-studio')
+    expect(plugins).toEqual([])
     expect(readFileSync(buildScript, 'utf8')).not.toContain('packages/dsh-electron')
   })
 
@@ -119,16 +118,9 @@ describe('runtime plugin discovery', () => {
     }
   })
 
-  it('declares Details Host as Git\'s module-table request so boot arrives that factory first', () => {
-    const git = discoverEcosystemPlugins(electronRoot)
-      .find(plugin => plugin.name === '@dsh-electron/dsh-plugin-git')
-    if (git === undefined) throw new Error('Git ecosystem plugin is missing')
-    const manifest = JSON.parse(readFileSync(join(git.rootPath, 'package.json'), 'utf8')) as {
-      dsh?: { client?: { external?: string[] } }
-    }
-    expect(manifest.dsh?.client?.external).toEqual([
-      '@dsh-electron/dsh-client-ui-details-host/client',
-    ])
+  it('does not declare Git as a module-table request while the plugin is unmounted', () => {
+    expect(discoverEcosystemPlugins(electronRoot).map(plugin => plugin.name))
+      .not.toContain('@dsh-electron/dsh-plugin-git')
   })
 
   it('declares Theme Studio as a portable web plugin with no Electron dependency', () => {
@@ -161,11 +153,7 @@ describe('runtime plugin discovery', () => {
       && plugin.ownership === 'system'
       && plugin.required
       && !plugin.manageable)).toBe(true)
-    expect(plugins.some(plugin =>
-      plugin.name === '@dsh-electron/dsh-plugin-git'
-      && plugin.ownership === 'bundled'
-      && !plugin.required
-      && plugin.manageable)).toBe(true)
+    expect(plugins.some(plugin => plugin.name === '@dsh-electron/dsh-plugin-git')).toBe(false)
     expect(plugins.some(plugin =>
       plugin.name === '@dsh-electron/dsh-theme-studio'
       && plugin.ownership === 'system'
@@ -174,7 +162,7 @@ describe('runtime plugin discovery', () => {
     const appManifest = JSON.parse(readFileSync(join(electronRoot, 'package.json'), 'utf8')) as {
       dshElectron?: { ecosystemPlugins?: string[] }
     }
-    expect(appManifest.dshElectron?.ecosystemPlugins).toContain('@dsh-electron/dsh-plugin-git')
+    expect(appManifest.dshElectron?.ecosystemPlugins ?? []).not.toContain('@dsh-electron/dsh-plugin-git')
     expect(appManifest.dshElectron?.ecosystemPlugins).not.toContain('@dsh-electron/dsh-client-ui-details-host')
     expect(appManifest.dshElectron?.ecosystemPlugins).not.toContain('@dsh-electron/dsh-theme-studio')
   })

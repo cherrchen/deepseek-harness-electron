@@ -26,7 +26,6 @@ describe('Electron packaging', () => {
     const electronRoot = join(import.meta.dirname, '..')
     const manifest = JSON.parse(await readFile(join(electronRoot, 'package.json'), 'utf8')) as ElectronManifest
     const names = manifest.dshElectron?.ecosystemPlugins ?? []
-    expect(names.length).toBeGreaterThan(0)
     for (const name of names) {
       expect(manifest.dependencies?.[name]).toBe('workspace:^')
       expect(existsSync(join(electronRoot, 'node_modules', ...name.split('/'), 'package.json'))).toBe(true)

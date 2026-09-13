@@ -46,7 +46,7 @@ Distribution-owned package name 是 reserved name，因为 profile direct depend
 
 ## Consequences
 
-Profile package installation 与 runtime lifecycle 共享一个 refreshable catalog 和一个 mutation authority。Bundled Git 插件保留 bundled ownership 与 hot lifecycle behavior，同名 profile dependency 不会创建重复 card。
+Profile package installation 与 runtime lifecycle 共享一个 refreshable catalog 和一个 mutation authority。`dshElectron.ecosystemPlugins` 中声明的名称保留 bundled ownership 与 hot lifecycle behavior，同名 profile dependency 不会创建重复 card。当前 pin 不声明生态插件（[卸载说明](2026-09-13-electron-unmount-git-plugin.zh.md)）。
 
 安装路径使用 Harness process permission 执行 third-party package 与 plugin code，位于 agent sandbox 之外。UI 会明确说明这一点。Install-time build script 仍可能需要 pnpm `allowBuilds`；Main 会列出 pnpm blocked-build diagnostic 中的实际 package，而不会假定脚本属于本次请求的插件，并保留 upstream details。
 

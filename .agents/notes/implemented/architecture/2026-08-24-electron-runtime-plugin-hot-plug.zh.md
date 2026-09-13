@@ -51,6 +51,6 @@ Renderer refresh 仍是 Electron 拥有的边界。只有在 Host 稳定之后�
 
 Electron 运行时生命周期现在拥有一个 desired-state owner 与一个 runtime truth source。启动阶段与后续生命周期 mutation 都操作同一个生成的 `plugins.cordis.yml` 路径，因此首次 Host 挂载与后续运行时变更保持一致。
 
-已发货行为由聚焦的 `apps/electron` 覆盖固定：overlay 渲染、plugin-state 解析、确定性 runtime config 生成、lifecycle controller 回滚、串行 mutation 与并发读取、lazy desktop capability forwarding、Settings slot redeclaration、controller polling 与 cleanup、lifecycle action presentation、只读系统组件、本地搜索，以及通过 fixture 插件与 bundled Git 插件验证真实 Host disable/enable/reload 且 PID 保持不变。
+已发货行为由聚焦的 `apps/electron` 覆盖固定：overlay 渲染、plugin-state 解析、确定性 runtime config 生成、lifecycle controller 回滚、串行 mutation 与并发读取、lazy desktop capability forwarding、Settings slot redeclaration、controller polling 与 cleanup、lifecycle action presentation、只读系统组件、本地搜索，以及通过 fixture 插件验证真实 Host disable/enable/reload 且 PID 保持不变。当前 pin 不组合 Git（[卸载说明](2026-09-13-electron-unmount-git-plugin.zh.md)）。
 
 如果上游未来提供能在嵌套 include 间保留包解析语境的原生运行时组合 API，或提供 client 图协调路径，Electron 可以替换生成文件后端并移除额外的 `electron/node_modules` 链接面，而无需改变公开桌面 bridge 的语义。

@@ -38,7 +38,8 @@
   // belongs to the host aggregate, which excludes this program's `*.client.*`
   // in turn. `exclude` wins over `include`, so the test glob above stays broad.
   "exclude": [
-    "packages/client/*/tests/**/*.host.spec.ts"
+    "packages/client/*/tests/**/*.host.spec.ts",
+    "packages/dsh-electron/**"
   ],
   "references": [
     // Producer-to-UI spill tests execute the real nested dispatch worker.

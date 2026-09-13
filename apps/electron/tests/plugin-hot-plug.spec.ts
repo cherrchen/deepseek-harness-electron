@@ -16,7 +16,6 @@ import { DynamicIncludeCompositionBackend, effectivePluginRoster } from '../src/
 import { savePluginState, type PluginState } from '../src/plugin-state.ts'
 import { prepareHostRuntimeOverlay } from '../src/runtime-overlay.ts'
 import {
-  discoverManageablePlugins,
   ensureRuntimePluginsLinked,
   ensureSymlink,
   profileModuleLinkPath,
@@ -291,27 +290,5 @@ export function apply(ctx) {
     await waitForInventoryState(probe, plugin.name, 'active')
     await waitForProbeLog(logPath, ['APPLY', 'DISPOSE', 'APPLY', 'DISPOSE', 'APPLY'])
     expect(child.pid).toBe(pid)
-  })
-
-  it('hot-disables, hot-enables, and hot-reloads the bundled Git plugin', { timeout: 30_000 }, async () => {
-    const plugin = discoverManageablePlugins(electronRoot)
-      .find(candidate => candidate.name === '@dsh-electron/dsh-plugin-git')
-    if (plugin === undefined) throw new Error('bundled Git plugin is missing from ecosystem inventory')
-    const { controller, probe, logs } = await startHarnessForPlugins(
-      [plugin],
-      { version: 2, disabled: [], profileManaged: [] },
-    )
-
-    await waitForInventoryState(probe, plugin.name, 'active')
-    await controller.disable(plugin.name)
-    await waitForInventoryState(probe, plugin.name, 'absent')
-    await controller.enable(plugin.name)
-    await waitForInventoryState(probe, plugin.name, 'active')
-    try {
-      await controller.reload(plugin.name)
-    } catch (error) {
-      throw new Error(`${String(error)}\nstdout:\n${logs.stdout}\nstderr:\n${logs.stderr}`)
-    }
-    await waitForInventoryState(probe, plugin.name, 'active')
   })
 })
