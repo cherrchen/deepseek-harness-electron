@@ -18,6 +18,8 @@ When pending reconcile fails, the Host ready line times out, or the profile cata
 
 Crash-injection hooks abort after pending write, after the command, after inspect, or before clearing the marker so tests leave residue without killing Electron.
 
+The command runner registers error and close handlers before handing the spawned PID to the lock owner. Spawn errors reject only after close. If owner handoff throws, Main kills the child and waits for close before rejecting, so transaction cleanup cannot race the owned child. Returning immediately after a callback failure would leave the package process running after lock release. Command-runner tests cover event ordering and a real missing executable; these failures do not produce Session events or alter GUI presentation.
+
 ## Alternatives considered
 
 **Throw when the lock owner is alive, as Desktop project-manager does.** Rejected because an orphan pnpm child is a live owner the next instance must wait for.

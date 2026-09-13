@@ -59,6 +59,8 @@ pnpm --filter @dsh-electron/dsh-electron test
 
 操作系统桌面能力由 Electron Main 拥有，并通过类型化的 `window.deepseekDesktop` preload 桥暴露。Desktop Capability Provider 插件（`runtime/plugins/desktop-capabilities`）将该桥适配为 feature 插件可用的 `ctx.desktop`。Main 通过 `ctx.desktop.plugins` 拥有插件生命周期；**已安装** settings tab 及其读取、mutation、polling、rollback 与 Renderer refresh 行为记录在[插件生命周期参考](../../docs/electron/plugin-lifecycle.zh.md)中，且不是本次 pin 的 bootstrap 挂载项。受监督 Host 接收 `apps/electron/runtime` 下的 cordis overlay：禁用 Host `directory-picker-auto`，保留 browse Host 后端以便 `directoryPicker` 仍能注入 apiproxy，挂载 capability provider、Theme Studio、Electron 本地 directory-flow client 插件（不挂载 browse client），以及始终填充已交付品牌 slot 的 Electron 本地品牌插件，并安装一个 `cordis:include` seat，其生成的 `$DSH_HOME/electron/plugins.cordis.yml` roster 在声明生态插件之前为空。`scripts/build-runtime-plugins.mjs` 从源码重新构建 `runtime/plugins/` 下的每个目录；标准生态插件保留独立构建的 Host 与 Client artifact。两类插件均在启动时链接到 `$DSH_HOME/profiles/node_modules` 与 `$DSH_HOME/electron/node_modules`。上游 UI 的剪贴板写入在存在上游注入 seam 之前，经 Renderer 侧窄 shim 转到 Main。以新窗口打开的外部 URL 必须使用 `https:`、`http:` 或 `mailto:`。
 
+插件包命令在子进程关闭前保留事务。启动错误使命令失败；锁归属交接失败会终止子进程，并在子进程关闭后报告失败。
+
 原生页面右键菜单根据 Chromium 当前的编辑能力提供剪切、复制、粘贴、全选和刷新；开发构建还提供 DevTools。应用菜单和托盘菜单提供桌面端自有的“关于”窗口、更新通道选择和手动更新检查入口。
 
 托盘使用从受版本控制的 `assets/tray/deepseek.svg`（LobeHub lobe-icons，MIT）栅格化的单色 DeepSeek 图形。`pnpm run build:tray` 会在 `build/tray/` 下生成各 DPI 的 PNG；Windows 和 Linux 在原生浅色主题下选择黑色图形、在深色主题下选择白色图形，并按主显示器缩放因子选取最近的打包像素尺寸，在 Electron 报告主题或 display-metrics 变化时刷新。macOS 使用预渲染的 template PNG，由操作系统控制菜单栏对比度。

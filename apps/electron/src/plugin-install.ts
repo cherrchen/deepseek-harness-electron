@@ -38,7 +38,7 @@ export interface PluginCommandResult {
 
 /** Spawn-time hooks for lock owner handoff. */
 export interface PluginCommandRunOptions {
-  /** Called with the child PID as soon as `dsh plugin` starts. */
+  /** Called after spawn succeeds; throwing terminates the child before the command rejects. */
   onSpawn?: (pid: number) => void
 }
 
@@ -61,7 +61,7 @@ export interface PluginPackageServiceOptions {
 /**
  * Build the packaged `dsh plugin --profile web` command runner.
  * @param options - Executable, profile, Harness home, and controlled PATH values.
- * @returns command runner that captures upstream diagnostics.
+ * @returns Command runner that captures diagnostics and settles after child close, including on spawn or handoff failure.
  */
 export function createPluginCommandRunner(options: {
   electronExecutable: string
@@ -88,18 +88,25 @@ export function createPluginCommandRunner(options: {
       },
       stdio: ['ignore', 'pipe', 'pipe'],
     })
-    if (child.pid === undefined) {
-      child.kill('SIGKILL')
-      reject(new Error('plugin package manager: dsh plugin did not report a process id'))
-      return
-    }
-    runOptions?.onSpawn?.(child.pid)
     let stdout = ''
     let stderr = ''
+    let failure: Error | undefined
     child.stdout.setEncoding('utf8').on('data', (chunk: string) => { stdout += chunk })
     child.stderr.setEncoding('utf8').on('data', (chunk: string) => { stderr += chunk })
-    child.once('error', reject)
-    child.once('close', (code) => { resolve({ exitCode: code ?? 1, stdout, stderr }) })
+    child.on('error', (error) => { failure ??= error })
+    child.once('close', (code) => {
+      if (failure !== undefined) reject(failure)
+      else resolve({ exitCode: code ?? 1, stdout, stderr })
+    })
+    child.once('spawn', () => {
+      try {
+        if (child.pid === undefined) throw new Error('plugin package manager: dsh plugin did not report a process id')
+        runOptions?.onSpawn?.(child.pid)
+      } catch (error) {
+        failure = error instanceof Error ? error : new Error(String(error))
+        child.kill('SIGKILL')
+      }
+    })
   })
 }
 
