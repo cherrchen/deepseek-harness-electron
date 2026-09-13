@@ -87,6 +87,8 @@ describe('Desktop synchronization and release workflows', () => {
     const sync = loadWorkflow('.github/workflows/sync-upstream.yml')
     expect(sync.env).toMatchObject({ GH_REPO: '${{ github.repository }}' })
     const syncJob = workflowJob(sync, 'sync')
+    expect(sync.on).not.toHaveProperty('schedule')
+    expect(syncJob.if).toBe("github.event_name == 'workflow_dispatch' && inputs.allow_master_sync")
     if (!Array.isArray(syncJob.steps)) {
       throw new TypeError('Desktop sync must define steps')
     }
