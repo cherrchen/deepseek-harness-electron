@@ -1,4 +1,4 @@
-import { cpSync, existsSync, readFileSync, symlinkSync, writeFileSync } from 'node:fs'
+import { cpSync, existsSync, mkdirSync, readFileSync, readlinkSync, symlinkSync, writeFileSync } from 'node:fs'
 import { mkdtemp, readFile, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { basename, dirname, join } from 'node:path'
@@ -9,9 +9,11 @@ import {
   discoverRuntimePlugins,
   discoverEcosystemPlugins,
   discoverManagedPlugins,
+  ensureCatalogPluginLinks,
   ensureRuntimePluginsLinked,
   ensureSymlink,
   profileModuleLinkPath,
+  pluginRuntimeModuleLinkPath,
   RUNTIME_PLUGINS_RELATIVE,
   runtimePluginsRoot,
   validateRuntimePlugin,
@@ -352,5 +354,34 @@ describe('generic runtime plugin builder', () => {
     expect(client).toContain('dataset.pluginCss')
     expect(client).toContain(plugin.name)
     expect(client).toContain('PluginManagerTab.module.css')
+  })
+
+  it('links every hot catalog package at startup, not only bundled distribution plugins', async () => {
+    const harnessHome = await mkdtemp(join(tmpdir(), 'dsh-electron-catalog-links-'))
+    const profilePlugin = join(harnessHome, 'source', 'cli-runtime')
+    mkdirSync(profilePlugin, { recursive: true })
+    writeFileSync(join(profilePlugin, 'package.json'), JSON.stringify({ name: '@fixture/cli-runtime', version: '1.0.0' }), 'utf8')
+    try {
+      ensureCatalogPluginLinks(harnessHome, [{
+        name: '@fixture/cli-runtime',
+        version: '1.0.0',
+        directoryName: 'cli-runtime',
+        rootPath: profilePlugin,
+        hasClient: false,
+        ownership: 'profile',
+        kind: 'runtime-plugin',
+        installSource: 'git',
+        requestedSpec: 'github:fixture/cli-runtime',
+        manageable: true,
+        required: false,
+        activationMode: 'hot',
+        health: 'healthy',
+        packageActions: { checkUpdates: false, update: 'source-refresh', reinstall: true, remove: true },
+      }])
+      expect(readlinkSync(profileModuleLinkPath(harnessHome, '@fixture/cli-runtime'))).toBe(profilePlugin)
+      expect(readlinkSync(pluginRuntimeModuleLinkPath(harnessHome, '@fixture/cli-runtime'))).toBe(profilePlugin)
+    } finally {
+      await rm(harnessHome, { recursive: true, force: true })
+    }
   })
 })

@@ -276,7 +276,7 @@ describe('plugin package lifecycle', () => {
           f.profileDir, f.statePath, runner, f.lifecycle, new PluginMutationCoordinator(), new Set(), f.catalog,
         )
         await service.update('@fixture/plugin')
-        expect(runner.mock.calls).toContainEqual([expected])
+        expect(runner.mock.calls.map(call => call[0])).toContainEqual(expected)
       } finally {
         await rm(f.root, { recursive: true, force: true })
       }

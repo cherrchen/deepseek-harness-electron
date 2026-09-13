@@ -19,6 +19,8 @@ describe('runtime overlay plugin seat', () => {
       expect(overlay.pluginRuntimeDirectory.replaceAll('\\', '/')).toBe(join(harnessHome, 'electron').replaceAll('\\', '/'))
       expect(overlay.pluginConfigPath.replaceAll('\\', '/')).toBe(join(harnessHome, 'electron', 'plugins.cordis.yml').replaceAll('\\', '/'))
       expect(overlay.pluginStatePath.replaceAll('\\', '/')).toBe(join(harnessHome, 'electron', 'plugin-state.json').replaceAll('\\', '/'))
+      expect(overlay.packagesPendingPath.replaceAll('\\', '/')).toBe(join(harnessHome, 'electron', 'packages-pending').replaceAll('\\', '/'))
+      expect(overlay.profileLockPath.replaceAll('\\', '/')).toBe(join(harnessHome, 'profiles', 'web', 'lock').replaceAll('\\', '/'))
       expect(body).toContain('@deepseek-ai/dsh-host-directory-picker-browse')
       expect(body).toContain('@dsh-electron/dsh-electron-desktop-capabilities')
       expect(body).toContain('@dsh-electron/dsh-theme-studio')

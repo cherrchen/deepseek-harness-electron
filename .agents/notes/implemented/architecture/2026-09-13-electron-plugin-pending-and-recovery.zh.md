@@ -1,0 +1,31 @@
+# Agent Note: Electron 插件 pending 标记、profile 锁与启动恢复
+
+Status: implemented
+
+[English](2026-09-13-electron-plugin-pending-and-recovery.md) | 中文
+
+## Problem
+
+Desktop 的 package mutation 只在一个 Electron 进程内进行。`PluginRestartTracker` 只在内存中，`PluginMutationCoordinator` 只串行化本进程。`dsh plugin` 中途崩溃会留下半改的 web profile 且没有磁盘标记，下一实例会带着未修复状态启动 Host。Host 未能就绪时，Main 只调用 `dialog.showErrorBox` 然后退出。主窗口从该 Host 加载 `dsh-client-web`，Host 挂掉后用户没有可操作的修复界面。
+
+## Decision
+
+Main 拥有插件 desired state。`PluginPackageService` 在 spawn `dsh plugin` 之前写入 `$DSH_HOME/electron/packages-pending`，并以 `openSync(..., 'wx')` 持有 `$DSH_HOME/profiles/web/lock`。锁 owner 先是 Main PID，子进程期间换成 child PID，结束后写回 Main。新实例在 `process.kill(pid, 0)` 报告活 owner 时等待，ESRCH 后回收锁文件，超时进入恢复而不启动 Host。
+
+启动对账是只读的：解析 profile 依赖、修复 hot-plugin symlink、重列 catalog，然后清除标记。它不回滚磁盘。锁只串行化 Desktop 进程；手工 `dsh plugin --profile web` 不参与该锁。
+
+pending 对账失败、Host 就绪行超时，或无法读取 profile catalog 时，Main 打开双语 `data:text/html` 恢复窗，不加载 Host 也不加载 `dsh-client-web`。用户可以禁用全部可管理插件（system/required 行仍保留），或清空 `profileManaged`/`disabled` 而不删除 profile 依赖。其他启动失败仍走 error box。
+
+崩溃注入钩子在 pending 写入后、命令结束后、inspect 后、或清除标记前中止，这样测试可以留下残留而不真杀 Electron。
+
+## Alternatives considered
+
+**像 Desktop project-manager 那样遇到活 owner 直接抛错。** 拒绝：孤儿 pnpm 子进程仍是活 owner，新实例必须等待。
+
+**对 pnpm 磁盘状态做 staging、journal 或 rollback。** 拒绝：Desktop 不拥有第二套 package manager；对账只修复链接与 catalog 事实。
+
+**把恢复 UI 放进主 BrowserWindow。** 拒绝：该窗口加载的是受监督 Host 的内容。
+
+## Consequences
+
+install 与 mutatePackage 共用一次 pending/lock 事务。聚焦的 Electron 测试注入崩溃、等待活 PID、回收死 PID，并通过假 `createWindow` 驱动恢复窗，不依赖真实 GUI。手工 `dsh plugin` 残留仍靠启动对账或 Repair。

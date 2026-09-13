@@ -58,6 +58,8 @@ export interface ManagedPlugin extends RuntimePluginManifest {
   health: 'healthy' | 'reconcile-required'
   /** Main-owned profile package policy. */
   packageActions: PluginPackageActions
+  /** Whether Desktop recorded this profile dependency as its own install. */
+  desktopInstalled?: boolean
 }
 
 interface ElectronPluginInventoryManifest {
@@ -264,13 +266,20 @@ export function ensureRuntimePluginsLinked(appPath: string, harnessHome: string)
   }
   for (const plugin of plugins) {
     validateRuntimePlugin(plugin)
-    for (const link of [
-      profileModuleLinkPath(harnessHome, plugin.name),
-      pluginRuntimeModuleLinkPath(harnessHome, plugin.name),
-    ]) {
-      mkdirSync(dirname(link), { recursive: true })
-      ensureSymlink(link, plugin.rootPath)
-    }
+  }
+  ensureCatalogPluginLinks(harnessHome, plugins)
+}
+
+/**
+ * Repair profile and electron `node_modules` links for every hot-activated package.
+ * @param harnessHome - `$DSH_HOME` root used by the supervised Host.
+ * @param plugins - Catalog entries to link when their artifacts exist.
+ */
+export function ensureCatalogPluginLinks(harnessHome: string, plugins: readonly ManagedPlugin[]): void {
+  for (const plugin of plugins) {
+    if (plugin.activationMode !== 'hot' || !existsSync(plugin.rootPath)) continue
+    ensureSymlink(profileModuleLinkPath(harnessHome, plugin.name), plugin.rootPath)
+    ensureSymlink(pluginRuntimeModuleLinkPath(harnessHome, plugin.name), plugin.rootPath)
   }
 }
 

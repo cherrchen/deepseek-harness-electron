@@ -1,3 +1,4 @@
+import { spawnSync } from 'node:child_process'
 import { existsSync, readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -26,5 +27,15 @@ describe('runtime plugin architecture baselines', () => {
     const root = join(electronRoot, '..', '..')
     expect(downstreamPluginPackages(root)).toEqual(expect.any(Array))
     expect(() => { verifyDownstreamPluginWorkspace(root) }).not.toThrow()
+  })
+
+  it('does not modify upstream CLI or boot packages', () => {
+    const root = join(electronRoot, '..', '..')
+    const diff = spawnSync('git', ['diff', '--', 'apps/cli', 'packages/boot'], {
+      cwd: root,
+      encoding: 'utf8',
+    })
+    expect(diff.status).toBe(0)
+    expect(diff.stdout).toBe('')
   })
 })
