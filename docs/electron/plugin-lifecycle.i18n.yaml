@@ -2,5 +2,5 @@
 # side as of the last confirmed-consistent state. Both languages carry equal authority;
 # after editing either side, bring the other along and re-record with:
 #   pnpm run verify-translation-pairing --write docs/electron/plugin-lifecycle.md
-plugin-lifecycle.md: 86581d544a20c66e565b92bacf5ee01ed44c3336
-plugin-lifecycle.zh.md: 576058b83dfd964afc98686f39fbd7b861191cac
+plugin-lifecycle.md: c6c52981b4df9a815d0dfbd464f22f6ce56c3cb1
+plugin-lifecycle.zh.md: 2f1da72d14078e502467f1014d14f19dcb78ed1d

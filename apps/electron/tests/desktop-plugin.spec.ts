@@ -31,6 +31,7 @@ describe('directory picker feature plugin regression', () => {
       readFileSync(join(electronRoot, 'runtime', 'plugins', 'ui-directory-picker-electron', 'package.json'), 'utf8'),
     ) as { dsh?: { client?: { inject?: string[] } } }
     expect(manifest.dsh?.client?.inject).toContain('@dsh-electron/dsh-electron-desktop-capabilities')
+    expect(manifest.dsh?.client?.inject).not.toContain('@dsh-electron/dsh-client-ui-details-host')
   })
 })
 

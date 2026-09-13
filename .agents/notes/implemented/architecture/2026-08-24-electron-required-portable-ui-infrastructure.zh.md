@@ -14,11 +14,11 @@ AppFrame 的 `details` 栏是单一 slot，由上游 DetailsPanel 占用。Deskt
 
 源码真源是 `cherrchen/dsh-client-ui-details-host`。`apps/electron/runtime/plugins/ui-details-host` 是 git subtree 镜像。修改独立仓库，再执行 `git subtree pull`；不要把镜像当作真源来打补丁。Electron 从 subtree 源码重新构建 Host 与 Client artifacts。独立仓库的 `lib/` 是公共 npm 产物，不是 Electron 的加载真源。
 
-该包是必需的 `runtime/host.patch.yml` 挂载项，不是 `dshElectron.ecosystemPlugins` 的成员。发现结果仍报告 `source: desktop-runtime`、`required: true`、`manageable: false`。
+该包是 `runtime/plugins/ui-details-host` 下的 git subtree，不是 `dshElectron.ecosystemPlugins` 的成员。本次 pin 不在 `runtime/host.patch.yml` 中挂载它（[卸载说明](2026-09-13-electron-unmount-details-host.zh.md)）。发现结果仍报告 `source: desktop-runtime`。
 
 `ctx.shellDetails` 是 Cordis service。启动只注册该服务，不注册 `details` occupant。`open(id)` 以 `DETAILS_HOST_PRIORITY`（`-1`，低于上游默认 `0`）注册 DetailsHost，声明 `shell.details.surface`，要求该 id 存在，再调用 `ctx.layout.openDetails()`。id 不存在时释放 takeover 并抛错，第三栏不会显示空白。切换 id 时保持 DetailsHost 已挂载。`close()` 可幂等：`layout.closeDetails()`，清空 `activeId`，释放 takeover，恢复上游 occupant。活动 surface 卸载、surface crash、会话切换与 host 卸载也会 close。
 
-此类是“每个 portable 公共插件都应放在 `packages/dsh-electron/`”的例外：Desktop 始终挂载它，用 runtime plugin builder 重建它，同时仍禁止 Electron、`ctx.desktop` 与 preload import。用户可禁用的产品功能留在生态 island（[公共 namespace](2026-08-23-public-dsh-ecosystem-plugin-namespace.zh.md)）。
+此类是“每个 portable 公共插件都应放在 `packages/dsh-electron/`”的例外：Desktop 用 runtime plugin builder 重建它，同时仍禁止 Electron、`ctx.desktop` 与 preload import。用户可禁用的产品功能留在生态 island（[组说明](../../../../packages/dsh-electron/README.zh.md)）。
 
 ## Alternatives considered
 

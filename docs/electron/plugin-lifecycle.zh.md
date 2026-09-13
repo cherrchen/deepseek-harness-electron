@@ -19,7 +19,7 @@ Electron 拥有插件的 desired state。DSH Host 拥有实际的 Cordis fiber s
 `ProfilePluginCatalog` 会刷新并合并三种 ownership class：
 
 * `runtime/plugins/` 下的 **system runtime 插件** 在 Host 启动前完成链接，且不允许用户管理。
-* `dshElectron.ecosystemPlugins` 声明的 **bundled ecosystem 插件** 是 Electron 应用的 production `workspace:` 依赖，在 Host 启动前完成链接，允许用户管理，并通过 generated include file 进入组合。
+* `dshElectron.ecosystemPlugins` 声明的 **bundled ecosystem 插件** 是 Electron 应用的 production `workspace:` 依赖，在 Host 启动前完成链接，允许用户管理，并通过 generated include file 进入组合。当前 pin 声明空列表；`@dsh-electron/dsh-plugin-git` 仍是 `packages/dsh-electron/` 下的 workspace 包，但不进入组合（[卸载说明](../../.agents/notes/implemented/architecture/2026-09-13-electron-unmount-git-plugin.zh.md)）。
 * **Profile package** 是 `$DSH_HOME/profiles/web/package.json` 中通过 Desktop 安装或声明为 profile bundle 的 direct dependency。
 
 链接本身不是启用状态信号。Electron 会把 bundled artifact 同时暴露到 `$DSH_HOME/profiles/node_modules` 与 `$DSH_HOME/electron/node_modules`；运行时启停仅由生成的 Cordis 组合控制。
@@ -35,7 +35,7 @@ Electron 在 `$DSH_HOME/electron/` 下写入这些文件：
 
 Electron 还会在 Electron `userData` 下写入 `electron-host.patch.yml`，并将其传给 `dsh web --patch`。
 
-bootstrap patch 只保留必需 runtime 插件行，为 `plugins.cordis.yml` 打开窄 HMR，并安装一个稳定的 `cordis:include` seat 指向该生成文件。bootstrap overlay 不列出各个生态插件。Details Host 与 Theme Studio 是必需行：它们不得进入 `dshElectron.ecosystemPlugins`。
+bootstrap patch 只保留必需 runtime 插件行，为 `plugins.cordis.yml` 打开窄 HMR，并安装一个稳定的 `cordis:include` seat 指向该生成文件。bootstrap overlay 不列出各个生态插件。Theme Studio 是必需行，不得进入 `dshElectron.ecosystemPlugins`。Details Host 与 Electron Plugin Manager 仍在 `runtime/plugins/` 下，但不是 bootstrap 挂载项（[卸载说明](../../.agents/notes/implemented/architecture/2026-09-13-electron-unmount-details-host.zh.md)）。
 
 ## 启动顺序
 
@@ -69,7 +69,7 @@ Electron Main 以如下顺序启动 Host：
 
 preload lifecycle group 通过 `@dsh-electron/dsh-electron-desktop-capabilities` 适配为 `ctx.desktop.plugins`。Desktop feature plugin 不直接读取 `window.deepseekDesktop.plugins`。
 
-`@dsh-electron/dsh-electron-ui-plugin-manager` 在 upstream 拥有的 `settings.plugins.tab` slot 中注册 order 为 `20` 的 `installed` contribution。upstream Plugins section 继续拥有 navigation、tab chrome、selection、keyboard behavior 与 mount lifecycle；Electron 不注册另一个 `settings.section`。
+`@dsh-electron/dsh-electron-ui-plugin-manager` 在挂载时于 upstream 拥有的 `settings.plugins.tab` slot 中注册 order 为 `20` 的 `installed` contribution。本次 pin 不在 `host.patch.yml` 中挂载该插件。upstream Plugins section 继续拥有 navigation、tab chrome、selection、keyboard behavior 与 mount lifecycle；Electron 不注册另一个 `settings.section`。
 
 “已安装”tab 仅在 mount 后读取第一份 catalog snapshot。它在主列表中展示 manageable plugin、bundle 与 plain dependency，并在默认折叠、只读的“系统组件”折叠区中展示必需 runtime 插件。搜索会在 client 侧过滤 package name、display name 与 description。
 
@@ -157,6 +157,6 @@ Electron 只会在 Host 稳定之后，并且仅当 manageable、hot-activated �
 * lifecycle controller 的成功路径、回滚、串行 mutation、并发读取与 client-refresh 分支；
 * lazy `ctx.desktop.plugins` forwarding 与 Plugin Manager slot redeclaration；
 * install-dialog source switching、native directory selection、update check 与 badge、package menu、removal confirmation、pending restart tombstone、mutation polling 与 global locking；
-* 通过 fixture 插件与 bundled Git 插件验证真实 Host 的 disable/enable/reload，并确认 PID 保持不变；
+* 通过 fixture 插件验证真实 Host 的 disable/enable/reload，并确认 PID 保持不变；
 * 验证真实 Host 中 local package 从 v1 refresh 到 v2 再 removal 时 PID 保持不变，以及 pinned pnpm 通过带空格路径刷新 copied source；
 * 针对当前 SlotRegistry 验证 Details Host 空闲启动、dummy surface 接管 `details`、close 后恢复上游 occupant，以及 host unload/reload。

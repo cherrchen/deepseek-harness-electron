@@ -19,7 +19,7 @@ Electron owns desired plugin state. DSH Host owns actual Cordis fiber state. The
 `ProfilePluginCatalog` refreshes and merges three ownership classes:
 
 * **System runtime plugins** under `runtime/plugins/` are linked before Host start and are not user-manageable.
-* **Bundled ecosystem plugins** declared by `dshElectron.ecosystemPlugins` are production `workspace:` dependencies of the Electron app, linked before Host start, are user-manageable, and are composed through a generated include file.
+* **Bundled ecosystem plugins** declared by `dshElectron.ecosystemPlugins` are production `workspace:` dependencies of the Electron app, linked before Host start, are user-manageable, and are composed through a generated include file. The current pin declares an empty list; `@dsh-electron/dsh-plugin-git` stays a workspace package under `packages/dsh-electron/` and is not composed ([unmount note](../../.agents/notes/implemented/architecture/2026-09-13-electron-unmount-git-plugin.md)).
 * **Profile packages** are direct dependencies in `$DSH_HOME/profiles/web/package.json` installed through Desktop or declared as profile bundles.
 
 Linking is not the enable-state signal. Electron keeps bundled artifacts available under both `$DSH_HOME/profiles/node_modules` and `$DSH_HOME/electron/node_modules`; runtime enablement is controlled only by generated Cordis composition.
@@ -35,7 +35,7 @@ Electron writes these files below `$DSH_HOME/electron/`:
 
 Electron also writes `electron-host.patch.yml` into Electron `userData` and passes it to `dsh web --patch`.
 
-The bootstrap patch keeps required runtime plugin rows, enables narrow HMR for `plugins.cordis.yml`, and mounts one stable `cordis:include` seat for that generated file. Individual ecosystem plugins are not listed in the bootstrap overlay. Details Host and Theme Studio are required rows: they must stay out of `dshElectron.ecosystemPlugins`.
+The bootstrap patch keeps required runtime plugin rows, enables narrow HMR for `plugins.cordis.yml`, and mounts one stable `cordis:include` seat for that generated file. Individual ecosystem plugins are not listed in the bootstrap overlay. Theme Studio is a required row and must stay out of `dshElectron.ecosystemPlugins`. Details Host and the Electron Plugin Manager remain under `runtime/plugins/` and are not bootstrap mounts ([unmount note](../../.agents/notes/implemented/architecture/2026-09-13-electron-unmount-details-host.md)).
 
 ## Startup sequence
 
@@ -69,7 +69,7 @@ If settlement fails, Electron restores the previous generated roster before surf
 
 The preload lifecycle group is adapted through `@dsh-electron/dsh-electron-desktop-capabilities` into `ctx.desktop.plugins`. Desktop feature plugins do not read `window.deepseekDesktop.plugins` directly.
 
-`@dsh-electron/dsh-electron-ui-plugin-manager` registers the `installed` contribution at order `20` in the upstream-owned `settings.plugins.tab` slot. The upstream Plugins section continues to own navigation, tab chrome, selection, keyboard behavior, and mount lifecycle; Electron does not register another `settings.section`.
+`@dsh-electron/dsh-electron-ui-plugin-manager` registers the `installed` contribution at order `20` in the upstream-owned `settings.plugins.tab` slot when mounted. This pin does not mount that plugin in `host.patch.yml`. The upstream Plugins section continues to own navigation, tab chrome, selection, keyboard behavior, and mount lifecycle; Electron does not register another `settings.section`.
 
 The Installed tab reads its first catalog snapshot only after mount. It shows manageable plugins, bundles, and plain dependencies in the main list and required runtime plugins in a collapsed, read-only System Components disclosure. Search filters package name, display name, and description locally.
 
@@ -157,6 +157,6 @@ Focused `apps/electron` coverage verifies:
 * lifecycle-controller success, rollback, serialized mutations, concurrent reads, and client-refresh branching;
 * lazy `ctx.desktop.plugins` forwarding and Plugin Manager slot redeclaration;
 * install-dialog source switching, native directory selection, update checks and badges, package menus, removal confirmation, pending restart tombstones, mutation polling, and global locking;
-* real Host disable/enable/reload with stable PID through a fixture plugin and the bundled Git plugin;
+* real Host disable/enable/reload with stable PID through a fixture plugin;
 * real Host local-package v1 refresh to v2 and removal with stable PID, plus pinned-pnpm copied-source refresh through paths containing spaces;
 * Details Host idle boot against the current SlotRegistry, dummy-surface takeover of `details`, close restoring the upstream occupant, and host unload/reload.

@@ -18,7 +18,7 @@ Select standalone plugin repositories mirrored in this monorepo may continue to 
 
 ### Details panel and release `0.1.2-rc.1`
 
-Release [`0.1.2-rc.1`](https://github.com/cherrchen/deepseek-harness-electron/releases/tag/v0.1.2-rc.1) is the last version that supports and pre-installs [dsh-client-ui-details-host](https://github.com/cherrchen/dsh-client-ui-details-host). Later upstream Harness versions removed the Client Details panel, so Details Host will be archived. [dsh-plugin-git](https://github.com/cherrchen/dsh-plugin-git) is planned to migrate toward the upstream **Sidebar** extension point that replaces Details; that migration is not implemented yet.
+Release [`0.1.2-rc.1`](https://github.com/cherrchen/deepseek-harness-electron/releases/tag/v0.1.2-rc.1) is the last version that supports and pre-installs [dsh-client-ui-details-host](https://github.com/cherrchen/dsh-client-ui-details-host) and [dsh-plugin-git](https://github.com/cherrchen/dsh-plugin-git). Later upstream Harness versions removed the Client Details panel. Desktop does not mount Details Host or Git; both packages remain in the tree.
 
 ## Install
 
@@ -52,15 +52,15 @@ Harness profiles and state live in the platform-specific application-data direct
 
 ## Bundled plugins
 
-DeepSeek Harness Desktop ships three portable DSH plugins from standalone canonical repositories. They run unchanged in the desktop app and in a standard DSH Web host when installed separately.
+DeepSeek Harness Desktop mirrors three portable DSH plugins from standalone canonical repositories.
 
-> **Note:** The table below reflects the plugin set shipped with `0.1.2-rc.1`. Details Host will not be carried forward after this release; see [Status](#status) above.
+> **Note:** Theme Studio remains a required built-in. Details Host and Git are present in the tree and are not mounted; see [Status](#status) above.
 
 | Plugin | Desktop role | Summary |
 |---|---|---|
-| [dsh-client-ui-details-host](https://github.com/cherrchen/dsh-client-ui-details-host) | Required built-in | Hosts one active details surface in the AppFrame third column through `ctx.shellDetails`. |
+| [dsh-client-ui-details-host](https://github.com/cherrchen/dsh-client-ui-details-host) | Present in tree, not mounted | Hosts one active details surface through `ctx.shellDetails`. Absent from `runtime/host.patch.yml`. |
 | [dsh-theme-studio](https://github.com/cherrchen/dsh-theme-studio) | Required built-in | Builtin color themes under **Settings → General → Themes**, overlaid on official Light / Dark / System Appearance. |
-| [dsh-plugin-git](https://github.com/cherrchen/dsh-plugin-git) | Pre-installed (disable in **Settings → Plugins**) | Local Git status, diffs, staging, commits, and branch controls in the composer and details column. Requires Details Host. |
+| [dsh-plugin-git](https://github.com/cherrchen/dsh-plugin-git) | Present in tree, not mounted | Local Git status, diffs, staging, commits, and branch controls. Absent from `dshElectron.ecosystemPlugins`. |
 
 Canonical development happens in those repositories; this monorepo mirrors them with git subtree.
 

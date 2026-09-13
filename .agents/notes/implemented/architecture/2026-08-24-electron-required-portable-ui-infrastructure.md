@@ -14,11 +14,11 @@ AppFrame's `details` column is a single slot occupied by the upstream DetailsPan
 
 Canonical source is `cherrchen/dsh-client-ui-details-host`. `apps/electron/runtime/plugins/ui-details-host` is a git subtree mirror. Edit the standalone repository, then `git subtree pull`; do not patch the mirror as the source of truth. Electron rebuilds Host and Client artifacts from the subtree source. Standalone `lib/` is the public npm artifact, not the Electron load source.
 
-The package is a required `runtime/host.patch.yml` mount and is not a member of `dshElectron.ecosystemPlugins`. Discovery still reports `source: desktop-runtime`, `required: true`, `manageable: false`.
+The package is a `runtime/plugins/ui-details-host` git subtree and is not a member of `dshElectron.ecosystemPlugins`. This pin does not mount it in `runtime/host.patch.yml` ([unmount note](2026-09-13-electron-unmount-details-host.md)). Discovery still reports `source: desktop-runtime`.
 
 `ctx.shellDetails` is a Cordis service. Boot registers the service and does not register a `details` occupant. `open(id)` registers DetailsHost at `DETAILS_HOST_PRIORITY` (`-1`, lower than the upstream default of `0`), declares `shell.details.surface`, requires that id to exist, then calls `ctx.layout.openDetails()`. A missing id disposes takeover and throws so the third column never shows empty. Switching ids keeps DetailsHost mounted. `close()` is idempotent: `layout.closeDetails()`, clear `activeId`, dispose takeover, restore the upstream occupant. Active surface unload, surface crash, session switch, and host unload also close.
 
-This category is the exception to putting every portable public plugin under `packages/dsh-electron/`: Desktop always mounts it, rebuilds it with the runtime plugin builder, and still forbids Electron, `ctx.desktop`, and preload imports. User-disableable product features stay in the ecosystem island ([public namespace](2026-08-23-public-dsh-ecosystem-plugin-namespace.md)).
+This category is the exception to putting every portable public plugin under `packages/dsh-electron/`: Desktop rebuilds it with the runtime plugin builder and still forbids Electron, `ctx.desktop`, and preload imports. User-disableable product features stay in the ecosystem island ([group map](../../../../packages/dsh-electron/README.md)).
 
 ## Alternatives considered
 
