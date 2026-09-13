@@ -13,6 +13,7 @@
     "**/.node-next-types-*/**",
     "website/.generated/**",
     "vendor/**",
+    "packages/dsh-electron/dsh-plugin-git/**",
     "native/**",
     "**/*.js",
     "**/*.mjs",

@@ -17,8 +17,8 @@ import { GitGraphCanvas } from '../GitGraphCanvas.tsx'
 import { useGitWorkspace, type GitSessionsHook } from '../use-git-workspace.ts'
 import css from '../GitGraphSurface.module.css'
 
-/** Full composed props for the Git Graph surface registration. */
-export type GitGraphSurfaceProps = PropsRuntime<'shell.details.surface'> & PropsLocale<'git'>
+/** Full composed props for the Git Graph tab body. */
+export type GitGraphSurfaceProps = PropsRuntime<'sidebar.right.pane.tab'> & PropsLocale<'git'>
   & { controller: GitClientController }
 
 const GRAPH_SCOPES: readonly GitLogScope[] = ['auto', 'all', 'first-parent']

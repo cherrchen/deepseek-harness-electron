@@ -2,6 +2,7 @@
 
 import { globSync, readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
+import { isExternalSubtreeDocPath } from './repo-files.ts'
 
 const root = resolve(import.meta.dirname, '..')
 
@@ -58,6 +59,7 @@ function packageReadmes(): string[] {
   return PACKAGE_README_PATTERNS
     .flatMap(pattern => globSync(pattern, { cwd: root, exclude: ['**/node_modules/**'] }))
     .map(file => file.replaceAll('\\', '/'))
+    .filter(file => !isExternalSubtreeDocPath(file))
     .sort()
 }
 

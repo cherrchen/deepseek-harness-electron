@@ -1,6 +1,5 @@
 import type { ReactNode } from 'react'
 import type { GitDiff, GitRepositorySnapshot } from '../../types.ts'
-import type { GitSelectedDiff } from '../controller.ts'
 import type { GitLocaleKey } from '../locales.ts'
 import { splitRepoPath } from '../path-display.ts'
 import css from '../GitDetailsSurface.module.css'
@@ -14,20 +13,20 @@ function DiffLine({ line }: { line: string }): ReactNode {
 }
 
 /** Render the Diff tab for the selected changed file. */
-export function DiffTab({ repository, selectedDiff, diff, clean, t, error }: {
+export function DiffTab({ repository, payload, diff, clean, t, error }: {
   repository: GitRepositorySnapshot
-  selectedDiff: GitSelectedDiff | undefined
+  payload: { readonly path: string; readonly staged: boolean } | undefined
   diff: GitDiff | undefined
   clean: boolean
   t: (key: GitLocaleKey) => string
   error: string | undefined
 }): ReactNode {
   if (clean) return <p className={css.empty}>{t('details.noChangesDiff')}</p>
-  if (selectedDiff === undefined) return <p className={css.empty}>{t('details.noDiff')}</p>
-  const untracked = repository.untracked.includes(selectedDiff.path)
+  if (payload === undefined) return <p className={css.empty}>{t('details.noDiff')}</p>
+  const untracked = repository.untracked.includes(payload.path)
   if (untracked) return <p className={css.empty}>{t('details.untrackedDiff')}</p>
-  const { name, dir } = splitRepoPath(selectedDiff.path)
-  const mode = selectedDiff.staged ? t('details.stagedLabel') : t('details.workingTree')
+  const { name, dir } = splitRepoPath(payload.path)
+  const mode = payload.staged ? t('details.stagedLabel') : t('details.workingTree')
   return (
     <div className={css.diffTabBody}>
       {error !== undefined && <p className={css.error} role="alert">{error}</p>}

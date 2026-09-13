@@ -26,6 +26,20 @@ export function isArchivedAgentNotePath(path: string): boolean {
   return path.replaceAll('\\', '/').startsWith('.agents/notes/archived/')
 }
 
+/** External subtree whose documentation is owned by its canonical repository, not DSH doc-sync. */
+export const EXTERNAL_SUBTREE_DOC_PREFIX = 'packages/dsh-electron/dsh-plugin-git/'
+
+/**
+ * Whether a repository path sits in an external subtree excluded from DSH documentation gates.
+ * @param path - Repository-relative path.
+ * @returns True when the path is the Git plugin package or a file under it.
+ */
+export function isExternalSubtreeDocPath(path: string): boolean {
+  const normalized = path.replaceAll('\\', '/')
+  return normalized === EXTERNAL_SUBTREE_DOC_PREFIX.slice(0, -1)
+    || normalized.startsWith(EXTERNAL_SUBTREE_DOC_PREFIX)
+}
+
 /**
  * Expand repository-relative globs and deduplicate symlinked files.
  * @param root - absolute repository root.

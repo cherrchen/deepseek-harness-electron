@@ -12,16 +12,16 @@ kind: "package-bundle"
 
 标准 DSH/Cordis Git 插件，包含一项 portable Host service、一份 Client bundle 与 optional Desktop enhancement。同一 package 可在 DeepSeek Harness Desktop 与标准 DSH Web host 中原样运行；npm scope `@dsh-electron/` 标识发布者，不是运行时要求。
 
-**依赖 Details Host。** 安装本包前必须先安装并启用 `@dsh-electron/dsh-client-ui-details-host`。Git 向 `shell.details.surface` 贡献 surface，并通过 `ctx.shellDetails` 打开详情栏；没有 Details Host 时 Client 半无法加载。
+**依赖上游右侧边栏。** 本包要求 DeepSeek Harness ≥ v0.1.5-rc.2：其 Client UI 自带右侧边栏 `@deepseek-ai/dsh-client-ui-sidebar-right`。Git 以标准两阶段方式注册三个 sidebar tab type，并通过 `ctx.sidebarRight` 导航；宿主没有右侧边栏时 Client 半无法加载。旧的第三方 Details Host 插件已废弃，不再被依赖。
 
-[DeepSeek Harness Desktop](https://github.com/cherrchen/deepseek-harness-electron) 预装本插件，并通过 git subtree 镜像本仓库。用户可在**设置 → 插件**中禁用 Git；Details Host 仍是必需内置项。
+[DeepSeek Harness Desktop](https://github.com/cherrchen/deepseek-harness-electron) 预装本插件，并通过 git subtree 镜像本仓库。用户可在**设置 → 插件**中禁用 Git；右侧边栏是上游内置项。
 
 <a id="table-of-contents"></a>
 ## 目录
 
 - [DSH 兼容性](#dsh-compatibility)
 - [安装](#installation)
-- [与 Details Host 配对](#pairing-with-details-host)
+- [与上游右侧边栏配对](#pairing-with-sidebar-right)
 - [用户体验](#user-experience)
 - [组合](#composition)
 - [配置](#configuration)
@@ -35,9 +35,7 @@ kind: "package-bundle"
 <a id="dsh-compatibility"></a>
 ## DSH 兼容性
 
-本仓库的 `develop` 分支面向从 [`v0.1.2-alpha.4`](https://github.com/deepseek-ai/deepseek-harness/releases/tag/dsh-v0.1.2-alpha.4) 开始的 **DeepSeek Harness `v0.1.2`**。
-
-若你使用的是 **DeepSeek Harness [`v0.1.1-rc.2`](https://github.com/deepseek-ai/deepseek-harness/releases/tag/v0.1.1-rc.2)**，请改用 [`main`](https://github.com/cherrchen/dsh-plugin-git/tree/main) 分支。
+本仓库的 `develop` 分支面向 **DeepSeek Harness `v0.1.5`**（右侧边栏 tab-type API 基线 `0.1.5-rc.2`）。
 
 <a id="installation"></a>
 ## 安装
@@ -46,79 +44,71 @@ kind: "package-bundle"
 
 **DeepSeek Harness Desktop** — Git 默认预装并启用。不需要仓库 UI 时，可在**设置 → 插件**中禁用。
 
-**DSH Web** — 先安装 Details Host，再安装 Git：
+**DSH Web** — 右侧边栏随 DeepSeek Harness ≥ v0.1.5-rc.2 一起提供，无需单独安装；再安装 Git：
 
 ```sh
-# 1. Details Host (required dependency)
-dsh plugin --profile web add github:cherrchen/dsh-client-ui-details-host
-
-# 2. Git plugin
 dsh plugin --profile web add github:cherrchen/dsh-plugin-git
 ```
 
-本地开发时，分别构建各 checkout 并加入 profile：
+本地开发时，构建本 checkout 并加入 profile：
 
 ```sh
 pnpm install
 pnpm build
-dsh plugin --profile web add /path/to/dsh-client-ui-details-host
 dsh plugin --profile web add /path/to/dsh-plugin-git
 ```
 
-每次 `dsh plugin add` 都会激活 package 自带的 `cordis.patch.yml` 层。请先安装 Details Host，再安装 Git，以便 Git client 加载时 `ctx.shellDetails` 已可用。
+每次 `dsh plugin add` 都会激活 package 自带的 `cordis.patch.yml` 层。Git client 加载时要求宿主已提供 `ctx.sidebarRight` 与 `ctx.sidebarRightTabs` 两个 service。
 
-在 `@dsh-electron/dsh-client-ui-details-host` 上线 npm 之前，本仓库本地开发通过 `tests/fixtures/` 下的 pinned fixture tarball 安装 Details Host。
+<a id="pairing-with-sidebar-right"></a>
+## 与上游右侧边栏配对
 
-<a id="pairing-with-details-host"></a>
-## 与 Details Host 配对
-
-Git 是 Details Host 的参考消费者。Client manifest 显式声明依赖关系：
+Git 通过上游右侧边栏的标准两阶段注册接入 tab-type 体系。Client manifest 只声明 service 依赖：
 
 ```json
 {
   "dsh": {
     "client": {
       "inject": [
-        "@dsh-electron/dsh-client-ui-details-host"
-      ],
-      "external": [
-        "@dsh-electron/dsh-client-ui-details-host/client"
+        "@deepseek-ai/dsh-client-ui-sidebar-right"
       ]
     }
   }
 }
 ```
 
-`external` 确保模块表在本 bundle `require` Details Host Client factory 之前先物化它。`inject` 将 `ctx.shellDetails` 声明为运行时依赖。
+动态 client plugin 不允许 import 其他 plugin 包的运行时值，只允许 `import type`；因此类型引用在 bundle 中被完全擦除，`external` 不再需要。
 
-Git 贡献三个独立 surface —— `git.changes`、`git.diff` 与 `git.graph` —— 各占一个 Details Host 标签页，并通过统一的 `ctx.shellDetails.open(...)` create-or-reuse 导航打开：
+**阶段一**——`ctx.sidebarRightTabs.register(definition)` 注册三个 tab type：`git.changes` 与 `git.graph` 是 page type（按 kind 打开，每个 pane 单例），并各贡献一个 guide 条目（Changes `order: 10`、Graph `order: 11`），在 guide 页替代旧 Details Launcher 卡片；`git.diff` 是 resource type，pattern `dsh-resource://git/diff/**`，`canOpen` 校验地址可解码，tab 标题取解码出的文件名。
+
+**阶段二**——每个 tab type 的 body 组件注入 `sidebar.right.pane.tab` 座（key 即 definition 的 `id`），body 通过 `useTabInfo().tab.navigation` 读取 `{ address, params, revision }`。
+
+统一导航收敛到 `ctx.sidebarRight`：
 
 ```text
-ctx.shellDetails.open({ surfaceId: 'git.changes' })
-ctx.shellDetails.open({ surfaceId: 'git.diff', payload: { path, staged: false } })
-ctx.shellDetails.open({ surfaceId: 'git.graph' })
+ctx.sidebarRight.openTab('git.changes')
+ctx.sidebarRight.openResource('dsh-resource://git/diff/<encodeURIComponent(path)>/<staged|worktree>', { params: { path, staged } })
+ctx.sidebarRight.openTab('git.graph')
 ```
 
-Surface descriptor 声明 `dedupeKey`，使重复打开收敛到同一个标签页：changes 与 graph 以当前 workspace path 为键（`git:changes:<workspacePath>`、`git:graph:<workspacePath>`）；diff 以 path 加比较侧为键（`git:diff:<path>:<staged|worktree>`），因此同一文件的 staged diff 与 working-tree diff 可以并排共存。changed-files indicator 与 Launcher 卡片打开 `git.changes`；点击文件行打开该路径的 `git.diff`。
+diff 标签页以精确地址为身份：同一文件同一比较侧重复打开会 reveal 既有标签页并递增 `revision`（body 据此重新拉取），而同一文件的 staged 与 working-tree diff 是两个不同地址，可并排共存。changes 与 graph 由侧栏按 kind 在每个 pane 去重。changed-files indicator、分支芯片与 guide 条目打开 `git.changes`；点击文件行打开该路径的 `git.diff`。
 
-Payload 类型通过 augmentation 挂到 Details Host：
+参数类型通过 augmentation 挂到右侧边栏：
 
 ```ts
-declare module '@dsh-electron/dsh-client-ui-details-host/client' {
-  interface DetailsSurfacePayloadMap {
-    'git.changes': GitChangesPayload
-    'git.diff': GitDiffPayload
-    'git.graph': GitGraphPayload
+declare module '@deepseek-ai/dsh-client-ui-sidebar-right/client' {
+  interface SidebarRightResourceParamsMap {
+    git: GitDiffPayload
   }
 }
 ```
 
-Git 还通过 `ctx.shellDetails.registerLauncher` 注册两张 Launcher 卡片（Changes、Graph），并在每个 Git 面板内部渲染仓库操作。Git 不注册已废弃的 `shell.details.header.actions` 插槽。AppFrame 详情栏几何、标签栏、Launcher 与 dock 可见性由 Details Host 拥有，不属于本 package。
+仓库操作按钮（refresh / reveal）由本包以本地组件渲染在各 Git 面板内部。标签栏、guide 页、停靠几何与面板宽度由右侧边栏（基于 ui-dockkit）拥有，不属于本 package。
 
 <a id="user-experience"></a>
 ## 用户体验
 
-在会话输入区左侧，Git 贡献 branch selector 与 changed-files indicator。点击任一控件会以 Details Host 标签页打开 `git.changes` surface。创建分支会打开共享的 conversation Modal；在仅有 `git init`、尚无提交（unborn HEAD）时，菜单以禁用态展示符号默认分支，说明需要先完成首次提交，并在 HEAD 存在前禁用创建。
+在会话输入区左侧，Git 贡献 branch selector 与 changed-files indicator。点击任一控件会在右侧边栏打开 `git.changes` 标签页。创建分支会打开共享的 conversation Modal；在仅有 `git init`、尚无提交（unborn HEAD）时，菜单以禁用态展示符号默认分支，说明需要先完成首次提交，并在 HEAD 存在前禁用创建。
 
 **Changes** surface 顶部展示当前 branch 与 refresh，其下是默认一行、随内容增高的 commit message 输入框，带魔法棒 **Generate** 控件，以及分裂式 **Commit** 按钮（Commit、Amend、Commit & Push、Commit & Sync）。Staged、unstaged 与 untracked 路径以图标操作分区列出：plus／minus 切换 index，undo 在两步确认后 discard，porcelain 字母标记行状态。点击路径打开对应 diff。**Diff** surface 在右上角展示 refresh，并在每个标签页渲染一个文件的 working-tree 或 staged diff。**Graph** surface 顶部在同一行展示自动／全部／首父链与 refresh，其下以 canvas 绘制的 lane graph 展示提交历史——整页共享一个连续坐标系，rail 与 merge 边不会在行边界断裂——包含 subject、author、date、hash 与 HEAD／branch／tag 装饰徽标，并通过 load-more 控件增量分页。当 host 暴露 LLM runtime 时，staged diff 会发送到会话模型——或发送到 **设置 → 插件 → 插件配置 → Git** 里配置的自定义 provider/model——流式生成的建议写入可编辑输入框。同一张卡片也可以编辑生成所用的 system message。生成绝不 stage、commit 或 push 任何内容。在 Electron 上，optional Desktop enhancement 在 Desktop provider 存在时提供 reveal-in-folder 与 open-path 操作。
 
@@ -127,7 +117,7 @@ Git 还通过 `ctx.shellDetails.registerLauncher` 注册两张 Launcher 卡片�
 
 Host plugin 要求 `ctx.subprocess`，提供 `ctx.git`，并使用 executable 与独立 argv values 启动 Git。它绝不调用 shell。DSH Web Host 存在时，optional Connection child 注册 loopback `/git` RPC channel。
 
-Client plugin 要求 Connection、locale、renderer、conversation UI、primitives、session UI 与 Details Host。Business components 通过 slot injection 接收 controller 与 `openDetails()`，不访问 Cordis context。
+Client plugin 要求 Connection、locale、renderer、conversation UI、primitives、session UI 与上游右侧边栏（`ctx.sidebarRight` / `ctx.sidebarRightTabs`，仅类型级 import）。Business components 通过 slot injection 接收 controller 与 `openDetails()`，不访问 Cordis context。
 
 当 `ctx.settingsScope` 存在时，Client 还会把一张卡片注册进 **设置 → 插件 → 插件配置**，命名空间为 `git-commit-message`。Host 不提供该命名空间时，卡片不会出现。
 
@@ -167,7 +157,7 @@ GitHub authentication、hosting-provider workflows、credential prompts、issues
 <a id="npm-publication"></a>
 ## npm 发布
 
-本包将以 `@dsh-electron/dsh-plugin-git` 发布到 npm。当前尚未公开发布；请将 API 与版本视为 pre-release。Details Host 必须作为独立依赖安装。
+本包将以 `@dsh-electron/dsh-plugin-git` 发布到 npm。当前尚未公开发布；请将 API 与版本视为 pre-release。UI 宿主是上游内置的右侧边栏，无需独立安装的第三方配对包。
 
 <a id="development"></a>
 ## 开发
@@ -195,7 +185,6 @@ pnpm pack
 - **无 credential UI** — push 与 sync 调用 Git 时不提示 remote 或 credentials；缺少 `origin` 或认证被拒时以 Git command error 失败。
 - **Command output 有界** — 大于 `maxOutputBytes` 的 diff 只保留 subprocess collector tail；处理超大 diff 的 deployment 必须提高这一 validated setting。
 - **生成依赖 host 与模型** — commit message 生成需要 host LLM runtime 与可解析的模型（会话默认或插件配置中的自定义路由）；两者缺其一时，Generate 动作保持禁用或报告 `git/generation-unavailable`。
-- **Launcher 卡片文案为英文** — 本插件贡献的两张 Launcher 卡片自带英文标签；尚未通过 locale service 本地化。
 
 <a id="dev-note"></a>
 ### 开发备注

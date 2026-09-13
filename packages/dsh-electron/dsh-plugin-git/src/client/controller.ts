@@ -29,12 +29,6 @@ export interface GitDesktopCapability {
   }
 }
 
-/** Selected diff identity retained across refresh. */
-export interface GitSelectedDiff {
-  readonly path: string
-  readonly staged: boolean
-}
-
 /** Number of commits loaded per graph page. */
 export const GIT_GRAPH_PAGE_SIZE = 25
 
@@ -44,8 +38,6 @@ export const GIT_GRAPH_MAX_LANES = 3
 export interface GitClientState {
   readonly workspacePath: string | undefined
   readonly repository: GitRepositorySnapshot | null | undefined
-  readonly selectedDiff: GitSelectedDiff | undefined
-  readonly diff: GitDiff | undefined
   readonly loading: boolean
   readonly error: string | undefined
   readonly desktopAvailable: boolean
@@ -91,8 +83,6 @@ export class GitClientController {
   private state: GitClientState = {
     workspacePath: undefined,
     repository: undefined,
-    selectedDiff: undefined,
-    diff: undefined,
     loading: false,
     error: undefined,
     desktopAvailable: false,
@@ -121,7 +111,6 @@ export class GitClientController {
   /** Monotonic request identity for graph pages; stale responses are discarded. */
   private graphRequestGeneration = 0
   /** Monotonic request identities for independently replaceable async results. */
-  private diffRequestGeneration = 0
   private generationRequestGeneration = 0
   private capabilityRequestGeneration = 0
   /** Lane continuation state between loaded graph pages. */
@@ -154,7 +143,7 @@ export class GitClientController {
   }
 
   /**
-   * Install the Details Host diff navigation (set at plugin mount).
+   * Install the right-sidebar diff navigation (set at plugin mount).
    * @param navigator - Opens one Diff surface tab for the path and side.
    */
   setDiffNavigator(navigator: ((path: string, staged: boolean) => void) | undefined): void {
@@ -163,21 +152,18 @@ export class GitClientController {
 
   /**
    * Open one changed path as its own Diff surface tab (create-or-reuse via
-   * the stable diff tab key). No-op when Details Host is unavailable.
+   * the stable diff tab key). No-op when the right sidebar is unavailable;
+   * each Diff surface fetches its own content once the tab mounts.
    * @param path - Repository-relative changed path.
    * @param staged - Whether to open the staged comparison.
    */
   openDiff(path: string, staged: boolean): void {
-    if (this.diffNavigator !== undefined) {
-      this.diffNavigator(path, staged)
-      return
-    }
-    void this.showDiff(path, staged)
+    this.diffNavigator?.(path, staged)
   }
 
   /**
    * Bind repository discovery to the current workspace path. Idempotent: the
-   * Details Host remounts surfaces on tab switches, and rebinding the same
+   * right sidebar remounts surfaces on tab switches, and rebinding the same
    * workspace must not reset retained state (commit drafts, loaded graph).
    * @param workspacePath - Current workspace path, if one is selected.
    * @returns Completion after the first discover and status calls settle.
@@ -195,8 +181,6 @@ export class GitClientController {
     this.patch({
       workspacePath,
       repository: undefined,
-      diff: undefined,
-      selectedDiff: undefined,
       error: undefined,
       graph: [],
       graphRows: [],
@@ -244,30 +228,15 @@ export class GitClientController {
   }
 
   /**
-   * Load a diff for one changed path (Diff surface payload routing).
+   * Read the diff for one changed path without retaining it: each Diff surface
+   * owns its result, so multiple tabs never overwrite one another.
    * @param path - Repository-relative changed path.
    * @param staged - Whether to read the staged diff.
-   * @returns Completion after the Host diff call settles.
+   * @returns The decoded diff.
    */
-  async showDiff(path: string, staged: boolean): Promise<void> {
+  async fetchDiff(path: string, staged: boolean): Promise<GitDiff> {
     const repository = this.requireRepository()
-    const bindingGeneration = this.operationGeneration
-    const requestGeneration = ++this.diffRequestGeneration
-    const selectedDiff = { path, staged }
-    this.patch({ selectedDiff, error: undefined })
-    if (repository.untracked.includes(path)) {
-      this.patch({ diff: undefined, loading: false })
-      return
-    }
-    this.patch({ loading: true })
-    try {
-      const diff = decodeDiff(await this.call('diff', { repository: repository.root, path, staged }))
-      if (!this.isRequestCurrent(bindingGeneration, repository.root, requestGeneration, () => this.diffRequestGeneration)) return
-      this.patch({ diff, loading: false })
-    } catch (error) {
-      if (!this.isRequestCurrent(bindingGeneration, repository.root, requestGeneration, () => this.diffRequestGeneration)) return
-      this.patch({ loading: false, error: error instanceof Error ? error.message : String(error) })
-    }
+    return decodeDiff(await this.call('diff', { repository: repository.root, path, staged }))
   }
 
   /**
@@ -481,15 +450,13 @@ export class GitClientController {
       const root = decodeRoot(await this.call('discover', { path: workspacePath }))
       if (!this.isWorkspaceCurrent(generation)) return
       if (root === null) {
-        this.patch({ repository: null, diff: undefined, selectedDiff: undefined, loading: false })
+        this.patch({ repository: null, loading: false })
         return
       }
       const snapshot = decodeSnapshot(await this.call('status', { repository: root }))
       if (!this.isWorkspaceCurrent(generation)) return
       this.patch({
         repository: snapshot,
-        diff: undefined,
-        selectedDiff: undefined,
         loading: false,
       })
     } catch (error) {
@@ -517,7 +484,7 @@ export class GitClientController {
         // Commits, discards, and branch switches may change history: invalidate
         // the loaded graph so the Graph surface reloads instead of rendering the
         // pre-mutation log.
-        this.patch({ repository: next, diff: undefined, selectedDiff: undefined, loading: false, graphLoaded: false })
+        this.patch({ repository: next, loading: false, graphLoaded: false })
         return true
       } catch (error) {
         const message = error instanceof Error ? error.message : String(error)

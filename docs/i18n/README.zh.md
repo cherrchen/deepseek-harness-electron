@@ -29,7 +29,7 @@
 
 1. 范围内的每篇文档都有完整配对。发现 README 时，basename 不区分大小写，因此 `missions/readme.md` 与其他文档根一样属于范围。
 2. 任何已存在的配对产物都完整且一致：三个文件齐全、每一侧的当前 blob hash 等于记录值（改了任一侧而没重新确认配对就变红）、中文侧和所有普通撰写的英文源都带语言切换行（清单内的生成英文源除外）、每条普通相对文档链接都使用源文件一侧对应的目标 locale，且结构签名按序一致：标题深度、逐字节一致的代码块（信息字符串与内容）、表格行列数、列表类型、有序列表起始编号、列表项数量，以及除切换行之外保留原样 query/fragment 后缀的语义链接目标。
-3. 列为 `excluded` 的文件完全没有 `.zh.md`，也没有 `.i18n.yaml`。`.agents/notes/archived/` 下冻结的 Agent Note 不受这个持续演进的门禁约束；专用校验器会要求其现有的三个配对文件完整，并将其封存。
+3. 列为 `excluded` 的文件完全没有 `.zh.md`，也没有 `.i18n.yaml`。以 `/` 结尾的目录项会把整棵子树移出 DSH 双语语料，包括该子树自有的双语文件。`.agents/notes/archived/` 下冻结的 Agent Note 不受这个持续演进的门禁约束；专用校验器会要求其现有的三个配对文件完整，并将其封存。
 
 面向源码的代码门禁会把精确的 `.zh.md` 围栏序列视为其无后缀兄弟文件的派生内容，而不会再次编译相同代码或在 manifest（元数据清单）中重复登记。该序列必须在长度、顺序、围栏类型和按字节精确的正文上一致；否则两份副本仍会独立受检，配对门禁也会报告结构不匹配。
 
@@ -47,7 +47,7 @@
 
 有经评审的中文对侧的生成英文参考文档和图文档遵循配对规则。生成器仍是英文真源，新鲜度门禁与配对门禁各自独立强制其约束；重新生成导致英文变化后，配对会保持失去同步状态，直至经评审的中文对侧完成更新并重新记录。Cordis subsystem 区块生成器等同时拥有两侧输出的生成器，会把配对文档路径投影到各自 locale，同时保持其余生成字节一致。生成的英文源文件不含普通撰写文档所带的语言切换行，因为添加该行会使生成器新鲜度检查失败；中文对侧仍链接回英文源。生成页的中文对侧只能改写若直译便不再符合经评审译文事实的自指生成与维护说明；所有技术内容仍受普通忠实性规则约束。
 
-**排除**（永不配对，门禁拒绝为它们建 `.zh.md` 或 `.i18n.yaml`）：
+**排除**（文件项永不配对，门禁拒绝为它们留下 `.zh.md` 或 `.i18n.yaml`；以 `/` 结尾的目录项会把整棵子树移出 DSH 双语语料）：
 
 - [cordis-api/inherited.md](../cordis-api/inherited.md)：该生成文档没有经评审的中文对侧，因此网站的两个 locale 都投影英文源文件。
 - `docs/AGENTS.md`、`.agents/notes/**/AGENTS.md` 以及指向它们的 `CLAUDE.md` 指令符号链接：agent 指令，与根 `AGENTS.md` 一样只以英文维护。
@@ -55,6 +55,7 @@
 - [translation-prompt.md](translation-prompt.md)：自动翻译流水线的提示词模板；正文逐字进入模型请求，配对翻译会改变流水线行为。
 - [review-ownership/README.md](../../.github/review-ownership/README.md)：仓库内部审批策略，只以英文维护。
 - `.agents/notes/archived/`：冻结的历史三文件配对。[`verify-archived-agent-notes`](../../scripts/verify-archived-agent-notes.ts) 校验其完整性和内容封存记录；翻译维护绝不能重写这些文件。
+- `packages/dsh-electron/dsh-plugin-git/`：外部 Git 插件 subtree；其文档由 canonical 仓库与该包自有的 `docs:check` 拥有。
 
 **统一要求**：当前及今后纳入范围的每篇文档，合并时都必须构成完整的双语配对。[scripts/translation-pairing.manifest.json](../../scripts/translation-pairing.manifest.json) 只包含显式排除项；不存在逐文件推进清单、日期分界或 README 专用政策类别。
 

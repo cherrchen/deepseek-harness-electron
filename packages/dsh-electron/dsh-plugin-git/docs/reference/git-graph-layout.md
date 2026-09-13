@@ -2,8 +2,7 @@
 
 本文档描述 Git Graph 的 DAG → Layout → Renderer 链路。核心结论先行：
 
-> **ADR：Git branch / ref 不拥有 graph lane。**
-> Lane 属于当前正在追踪的一条 ancestry path。Ref 只是 commit 上的 decoration。
+> **决策：Git branch / ref 不拥有 graph lane** —— 完整决策记录见 [ADR-0001](../decisions/ADR-0001-graph-lane-not-owned-by-branch.md)。Lane 属于当前正在追踪的一条 ancestry path；Ref 只是 commit 上的 decoration。
 
 ## 数据流
 
@@ -69,8 +68,7 @@ HEAD 的 first-parent 链是视觉主脊柱：
 
 ### Lane Cap（maxLanes 硬上限）
 
-> **ADR：Git Graph 视图同时最多渲染 3 条 lane。**
-> 客户端常量 `GIT_GRAPH_MAX_LANES = 3`（`controller.ts`）通过 `GraphLayoutOptions.maxLanes` 传入 engine；不传则不设限（engine 保持通用）。
+> **决策：Git Graph 视图同时最多渲染 3 条 lane** —— 完整决策记录见 [ADR-0002](../decisions/ADR-0002-graph-lane-cap-max-three-lanes.md)。客户端常量 `GIT_GRAPH_MAX_LANES = 3`（`controller.ts`）通过 `GraphLayoutOptions.maxLanes` 传入 engine；不传则不设限（engine 保持通用）。
 
 达到上限时的截断规则（按确定性顺序执行）：
 
@@ -149,7 +147,7 @@ Fork / merge / shift 使用 cubic Bezier（控制点在行高中点），横向�
 
 ## 相关决策记录
 
-- **Git branch/ref 不拥有 graph lane**（本文档开头 ADR）—— 后续维护必须长期遵循。
-- **视图最多渲染 3 条 lane**（`GIT_GRAPH_MAX_LANES`）—— 截断规则见「Lane Cap」一节；调整上限只改客户端常量，不改 engine。
+- [ADR-0001：Git branch/ref 不拥有 graph lane](../decisions/ADR-0001-graph-lane-not-owned-by-branch.md) —— 后续维护必须长期遵循。
+- [ADR-0002：视图最多渲染 3 条 lane](../decisions/ADR-0002-graph-lane-cap-max-three-lanes.md)（`GIT_GRAPH_MAX_LANES`）—— 截断规则见「Lane Cap」一节；调整上限只改客户端常量，不改 engine。
 - Renderer 保持 Canvas 2D 实现；geometry 输出与绘制命令解耦，未来可替换为 SVG/Canvas 渲染器而不改 Layout Engine。
-- 详情面板宽度由 Details Host 控制（300–520px），Graph 列宽按 visible lanes 动态收缩/增长，不硬编码。
+- 面板宽度由上游右侧边栏（基于 ui-dockkit）控制，Graph 列宽按 visible lanes 动态收缩/增长，不硬编码。

@@ -1,7 +1,7 @@
 {
   "name": "@dsh-electron/dsh-plugin-git",
   "description": "Portable Git repository service and DSH client experience",
-  "version": "0.2.0",
+  "version": "0.1.0",
   "publishConfig": {
     "access": "public"
   },
@@ -43,7 +43,9 @@
     "build:types:standalone": "tsc -p tsconfig.standalone.host.json && tsc -p tsconfig.standalone.client.json",
     "bundle": "tsdown",
     "test": "vitest run",
-    "test:artifact": "vitest run --config vitest.artifact.config.ts"
+    "test:artifact": "vitest run --config vitest.artifact.config.ts",
+    "docs:check": "node scripts/check-docs.mjs",
+    "version:set": "pnpm version --no-git-tag-version --no-git-checks"
   },
   "engines": {
     "node": "^22.19.0 || >=24.0.0"
@@ -54,52 +56,74 @@
     "@deepseek-ai/schemastery": ">=3.18.1 <4.0.0"
   },
   "peerDependencies": {
-    "@deepseek-ai/cordis": ">=4.0.1 <5.0.0",
+    "@deepseek-ai/cordis": ">=4.0.2 <5.0.0",
     "@deepseek-ai/dsh-agent-default-model": ">=0.1.2-alpha.4 <0.2.0",
     "@deepseek-ai/dsh-api-session-controller": ">=0.1.2-alpha.4 <0.2.0",
     "@deepseek-ai/dsh-client-connection": ">=0.1.2-alpha.4 <0.2.0",
     "@deepseek-ai/dsh-client-locale": ">=0.1.2-alpha.4 <0.2.0",
+    "@deepseek-ai/dsh-client-resources": ">=0.1.5-rc.2 <0.2.0",
     "@deepseek-ai/dsh-client-ui-conversation": ">=0.1.2-alpha.4 <0.2.0",
     "@deepseek-ai/dsh-client-ui-primitives": ">=0.1.2-alpha.4 <0.2.0",
+    "@deepseek-ai/dsh-client-ui-renderer": ">=0.1.2-alpha.4 <0.2.0",
     "@deepseek-ai/dsh-client-ui-session": ">=0.1.2-alpha.4 <0.2.0",
     "@deepseek-ai/dsh-client-ui-settings": ">=0.1.2-alpha.4 <0.2.0",
     "@deepseek-ai/dsh-client-ui-settings-plugins": ">=0.1.2-alpha.4 <0.2.0",
+    "@deepseek-ai/dsh-client-ui-sidebar-right": ">=0.1.5-rc.2 <0.2.0",
     "@deepseek-ai/dsh-client-ui-slots": ">=0.1.2-alpha.4 <0.2.0",
+    "@deepseek-ai/dsh-llm": ">=0.1.2-alpha.4 <0.2.0",
     "@deepseek-ai/dsh-settings": ">=0.1.2-alpha.4 <0.2.0",
     "@deepseek-ai/dsh-subprocess": ">=0.1.2-alpha.4 <0.2.0",
-    "@dsh-electron/dsh-client-ui-details-host": ">=0.3.0 <0.4.0",
-    "react": ">=18.2.0 <19.0.0",
-    "@deepseek-ai/dsh-client-ui-renderer": ">=0.1.2-alpha.4 <0.2.0",
-    "@deepseek-ai/dsh-llm": ">=0.1.2-alpha.4 <0.2.0"
+    "react": ">=18.2.0 <19.0.0"
   },
   "devDependencies": {
-    "@deepseek-ai/cordis": ">=4.0.1 <5.0.0",
-    "@deepseek-ai/dsh-agent-default-model": "0.1.2-rc.1",
-    "@deepseek-ai/dsh-api-session-controller": "0.1.2-rc.1",
-    "@deepseek-ai/dsh-client-connection": "0.1.2-rc.1",
-    "@deepseek-ai/dsh-client-locale": "0.1.2-rc.1",
-    "@deepseek-ai/dsh-client-ui-conversation": "0.1.2-rc.1",
-    "@deepseek-ai/dsh-client-ui-layout": "0.1.2-rc.1",
-    "@deepseek-ai/dsh-client-ui-primitives": "0.1.2-rc.1",
-    "@deepseek-ai/dsh-client-ui-renderer": "0.1.2-rc.1",
-    "@deepseek-ai/dsh-client-ui-session": "0.1.2-rc.1",
-    "@deepseek-ai/dsh-client-ui-settings": "0.1.2-rc.1",
-    "@deepseek-ai/dsh-client-ui-settings-plugins": "0.1.2-rc.1",
-    "@deepseek-ai/dsh-client-ui-slots": "0.1.2-rc.1",
-    "@deepseek-ai/dsh-settings": "0.1.2-rc.1",
-    "@deepseek-ai/dsh-subprocess": "0.1.2-rc.1",
-    "@deepseek-ai/dsh-subprocess-local": "0.1.2-rc.1",
-    "@dsh-electron/dsh-client-ui-details-host": "file:tests/fixtures/dsh-client-ui-details-host-0.3.0.tgz",
+    "@deepseek-ai/cordis": "^4.0.2",
+    "@deepseek-ai/dsh-agent-default-model": "0.1.5-rc.2",
+    "@deepseek-ai/dsh-api-session-controller": "0.1.5-rc.2",
+    "@deepseek-ai/dsh-client-connection": "0.1.5-rc.2",
+    "@deepseek-ai/dsh-client-locale": "0.1.5-rc.2",
+    "@deepseek-ai/dsh-client-resources": "0.1.5-rc.2",
+    "@deepseek-ai/dsh-client-store": "0.1.5-rc.2",
+    "@deepseek-ai/dsh-client-ui-conversation": "0.1.5-rc.2",
+    "@deepseek-ai/dsh-client-ui-dockkit": "0.1.5-rc.2",
+    "@deepseek-ai/dsh-client-ui-layout": "0.1.5-rc.2",
+    "@deepseek-ai/dsh-client-ui-primitives": "0.1.5-rc.2",
+    "@deepseek-ai/dsh-client-ui-renderer": "0.1.5-rc.2",
+    "@deepseek-ai/dsh-client-ui-session": "0.1.5-rc.2",
+    "@deepseek-ai/dsh-client-ui-settings": "0.1.5-rc.2",
+    "@deepseek-ai/dsh-client-ui-settings-plugins": "0.1.5-rc.2",
+    "@deepseek-ai/dsh-client-ui-sidebar-right": "0.1.5-rc.2",
+    "@deepseek-ai/dsh-client-ui-slots": "0.1.5-rc.2",
+    "@deepseek-ai/dsh-llm": "0.1.5-rc.2",
+    "@deepseek-ai/dsh-settings": "0.1.5-rc.2",
+    "@deepseek-ai/dsh-subprocess": "0.1.5-rc.2",
+    "@deepseek-ai/dsh-subprocess-local": "0.1.5-rc.2",
+    "@shikijs/langs": "^4.3.1",
     "@testing-library/react": "^16.3.2",
     "@types/node": "^22.0.0",
     "@types/react": "~18.3.1",
+    "anser": "^2.3.5",
+    "clsx": "^2.0.0",
     "jsdom": "^29.0.0",
+    "katex": "^0.16.47",
     "lightningcss": "^1.30.0",
+    "mdast-util-from-markdown": "^2.0.3",
+    "mdast-util-gfm": "^3.1.0",
+    "mdast-util-math": "^3.0.0",
+    "micromark-core-commonmark": "^2.0.3",
+    "micromark-extension-gfm": "^3.0.0",
+    "micromark-extension-math": "^3.1.0",
+    "micromark-factory-space": "^2.0.1",
+    "micromark-util-character": "^2.1.1",
+    "micromark-util-classify-character": "^2.0.1",
+    "micromark-util-sanitize-uri": "^2.0.1",
+    "micromark-util-symbol": "^2.0.1",
+    "micromark-util-types": "^2.0.2",
     "react": "^18.2.0",
+    "react-dom": "^18.2.0",
+    "shiki": "^4.3.1",
     "tsdown": "^0.22.0",
     "typescript": "^6.0.3",
-    "vitest": "^4.1.8",
-    "@deepseek-ai/dsh-llm": "0.1.2-rc.1"
+    "vitest": "^4.1.8"
   },
   "dsh": {
     "bundle": {
@@ -116,10 +140,7 @@
         "@deepseek-ai/dsh-client-ui-session",
         "@deepseek-ai/dsh-client-ui-settings",
         "@deepseek-ai/dsh-client-ui-settings-plugins",
-        "@dsh-electron/dsh-client-ui-details-host"
-      ],
-      "external": [
-        "@dsh-electron/dsh-client-ui-details-host/client"
+        "@deepseek-ai/dsh-client-ui-sidebar-right"
       ]
     }
   },

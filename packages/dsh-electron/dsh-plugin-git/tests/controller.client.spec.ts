@@ -173,7 +173,7 @@ describe('GitClientController', () => {
     const controller = new GitClientController(rpc)
     await controller.setWorkspace('/workspace-a')
     controller.setCommitMessage('draft to keep')
-    // Details Host remounts surfaces on tab switches; the same binding must
+    // The right sidebar remounts surfaces on tab switches; the same binding must
     // not clear retained state.
     await controller.setWorkspace('/workspace-a')
     expect(controller.getSnapshot().commitMessage).toBe('draft to keep')
@@ -292,52 +292,13 @@ describe('GitClientController', () => {
     expect(controller.getSnapshot()).toMatchObject({ graphLoading: false, graphLoaded: true })
   })
 
-  it('discards a stale Diff response and failure after the repository changes', async () => {
-    let releaseA: ((value: GitRpcResult) => void) | undefined
-    let signalA: (() => void) | undefined
-    const diffARequested = new Promise<void>((resolve) => { signalA = resolve })
+  it('fetches a diff without retaining it on the controller', async () => {
     const rpc = {
-      call: vi.fn(async (_channel: string, endpoint: string, payload: unknown) => {
-        if (endpoint === 'discover') return { ok: true as const, value: (payload as { path: string }).path }
-        if (endpoint === 'status') return { ok: true as const, value: snapshot({ root: (payload as { repository: string }).repository }) }
-        if (endpoint === 'diff') {
-          const repository = (payload as { repository: string }).repository
-          if (repository === '/workspace-a') {
-            signalA?.()
-            return new Promise<GitRpcResult>((resolve) => { releaseA = resolve })
-          }
-          return { ok: true as const, value: { repository, path: 'src/a.ts', staged: false, text: 'diff -- b' } }
-        }
-        if (endpoint === 'log') return { ok: true as const, value: [] }
-        if (endpoint === 'commit-message-capability') return { ok: true as const, value: { available: false } }
-        return { ok: true as const, value: null }
-      }),
-    }
-    const controller = new GitClientController(rpc)
-    await controller.setWorkspace('/workspace-a')
-    const stale = controller.showDiff('src/a.ts', false)
-    await diffARequested
-    await controller.setWorkspace('/workspace-b')
-    await controller.showDiff('src/a.ts', false)
-    releaseA?.({ ok: false as const, error: { message: 'stale diff failure' } })
-    await stale
-    expect(controller.getSnapshot()).toMatchObject({
-      workspacePath: '/workspace-b',
-      error: undefined,
-      diff: { repository: '/workspace-b', text: 'diff -- b' },
-    })
-  })
-
-  it('keeps the latest Diff response for repeated requests of the same file', async () => {
-    const releases: Array<(value: GitRpcResult) => void> = []
-    const rpc = {
-      call: vi.fn(async (_channel: string, endpoint: string) => {
+      call: vi.fn(async (_channel: string, endpoint: string, _payload: unknown) => {
         if (endpoint === 'discover') return { ok: true as const, value: '/repo' }
         if (endpoint === 'status') return { ok: true as const, value: snapshot() }
         if (endpoint === 'diff') {
-          return new Promise<GitRpcResult>((resolve) => {
-            releases.push(resolve)
-          })
+          return { ok: true as const, value: { repository: '/repo', path: 'src/a.ts', staged: false, text: '+added' } }
         }
         if (endpoint === 'log') return { ok: true as const, value: [] }
         if (endpoint === 'commit-message-capability') return { ok: true as const, value: { available: false } }
@@ -346,15 +307,30 @@ describe('GitClientController', () => {
     }
     const controller = new GitClientController(rpc)
     await controller.setWorkspace('/workspace')
-    const first = controller.showDiff('src/a.ts', false)
-    await vi.waitFor(() => { expect(releases).toHaveLength(1) })
-    const second = controller.showDiff('src/a.ts', false)
-    await vi.waitFor(() => { expect(releases).toHaveLength(2) })
-    releases[1]!({ ok: true, value: { repository: '/repo', path: 'src/a.ts', staged: false, text: 'newest' } })
-    await second
-    releases[0]!({ ok: true, value: { repository: '/repo', path: 'src/a.ts', staged: false, text: 'stale' } })
-    await first
-    expect(controller.getSnapshot().diff?.text).toBe('newest')
+    const diff = await controller.fetchDiff('src/a.ts', false)
+    expect(diff).toMatchObject({ repository: '/repo', path: 'src/a.ts', staged: false, text: '+added' })
+    const call = (rpc.call as ReturnType<typeof vi.fn>).mock.calls.find(([, endpoint]) => endpoint === 'diff')
+    expect(call?.[2]).toEqual({ repository: '/repo', path: 'src/a.ts', staged: false })
+    // The result is panel-local: the shared snapshot never carries a diff.
+    expect(JSON.stringify(controller.getSnapshot())).not.toContain('added')
+  })
+
+  it('rejects fetchDiff when no repository is bound', async () => {
+    const rpc = {
+      call: vi.fn(async (_channel: string, endpoint: string, payload: unknown) => {
+        const discovered = typeof payload === 'object' && payload !== null && 'path' in payload ? payload.path : undefined
+        if (endpoint === 'discover') return { ok: true as const, value: discovered === '/workspace' ? null : '/repo' }
+        if (endpoint === 'status') return { ok: true as const, value: snapshot() }
+        if (endpoint === 'log') return { ok: true as const, value: [] }
+        if (endpoint === 'commit-message-capability') return { ok: true as const, value: { available: false } }
+        return { ok: true as const, value: null }
+      }),
+    }
+    const controller = new GitClientController(rpc)
+    await expect(controller.fetchDiff('src/a.ts', false)).rejects.toThrow('no Git repository is selected')
+    await controller.setWorkspace('/workspace')
+    expect(controller.getSnapshot().repository).toBeNull()
+    await expect(controller.fetchDiff('src/a.ts', false)).rejects.toThrow('no Git repository is selected')
   })
 
   it('invalidates the loaded graph on refresh and mutation', async () => {

@@ -5,19 +5,18 @@ import { describe, expect, it } from 'vitest'
 const packageRoot = resolve(import.meta.dirname, '..')
 
 describe('Git client bundle', () => {
-  it('keeps Details Host external in the client artifact', () => {
+  it('erases the sidebar type-only import from the client artifact', () => {
     const client = readFileSync(join(packageRoot, 'lib/client.js'), 'utf8')
-    expect(client).toContain('@dsh-electron/dsh-client-ui-details-host/client')
+    expect(client).not.toContain('@dsh-electron/dsh-client-ui-details-host')
+    expect(client).not.toContain('require("@deepseek-ai/dsh-client-ui-sidebar-right')
     expect(client).not.toContain('ShellDetailsService')
-    expect(client).not.toContain('class DetailsHostStateSource')
+    expect(client).not.toMatch(/\bDetailsHeaderAction\b/)
   })
 
-  it('declares Details Host as a module-table request', () => {
+  it('ships no module-table requests', () => {
     const manifest = JSON.parse(readFileSync(join(packageRoot, 'package.json'), 'utf8')) as {
       dsh?: { client?: { external?: string[] } }
     }
-    expect(manifest.dsh?.client?.external).toEqual([
-      '@dsh-electron/dsh-client-ui-details-host/client',
-    ])
+    expect(manifest.dsh?.client?.external).toBeUndefined()
   })
 })

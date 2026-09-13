@@ -1,7 +1,7 @@
 /**
  * Git Changes surface: repository context row, the commit region, and the
- * staged/unstaged/untracked sections. One of three Git surfaces hosted by
- * the Details Host tab bar.
+ * staged/unstaged/untracked sections. One of three Git tab types rendered in
+ * the upstream right sidebar.
  */
 import { useEffect, useSyncExternalStore } from 'react'
 import type { ReactNode } from 'react'
@@ -13,8 +13,8 @@ import { ChangesTab } from '../details/ChangesTab.tsx'
 import { CommitRegion } from '../details/CommitRegion.tsx'
 import css from '../GitDetailsSurface.module.css'
 
-/** Full composed props for the Git Changes surface registration. */
-export type GitChangesSurfaceProps = PropsRuntime<'shell.details.surface'> & PropsLocale<'git'>
+/** Full composed props for the Git Changes tab body. */
+export type GitChangesSurfaceProps = PropsRuntime<'sidebar.right.pane.tab'> & PropsLocale<'git'>
   & { controller: GitClientController }
 
 /** Render the Git Changes surface body. */

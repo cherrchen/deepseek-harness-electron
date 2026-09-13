@@ -9,14 +9,12 @@ import type {} from '@deepseek-ai/dsh-client-ui-renderer/client'
 import type {} from '@deepseek-ai/dsh-client-ui-session/client'
 import type {} from '@deepseek-ai/dsh-client-ui-settings/client'
 import type {} from '@deepseek-ai/dsh-client-ui-settings-plugins/client'
-import {
-  DETAILS_SURFACE_SLOT,
-} from '@dsh-electron/dsh-client-ui-details-host/client'
-import type {} from '@dsh-electron/dsh-client-ui-details-host/client'
+import type {} from '@deepseek-ai/dsh-client-ui-sidebar-right/client'
 import { GitBranchControl } from './GitBranchControl.tsx'
 import { GitDetailsHeaderActions } from './GitDetailsHeaderActions.tsx'
 import { GitChangesSurface } from './surfaces/GitChangesSurface.tsx'
 import { GitDiffSurface } from './surfaces/GitDiffSurface.tsx'
+import { GitPageTitle } from './GitPageTitle.tsx'
 import { GitGraphSurface } from './surfaces/GitGraphSurface.tsx'
 import { GitClientController, type GitDesktopCapability } from './controller.ts'
 import {
@@ -26,13 +24,14 @@ import {
   type CommitMessageCatalogLoader,
 } from './settings/commit-message-card-controller.ts'
 import { CommitMessageSettingsCard } from './settings/CommitMessageSettingsCard.tsx'
-import { createLauncherCards } from './launcher-cards.tsx'
 import {
-  GIT_CHANGES_SURFACE_ID,
-  GIT_DIFF_SURFACE_ID,
-  GIT_GRAPH_SURFACE_ID,
-  gitDiffTabKey,
+  GIT_CHANGES_ID,
+  GIT_CHANGES_KIND,
+  GIT_DIFF_ID,
+  GIT_GRAPH_ID,
+  gitDiffAddress,
 } from './contract.ts'
+import { changesDefinition, diffDefinition, graphDefinition } from './tab-definitions.ts'
 import { en, NS, zh, type GitLocaleKey } from './locales.ts'
 
 declare module '@deepseek-ai/dsh-client-ui-slots' {
@@ -49,10 +48,14 @@ declare module '@deepseek-ai/cordis' {
 
 export { GitBranchControl, GitDetailsHeaderActions, GitChangesSurface, GitDiffSurface, GitGraphSurface, GitClientController }
 export {
-  GIT_CHANGES_SURFACE_ID,
-  GIT_DIFF_SURFACE_ID,
-  GIT_GRAPH_SURFACE_ID,
-  gitDiffTabKey,
+  GIT_CHANGES_ID,
+  GIT_CHANGES_KIND,
+  GIT_DIFF_ID,
+  GIT_DIFF_KIND,
+  GIT_GRAPH_ID,
+  GIT_GRAPH_KIND,
+  gitDiffAddress,
+  parseGitDiffAddress,
   type GitChangesPayload,
   type GitDiffMode,
   type GitDiffPayload,
@@ -60,7 +63,7 @@ export {
 } from './contract.ts'
 export type { GitCommitFollowUp, GitCommitOptions, GitDesktopCapability } from './controller.ts'
 
-export const inject = ['slots', 'connection', 'locale', 'shellDetails']
+export const inject = ['slots', 'connection', 'locale', 'sidebarRight', 'sidebarRightTabs']
 
 /** Register portable UI first, then activate native enhancement in an optional child fiber. */
 export function apply(ctx: ClientContext): void {
@@ -68,47 +71,22 @@ export function apply(ctx: ClientContext): void {
   const controller = new GitClientController(connection.rpc)
 
   // Unified navigation: every Git entry point (composer chip, changes rows,
-  // launcher cards) converges on details.open(...) create-or-reuse tabs.
+  // guide) converges on the right sidebar. Changes and Graph are singleton
+  // pages; a diff opens as a resource whose exact address is its tab identity,
+  // so re-opening a file reveals its tab instead of duplicating it.
   const openChanges = (): void => {
-    ctx.shellDetails.open({ surfaceId: GIT_CHANGES_SURFACE_ID })
+    ctx.sidebarRight.openTab(GIT_CHANGES_KIND)
   }
   const openDiff = (path: string, staged: boolean): void => {
-    ctx.shellDetails.open({ surfaceId: GIT_DIFF_SURFACE_ID, payload: { path, staged } })
+    ctx.sidebarRight.openResource(gitDiffAddress(path, staged), { params: { path, staged } })
   }
   controller.setDiffNavigator(openDiff)
 
   ctx.effect(() => ctx.locale.register(NS, { en, zh }), 'git: dictionaries')
-  ctx.effect(() => ctx.shellDetails.registerSurface({
-    id: GIT_CHANGES_SURFACE_ID,
-    dedupeKey: () => `git:changes:${controller.getSnapshot().workspacePath ?? ''}`,
-  }), 'git: changes descriptor')
-  ctx.effect(() => ctx.shellDetails.registerSurface({
-    id: GIT_DIFF_SURFACE_ID,
-    dedupeKey: payload => gitDiffTabKeyOf(payload),
-  }), 'git: diff descriptor')
-  ctx.effect(() => ctx.shellDetails.registerSurface({
-    id: GIT_GRAPH_SURFACE_ID,
-    dedupeKey: () => `git:graph:${controller.getSnapshot().workspacePath ?? ''}`,
-  }), 'git: graph descriptor')
-
-  // Launcher cards resolve their copy through the bound translate function,
-  // and a locale revision change (language switch or late dictionary)
-  // rebuilds the registration so cards follow the active language.
-  ctx.effect(() => {
-    const t = ctx.locale.bind(NS)
-    let registered: readonly (() => void)[] = []
-    const register = (): void => {
-      for (const dispose of registered) dispose()
-      registered = createLauncherCards(t).map(card => ctx.shellDetails.registerLauncher(card))
-    }
-    register()
-    const unsubscribe = ctx.locale.subscribe(register)
-    return () => {
-      unsubscribe()
-      for (const dispose of registered) dispose()
-      registered = []
-    }
-  }, 'git: launcher cards')
+  const t = ctx.locale.bind(NS)
+  ctx.effect(() => ctx.sidebarRightTabs.register(changesDefinition(t)), 'git: changes tab type')
+  ctx.effect(() => ctx.sidebarRightTabs.register(diffDefinition()), 'git: diff tab type')
+  ctx.effect(() => ctx.sidebarRightTabs.register(graphDefinition(t)), 'git: graph tab type')
 
   ctx.slots.inject('conversation.input.left', () => ctx.slots.register({
     name: 'conversation.input.left',
@@ -117,22 +95,35 @@ export function apply(ctx: ClientContext): void {
     inject: () => ({ controller, openDetails: openChanges }),
   }, GitBranchControl))
 
-  // One surface entry per Details tab; the Details Host tab bar renders them
-  // as tabs, so Git ships independent surfaces instead of a nested tab set.
-  type GitSurfaceId = typeof GIT_CHANGES_SURFACE_ID | typeof GIT_DIFF_SURFACE_ID | typeof GIT_GRAPH_SURFACE_ID
-  const surfaces: ReadonlyArray<{ id: GitSurfaceId; component: typeof GitChangesSurface }> = [
-    { id: GIT_CHANGES_SURFACE_ID, component: GitChangesSurface },
-    { id: GIT_DIFF_SURFACE_ID, component: GitDiffSurface },
-    { id: GIT_GRAPH_SURFACE_ID, component: GitGraphSurface },
+  // Stage two: one body per tab type, keyed by the definition id. The sidebar
+  // tab bar dispatches every tab of a kind to its registered body.
+  const bodies: ReadonlyArray<{ key: string; component: typeof GitChangesSurface }> = [
+    { key: GIT_CHANGES_ID, component: GitChangesSurface },
+    { key: GIT_DIFF_ID, component: GitDiffSurface },
+    { key: GIT_GRAPH_ID, component: GitGraphSurface },
   ]
-  for (const surface of surfaces) {
-    ctx.slots.inject(DETAILS_SURFACE_SLOT, () => ctx.slots.register({
-      name: DETAILS_SURFACE_SLOT,
-      id: surface.id,
-      label: surface.id === GIT_DIFF_SURFACE_ID ? 'Diff' : surface.id === GIT_GRAPH_SURFACE_ID ? 'Git Graph' : 'Git Changes',
+  for (const body of bodies) {
+    ctx.effect(() => ctx.slots.inject('sidebar.right.pane.tab', () => ctx.slots.register({
+      name: 'sidebar.right.pane.tab',
+      key: body.key,
       locale: NS,
       inject: () => ({ controller }),
-    }, surface.component))
+    }, body.component)), `git: ${body.key} body`)
+  }
+
+  // Diff chips title themselves after the compared file — path text, language
+  // neutral — so only the two page types need a live-title registration.
+  const pageTitles: ReadonlyArray<{ key: string; label: GitLocaleKey }> = [
+    { key: GIT_CHANGES_ID, label: 'tab.changes' },
+    { key: GIT_GRAPH_ID, label: 'tab.graph' },
+  ]
+  for (const entry of pageTitles) {
+    ctx.effect(() => ctx.slots.inject('sidebar.right.pane.tab.title', () => ctx.slots.register({
+      name: 'sidebar.right.pane.tab.title',
+      key: entry.key,
+      locale: NS,
+      inject: () => ({ labelKey: entry.label }),
+    }, GitPageTitle)), `git: ${entry.key} title`)
   }
 
   ctx.inject(['desktop'], (desktopCtx) => {
@@ -165,10 +156,4 @@ export function apply(ctx: ClientContext): void {
       inject: () => ({ controller: card }),
     }, CommitMessageSettingsCard)), 'git: commit-message settings card')
   })
-}
-
-function gitDiffTabKeyOf(payload: unknown): string | undefined {
-  const request = payload as { path?: unknown; staged?: unknown }
-  if (typeof request.path !== 'string' || request.path.length === 0) return undefined
-  return gitDiffTabKey({ path: request.path, staged: request.staged === true })
 }

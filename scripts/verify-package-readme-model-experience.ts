@@ -8,6 +8,7 @@
 import { existsSync, globSync, readFileSync } from 'node:fs'
 import { relative, resolve, sep } from 'node:path'
 import { markdownHeadingLines, markdownProseLines, type MarkdownProseLine } from './markdown.ts'
+import { isExternalSubtreeDocPath } from './repo-files.ts'
 
 const root = resolve(import.meta.dirname, '..')
 const HEADING = '## Model Experience'
@@ -111,7 +112,6 @@ const SENTENCE_MODEL_EXPERIENCE: Readonly<Record<string, SentenceContract>> = {
   'packages/client/ui-workspace': { kind: 'none', reason: 'Browser-side UI plugin layer; registers nothing model-facing.' },
   'packages/client/ui-directory-picker-browse': { kind: 'none', reason: 'Browser-side directory-browsing surface; registers nothing model-facing.' },
   'packages/client/ui-directory-picker-native': { kind: 'none', reason: 'Browser-side surface driving the host OS chooser; registers nothing model-facing.' },
-  'packages/dsh-electron/dsh-plugin-git': { kind: 'none', reason: 'The Git Client UI registers no model tools, prompt sections, or request context; commit-message generation is an independent Host LLM request.' },
   'packages/client/ui-theme': { kind: 'none', reason: 'Browser-side UI plugin layer; registers nothing model-facing.' },
   'packages/client/ui-sidebar-documentpreview': { kind: 'none', reason: 'Browser-only text viewer; registers no tool, prompt section, or session event, and what the user reads never enters a model request.' },
   'packages/client/ui-sidebar-files': { kind: 'none', reason: 'Browser-only workspace file tree; registers no tool, prompt section, or session event.' },
@@ -279,7 +279,10 @@ for (const line of readFileSync(resolve(root, 'docs/tool-catalog.md'), 'utf8').s
 }
 
 const failures: Failure[] = []
-const packageJsons = globSync('packages/*/*/package.json', { cwd: root }).map(path => path.split(sep).join('/')).sort()
+const packageJsons = globSync('packages/*/*/package.json', { cwd: root })
+  .map(path => path.split(sep).join('/'))
+  .filter(path => !isExternalSubtreeDocPath(path))
+  .sort()
 const scannedPackages = new Set(packageJsons.map(path => path.slice(0, -'/package.json'.length)))
 let structuredCount = 0
 let modelContextEntryCount = 0
