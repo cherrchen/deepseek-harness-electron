@@ -13,15 +13,18 @@
   "main": "lib/main.js",
   "license": "MIT",
   "dshElectron": {
-    "ecosystemPlugins": []
+    "ecosystemPlugins": [
+      "@dsh-electron/dsh-plugin-git"
+    ]
   },
   "scripts": {
     "build:main": "tsc -p tsconfig.json",
     "build:preload": "node ./scripts/build-preload.mjs",
     "build:runtime-plugins": "node ./scripts/build-runtime-plugins.mjs",
+    "build:ecosystem-plugins": "pnpm --filter @dsh-electron/dsh-plugin-git run build",
     "build:tray": "node ./scripts/build-tray-icons.mjs",
     "build:renderer": "vite build",
-    "build": "pnpm run build:tray && pnpm run build:runtime-plugins && pnpm run build:main && pnpm run build:preload && pnpm run build:renderer",
+    "build": "pnpm run build:tray && pnpm run build:runtime-plugins && pnpm run build:ecosystem-plugins && pnpm run build:main && pnpm run build:preload && pnpm run build:renderer",
     "typecheck": "tsc -p tsconfig.json --noEmit && tsc -p tsconfig.preload.json && tsc -p tsconfig.renderer.json && tsc -p tsconfig.runtime-host.json && tsc -p tsconfig.runtime-client.json",
     "package": "electron-builder --publish never",
     "start": "pnpm run build && env -u ELECTRON_RUN_AS_NODE electron .",
@@ -122,6 +125,7 @@
     "@deepseek-ai/dsh-workflow": "workspace:^",
     "@deepseek-ai/dsh-workspace": "workspace:^",
     "@deepseek-ai/schemastery": "workspace:^",
+    "@dsh-electron/dsh-plugin-git": "workspace:^",
     "electron-updater": "^6.8.9",
     "pnpm": "11.7.0",
     "ws": "^8.21.0"

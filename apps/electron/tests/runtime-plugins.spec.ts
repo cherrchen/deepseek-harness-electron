@@ -79,9 +79,9 @@ describe('runtime plugin discovery', () => {
       .toBe('Desktop capability provider for Electron feature plugins')
   })
 
-  it('discovers no pre-mounted ecosystem plugins while Git stays uncomposed', () => {
+  it('discovers declared ecosystem plugins from the workspace checkout', () => {
     const plugins = discoverEcosystemPlugins(electronRoot)
-    expect(plugins).toEqual([])
+    expect(plugins.map(plugin => plugin.name)).toEqual(['@dsh-electron/dsh-plugin-git'])
     expect(readFileSync(buildScript, 'utf8')).not.toContain('packages/dsh-electron')
   })
 
@@ -120,9 +120,9 @@ describe('runtime plugin discovery', () => {
     }
   })
 
-  it('does not declare Git as a module-table request while the plugin is unmounted', () => {
+  it('declares Git as a module-table request when the plugin is composed', () => {
     expect(discoverEcosystemPlugins(electronRoot).map(plugin => plugin.name))
-      .not.toContain('@dsh-electron/dsh-plugin-git')
+      .toContain('@dsh-electron/dsh-plugin-git')
   })
 
   it('declares Theme Studio as a portable web plugin with no Electron dependency', () => {
@@ -155,7 +155,10 @@ describe('runtime plugin discovery', () => {
       && plugin.ownership === 'system'
       && plugin.required
       && !plugin.manageable)).toBe(true)
-    expect(plugins.some(plugin => plugin.name === '@dsh-electron/dsh-plugin-git')).toBe(false)
+    expect(plugins.some(plugin =>
+      plugin.name === '@dsh-electron/dsh-plugin-git'
+      && plugin.ownership === 'bundled'
+      && plugin.manageable)).toBe(true)
     expect(plugins.some(plugin =>
       plugin.name === '@dsh-electron/dsh-theme-studio'
       && plugin.ownership === 'system'
@@ -164,7 +167,7 @@ describe('runtime plugin discovery', () => {
     const appManifest = JSON.parse(readFileSync(join(electronRoot, 'package.json'), 'utf8')) as {
       dshElectron?: { ecosystemPlugins?: string[] }
     }
-    expect(appManifest.dshElectron?.ecosystemPlugins ?? []).not.toContain('@dsh-electron/dsh-plugin-git')
+    expect(appManifest.dshElectron?.ecosystemPlugins).toContain('@dsh-electron/dsh-plugin-git')
     expect(appManifest.dshElectron?.ecosystemPlugins).not.toContain('@dsh-electron/dsh-client-ui-details-host')
     expect(appManifest.dshElectron?.ecosystemPlugins).not.toContain('@dsh-electron/dsh-theme-studio')
   })

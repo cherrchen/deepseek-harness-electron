@@ -1,0 +1,6 @@
+# Bilingual-pair consistency record (docs/i18n/README.md): the git blob hash of each
+# side as of the last confirmed-consistent state. Both languages carry equal authority;
+# after editing either side, bring the other along and re-record with:
+#   pnpm run verify-translation-pairing --write .agents/notes/implemented/architecture/2026-09-13-electron-plugin-manager-and-git-sidebar.md
+2026-09-13-electron-plugin-manager-and-git-sidebar.md: 5ecb1077fdc869ec7c22f27e4ff68d5461027ffc
+2026-09-13-electron-plugin-manager-and-git-sidebar.zh.md: 017e1915218efb5c8947695a29c044c3296552bc

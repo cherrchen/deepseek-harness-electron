@@ -38,4 +38,18 @@ describe('runtime plugin architecture baselines', () => {
     expect(diff.status).toBe(0)
     expect(diff.stdout).toBe('')
   })
+
+  it('keeps Git client sources free of Details Host runtime imports', () => {
+    const gitRoot = join(electronRoot, '..', '..', 'packages', 'dsh-electron', 'dsh-plugin-git')
+    const manifest = JSON.parse(readFileSync(join(gitRoot, 'package.json'), 'utf8')) as {
+      dependencies?: Record<string, string>
+      peerDependencies?: Record<string, string>
+      dsh?: { client?: { inject?: string[] } }
+    }
+    expect(JSON.stringify(manifest.dependencies ?? {})).not.toContain('dsh-client-ui-details-host')
+    expect(JSON.stringify(manifest.peerDependencies ?? {})).not.toContain('dsh-client-ui-details-host')
+    expect(manifest.dsh?.client?.inject ?? []).not.toContain('@dsh-electron/dsh-client-ui-details-host')
+    expect(readFileSync(join(gitRoot, 'src', 'client', 'index.ts'), 'utf8')).toContain('sidebarRight')
+    expect(readFileSync(join(gitRoot, 'src', 'client', 'index.ts'), 'utf8')).not.toContain('shellDetails')
+  })
 })

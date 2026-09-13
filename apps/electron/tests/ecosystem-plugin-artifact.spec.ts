@@ -6,10 +6,11 @@ import { describe, expect, it } from 'vitest'
 const electronRoot = fileURLToPath(new URL('..', import.meta.url))
 
 describe('standard ecosystem plugin artifact portability', () => {
-  it('does not pack Git while the plugin is absent from ecosystemPlugins', () => {
+  it('does not pack Details Host as an ecosystem plugin', () => {
     const manifest = JSON.parse(readFileSync(join(electronRoot, 'package.json'), 'utf8')) as {
       dshElectron?: { ecosystemPlugins?: string[] }
     }
-    expect(manifest.dshElectron?.ecosystemPlugins ?? []).not.toContain('@dsh-electron/dsh-plugin-git')
+    expect(manifest.dshElectron?.ecosystemPlugins).toContain('@dsh-electron/dsh-plugin-git')
+    expect(manifest.dshElectron?.ecosystemPlugins).not.toContain('@dsh-electron/dsh-client-ui-details-host')
   })
 })

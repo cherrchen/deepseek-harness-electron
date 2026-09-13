@@ -32,7 +32,7 @@ describe('runtime overlay plugin seat', () => {
       expect(body).toContain(pathToFileURL(overlay.pluginConfigPath).href)
       expect(body).toContain(pathToFileURL(overlay.pluginRuntimeDirectory).href)
       expect(body).not.toContain('@dsh-electron/dsh-client-ui-details-host')
-      expect(body).not.toContain('@dsh-electron/dsh-electron-ui-plugin-manager')
+      expect(body).toContain('@dsh-electron/dsh-electron-ui-plugin-manager')
       expect(body).not.toContain('@dsh-electron/dsh-plugin-git')
       expect(body).not.toContain('__DSH_ELECTRON_PLUGIN_CONFIG_URL__')
       expect(body).not.toContain('__DSH_ELECTRON_PLUGIN_RUNTIME_BASE_URL__')

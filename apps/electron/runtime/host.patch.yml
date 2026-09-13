@@ -5,12 +5,12 @@
 # Desktop brand occupants replace the upstream `DSH Local Build` shell fallbacks.
 # Theme Studio is required portable UI: it overlays builtin palettes through
 # `ctx.theme.overrideTokens` and registers Settings → General → Themes.
-# Details Host and the Electron Plugin Manager stay in `runtime/plugins/` but are
-# not bootstrap mounts: upstream removed the Client `details` slot, and this pin
-# does not compose the Installed settings tab.
-# Bundled runtime plugins are linked into `$DSH_HOME/profiles/node_modules` before
-# Host start (see ensureRuntimePluginsLinked). Ecosystem plugin lifecycle uses the
-# generated include file below, not this bootstrap overlay.
+# Details Host stays in `runtime/plugins/` and is not a bootstrap mount: upstream
+# removed the Client `details` slot. The Electron Plugin Manager occupies
+# `settings.plugins.tab`. Bundled ecosystem plugins are linked into
+# `$DSH_HOME/profiles/node_modules` before Host start (see ensureRuntimePluginsLinked).
+# Ecosystem plugin lifecycle uses the generated include file below, not this
+# bootstrap overlay, except the Plugin Manager which is a required settings occupant.
 - id: directory-picker
   disabled: true
 
@@ -32,6 +32,8 @@
       name: '@dsh-electron/dsh-electron-ui-directory-picker'
     - id: desktop-ui-brand
       name: '@dsh-electron/dsh-electron-ui-brand'
+    - id: desktop-ui-plugin-manager
+      name: '@dsh-electron/dsh-electron-ui-plugin-manager'
     - id: dsh-electron-ecosystem-plugins
       name: 'cordis:include'
       config:
