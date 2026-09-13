@@ -11,13 +11,13 @@ import {
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { withFileLock } from '@deepseek-ai/dsh-atomic-write'
-import { describe, expect, it } from 'vitest'
+import { afterAll, describe, expect, it } from 'vitest'
 import {
   composeEntries,
   healProfilesModuleFallback,
   initProfile,
-  inspectBundlePackage,
   loadProfile,
+  loadProfileDirectory,
   PROFILE_PATCH_FILENAME,
   PROFILE_TEMPLATES,
   readProfileManifest,
@@ -27,7 +27,16 @@ import {
   type Profile,
 } from '../src/index.ts'
 
-const tmp = (): string => mkdtempSync(join(tmpdir(), 'dsh-profile-'))
+const tempRoots: string[] = []
+afterAll(() => {
+  for (const root of tempRoots.splice(0)) rmSync(root, { recursive: true, force: true })
+})
+
+const tmp = (): string => {
+  const dir = mkdtempSync(join(tmpdir(), 'dsh-profile-'))
+  tempRoots.push(dir)
+  return dir
+}
 
 /** Stage a fake installed app: package.json with deps and a node_modules holding bundles. */
 function stageInstallation(
@@ -154,44 +163,17 @@ describe('resolveBundleDir', () => {
   })
 })
 
-describe('inspectBundlePackage', () => {
-  it('rejects missing declared Host and client entries before profile composition', () => {
-    const root = tmp()
-    writeFileSync(join(root, 'cordis.patch.yml'), '[]\n')
-    writeFileSync(join(root, 'package.json'), JSON.stringify({
-      name: 'broken-bundle',
-      main: 'lib/index.js',
-      exports: { '.': './lib/index.js', './client': './lib/client.js' },
-      dsh: { bundle: { patch: './cordis.patch.yml' }, client: { platform: 'web' } },
-    }))
-    expect(inspectBundlePackage('t', root)).toEqual({
-      kind: 'invalid', reason: 'declared Host entry does not exist: ./lib/index.js',
-    })
-    mkdirSync(join(root, 'lib'))
-    writeFileSync(join(root, 'lib', 'index.js'), '')
-    expect(inspectBundlePackage('t', root)).toEqual({
-      kind: 'invalid', reason: 'declared client entry does not exist: ./lib/client.js',
-    })
-  })
-
-  it('rejects an entry outside the package without rejecting a child whose name starts with dots', () => {
-    const parent = tmp()
-    const root = join(parent, 'bundle')
-    mkdirSync(join(root, '..safe'), { recursive: true })
-    writeFileSync(join(parent, 'outside.js'), '')
-    writeFileSync(join(root, '..safe', 'cordis.patch.yml'), '[]\n')
-    writeFileSync(join(root, 'package.json'), JSON.stringify({
-      name: 'escaped-bundle',
-      main: '../outside.js',
-      dsh: { bundle: { patch: './..safe/cordis.patch.yml' } },
-    }))
-    expect(inspectBundlePackage('t', root)).toEqual({
-      kind: 'invalid', reason: 'declared Host entry escapes the package directory: ../outside.js',
-    })
-  })
-})
-
 describe('loadProfile', () => {
+  it('loads an explicitly owned profile directory outside CLI discovery', () => {
+    const anchor = stageInstallation({ 'bundle-a': { patch: '[]\n' } })
+    const dir = join(tmp(), 'managed', 'desktop')
+    initProfile(dir, ['bundle-a'])
+    const profile = loadProfileDirectory('managed app', dir, anchor)
+    expect(profile.dir).toBe(dir)
+    expect(profile.name).toBe('desktop')
+    expect(profile.layers.map(layer => layer.packageName)).toEqual(['bundle-a'])
+  })
+
   it('resolves each dsh.profile.bundles entry to its patch layer in order, plus the user layer', () => {
     const anchor = stageInstallation({
       'bundle-a': { patch: '- insert:\n    - id: a\n      name: pkg-a\n' },

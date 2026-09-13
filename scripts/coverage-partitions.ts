@@ -4,7 +4,7 @@ import { globSync, readFileSync, writeFileSync } from 'node:fs'
 import { lstat, mkdir, readdir, rm, unlink, writeFile } from 'node:fs/promises'
 import { join, relative, sep } from 'node:path'
 import { coverageExemptHeavySuites } from './coverage-exempt.ts'
-import { pnpmInvocation } from './pnpm-invocation.mjs'
+import { pnpmInvocation } from './pnpm-invocation.ts'
 
 /** Environment variable selecting the number of instrumented coverage processes. */
 export const COVERAGE_PARTITIONS_ENV = 'DSH_COVERAGE_PARTITIONS'

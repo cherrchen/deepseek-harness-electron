@@ -1,6 +1,6 @@
 /** Run serial browser owners before one bounded snapshot pool. */
 import { spawn } from 'node:child_process'
-import { pnpmInvocation } from './pnpm-invocation.mjs'
+import { pnpmInvocation } from './pnpm-invocation.ts'
 
 const serialFiles = [
   'apps/web/tests/hmr-live.e2e.ts',

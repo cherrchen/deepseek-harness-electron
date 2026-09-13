@@ -42,48 +42,37 @@ afterEach(() => {
 })
 
 describe('release families', () => {
-  it('keeps desktop and ecosystem packages outside the upstream release family', () => {
-    const root = mkdtempSync(join(tmpdir(), 'dsh-release-downstream-'))
-    roots.push(root)
-    for (const [directory, name] of [
-      ['apps/cli', '@deepseek-ai/dsh'],
-      ['apps/web', '@deepseek-ai/dsh-web-frontend'],
-      ['packages/core/example', '@deepseek-ai/dsh-example'],
-      ['apps/electron', '@dsh-electron/dsh-electron'],
-      ['packages/dsh-electron/example', '@dsh-electron/dsh-plugin-example'],
-    ] as const) {
-      write(join(root, directory, 'package.json'), JSON.stringify({ name, version: '0.0.1' }))
-    }
-
-    expect(releaseFamily('dsh').members(root).map(member => member.name)).toEqual([
-      '@deepseek-ai/dsh', '@deepseek-ai/dsh-web-frontend', '@deepseek-ai/dsh-example',
-    ])
-  })
-
-  it.each(['apps/unknown', 'packages/core/unknown'])('rejects a foreign scope in %s', (directory) => {
-    const root = mkdtempSync(join(tmpdir(), 'dsh-release-foreign-'))
-    roots.push(root)
-    write(join(root, directory, 'package.json'), JSON.stringify({ name: '@foreign/example', version: '0.0.1' }))
-
-    expect(() => releaseFamily('dsh').members(root)).toThrow('must name an @deepseek-ai package')
-  })
-
-  it('excludes private experimental packages from the dsh release', () => {
+  it('publishes Agent Teams while excluding private experimental packages', () => {
     const members = releaseFamily('dsh').members(resolve(import.meta.dirname, '../..'))
 
-    expect(members.some(member => member.directory.startsWith('packages/experimental/'))).toBe(false)
-    expect(members.map(member => member.name)).not.toContain('@deepseek-ai/dsh-experimental-agent-team')
+    expect(members
+      .filter(member => member.directory.startsWith('packages/experimental/'))
+      .map(member => member.name)).toEqual([
+      '@deepseek-ai/dsh-experimental-agent-team-profile',
+      '@deepseek-ai/dsh-experimental-agent-team-web-profile',
+      '@deepseek-ai/dsh-experimental-agent-team',
+      '@deepseek-ai/dsh-experimental-client-ui-agent-team',
+      '@deepseek-ai/dsh-experimental-tool-agent-team',
+    ])
+    expect(members.map(member => member.name)).not.toContain('@deepseek-ai/dsh-experimental-inspector')
   })
 
-  it('bumps private dsh packages without adding release tags', () => {
+  it('excludes private applications from the publish set', () => {
+    const root = mkdtempSync(join(tmpdir(), 'dsh-release-private-'))
+    roots.push(root)
+    write(join(root, 'apps/public/package.json'), '{"name":"@deepseek-ai/dsh-public","version":"0.0.1"}\n')
+    write(join(root, 'apps/private/package.json'), '{"name":"@deepseek-ai/dsh-private","version":"0.0.1","private":true}\n')
+
+    expect(releaseFamily('dsh').members(root).map(entry => entry.name)).toEqual(['@deepseek-ai/dsh-public'])
+  })
+
+  it('bumps private dsh workspaces without adding release tags', () => {
     const root = mkdtempSync(join(tmpdir(), 'dsh-release-version-'))
     roots.push(root)
     write(join(root, 'package.json'), '{"version":"0.0.1"}\n')
+    write(join(root, 'apps/desktop/package.json'), '{"version":"0.0.1","private":true}\n')
     write(join(root, 'packages/experimental/prototype/package.json'), '{"version":"0.0.1","private":true}\n')
     write(join(root, 'packages/core/unselected/package.json'), '{"version":"0.0.1"}\n')
-    write(join(root, 'packages/dsh-electron/private-plugin/package.json'), JSON.stringify({
-      name: '@dsh-electron/private-plugin', version: '0.9.0', private: true,
-    }))
 
     const dsh = releaseFamily('dsh')
     const published = member('packages/core/published', '@deepseek-ai/dsh-published')
@@ -92,6 +81,7 @@ describe('release families', () => {
     expect(planned.map(entry => ({ path: entry.manifestPath, tag: entry.tag }))).toEqual([
       { path: 'package.json', tag: undefined },
       { path: 'packages/core/published/package.json', tag: 'dsh-v0.0.2' },
+      { path: 'apps/desktop/package.json', tag: undefined },
       { path: 'packages/experimental/prototype/package.json', tag: undefined },
     ])
   })

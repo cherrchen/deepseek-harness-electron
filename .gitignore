@@ -2,9 +2,6 @@ CLAUDE.local.md
 .env
 node_modules/
 lib/
-# Fixture plugins commit JS under lib/ to match validateRuntimePlugin.
-!apps/electron/tests/fixtures/plugins/**/lib/
-!apps/electron/tests/fixtures/plugins/**/lib/**
 *.tsbuildinfo
 pnpm-debug.log
 .pnpm-store/
@@ -30,14 +27,14 @@ tmp/
 .idea
 mise.toml
 dist-exe/
+/dist/
+apps/desktop/.desktop-build/
 python/sdk-runtime/src/deepseek_harness_runtime/runtime/deepseek-harness-sdk-runtime-*
 python/sdk-runtime/src/deepseek_harness_runtime/runtime/node/
 python/**/__pycache__/
 python/**/.pytest_cache/
 packages/**/__pycache__/
 apps/web/dist/
-apps/electron/dist/
-dist/electron/
 .artifacts/
 .dsh-build/
 .playwright-mcp/
@@ -46,5 +43,4 @@ dist/electron/
 worktrees/
 .agents/worktrees/
 .typert-*/
-apps/electron/dist/
-apps/electron/build/
+native/system/test/bin/

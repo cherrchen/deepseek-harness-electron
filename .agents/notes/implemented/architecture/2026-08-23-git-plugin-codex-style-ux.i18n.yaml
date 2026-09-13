@@ -1,6 +1,0 @@
-# Bilingual-pair consistency record (docs/i18n/README.md): the git blob hash of each
-# side as of the last confirmed-consistent state. Both languages carry equal authority;
-# after editing either side, bring the other along and re-record with:
-#   pnpm run verify-translation-pairing --write .agents/notes/implemented/architecture/2026-08-23-git-plugin-codex-style-ux.md
-2026-08-23-git-plugin-codex-style-ux.md: 903772d61f4e8cfe25374725071d21944a19e4cb
-2026-08-23-git-plugin-codex-style-ux.zh.md: 4fba36674a3c8b116cdf5fd2f3cac554ff22c093

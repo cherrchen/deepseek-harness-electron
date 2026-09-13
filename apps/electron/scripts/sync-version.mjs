@@ -33,7 +33,7 @@ async function discoverManifests(root) {
       }
     }
   }
-  for (const relative of ['apps/cli', 'packages', 'vendor', 'native/landlock-run']) {
+  for (const relative of ['apps/cli', 'packages', 'vendor', 'native/system']) {
     await visit(join(root, relative))
   }
   return manifests
