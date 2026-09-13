@@ -47,7 +47,9 @@ describe('CSS module class references', () => {
   for (const file of sourceFiles(SRC)) {
     const source = readFileSync(file, 'utf8')
     for (const match of source.matchAll(IMPORT_RE)) {
-      const [, binding, specifier] = match
+      const binding = match[1]
+      const specifier = match[2]
+      if (binding === undefined || specifier === undefined) continue
       const modulePath = resolve(dirname(file), specifier)
       if (!exportsByModule.has(modulePath)) exportsByModule.set(modulePath, moduleClasses(modulePath))
       const exported = exportsByModule.get(modulePath)!
