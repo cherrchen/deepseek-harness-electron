@@ -14,7 +14,7 @@ Install portable or Desktop-aware product features from this group as standard D
 
 `@dsh-electron/dsh-plugin-*` names are not an Electron requirement. Portable work uses upstream DSH services; optional native extras use a child `ctx.inject(['desktop'], ...)` fiber.
 
-Keep Desktop-required adapters and always-mounted UI such as Details Host and Theme Studio under `apps/electron/runtime/plugins/`. Do not add Electron imports, preload globals, or a second Desktop-specific variant. Split emergency mirror fixes to the canonical repository; stop upstream sync if upstream claims `packages/dsh-electron`.
+Keep Desktop-required adapters and always-mounted UI such as Theme Studio under `apps/electron/runtime/plugins/`. Do not add Electron imports, preload globals, or a second Desktop-specific variant. Split emergency mirror fixes to the canonical repository; stop upstream sync if upstream claims `packages/dsh-electron`.
 
 <a id="table-of-contents"></a>
 ## Table of Contents

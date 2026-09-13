@@ -148,7 +148,6 @@ describe('Electron host runtime overlay', () => {
       expect(body).toContain('@dsh-electron/dsh-theme-studio')
       expect(body).toContain('@dsh-electron/dsh-electron-ui-brand')
       expect(body).toContain('cordis:include')
-      expect(body).not.toContain('@dsh-electron/dsh-client-ui-details-host')
       expect(body).toContain('@dsh-electron/dsh-electron-ui-plugin-manager')
       expect(body).not.toContain('directory-picker-browse-client')
     } finally {

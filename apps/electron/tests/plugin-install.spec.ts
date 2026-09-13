@@ -95,7 +95,7 @@ describe('bundled plugin package manager', () => {
 
 describe('plugin package service', () => {
   it('rejects a reserved Registry package before running pnpm', async () => {
-    const packageName = '@dsh-electron/dsh-client-ui-details-host'
+    const packageName = '@dsh-electron/dsh-theme-studio'
     const runner = vi.fn(async () => ({ exitCode: 0, stdout: '', stderr: '' }))
     const service = new PluginPackageService(
       '/unused/profile',
@@ -313,8 +313,8 @@ describe('plugin package service', () => {
     const root = await mkdtemp(join(tmpdir(), 'dsh-electron-package-conflict-'))
     const profileDir = join(root, 'profiles', 'web')
     const statePath = join(root, 'electron', 'plugin-state.json')
-    const packageName = '@dsh-electron/dsh-client-ui-details-host'
-    const packageRoot = join(profileDir, 'node_modules', '@dsh-electron', 'dsh-client-ui-details-host')
+    const packageName = '@dsh-electron/dsh-theme-studio'
+    const packageRoot = join(profileDir, 'node_modules', '@dsh-electron', 'dsh-theme-studio')
     mkdirSync(profileDir, { recursive: true })
     mkdirSync(join(statePath, '..'), { recursive: true })
     writeFileSync(join(profileDir, 'package.json'), JSON.stringify({ dependencies: {} }), 'utf8')
@@ -323,7 +323,7 @@ describe('plugin package service', () => {
       if (command.kind === 'add') {
         mkdirSync(join(packageRoot, 'lib'), { recursive: true })
         writeFileSync(join(profileDir, 'package.json'), JSON.stringify({
-          dependencies: { [packageName]: 'github:cherrchen/dsh-client-ui-details-host' },
+          dependencies: { [packageName]: 'github:cherrchen/dsh-theme-studio' },
         }), 'utf8')
         writeFileSync(join(packageRoot, 'package.json'), JSON.stringify({
           name: packageName, version: '0.1.0', main: 'lib/index.js',
@@ -344,14 +344,14 @@ describe('plugin package service', () => {
         new Set([packageName]),
       )
       const failure = await service.install({
-        source: 'git', repository: 'cherrchen/dsh-client-ui-details-host',
+        source: 'git', repository: 'cherrchen/dsh-theme-studio',
       }).catch((error: unknown) => error)
       expect(failure).toBeInstanceOf(PluginInstallError)
       if (!(failure instanceof PluginInstallError)) throw new Error('expected PluginInstallError')
       expect(failure.code).toBe('package-conflict')
       expect(failure.profileChanged).toBe(false)
       expect(runner.mock.calls.map(call => call[0])).toEqual([
-        { kind: 'add', spec: 'github:cherrchen/dsh-client-ui-details-host' },
+        { kind: 'add', spec: 'github:cherrchen/dsh-theme-studio' },
         { kind: 'remove', name: packageName },
       ])
       expect(JSON.parse(readFileSync(join(profileDir, 'package.json'), 'utf8'))).toEqual({ dependencies: {} })

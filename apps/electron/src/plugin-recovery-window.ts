@@ -118,7 +118,7 @@ export async function presentPluginRecovery(options: {
   })
   await new Promise<void>((resolve, reject) => {
     let settled = false
-    const finish = (error?: unknown): void => {
+    const finish = (error?: Error): void => {
       if (settled) return
       settled = true
       if (!window.isDestroyed()) window.close()
@@ -149,7 +149,7 @@ export async function presentPluginRecovery(options: {
     window.once('closed', () => {
       if (!settled) finish(new Error('desktop recovery: window closed without a repair action'))
     })
-    void window.loadURL(url).catch((error: unknown) => { finish(error) })
+    void window.loadURL(url).catch((error: unknown) => { finish(error instanceof Error ? error : new Error(`desktop recovery: window load failed: ${String(error)}`)) })
   })
 }
 

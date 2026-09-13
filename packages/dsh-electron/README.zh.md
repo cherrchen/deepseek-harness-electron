@@ -14,7 +14,7 @@ kind: "package-group"
 
 `@dsh-electron/dsh-plugin-*` 名称并不表示必须使用 Electron。Portable 工作使用上游 DSH 服务；可选的原生增强通过 `ctx.inject(['desktop'], ...)` child fiber 接入。
 
-把 Desktop-required 适配器以及始终挂载的 UI（例如 Details Host 与 Theme Studio）放在 `apps/electron/runtime/plugins/`。此处不要加入 Electron import、preload global 或第二个 Desktop-specific 变体。紧急的 mirror 修复拆到 canonical 仓库；若上游声称拥有 `packages/dsh-electron`，则停止 upstream sync。
+把 Desktop-required 适配器以及始终挂载的 UI（例如 Theme Studio）放在 `apps/electron/runtime/plugins/`。此处不要加入 Electron import、preload global 或第二个 Desktop-specific 变体。紧急的 mirror 修复拆到 canonical 仓库；若上游声称拥有 `packages/dsh-electron`，则停止 upstream sync。
 
 <a id="table-of-contents"></a>
 ## 目录

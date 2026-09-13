@@ -31,7 +31,6 @@ describe('directory picker feature plugin regression', () => {
       readFileSync(join(electronRoot, 'runtime', 'plugins', 'ui-directory-picker-electron', 'package.json'), 'utf8'),
     ) as { dsh?: { client?: { inject?: string[] } } }
     expect(manifest.dsh?.client?.inject).toContain('@dsh-electron/dsh-electron-desktop-capabilities')
-    expect(manifest.dsh?.client?.inject).not.toContain('@dsh-electron/dsh-client-ui-details-host')
   })
 })
 
@@ -58,36 +57,6 @@ describe('desktop brand feature plugin regression', () => {
       '@deepseek-ai/dsh-client-ui-sidebar',
     ]))
     expect(manifest.dsh?.client?.external).toContain('@deepseek-ai/dsh-client-ui-primitives')
-  })
-})
-
-describe('details host portable runtime plugin regression', () => {
-  it('declares a public web client and does not import Electron or desktop', () => {
-    const manifest = JSON.parse(
-      readFileSync(join(electronRoot, 'runtime', 'plugins', 'ui-details-host', 'package.json'), 'utf8'),
-    ) as {
-      name?: string
-      dsh?: { client?: { platform?: string; inject?: string[] } }
-    }
-    expect(manifest.name).toBe('@dsh-electron/dsh-client-ui-details-host')
-    expect(manifest.dsh?.client?.platform).toBe('web')
-    expect(manifest.dsh?.client?.inject).toEqual([
-      '@deepseek-ai/dsh-api-session-controller',
-      '@deepseek-ai/dsh-client-ui-renderer',
-      '@deepseek-ai/dsh-client-ui-layout',
-      '@deepseek-ai/dsh-client-locale',
-      '@deepseek-ai/dsh-client-ui-conversation',
-      '@deepseek-ai/dsh-client-ui-primitives',
-    ])
-    const clientRoot = join(electronRoot, 'runtime', 'plugins', 'ui-details-host', 'src', 'client')
-    for (const file of readdirSync(clientRoot)) {
-      if (!file.endsWith('.ts') && !file.endsWith('.tsx')) continue
-      const source = readFileSync(join(clientRoot, file), 'utf8')
-      expect(source).not.toContain('window.deepseekDesktop')
-      expect(source).not.toContain('ipcRenderer')
-      expect(source).not.toContain("from 'electron'")
-      expect(source).not.toContain('ctx.desktop')
-    }
   })
 })
 

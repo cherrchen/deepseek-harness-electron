@@ -2,5 +2,5 @@
 # side as of the last confirmed-consistent state. Both languages carry equal authority;
 # after editing either side, bring the other along and re-record with:
 #   pnpm run verify-translation-pairing --write .agents/notes/implemented/architecture/2026-08-24-electron-required-portable-ui-infrastructure.md
-2026-08-24-electron-required-portable-ui-infrastructure.md: a80e4643bc8b4b6b95dd388a382248282a2c7df0
-2026-08-24-electron-required-portable-ui-infrastructure.zh.md: 03d10df8528905a497eb1256074a5f105dfb84bd
+2026-08-24-electron-required-portable-ui-infrastructure.md: 412a73040dc8ec68930a8fc95da52f233036269f
+2026-08-24-electron-required-portable-ui-infrastructure.zh.md: 632a8c21d615e3e18b288886a3d0814a75cb693b

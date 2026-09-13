@@ -69,7 +69,6 @@ describe('runtime plugin discovery', () => {
     expect(plugins.length).toBeGreaterThanOrEqual(2)
     const names = plugins.map(plugin => plugin.name)
     expect(names).toContain('@dsh-electron/dsh-electron-desktop-capabilities')
-    expect(names).toContain('@dsh-electron/dsh-client-ui-details-host')
     expect(names).toContain('@dsh-electron/dsh-electron-ui-directory-picker')
     expect(names).toContain('@dsh-electron/dsh-electron-ui-brand')
     expect(names).toContain('@dsh-electron/dsh-electron-ui-plugin-manager')
@@ -151,11 +150,6 @@ describe('runtime plugin discovery', () => {
       && plugin.required
       && !plugin.manageable)).toBe(true)
     expect(plugins.some(plugin =>
-      plugin.name === '@dsh-electron/dsh-client-ui-details-host'
-      && plugin.ownership === 'system'
-      && plugin.required
-      && !plugin.manageable)).toBe(true)
-    expect(plugins.some(plugin =>
       plugin.name === '@dsh-electron/dsh-plugin-git'
       && plugin.ownership === 'bundled'
       && plugin.manageable)).toBe(true)
@@ -168,7 +162,6 @@ describe('runtime plugin discovery', () => {
       dshElectron?: { ecosystemPlugins?: string[] }
     }
     expect(appManifest.dshElectron?.ecosystemPlugins).toContain('@dsh-electron/dsh-plugin-git')
-    expect(appManifest.dshElectron?.ecosystemPlugins).not.toContain('@dsh-electron/dsh-client-ui-details-host')
     expect(appManifest.dshElectron?.ecosystemPlugins).not.toContain('@dsh-electron/dsh-theme-studio')
   })
 
@@ -330,8 +323,8 @@ describe('generic runtime plugin builder', () => {
     expect(builderSource).toMatch(/jsx:\s*'automatic'/)
 
     const plugin = discoverRuntimePlugins(electronRoot)
-      .find(candidate => candidate.name === '@dsh-electron/dsh-client-ui-details-host')
-    if (plugin === undefined) throw new Error('Details Host runtime plugin is missing')
+      .find(candidate => candidate.name === '@dsh-electron/dsh-electron-ui-plugin-manager')
+    if (plugin === undefined) throw new Error('Plugin Manager runtime plugin is missing')
     const client = readFileSync(join(plugin.rootPath, 'lib', manifestClientTarget(plugin.rootPath)), 'utf8')
     expect(client).toContain('react/jsx-runtime')
     expect(client).not.toMatch(/\bReact\.createElement\b/)

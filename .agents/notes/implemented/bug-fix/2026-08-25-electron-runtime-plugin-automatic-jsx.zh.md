@@ -6,11 +6,11 @@ Status: implemented
 
 ## Problem
 
-Electron 用 [`build-runtime-plugins.mjs`](../../../../apps/electron/scripts/build-runtime-plugins.mjs) 重新构建 runtime 插件的 Client artifacts。esbuild 的默认 JSX 变换是经典的 `React.createElement`，除非最近的 `tsconfig.json` 设置 `jsx: react-jsx`。Details Host 包内的 `tsconfig.json` 是一份 `"files": []` 且没有 `jsx` 设置的 solution 文件，并且 [`DetailsHost.tsx`](../../../../apps/electron/runtime/plugins/ui-details-host/src/client/DetailsHost.tsx) 没有 React 值导入。因此构建出的 `lib/client.js` 会调用 `React.createElement`，而 `React` 不在作用域内。首次渲染抛出 `ReferenceError: React is not defined`；slot 错误边界 abdicate DetailsHost；上游 DetailsPanel 仍是 `details` 的 winner。Git 的 composer chip 仍能工作，因为它的 Client bundle 以 automatic JSX 预构建。点击该 chip 仍会调用 `ctx.shellDetails.open('git')`，所以第三栏会打开，但其标题是 DetailsPanel 的空状态文案，而不是 Git。Brand 与 Plugin Manager 各自有 `src/client/tsconfig.json` 并 extends `tsconfig.runtime-client.json`，因而掩盖了同一构建默认值。[必需 portable UI 基础设施](../architecture/2026-08-24-electron-required-portable-ui-infrastructure.zh.md) 决策仍负责说明 Electron 为何从 subtree 源码重新构建 Details Host。
+Electron 用 [`build-runtime-plugins.mjs`](../../../../apps/electron/scripts/build-runtime-plugins.mjs) 重新构建 runtime 插件的 Client artifacts。esbuild 的默认 JSX 变换是经典的 `React.createElement`，除非最近的 `tsconfig.json` 设置 `jsx: react-jsx`。Details Host 包内的 `tsconfig.json` 是一份 `"files": []` 且没有 `jsx` 设置的 solution 文件，并且其 `src/client/DetailsHost.tsx` 没有 React 值导入。因此构建出的 `lib/client.js` 会调用 `React.createElement`，而 `React` 不在作用域内。首次渲染抛出 `ReferenceError: React is not defined`；slot 错误边界 abdicate DetailsHost；上游 DetailsPanel 仍是 `details` 的 winner。Git 的 composer chip 仍然工作，因为其 Client bundle 以 automatic JSX 预构建。点击该 chip 仍会调用 `ctx.shellDetails.open('git')`，第三栏仍会打开，但其 header 是 DetailsPanel 的空状态文案，而不是 Git。Brand 与 Plugin Manager 各自有 `src/client/tsconfig.json` 并 extends `tsconfig.runtime-client.json`，因而掩盖了同一构建默认值。[必需 portable UI 基础设施](../architecture/2026-08-24-electron-required-portable-ui-infrastructure.zh.md) 决策仍负责说明 Electron 为何从 subtree 源码重新构建 portable UI 插件。
 
 ## Decision
 
-`buildClientHalf` 在 esbuild client 构建上设置 `jsx: 'automatic'`，使每个 runtime 插件 Client bundle 都发出 `react/jsx-runtime`，而不论最近的 `tsconfig.json` 如何。[`runtime-plugins.spec.ts`](../../../../apps/electron/tests/runtime-plugins.spec.ts) 中的 fixture 构建器使用同一选项。聚焦的 Electron 测试固定该构建器选项，并固定生产环境 Details Host 的 `lib/client.js` 依赖 `react/jsx-runtime` 且不发出 `React.createElement`。`react/jsx-runtime` 仍是基线 client external。
+`buildClientHalf` 在 esbuild client 构建上设置 `jsx: 'automatic'`，使每个 runtime 插件 Client bundle 都发出 `react/jsx-runtime`，而不论最近的 `tsconfig.json` 如何。[`runtime-plugins.spec.ts`](../../../../apps/electron/tests/runtime-plugins.spec.ts) 中的 fixture 构建器使用同一选项。聚焦的 Electron 测试固定该构建器选项，并固定生产环境 Plugin Manager 的 `lib/client.js` 依赖 `react/jsx-runtime` 且不发出 `React.createElement`。`react/jsx-runtime` 仍是基线 client external。
 
 ## Alternatives considered
 
@@ -22,4 +22,4 @@ Electron 用 [`build-runtime-plugins.mjs`](../../../../apps/electron/scripts/bui
 
 ## Consequences
 
-消费者 `open(id)` 在加载重建后的 `lib/client.js` 之后会渲染 DetailsHost 占用的栏。覆盖范围是构建出的 Client artifact，而不是 headed Electron 窗口。Git 仍是 `ctx.shellDetails` 的 ecosystem 消费者；此变更不向 Details Host 添加 Git 专用 API。
+包含 TSX 的 runtime 插件 Client bundle 在加载重建后的 `lib/client.js` 时可无 React 标识符渲染。覆盖范围是构建出的 Client artifact，而不是 headed Electron 窗口。聚焦测试固定的 TSX occupant 是 Plugin Manager tab。

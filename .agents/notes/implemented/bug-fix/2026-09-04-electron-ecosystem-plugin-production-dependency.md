@@ -16,7 +16,7 @@ Every name in `dshElectron.ecosystemPlugins` is a production `workspace:` depend
 
 **Copy plugin files through electron-builder `files` or `extraResources` without a production dependency.** Rejected because discovery, profile linking, and Host package resolution all use npm package names under `node_modules`; a second copy path would drift from the declared roster.
 
-**Mount Git under `runtime/plugins/` like Details Host and Theme Studio.** Rejected because Git is user-disableable ecosystem UI, not required Desktop infrastructure. [Required portable UI](../architecture/2026-08-24-electron-required-portable-ui-infrastructure.md) already owns that split.
+**Mount Git under `runtime/plugins/` like Theme Studio.** Rejected because Git is user-disableable ecosystem UI, not required Desktop infrastructure. [Required portable UI](../architecture/2026-08-24-electron-required-portable-ui-infrastructure.md) already owns that split.
 
 **Keep only the monorepo workspace fallback.** Rejected because a packaged `.app` has no `packages/dsh-electron/` tree, which is the `v0.1.2-beta.1` crash.
 

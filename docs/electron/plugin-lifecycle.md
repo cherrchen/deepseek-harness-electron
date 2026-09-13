@@ -46,7 +46,7 @@ Electron writes these files below `$DSH_HOME/electron/`:
 
 Electron also writes `electron-host.patch.yml` into Electron `userData` and passes it to `dsh web --patch`. The web profile lock file is `$DSH_HOME/profiles/web/lock`. The lock only serializes Desktop's own processes; a manual `dsh plugin --profile web` does not take it, and startup reconcile plus Repair cover that residue.
 
-The bootstrap patch keeps required runtime plugin rows, enables narrow HMR for `plugins.cordis.yml`, mounts the Electron Plugin Manager on `settings.plugins.tab`, and mounts one stable `cordis:include` seat for the generated file. Individual ecosystem plugins are not listed in the bootstrap overlay. Theme Studio is a required row and must stay out of `dshElectron.ecosystemPlugins`. Details Host remains under `runtime/plugins/` and is not a bootstrap mount ([unmount note](../../.agents/notes/implemented/architecture/2026-09-13-electron-unmount-details-host.md)).
+The bootstrap patch keeps required runtime plugin rows, enables narrow HMR for `plugins.cordis.yml`, mounts the Electron Plugin Manager on `settings.plugins.tab`, and mounts one stable `cordis:include` seat for the generated file. Individual ecosystem plugins are not listed in the bootstrap overlay. Theme Studio is a required row and must stay out of `dshElectron.ecosystemPlugins`.
 
 ## Startup sequence
 

@@ -347,8 +347,6 @@ Desktop Capability Provider（`@dsh-electron/dsh-electron-desktop-capabilities`�
 
 Plugin Manager（`@dsh-electron/dsh-electron-ui-plugin-manager`）消费 `ctx.desktop.plugins`，并通过 upstream 拥有的 `settings.plugins.tab` slot 贡献 `installed` view。`host.patch.yml` 挂载它。Main 仍拥有 lifecycle 读取、mutation、polling、rollback 与 Renderer refresh，记录在 [plugin-lifecycle.zh.md](plugin-lifecycle.zh.md)。
 
-Details Host（`@dsh-electron/dsh-client-ui-details-host`）仍作为 git subtree 保留在 `apps/electron/runtime/plugins/ui-details-host`。Desktop 不在 `host.patch.yml` 中挂载它，因为上游已移除 Client `details` 插槽（[卸载说明](../../.agents/notes/implemented/architecture/2026-09-13-electron-unmount-details-host.zh.md)）。
-
 Git（`@dsh-electron/dsh-plugin-git`）是 bundled ecosystem 插件。其 Client 占用 `ctx.sidebarRight` / `sidebarRightTabs`，并列入 `dshElectron.ecosystemPlugins`（[组合说明](../../.agents/notes/implemented/architecture/2026-09-13-electron-plugin-manager-and-git-sidebar.zh.md)）。
 
 Theme Studio（`@dsh-electron/dsh-theme-studio`）是必需的 portable UI，用于内置配色覆盖层。源码真源是 `cherrchen/dsh-theme-studio`；`apps/electron/runtime/plugins/dsh-theme-studio` 是 git subtree 镜像。Electron 从该源码重新构建 Host 与 Client artifacts。该包注册**设置 → 通用 → 主题**，并调用 `ctx.theme.overrideTokens()`；它不替换官方外观，也不自己呈现 CSS。
@@ -618,7 +616,6 @@ apps/electron/runtime/plugins/
 ├─ ui-directory-picker-electron/  Desktop-required adapter
 ├─ ui-brand-electron/             Electron carrier plugin
 ├─ ui-plugin-manager-electron/    Electron carrier plugin
-├─ ui-details-host/               Electron-required portable UI infrastructure (subtree)
 └─ dsh-theme-studio/              portable theme overlay (subtree)
 
 packages/dsh-electron/
@@ -670,7 +667,7 @@ Desktop-required adapter 把 `desktop` 声明为 required service，归属 `apps
 
 ### Electron 必需的 portable DSH UI 基础设施
 
-这是 Desktop 在上游 Client 仍提供占用插槽时作为必需 Host 组合挂载的 portable `platform: web` 公共包。它只使用上游 DSH 服务，不依赖 Electron，源码真源是独立仓库。`apps/electron/runtime/plugins/<name>/` 是 git subtree 镜像；Electron 从该源码重新构建 artifacts。加载该包 MUST NOT 占用产品 UI，直到消费者调用已发布的服务。当前挂载成员是 Theme Studio。Details Host 仍在树中，在上游没有 `details` 插槽时不进入组合。用户可禁用的产品功能归属 `packages/dsh-electron/`，不属于此类。
+这是 Desktop 在上游 Client 仍提供占用插槽时作为必需 Host 组合挂载的 portable `platform: web` 公共包。它只使用上游 DSH 服务，不依赖 Electron，源码真源是独立仓库。`apps/electron/runtime/plugins/<name>/` 是 git subtree 镜像；Electron 从该源码重新构建 artifacts。加载该包 MUST NOT 占用产品 UI，直到消费者调用已发布的服务。当前唯一成员是 Theme Studio。用户可禁用的产品功能归属 `packages/dsh-electron/`，不属于此类。
 
 ## 20. 原生实现与功能所有权
 

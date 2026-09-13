@@ -46,7 +46,7 @@ Electron 在 `$DSH_HOME/electron/` 下写入这些文件：
 
 Electron 还会在 Electron `userData` 下写入 `electron-host.patch.yml`，并将其传给 `dsh web --patch`。web profile 锁文件是 `$DSH_HOME/profiles/web/lock`。该锁只串行化 Desktop 自己的进程；手工 `dsh plugin --profile web` 不参与该锁，启动对账与 Repair 覆盖其残留。
 
-bootstrap patch 只保留必需 runtime 插件行，为 `plugins.cordis.yml` 打开窄 HMR，把 Electron Plugin Manager 挂到 `settings.plugins.tab`，并安装一个稳定的 `cordis:include` seat 指向该生成文件。bootstrap overlay 不列出各个生态插件。Theme Studio 是必需行，不得进入 `dshElectron.ecosystemPlugins`。Details Host 仍在 `runtime/plugins/` 下，但不是 bootstrap 挂载项（[卸载说明](../../.agents/notes/implemented/architecture/2026-09-13-electron-unmount-details-host.zh.md)）。
+bootstrap patch 只保留必需 runtime 插件行，为 `plugins.cordis.yml` 打开窄 HMR，把 Electron Plugin Manager 挂到 `settings.plugins.tab`，并安装一个稳定的 `cordis:include` seat 指向该生成文件。bootstrap overlay 不列出各个生态插件。Theme Studio 是必需行，不得进入 `dshElectron.ecosystemPlugins`。
 
 ## 启动顺序
 

@@ -347,8 +347,6 @@ The brand plugin (`@dsh-electron/dsh-electron-ui-brand`) always fills `sidebar.b
 
 The Plugin Manager (`@dsh-electron/dsh-electron-ui-plugin-manager`) consumes `ctx.desktop.plugins` and contributes the `installed` view through the upstream-owned `settings.plugins.tab` slot. `host.patch.yml` mounts it. Main still owns lifecycle reads, mutations, polling, rollback, and Renderer refresh as documented in [plugin-lifecycle.md](plugin-lifecycle.md).
 
-Details Host (`@dsh-electron/dsh-client-ui-details-host`) remains a git subtree at `apps/electron/runtime/plugins/ui-details-host`. Desktop does not mount it in `host.patch.yml` because upstream removed the Client `details` slot ([unmount note](../../.agents/notes/implemented/architecture/2026-09-13-electron-unmount-details-host.md)).
-
 Git (`@dsh-electron/dsh-plugin-git`) is a bundled ecosystem plugin. Its client occupies `ctx.sidebarRight` / `sidebarRightTabs` and is listed in `dshElectron.ecosystemPlugins` ([composition note](../../.agents/notes/implemented/architecture/2026-09-13-electron-plugin-manager-and-git-sidebar.md)).
 
 Theme Studio (`@dsh-electron/dsh-theme-studio`) is required portable UI for builtin color overlays. Canonical source is `cherrchen/dsh-theme-studio`; `apps/electron/runtime/plugins/dsh-theme-studio` is the git subtree mirror. Electron rebuilds Host and Client artifacts from that source. The package registers **Settings → General → Themes** and calls `ctx.theme.overrideTokens()`; it does not replace official Appearance or present CSS itself.
@@ -618,7 +616,6 @@ apps/electron/runtime/plugins/
 ├─ ui-directory-picker-electron/  Desktop-required adapter
 ├─ ui-brand-electron/             Electron carrier plugin
 ├─ ui-plugin-manager-electron/    Electron carrier plugin
-├─ ui-details-host/               Electron-required portable UI infrastructure (subtree)
 └─ dsh-theme-studio/              portable theme overlay (subtree)
 
 packages/dsh-electron/
@@ -670,7 +667,7 @@ A Desktop-required adapter declares `desktop` as a required service and belongs 
 
 ### Electron-required portable DSH UI infrastructure
 
-A portable `platform: web` public package that Desktop mounts as required Host composition when the upstream Client still provides its occupancy slot. It uses only upstream DSH services, has no Electron dependency, and lives in a standalone canonical repository. `apps/electron/runtime/plugins/<name>/` is a git subtree mirror; Electron rebuilds artifacts from that source. Loading the package MUST NOT occupy product UI until a consumer calls the published service. Theme Studio is the currently mounted member. Details Host remains in the tree and is not composed while upstream has no `details` slot. Product features that consumers may disable belong under `packages/dsh-electron/`, not this category.
+A portable `platform: web` public package that Desktop mounts as required Host composition when the upstream Client still provides its occupancy slot. It uses only upstream DSH services, has no Electron dependency, and lives in a standalone canonical repository. `apps/electron/runtime/plugins/<name>/` is a git subtree mirror; Electron rebuilds artifacts from that source. Loading the package MUST NOT occupy product UI until a consumer calls the published service. Theme Studio is the only member. Product features that consumers may disable belong under `packages/dsh-electron/`, not this category.
 
 ## 20. Native implementation versus feature ownership
 

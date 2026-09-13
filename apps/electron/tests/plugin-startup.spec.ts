@@ -118,8 +118,10 @@ describe('plugin startup reconcile and recovery actions', () => {
       })
       expect(loadPluginState(f.statePath).state).toEqual({ version: 2, disabled: [], profileManaged: [] })
       expect(existsSync(f.pendingPath)).toBe(false)
-      expect(JSON.parse(readFileSync(join(f.profileDir, 'package.json'), 'utf8')).dependencies['@fixture/cli-runtime'])
-        .toBe('github:fixture/cli-runtime')
+      const profileManifest = JSON.parse(readFileSync(join(f.profileDir, 'package.json'), 'utf8')) as {
+        dependencies?: Record<string, string>
+      }
+      expect(profileManifest.dependencies?.['@fixture/cli-runtime']).toBe('github:fixture/cli-runtime')
     } finally {
       await rm(f.root, { recursive: true, force: true })
     }

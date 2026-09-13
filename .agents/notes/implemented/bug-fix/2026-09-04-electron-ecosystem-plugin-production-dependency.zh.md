@@ -16,7 +16,7 @@ Status: implemented
 
 **用 electron-builder `files` 或 `extraResources` 拷贝插件文件，而不声明 production 依赖。** 否决：发现、profile 链接与 Host 包解析都使用 `node_modules` 下的 npm 包名；第二条拷贝路径会与声明的 roster 漂移。
 
-**把 Git 像 Details Host 与 Theme Studio 一样挂到 `runtime/plugins/`。** 否决：Git 是用户可禁用的生态 UI，不是必需 Desktop 基础设施。[必需 portable UI](../architecture/2026-08-24-electron-required-portable-ui-infrastructure.zh.md) 已经拥有这一划分。
+**把 Git 像 Theme Studio 一样挂到 `runtime/plugins/`。** 否决：Git 是用户可禁用的生态 UI，不是必需 Desktop 基础设施。[必需 portable UI](../architecture/2026-08-24-electron-required-portable-ui-infrastructure.zh.md) 已经拥有这一划分。
 
 **只保留 monorepo workspace 回退。** 否决：打包后的 `.app` 没有 `packages/dsh-electron/` 树，而这正是 `v0.1.2-beta.1` 的崩溃原因。
 

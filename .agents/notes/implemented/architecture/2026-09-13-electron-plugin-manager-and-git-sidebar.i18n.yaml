@@ -2,5 +2,5 @@
 # side as of the last confirmed-consistent state. Both languages carry equal authority;
 # after editing either side, bring the other along and re-record with:
 #   pnpm run verify-translation-pairing --write .agents/notes/implemented/architecture/2026-09-13-electron-plugin-manager-and-git-sidebar.md
-2026-09-13-electron-plugin-manager-and-git-sidebar.md: da8c0906c6d2fb11e7eb03b1caf61aad5ea7eb4e
-2026-09-13-electron-plugin-manager-and-git-sidebar.zh.md: 1339b52cd3a19c381ba9f65d809d6e0351c09877
+2026-09-13-electron-plugin-manager-and-git-sidebar.md: d3a6c573f5fba169b52b280510383a007de45e10
+2026-09-13-electron-plugin-manager-and-git-sidebar.zh.md: 9a366e4e2b58341af40aac966b7790b76d33e237

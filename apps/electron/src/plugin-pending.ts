@@ -1,4 +1,5 @@
-import { existsSync, readFileSync, unlinkSync } from 'node:fs'
+import { existsSync, readFileSync } from 'node:fs'
+import { unlink } from 'node:fs/promises'
 import { randomUUID } from 'node:crypto'
 import { join } from 'node:path'
 import { writeTextFileAtomic } from './text-file.ts'
@@ -76,5 +77,5 @@ export async function writePluginPending(
  */
 export async function clearPluginPending(path: string): Promise<void> {
   if (!existsSync(path)) return
-  unlinkSync(path)
+  await unlink(path)
 }
