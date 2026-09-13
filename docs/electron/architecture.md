@@ -345,9 +345,11 @@ The directory picker (`@dsh-electron/dsh-electron-ui-directory-picker`) is the f
 
 The brand plugin (`@dsh-electron/dsh-electron-ui-brand`) always fills `sidebar.brand.mark`, `sidebar.brand.name`, and `conversation.hero.brand.mark` with DeepSeek Harness artwork, so Desktop does not depend on the upstream `DSH_CLIENT_BUILD_PROFILE=official` client build for product branding.
 
-The Plugin Manager (`@dsh-electron/dsh-electron-ui-plugin-manager`) consumes `ctx.desktop.plugins` and contributes the `installed` view through the upstream-owned `settings.plugins.tab` slot when mounted. This pin does not mount it in `host.patch.yml`. Main still owns lifecycle reads, mutations, polling, rollback, and Renderer refresh as documented in [plugin-lifecycle.md](plugin-lifecycle.md).
+The Plugin Manager (`@dsh-electron/dsh-electron-ui-plugin-manager`) consumes `ctx.desktop.plugins` and contributes the `installed` view through the upstream-owned `settings.plugins.tab` slot. `host.patch.yml` mounts it. Main still owns lifecycle reads, mutations, polling, rollback, and Renderer refresh as documented in [plugin-lifecycle.md](plugin-lifecycle.md).
 
-Details Host (`@dsh-electron/dsh-client-ui-details-host`) remains a git subtree at `apps/electron/runtime/plugins/ui-details-host`. This pin does not mount it in `host.patch.yml` because upstream removed the Client `details` slot ([unmount note](../../.agents/notes/implemented/architecture/2026-09-13-electron-unmount-details-host.md)).
+Details Host (`@dsh-electron/dsh-client-ui-details-host`) remains a git subtree at `apps/electron/runtime/plugins/ui-details-host`. Desktop does not mount it in `host.patch.yml` because upstream removed the Client `details` slot ([unmount note](../../.agents/notes/implemented/architecture/2026-09-13-electron-unmount-details-host.md)).
+
+Git (`@dsh-electron/dsh-plugin-git`) is a bundled ecosystem plugin. Its client occupies `ctx.sidebarRight` / `sidebarRightTabs` and is listed in `dshElectron.ecosystemPlugins` ([composition note](../../.agents/notes/implemented/architecture/2026-09-13-electron-plugin-manager-and-git-sidebar.md)).
 
 Theme Studio (`@dsh-electron/dsh-theme-studio`) is required portable UI for builtin color overlays. Canonical source is `cherrchen/dsh-theme-studio`; `apps/electron/runtime/plugins/dsh-theme-studio` is the git subtree mirror. Electron rebuilds Host and Client artifacts from that source. The package registers **Settings → General → Themes** and calls `ctx.theme.overrideTokens()`; it does not replace official Appearance or present CSS itself.
 

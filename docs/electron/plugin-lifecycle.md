@@ -19,12 +19,22 @@ Electron owns desired plugin state. DSH Host owns actual Cordis fiber state. The
 `ProfilePluginCatalog` refreshes and merges three ownership classes:
 
 * **System runtime plugins** under `runtime/plugins/` are linked before Host start and are not user-manageable.
-* **Bundled ecosystem plugins** declared by `dshElectron.ecosystemPlugins` are production `workspace:` dependencies of the Electron app, linked before Host start, are user-manageable, and are composed through a generated include file. The current pin declares an empty list; `@dsh-electron/dsh-plugin-git` stays a workspace package under `packages/dsh-electron/` and is not composed ([unmount note](../../.agents/notes/implemented/architecture/2026-09-13-electron-unmount-git-plugin.md)).
+* **Bundled ecosystem plugins** declared by `dshElectron.ecosystemPlugins` are production `workspace:` dependencies of the Electron app, linked before Host start, are user-manageable, and are composed through a generated include file. The current pin lists `@dsh-electron/dsh-plugin-git`, which occupies `ctx.sidebarRight` ([Git composition](../../.agents/notes/implemented/architecture/2026-09-13-electron-plugin-manager-and-git-sidebar.md)).
 * **Profile packages** are direct dependencies in `$DSH_HOME/profiles/web/package.json` installed through Desktop or declared as profile bundles.
 
 Linking is not the enable-state signal. Electron keeps bundled artifacts available under both `$DSH_HOME/profiles/node_modules` and `$DSH_HOME/electron/node_modules`; runtime enablement is controlled only by generated Cordis composition.
 
-System and bundled ownership takes precedence over profile ownership for a duplicate real package name. Each entry separates ownership, package kind (`runtime-plugin`, `bundle`, or `dependency`), installation source, activation mode, package health, and Main-owned package actions. Host runtime state is present only for packages with hot activation.
+System and bundled ownership takes precedence over profile ownership for a duplicate real package name. Each entry separates ownership, package kind (`runtime-plugin`, `bundle`, or `dependency`), installation source, activation mode, package health, and Main-owned package actions. Host runtime state is present only for packages with hot activation. `profileManaged` / `desktopInstalled` records whether Desktop performed the install; it is not the manageable gate.
+
+## Plugin kinds and activation
+
+| Kind | Who loads it | Activation | Manageable when healthy |
+| --- | --- | --- | --- |
+| `bundle` | Shared web profile composition (`dsh web` and Electron) | `profile-restart` | No runtime enable/disable; restart applies the layer |
+| `runtime-plugin` | Electron-private `plugins.cordis.yml` (`dsh web` never loads these rows) | `hot` | Yes, including CLI-installed profile packages |
+| `dependency` | Lazy package with no Cordis entry | `none` | No runtime controls |
+
+Authors who need the same package in `dsh web` declare `dsh.bundle.patch`. A healthy CLI-installed `runtime-plugin` enters the Electron roster without being listed in `profileManaged`.
 
 ## Runtime-owned files
 
@@ -32,22 +42,25 @@ Electron writes these files below `$DSH_HOME/electron/`:
 
 * `plugins.cordis.yml` is the generated desired roster for manageable ecosystem plugins.
 * `plugin-state.json` stores the persisted disabled runtime package names and Desktop-managed profile dependency membership.
+* `packages-pending` marks an in-flight `dsh plugin` mutation until inspect and restart accounting finish.
 
-Electron also writes `electron-host.patch.yml` into Electron `userData` and passes it to `dsh web --patch`.
+Electron also writes `electron-host.patch.yml` into Electron `userData` and passes it to `dsh web --patch`. The web profile lock file is `$DSH_HOME/profiles/web/lock`. The lock only serializes Desktop's own processes; a manual `dsh plugin --profile web` does not take it, and startup reconcile plus Repair cover that residue.
 
-The bootstrap patch keeps required runtime plugin rows, enables narrow HMR for `plugins.cordis.yml`, and mounts one stable `cordis:include` seat for that generated file. Individual ecosystem plugins are not listed in the bootstrap overlay. Theme Studio is a required row and must stay out of `dshElectron.ecosystemPlugins`. Details Host and the Electron Plugin Manager remain under `runtime/plugins/` and are not bootstrap mounts ([unmount note](../../.agents/notes/implemented/architecture/2026-09-13-electron-unmount-details-host.md)).
+The bootstrap patch keeps required runtime plugin rows, enables narrow HMR for `plugins.cordis.yml`, mounts the Electron Plugin Manager on `settings.plugins.tab`, and mounts one stable `cordis:include` seat for the generated file. Individual ecosystem plugins are not listed in the bootstrap overlay. Theme Studio is a required row and must stay out of `dshElectron.ecosystemPlugins`. Details Host remains under `runtime/plugins/` and is not a bootstrap mount ([unmount note](../../.agents/notes/implemented/architecture/2026-09-13-electron-unmount-details-host.md)).
 
 ## Startup sequence
 
 Electron Main starts Host in this order:
 
 1. resolve `DSH_HOME`;
-2. discover distribution plugins and refresh the `web` profile catalog;
-3. repair all required symlinks;
-4. load `plugin-state.json`;
-5. generate the initial `plugins.cordis.yml`;
-6. render `electron-host.patch.yml`;
-7. spawn `dsh web --patch <electron-host.patch.yml>`.
+2. if `packages-pending` exists, wait for the profile lock and run a read-only reconcile; failure opens the Main recovery window and does not spawn Host;
+3. merge `strictDepBuilds` / reviewed `allowBuilds` into the web profile `pnpm-workspace.yaml`;
+4. discover distribution plugins, refresh the `web` profile catalog, and repair hot-plugin symlinks;
+5. load `plugin-state.json`;
+6. generate the initial `plugins.cordis.yml`;
+7. render `electron-host.patch.yml`;
+8. spawn `dsh web --patch <electron-host.patch.yml>`;
+9. if the ready line times out, stop Host, open the same recovery window, and retry after the user disables manageable plugins or resets Desktop management.
 
 Startup and later lifecycle mutations both act on the same generated `plugins.cordis.yml` path.
 
@@ -69,15 +82,15 @@ If settlement fails, Electron restores the previous generated roster before surf
 
 The preload lifecycle group is adapted through `@dsh-electron/dsh-electron-desktop-capabilities` into `ctx.desktop.plugins`. Desktop feature plugins do not read `window.deepseekDesktop.plugins` directly.
 
-`@dsh-electron/dsh-electron-ui-plugin-manager` registers the `installed` contribution at order `20` in the upstream-owned `settings.plugins.tab` slot when mounted. This pin does not mount that plugin in `host.patch.yml`. The upstream Plugins section continues to own navigation, tab chrome, selection, keyboard behavior, and mount lifecycle; Electron does not register another `settings.section`.
+`@dsh-electron/dsh-electron-ui-plugin-manager` registers the `installed` contribution at order `20` in the upstream-owned `settings.plugins.tab` slot. `host.patch.yml` mounts that plugin. The upstream Plugins section continues to own navigation, tab chrome, selection, keyboard behavior, and mount lifecycle; Electron does not register another `settings.section`.
 
-The Installed tab reads its first catalog snapshot only after mount. It shows manageable plugins, bundles, and plain dependencies in the main list and required runtime plugins in a collapsed, read-only System Components disclosure. Search filters package name, display name, and description locally.
+The Installed tab reads its first catalog snapshot only after mount. It shows manageable plugins, bundles, and plain dependencies in the main list and required runtime plugins in a collapsed, read-only System Components disclosure. Bundle rows state that they are shared across environments and need a restart; runtime-plugin rows state that they are Electron-only and hot-pluggable. Search filters package name, display name, and description locally. Removing a package with `desktopInstalled === false` warns that the CLI or another environment installed it.
 
 ## Profile package installation
 
 The Installed header opens one dialog with Registry, GitHub/Git, and Local sources. Local installation uses the native Electron directory picker and supports `file:` or development `link:` semantics. The Renderer sends a typed request and never receives filesystem, child-process, shell-command, or arbitrary pnpm access.
 
-Electron Main validates the request, converts it to one pnpm-compatible spec, and invokes `dsh plugin --profile web add <spec>`. A Registry request without a version uses an explicit `@latest`, so it replaces an existing Git or local spec instead of retaining that source. Upstream dsh remains responsible for profile initialization and bundle reconciliation. The installed dependency name and manifest, not the request text, determine catalog identity and package kind; unchanged Git and local specs resolve through the dependency value already written by pnpm.
+Electron Main validates the request, converts it to one pnpm-compatible spec, and invokes `dsh plugin --profile web add <spec>`. A Registry request without a version uses an explicit `@latest`, so it replaces an existing Git or local spec instead of retaining that source. Upstream dsh remains responsible for profile initialization and bundle reconciliation. The installed dependency name and manifest, not the request text, determine catalog identity and package kind. `install()` fails when the command exits 0 without changing profile dependencies; `reinstall` and `update --force` may refresh without adding a new dependency key. Before spawn, Main merges `strictDepBuilds: true` and a reviewed `allowBuilds` seed into the web profile `pnpm-workspace.yaml` without dropping user keys.
 
 Packaged Desktop includes pnpm at the repository package-manager version. A generated platform shim under `$DSH_HOME/electron/bin` launches bundled pnpm through Electron's Node mode, and Main prepends that directory to the child PATH. Users do not need global Node.js, Corepack, or pnpm.
 
@@ -150,9 +163,11 @@ Focused `apps/electron` coverage verifies:
 
 * runtime overlay rendering and placeholder replacement;
 * plugin-state migration, parsing, persistence, and stale-name reconciliation;
-* catalog precedence and runtime-plugin/bundle/dependency classification;
+* catalog precedence, CLI-installed runtime-plugin manageability, and runtime-plugin/bundle/dependency classification;
 * Registry, Git, and local request normalization across POSIX and Windows paths;
-* bundled pnpm shim generation, update-result parsing, install-service reconciliation, and package mutation recovery;
+* bundled pnpm shim generation, update-result parsing, empty-install rejection, pending/lock crash injection, and package mutation recovery;
+* web profile workspace `strictDepBuilds`/`allowBuilds` merge and startup symlink sweep;
+* Main recovery-window triggers and disable-all / reset-management actions;
 * deterministic runtime config generation;
 * lifecycle-controller success, rollback, serialized mutations, concurrent reads, and client-refresh branching;
 * lazy `ctx.desktop.plugins` forwarding and Plugin Manager slot redeclaration;

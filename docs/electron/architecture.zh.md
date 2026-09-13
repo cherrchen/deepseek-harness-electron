@@ -345,9 +345,11 @@ Desktop Capability Provider（`@dsh-electron/dsh-electron-desktop-capabilities`�
 
 品牌插件（`@dsh-electron/dsh-electron-ui-brand`）始终用 DeepSeek Harness 视觉填充 `sidebar.brand.mark`、`sidebar.brand.name` 与 `conversation.hero.brand.mark`，因此 Desktop 产品品牌不依赖上游 `DSH_CLIENT_BUILD_PROFILE=official` client 构建。
 
-Plugin Manager（`@dsh-electron/dsh-electron-ui-plugin-manager`）消费 `ctx.desktop.plugins`，并在挂载时通过 upstream 拥有的 `settings.plugins.tab` slot 贡献 `installed` view。本次 pin 不在 `host.patch.yml` 中挂载它。Main 仍拥有 lifecycle 读取、mutation、polling、rollback 与 Renderer refresh，记录在 [plugin-lifecycle.zh.md](plugin-lifecycle.zh.md)。
+Plugin Manager（`@dsh-electron/dsh-electron-ui-plugin-manager`）消费 `ctx.desktop.plugins`，并通过 upstream 拥有的 `settings.plugins.tab` slot 贡献 `installed` view。`host.patch.yml` 挂载它。Main 仍拥有 lifecycle 读取、mutation、polling、rollback 与 Renderer refresh，记录在 [plugin-lifecycle.zh.md](plugin-lifecycle.zh.md)。
 
-Details Host（`@dsh-electron/dsh-client-ui-details-host`）仍作为 git subtree 保留在 `apps/electron/runtime/plugins/ui-details-host`。本次 pin 不在 `host.patch.yml` 中挂载它，因为上游已移除 Client `details` 插槽（[卸载说明](../../.agents/notes/implemented/architecture/2026-09-13-electron-unmount-details-host.zh.md)）。
+Details Host（`@dsh-electron/dsh-client-ui-details-host`）仍作为 git subtree 保留在 `apps/electron/runtime/plugins/ui-details-host`。Desktop 不在 `host.patch.yml` 中挂载它，因为上游已移除 Client `details` 插槽（[卸载说明](../../.agents/notes/implemented/architecture/2026-09-13-electron-unmount-details-host.zh.md)）。
+
+Git（`@dsh-electron/dsh-plugin-git`）是 bundled ecosystem 插件。其 Client 占用 `ctx.sidebarRight` / `sidebarRightTabs`，并列入 `dshElectron.ecosystemPlugins`（[组合说明](../../.agents/notes/implemented/architecture/2026-09-13-electron-plugin-manager-and-git-sidebar.zh.md)）。
 
 Theme Studio（`@dsh-electron/dsh-theme-studio`）是必需的 portable UI，用于内置配色覆盖层。源码真源是 `cherrchen/dsh-theme-studio`；`apps/electron/runtime/plugins/dsh-theme-studio` 是 git subtree 镜像。Electron 从该源码重新构建 Host 与 Client artifacts。该包注册**设置 → 通用 → 主题**，并调用 `ctx.theme.overrideTokens()`；它不替换官方外观，也不自己呈现 CSS。
 
