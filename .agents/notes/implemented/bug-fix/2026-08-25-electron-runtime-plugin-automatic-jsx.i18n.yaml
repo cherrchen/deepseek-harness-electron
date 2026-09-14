@@ -2,5 +2,5 @@
 # side as of the last confirmed-consistent state. Both languages carry equal authority;
 # after editing either side, bring the other along and re-record with:
 #   pnpm run verify-translation-pairing --write .agents/notes/implemented/bug-fix/2026-08-25-electron-runtime-plugin-automatic-jsx.md
-2026-08-25-electron-runtime-plugin-automatic-jsx.md: 3b8eb965be40d0aaec24ba3ba11cf73aff7924b7
-2026-08-25-electron-runtime-plugin-automatic-jsx.zh.md: bcc624a79170197e72523859593ca948a19d9e90
+2026-08-25-electron-runtime-plugin-automatic-jsx.md: 314b7d3adee151fd3db1f5c6430a4fd969d5c8b9
+2026-08-25-electron-runtime-plugin-automatic-jsx.zh.md: a480495d80be752c0c2c9c9281791d6a32c98f53

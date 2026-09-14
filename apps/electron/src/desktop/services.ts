@@ -82,9 +82,8 @@ export class DesktopServices {
   }
 
   /** Write system clipboard text. */
-  writeClipboardText(text: unknown): Promise<void> {
-    clipboard.writeText(requireClipboardText(text))
-    return Promise.resolve()
+  async writeClipboardText(text: unknown): Promise<void> {
+    await clipboard.writeText(requireClipboardText(text))
   }
 
   /** Open an allowlisted URL externally. */

@@ -145,10 +145,10 @@ describe('Electron host runtime overlay', () => {
       expect(body).toContain('@deepseek-ai/dsh-host-directory-picker-browse')
       expect(body).toContain('@dsh-electron/dsh-electron-ui-directory-picker')
       expect(body).toContain('@dsh-electron/dsh-electron-desktop-capabilities')
-      expect(body).toContain('@dsh-electron/dsh-client-ui-details-host')
       expect(body).toContain('@dsh-electron/dsh-theme-studio')
       expect(body).toContain('@dsh-electron/dsh-electron-ui-brand')
       expect(body).toContain('cordis:include')
+      expect(body).toContain('@dsh-electron/dsh-electron-ui-plugin-manager')
       expect(body).not.toContain('directory-picker-browse-client')
     } finally {
       await rm(userData, { recursive: true, force: true })

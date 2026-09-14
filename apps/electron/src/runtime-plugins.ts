@@ -58,6 +58,8 @@ export interface ManagedPlugin extends RuntimePluginManifest {
   health: 'healthy' | 'reconcile-required'
   /** Main-owned profile package policy. */
   packageActions: PluginPackageActions
+  /** Whether Desktop recorded this profile dependency as its own install. */
+  desktopInstalled?: boolean
 }
 
 interface ElectronPluginInventoryManifest {
@@ -117,7 +119,7 @@ export function discoverRuntimePlugins(appPath: string): RuntimePluginManifest[]
  * Resolve prebuilt standard DSH packages declared by the Electron distribution.
  * Packaged apps require each name as a production dependency so electron-builder copies it into `node_modules`.
  * @param appPath - Electron application root.
- * @returns manifests backed by installed package artifacts or workspace sources in development.
+ * @returns Manifests backed by installed npm package artifacts.
  */
 export function discoverEcosystemPlugins(appPath: string): RuntimePluginManifest[] {
   const appManifestPath = join(appPath, 'package.json')
@@ -126,8 +128,7 @@ export function discoverEcosystemPlugins(appPath: string): RuntimePluginManifest
   const names = appManifest.dshElectron?.ecosystemPlugins ?? []
   return names.map((name) => {
     const installed = join(appPath, 'node_modules', ...name.split('/'))
-    const workspace = join(appPath, '..', '..', 'packages', 'dsh-electron', name.split('/').at(-1) ?? '')
-    const rootPath = existsSync(installed) ? installed : workspace
+    const rootPath = installed
     const manifestPath = join(rootPath, 'package.json')
     if (!existsSync(manifestPath)) {
       throw new Error(`ecosystem plugins: ${name} is declared but not installed at ${installed}`)
@@ -264,13 +265,20 @@ export function ensureRuntimePluginsLinked(appPath: string, harnessHome: string)
   }
   for (const plugin of plugins) {
     validateRuntimePlugin(plugin)
-    for (const link of [
-      profileModuleLinkPath(harnessHome, plugin.name),
-      pluginRuntimeModuleLinkPath(harnessHome, plugin.name),
-    ]) {
-      mkdirSync(dirname(link), { recursive: true })
-      ensureSymlink(link, plugin.rootPath)
-    }
+  }
+  ensureCatalogPluginLinks(harnessHome, plugins)
+}
+
+/**
+ * Repair profile and electron `node_modules` links for every hot-activated package.
+ * @param harnessHome - `$DSH_HOME` root used by the supervised Host.
+ * @param plugins - Catalog entries to link when their artifacts exist.
+ */
+export function ensureCatalogPluginLinks(harnessHome: string, plugins: readonly ManagedPlugin[]): void {
+  for (const plugin of plugins) {
+    if (plugin.activationMode !== 'hot' || !existsSync(plugin.rootPath)) continue
+    ensureSymlink(profileModuleLinkPath(harnessHome, plugin.name), plugin.rootPath)
+    ensureSymlink(pluginRuntimeModuleLinkPath(harnessHome, plugin.name), plugin.rootPath)
   }
 }
 

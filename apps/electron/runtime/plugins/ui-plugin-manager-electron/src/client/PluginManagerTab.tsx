@@ -68,7 +68,6 @@ const OPERATION_VERBS = {
 
 const SYSTEM_NAMES: Readonly<Record<string, string>> = {
   '@dsh-electron/dsh-plugin-git': 'Git',
-  '@dsh-electron/dsh-client-ui-details-host': 'Details Host',
   '@dsh-electron/dsh-theme-studio': 'Theme Studio',
   '@dsh-electron/dsh-electron-desktop-capabilities': 'Desktop Capabilities',
   '@dsh-electron/dsh-electron-ui-brand': 'Brand Adapter',
@@ -88,6 +87,13 @@ export function pluginDisplayName(plugin: PluginLifecycleEntry): string {
   return stem.split('-').filter(Boolean)
     .map(part => part.length <= 3 ? part.toLocaleUpperCase() : `${part[0]?.toLocaleUpperCase() ?? ''}${part.slice(1)}`)
     .join(' ')
+}
+
+/** Locale key for the category line shown on one catalog row. */
+export function pluginKindHintKey(plugin: PluginLifecycleEntry): 'kindBundle' | 'kindRuntime' | undefined {
+  if (plugin.kind === 'bundle') return 'kindBundle'
+  if (plugin.kind === 'runtime-plugin') return 'kindRuntime'
+  return undefined
 }
 
 /** Whether one plugin matches the local search query. */
@@ -144,6 +150,7 @@ function PluginRow({ plugin, state, mutate, t, readOnly = false, onRemove, updat
   const [menuOpen, setMenuOpen] = useState(false)
   const title = pluginDisplayName(plugin)
   const presentation = lifecyclePresentation(plugin, state.activeOperation, t)
+  const kindHint = pluginKindHintKey(plugin)
   const actions = readOnly ? [] : availableActions(plugin)
   const globallyLocked = state.activeOperation !== undefined || state.snapshot?.activeOperation !== undefined
   const packageItems = readOnly ? [] : [
@@ -157,6 +164,7 @@ function PluginRow({ plugin, state, mutate, t, readOnly = false, onRemove, updat
         <strong>{title}</strong>
         <code>{plugin.name}</code>
         {plugin.description === undefined ? null : <p>{plugin.description}</p>}
+        {kindHint === undefined ? null : <span className={css.kindHint}>{t(kindHint)}</span>}
         {plugin.requestedSpec === undefined ? null : <span className={css.sourceSpec}>{plugin.requestedSpec}</span>}
       </div>
       <div className={css.pluginControl}>

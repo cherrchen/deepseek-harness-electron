@@ -10,7 +10,7 @@ describe('Desktop synchronization and release workflows', () => {
     const attributes = readFileSync(resolve(root, '.gitattributes'), 'utf8')
 
     expect(attributes).toContain('docs/electron/** merge=ours')
-    expect(attributes).toContain('packages/dsh-electron/** merge=ours')
+    expect(attributes).not.toContain('packages/dsh-electron')
     expect(attributes).toContain('.github/workflows/*.yml merge=theirs')
     expect(attributes).toContain('.github/workflows/desktop-*.yml merge=ours')
     expect(attributes).toContain('.github/workflows/sync-upstream.yml merge=ours')
@@ -87,6 +87,8 @@ describe('Desktop synchronization and release workflows', () => {
     const sync = loadWorkflow('.github/workflows/sync-upstream.yml')
     expect(sync.env).toMatchObject({ GH_REPO: '${{ github.repository }}' })
     const syncJob = workflowJob(sync, 'sync')
+    expect(sync.on).not.toHaveProperty('schedule')
+    expect(syncJob.if).toBe("github.event_name == 'workflow_dispatch' && inputs.allow_master_sync")
     if (!Array.isArray(syncJob.steps)) {
       throw new TypeError('Desktop sync must define steps')
     }
@@ -109,10 +111,8 @@ describe('Desktop synchronization and release workflows', () => {
     expect(sync.permissions).toMatchObject({ actions: 'read', checks: 'read', contents: 'write' })
     expect(checkout).toMatchObject({ with: { ref: 'develop' } })
     expect(merge.run).toContain('git merge --no-edit upstream/master')
-    expect(merge.run).toContain('git ls-tree -d --name-only upstream/master -- packages/dsh-electron')
     expect(merge.run).toContain("git config merge.theirs.driver 'cp %B %A'")
     expect(merge.run).toContain('README.md|README.zh.md|README.i18n.yaml|docs/electron/*')
-    expect(merge.run).toContain('packages/dsh-electron/*')
     expect(merge.run).toContain('.github/workflows/desktop-*.yml|.github/workflows/sync-upstream.yml|scripts/desktop-workflow.spec.ts')
     expect(merge.run).toContain('AGENTS.md|.github/workflows/*.yml|scripts/ci-workflow.spec.ts')
     expect(merge.run).toContain('git checkout --theirs -- "$file"')
@@ -123,7 +123,6 @@ describe('Desktop synchronization and release workflows', () => {
     expect(merge.run).toContain('pnpm install --no-frozen-lockfile')
     expect(merge.run).not.toMatch(/pnpm install --lockfile-only/)
     expect(merge.run).toContain('apps/electron')
-    expect(merge.run).toContain('run verify:downstream-workspace')
     expect(prepareBeta.run).toContain('next-beta-tag.mjs')
     expect(prepareBeta.run).toContain('set-version.mjs')
     expect(prepareBeta.run).toContain('pnpm install --no-frozen-lockfile')

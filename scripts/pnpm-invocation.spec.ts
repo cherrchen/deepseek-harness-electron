@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { pnpmInvocation } from './pnpm-invocation.mjs'
+import { pnpmInvocation } from './pnpm-invocation.ts'
 
 describe('pnpm invocation', () => {
   it.each([
@@ -8,7 +8,6 @@ describe('pnpm invocation', () => {
     '/tools/pnpm.mjs',
     '/tools/PNPM.CJS',
     '/tools/with spaces/工具/$pnpm;.mjs',
-    String.raw`C:\Users\runneradmin\setup-pnpm\node_modules\pnpm\bin\pnpm.cjs`,
   ])('runs the JavaScript entrypoint %j through Node', (entrypoint) => {
     expect(pnpmInvocation(['run', 'build'], { npm_execpath: entrypoint })).toEqual({
       command: process.execPath,

@@ -1,8 +1,13 @@
 import { copyFileSync, mkdirSync, readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { pathToFileURL } from 'node:url'
+import { packagesPendingPath } from './plugin-pending.ts'
+import { profileLockPath } from './plugin-profile-lock.ts'
 import { PLUGIN_RUNTIME_CONFIG_FILENAME } from './plugin-runtime-config.ts'
 import { writeTextFileAtomic } from './text-file.ts'
+
+export { packagesPendingPath } from './plugin-pending.ts'
+export { profileLockPath } from './plugin-profile-lock.ts'
 
 /**
  * Runtime overlay paths owned by Electron Main.
@@ -16,6 +21,10 @@ export interface HostRuntimeOverlay {
   pluginConfigPath: string
   /** Persisted disabled-set state file. */
   pluginStatePath: string
+  /** In-flight `dsh plugin` mutation marker. */
+  packagesPendingPath: string
+  /** Cross-process lock for Desktop package transactions. */
+  profileLockPath: string
 }
 
 const PLUGIN_CONFIG_URL_PLACEHOLDER = '__DSH_ELECTRON_PLUGIN_CONFIG_URL__'
@@ -39,6 +48,8 @@ export async function prepareHostRuntimeOverlay(
   const pluginConfigPath = join(pluginRuntimeDirectory, PLUGIN_RUNTIME_CONFIG_FILENAME)
   const pluginStatePath = join(pluginRuntimeDirectory, 'plugin-state.json')
   const patchPath = join(userDataPath, 'electron-host.patch.yml')
+  const pendingPath = packagesPendingPath(harnessHome)
+  const lockPath = profileLockPath(harnessHome)
   const templatePath = join(appPath, 'runtime', 'host.patch.yml')
   const template = readFileSync(templatePath, 'utf8')
   const rendered = renderHostOverlayTemplate(
@@ -52,6 +63,8 @@ export async function prepareHostRuntimeOverlay(
     pluginRuntimeDirectory,
     pluginConfigPath,
     pluginStatePath,
+    packagesPendingPath: pendingPath,
+    profileLockPath: lockPath,
   }
 }
 

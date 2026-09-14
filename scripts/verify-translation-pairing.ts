@@ -105,7 +105,14 @@ function isExcluded(file: string): boolean {
 // completeness rules that cover discovered remnants).
 const files = new Set<string>()
 if (request.scope === 'pairs') {
-  for (const anchor of request.anchors) {
+  // Pre-commit `--cached` receives every staged sidecar. Directory exclusions
+  // own leftover translations, so those staged paths are skipped rather than
+  // rejected as named out-of-corpus pairs. An explicit worktree path still
+  // fails so `--write` cannot confirm an excluded pair.
+  const namedAnchors = indexMode
+    ? request.anchors.filter(anchor => !isExcluded(anchor))
+    : request.anchors
+  for (const anchor of namedAnchors) {
     const { source, zh, meta } = translationPairPaths(anchor)
     for (const file of [source, zh, meta]) {
       if (repositoryFileExists(file)) files.add(file)
@@ -119,7 +126,7 @@ if (request.scope === 'pairs') {
   for (const pattern of SCOPE_PATTERNS) {
     for (const match of globSync(pattern, { cwd: root, exclude: TRANSLATION_SCOPE_GLOB_EXCLUDES })) {
       const normalized = match.split(sep).join('/')
-      if (isTranslationScopeFile(normalized)) files.add(normalized)
+      if (isTranslationScopeFile(normalized) && !isExcluded(normalized)) files.add(normalized)
     }
   }
 }
@@ -128,8 +135,11 @@ const metas = [...files].filter(f => f.endsWith('.i18n.yaml')).sort()
 const sources = [...files].filter(f => f.endsWith('.md') && !f.endsWith('.zh.md')).sort()
 
 if (request.scope === 'pairs') {
-  const rejected = request.anchors.filter(anchor => !isTranslationScopeFile(anchor) || isExcluded(anchor))
-  const absent = request.anchors.filter((anchor) => {
+  const namedAnchors = indexMode
+    ? request.anchors.filter(anchor => !isExcluded(anchor))
+    : request.anchors
+  const rejected = namedAnchors.filter(anchor => !isTranslationScopeFile(anchor) || isExcluded(anchor))
+  const absent = namedAnchors.filter((anchor) => {
     const { source, zh, meta } = translationPairPaths(anchor)
     return ![source, zh, meta].some(repositoryFileExists)
   })

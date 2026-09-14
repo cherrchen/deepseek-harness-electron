@@ -116,14 +116,18 @@
   display: block;
 }
 
-.sourceSpec {
+.sourceSpec,
+.kindHint {
   display: block;
   margin-top: 6px;
   overflow-wrap: anywhere;
   color: var(--dsw-alias-label-tertiary);
-  font-family: var(--ds-font-family-code);
   font-size: 11px;
   line-height: 17px;
+}
+
+.sourceSpec {
+  font-family: var(--ds-font-family-code);
 }
 
 .pluginIdentity strong {

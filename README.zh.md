@@ -16,10 +16,6 @@ DeepSeek Harness Desktop 将 [DeepSeek Harness](https://github.com/deepseek-ai/d
 
 本 monorepo 镜像的部分独立插件仓库可能仍会不定期更新；版本推进会较慢、且无固定节奏。
 
-### Details 面板与 `0.1.2-rc.1` 版本
-
-[`0.1.2-rc.1`](https://github.com/cherrchen/deepseek-harness-electron/releases/tag/v0.1.2-rc.1) 是最后一个支持并预装 [dsh-client-ui-details-host](https://github.com/cherrchen/dsh-client-ui-details-host) 的版本。上游 Harness 在后续版本中移除了 Client Details 面板，因此 Details Host 将归档。[dsh-plugin-git](https://github.com/cherrchen/dsh-plugin-git) 计划迁移到上游用于替代 Details 的 **Sidebar** 扩展点；该迁移尚未实现。
-
 ## 安装
 
 请从[最新发布版本](https://github.com/cherrchen/deepseek-harness-electron/releases/latest)下载对应平台的安装包：
@@ -52,15 +48,12 @@ Harness profile 和状态存储在对应平台的应用数据目录。智能体 
 
 ## 内置插件
 
-DeepSeek Harness Desktop 随附三个来自独立 canonical repository 的可移植 DSH 插件。它们在桌面应用中原样运行；单独安装后也可在标准 DSH Web host 中使用。
-
-> **说明：** 下表描述的是 `0.1.2-rc.1` 随附的插件组合。Details Host 不会在此版本之后继续维护；详见上文[状态](#status)一节。
+DeepSeek Harness Desktop 镜像两个来自独立 canonical repository 的可移植 DSH 插件。
 
 | 插件 | 桌面角色 | 简介 |
 |---|---|---|
-| [dsh-client-ui-details-host](https://github.com/cherrchen/dsh-client-ui-details-host) | 必需内置 | 通过 `ctx.shellDetails` 在 AppFrame 第三栏承载一个活动 details surface。 |
 | [dsh-theme-studio](https://github.com/cherrchen/dsh-theme-studio) | 必需内置 | 在**设置 → 通用 → 主题**提供内置配色主题，叠加在官方浅色 / 深色 / 跟随系统外观之上。 |
-| [dsh-plugin-git](https://github.com/cherrchen/dsh-plugin-git) | 预装（可在**设置 → 插件**中禁用） | 在输入区与详情栏提供本地 Git 状态、diff、stage、commit 与 branch 操作。依赖 Details Host。 |
+| [dsh-plugin-git](https://github.com/cherrchen/dsh-plugin-git) | 生态插件 | 在右侧边栏提供本地 Git 状态、diff、stage、commit 与 branch 操作。列入 `dshElectron.ecosystemPlugins`。 |
 
 Canonical 开发在各自仓库进行；本 monorepo 通过 git subtree 镜像它们。
 

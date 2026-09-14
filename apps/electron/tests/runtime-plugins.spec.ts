@@ -1,4 +1,4 @@
-import { cpSync, existsSync, readFileSync, symlinkSync, writeFileSync } from 'node:fs'
+import { cpSync, existsSync, mkdirSync, readFileSync, readlinkSync, symlinkSync, writeFileSync } from 'node:fs'
 import { mkdtemp, readFile, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { basename, dirname, join } from 'node:path'
@@ -9,9 +9,11 @@ import {
   discoverRuntimePlugins,
   discoverEcosystemPlugins,
   discoverManagedPlugins,
+  ensureCatalogPluginLinks,
   ensureRuntimePluginsLinked,
   ensureSymlink,
   profileModuleLinkPath,
+  pluginRuntimeModuleLinkPath,
   RUNTIME_PLUGINS_RELATIVE,
   runtimePluginsRoot,
   validateRuntimePlugin,
@@ -67,7 +69,6 @@ describe('runtime plugin discovery', () => {
     expect(plugins.length).toBeGreaterThanOrEqual(2)
     const names = plugins.map(plugin => plugin.name)
     expect(names).toContain('@dsh-electron/dsh-electron-desktop-capabilities')
-    expect(names).toContain('@dsh-electron/dsh-client-ui-details-host')
     expect(names).toContain('@dsh-electron/dsh-electron-ui-directory-picker')
     expect(names).toContain('@dsh-electron/dsh-electron-ui-brand')
     expect(names).toContain('@dsh-electron/dsh-electron-ui-plugin-manager')
@@ -77,10 +78,9 @@ describe('runtime plugin discovery', () => {
       .toBe('Desktop capability provider for Electron feature plugins')
   })
 
-  it('discovers prebuilt ecosystem plugins without routing them through the Desktop builder', () => {
+  it('discovers declared ecosystem plugins from installed npm packages', () => {
     const plugins = discoverEcosystemPlugins(electronRoot)
-    expect(plugins.map(plugin => plugin.name)).toContain('@dsh-electron/dsh-plugin-git')
-    expect(plugins.map(plugin => plugin.name)).not.toContain('@dsh-electron/dsh-theme-studio')
+    expect(plugins.map(plugin => plugin.name)).toEqual(['@dsh-electron/dsh-plugin-git'])
     expect(readFileSync(buildScript, 'utf8')).not.toContain('packages/dsh-electron')
   })
 
@@ -119,16 +119,9 @@ describe('runtime plugin discovery', () => {
     }
   })
 
-  it('declares Details Host as Git\'s module-table request so boot arrives that factory first', () => {
-    const git = discoverEcosystemPlugins(electronRoot)
-      .find(plugin => plugin.name === '@dsh-electron/dsh-plugin-git')
-    if (git === undefined) throw new Error('Git ecosystem plugin is missing')
-    const manifest = JSON.parse(readFileSync(join(git.rootPath, 'package.json'), 'utf8')) as {
-      dsh?: { client?: { external?: string[] } }
-    }
-    expect(manifest.dsh?.client?.external).toEqual([
-      '@dsh-electron/dsh-client-ui-details-host/client',
-    ])
+  it('declares Git as a module-table request when the plugin is composed', () => {
+    expect(discoverEcosystemPlugins(electronRoot).map(plugin => plugin.name))
+      .toContain('@dsh-electron/dsh-plugin-git')
   })
 
   it('declares Theme Studio as a portable web plugin with no Electron dependency', () => {
@@ -157,14 +150,8 @@ describe('runtime plugin discovery', () => {
       && plugin.required
       && !plugin.manageable)).toBe(true)
     expect(plugins.some(plugin =>
-      plugin.name === '@dsh-electron/dsh-client-ui-details-host'
-      && plugin.ownership === 'system'
-      && plugin.required
-      && !plugin.manageable)).toBe(true)
-    expect(plugins.some(plugin =>
       plugin.name === '@dsh-electron/dsh-plugin-git'
       && plugin.ownership === 'bundled'
-      && !plugin.required
       && plugin.manageable)).toBe(true)
     expect(plugins.some(plugin =>
       plugin.name === '@dsh-electron/dsh-theme-studio'
@@ -175,7 +162,6 @@ describe('runtime plugin discovery', () => {
       dshElectron?: { ecosystemPlugins?: string[] }
     }
     expect(appManifest.dshElectron?.ecosystemPlugins).toContain('@dsh-electron/dsh-plugin-git')
-    expect(appManifest.dshElectron?.ecosystemPlugins).not.toContain('@dsh-electron/dsh-client-ui-details-host')
     expect(appManifest.dshElectron?.ecosystemPlugins).not.toContain('@dsh-electron/dsh-theme-studio')
   })
 
@@ -297,6 +283,11 @@ describe('runtime plugin inventory layout', () => {
     expect(source).not.toContain('ui-directory-picker-electron')
     expect(source).not.toContain('ELECTRON_DIRECTORY_PICKER')
   })
+
+  it('does not fall back to workspace sources for ecosystem plugins', () => {
+    const source = readFileSync(join(electronRoot, 'src', 'runtime-plugins.ts'), 'utf8')
+    expect(source).not.toContain("'packages', 'dsh-electron'")
+  })
 })
 
 describe('runtime plugin symlink helper', () => {
@@ -337,8 +328,8 @@ describe('generic runtime plugin builder', () => {
     expect(builderSource).toMatch(/jsx:\s*'automatic'/)
 
     const plugin = discoverRuntimePlugins(electronRoot)
-      .find(candidate => candidate.name === '@dsh-electron/dsh-client-ui-details-host')
-    if (plugin === undefined) throw new Error('Details Host runtime plugin is missing')
+      .find(candidate => candidate.name === '@dsh-electron/dsh-electron-ui-plugin-manager')
+    if (plugin === undefined) throw new Error('Plugin Manager runtime plugin is missing')
     const client = readFileSync(join(plugin.rootPath, 'lib', manifestClientTarget(plugin.rootPath)), 'utf8')
     expect(client).toContain('react/jsx-runtime')
     expect(client).not.toMatch(/\bReact\.createElement\b/)
@@ -364,5 +355,34 @@ describe('generic runtime plugin builder', () => {
     expect(client).toContain('dataset.pluginCss')
     expect(client).toContain(plugin.name)
     expect(client).toContain('PluginManagerTab.module.css')
+  })
+
+  it('links every hot catalog package at startup, not only bundled distribution plugins', async () => {
+    const harnessHome = await mkdtemp(join(tmpdir(), 'dsh-electron-catalog-links-'))
+    const profilePlugin = join(harnessHome, 'source', 'cli-runtime')
+    mkdirSync(profilePlugin, { recursive: true })
+    writeFileSync(join(profilePlugin, 'package.json'), JSON.stringify({ name: '@fixture/cli-runtime', version: '1.0.0' }), 'utf8')
+    try {
+      ensureCatalogPluginLinks(harnessHome, [{
+        name: '@fixture/cli-runtime',
+        version: '1.0.0',
+        directoryName: 'cli-runtime',
+        rootPath: profilePlugin,
+        hasClient: false,
+        ownership: 'profile',
+        kind: 'runtime-plugin',
+        installSource: 'git',
+        requestedSpec: 'github:fixture/cli-runtime',
+        manageable: true,
+        required: false,
+        activationMode: 'hot',
+        health: 'healthy',
+        packageActions: { checkUpdates: false, update: 'source-refresh', reinstall: true, remove: true },
+      }])
+      expect(readlinkSync(profileModuleLinkPath(harnessHome, '@fixture/cli-runtime'))).toBe(profilePlugin)
+      expect(readlinkSync(pluginRuntimeModuleLinkPath(harnessHome, '@fixture/cli-runtime'))).toBe(profilePlugin)
+    } finally {
+      await rm(harnessHome, { recursive: true, force: true })
+    }
   })
 })

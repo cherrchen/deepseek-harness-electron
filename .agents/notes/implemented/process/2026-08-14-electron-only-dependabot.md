@@ -6,7 +6,7 @@ English | [中文](2026-08-14-electron-only-dependabot.zh.md)
 
 ## Problem
 
-The desktop repository inherits most manifests, workflows, and dependency decisions from `deepseek-ai/deepseek-harness`. Applying the upstream repository-wide [Dependabot policy](2026-07-27-dependabot-version-updates.md) here creates duplicate npm, Python, and GitHub Actions proposals that will arrive again through upstream synchronization. Each generated pull request also starts upstream validation and a three-platform desktop package matrix even though the downstream repository owns only the Electron packaging toolchain.
+The desktop repository inherits most manifests, workflows, and dependency decisions from `deepseek-ai/deepseek-harness`. Applying the upstream repository-wide [Dependabot policy](../../archived/process/2026-07-27-dependabot-version-updates.md) here creates duplicate npm, Python, and GitHub Actions proposals that will arrive again through upstream synchronization. Each generated pull request also starts upstream validation and a three-platform desktop package matrix even though the downstream repository owns only the Electron packaging toolchain.
 
 ## Decision
 

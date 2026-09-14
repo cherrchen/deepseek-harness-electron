@@ -6,34 +6,28 @@ English | [中文](2026-08-24-electron-required-portable-ui-infrastructure.zh.md
 
 ## Problem
 
-AppFrame's `details` column is a single slot occupied by the upstream DetailsPanel. Desktop needs a shared details host that other client plugins can occupy without stealing the column at boot, without user-disableable ecosystem membership, and without an Electron-only overlay. The package must remain a public portable DSH plugin whose canonical source is not the Electron monorepo.
+Desktop needs built-in Client UI that is portable — no Electron, no `ctx.desktop`, no preload imports — yet must never be user-disableable through Plugin Manager, and whose canonical source is not the Electron monorepo. Upstream DSH packages place such features under `packages/` and public plugin repositories; Desktop must rebuild them into its runtime plugin inventory without turning them into ecosystem plugins.
 
 ## Decision
 
-`@dsh-electron/dsh-client-ui-details-host` is Electron-required portable DSH UI infrastructure.
+`runtime/plugins/` may hold Electron-required portable DSH UI infrastructure: a `platform: web` public package whose canonical repository is separate and whose directory here is a git subtree mirror. Edit the standalone repository, then `git subtree pull`; do not patch the mirror as the source of truth. Electron rebuilds Host and Client artifacts from the subtree source; the standalone `lib/` is the public npm artifact, not the Electron load source.
 
-Canonical source is `cherrchen/dsh-client-ui-details-host`. `apps/electron/runtime/plugins/ui-details-host` is a git subtree mirror. Edit the standalone repository, then `git subtree pull`; do not patch the mirror as the source of truth. Electron rebuilds Host and Client artifacts from the subtree source. Standalone `lib/` is the public npm artifact, not the Electron load source.
+The package uses only upstream DSH client services, is a required `host.patch.yml` mount when composed, and never joins `dshElectron.ecosystemPlugins`. Discovery reports `source: desktop-runtime`. Loading the package MUST NOT occupy product UI until a consumer calls the published service.
 
-The package is a required `runtime/host.patch.yml` mount and is not a member of `dshElectron.ecosystemPlugins`. Discovery still reports `source: desktop-runtime`, `required: true`, `manageable: false`.
+`@dsh-electron/dsh-theme-studio` is the current member: it overlays builtin color palettes through `ctx.theme.overrideTokens()` and registers Settings → General → Themes. The former Details Host member was deleted when upstream removed the Client `details` slot ([removal note](2026-09-13-electron-remove-details-host.md)).
 
-`ctx.shellDetails` is a Cordis service. Boot registers the service and does not register a `details` occupant. `open(id)` registers DetailsHost at `DETAILS_HOST_PRIORITY` (`-1`, lower than the upstream default of `0`), declares `shell.details.surface`, requires that id to exist, then calls `ctx.layout.openDetails()`. A missing id disposes takeover and throws so the third column never shows empty. Switching ids keeps DetailsHost mounted. `close()` is idempotent: `layout.closeDetails()`, clear `activeId`, dispose takeover, restore the upstream occupant. Active surface unload, surface crash, session switch, and host unload also close.
-
-This category is the exception to putting every portable public plugin under `packages/dsh-electron/`: Desktop always mounts it, rebuilds it with the runtime plugin builder, and still forbids Electron, `ctx.desktop`, and preload imports. User-disableable product features stay in the ecosystem island ([public namespace](2026-08-23-public-dsh-ecosystem-plugin-namespace.md)).
+Desktop rebuilds this category with the runtime plugin builder and still forbids Electron, `ctx.desktop`, and preload imports. User-disableable product features remain independently published npm dependencies under the [npm-only ecosystem plugin rule](2026-09-14-electron-npm-only-ecosystem-plugins.md).
 
 ## Alternatives considered
 
-**Occupy `details` as soon as the package loads.** Rejected because boot would steal or blank the third column whenever no surface is open.
-
-**Ship it as an ecosystem plugin under `packages/dsh-electron/`.** Rejected because users could disable required UI infrastructure through Plugin Manager.
+**Ship it as a manageable ecosystem plugin.** Rejected because users could disable required UI infrastructure through Plugin Manager.
 
 **Develop in the Electron mirror and copy back.** Rejected because two trees would compete as source of truth.
 
-**DOM query, React portal, CSS overlay, or editing upstream DetailsPanel / `ui-layout` / `ui-conversation`.** Rejected because single-slot shadowing and registration disposal already restore the previous winner.
-
-**Control details-column geometry from Details Host.** Rejected because `ctx.layout.openDetails()` / `closeDetails()` already own panel width and animation.
+**Bundle a Desktop-specific variant instead of the portable package.** Rejected because the portable build must stay byte-identical to what standalone `dsh` users install.
 
 ## Consequences
 
-Loading Details Host at Electron boot MUST leave the upstream DetailsPanel as the `details` winner. `open` / `close` MUST be real slot shadowing. Git is not a Details Host consumer in this change.
+Desktop's required-UI inventory distinguishes mounted members from absent plugins only by `host.patch.yml` rows; adding a member without a mount silently ships dead code.
 
-Standalone package tests pin the public controller with dummy `test.alpha` / `test.beta` surfaces. Electron tests pin the same takeover against the workspace SlotRegistry, required-vs-ecosystem classification, and bootstrap overlay membership. Coverage does not include a headed Electron window visual check of the idle third column.
+Theme Studio's subtree tests and the Electron discovery/classification tests pin the category facts: `platform: web`, no Electron or desktop imports, system ownership, required, not manageable, and absent from `dshElectron.ecosystemPlugins`. Coverage does not include a headed Electron window visual check of idle UI.

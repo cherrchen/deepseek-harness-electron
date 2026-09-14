@@ -12,7 +12,7 @@ Status: implemented
 
 `PluginLifecycleEntry` 将 `activationMode` 与 `health` 分离。`activationMode` 描述 `hot`、`profile-restart` 或无 activation；`health` 报告 installed entry 是 healthy 还是需要 reconciliation。Main 还会提供 `packageActions`，因此 Renderer 永远不会根据 source、ownership 或 kind 推导 update 或 removal authority。
 
-System 与 distribution-bundled package 不具有 package action。Registry-owned direct profile dependency 支持 explicit update check、遵循 range 的 update、reinstall 与 removal。Git 与本地 `file:` dependency 从 recorded `requestedSpec` refresh。Healthy `link:` dependency 使用 runtime reload；incomplete link 可以 repair。Unknown direct profile dependency 允许 removal，但不允许 source operation。通过 CLI 安装的 profile dependency 遵循相同 package policy，而 `profileManaged` 继续决定 ordinary runtime dependency 是否进入 Desktop hot lifecycle。
+System 与 distribution-bundled package 不具有 package action。Registry-owned direct profile dependency 支持 explicit update check、遵循 range 的 update、reinstall 与 removal。Git 与本地 `file:` dependency 从 recorded `requestedSpec` refresh。Healthy `link:` dependency 使用 runtime reload；incomplete link 可以 repair。Unknown direct profile dependency 允许 removal，但不允许 source operation。通过 CLI 安装的 profile dependency 遵循相同 package policy，但可 import package 只在 Desktop 把安装意图记入 `profileManaged` 后才进入 Electron 私有 runtime roster（[可管理类别说明](2026-09-13-electron-plugin-manageable-kinds.zh.md)）。
 
 所有 package command 仍是由 Main 创建的 closed tagged value，并通过 `dsh plugin --profile web` 执行；Renderer 不会获得 pnpm argument 或 generic subprocess access。Registry 与 Git update 使用 `update <name>`，copied local refresh 与 reinstall 使用 `add <requestedSpec> --force`，removal 使用 `remove <name>`，update check 使用 `outdated --format json`。Registry result 同时保留 `wanted` 与 `latest`；ordinary update 遵循现有 dependency range，不会选择新的 major version。上游 dsh 仍负责 profile initialization 与 Bundle reconciliation。
 
@@ -42,6 +42,6 @@ Package recovery 会比较 command 前 capture 的 dependency manifest、pnpm lo
 
 ## Consequences
 
-Desktop 为 GUI 与 CLI 安装的 dependency 提供同一套 profile package lifecycle，且不会扩大 Renderer privilege。Package file 改变前 runtime code 已经 absent，recovery state 会表明 runtime 已恢复还是 disk profile 已改变。Bundle restart status 只反映与 running Host baseline 的差异，并能在 removal row 消失后继续保留，且不增加 durable state。
+Desktop 为 GUI 与 CLI 安装的 dependency 提供 package action，且不会扩大 Renderer privilege；只有 Desktop 安装的 runtime plugin 才获得 hot lifecycle control。Package file 改变前 runtime code 已经 absent，recovery state 会表明 runtime 已恢复还是 disk profile 已改变。Bundle restart status 只反映与 running Host baseline 的差异，并能在 removal row 消失后继续保留，且不增加 durable state。
 
 Package rollback 有意保持有限：只有 captured profile 与 installed-manifest state 未变化时，Desktop 才会 restore runtime。它不保留 historical package version，也不会自动 reverse partially successful pnpm transaction。Update All、background check、major-version selection 与 automatic Host restart 不在本决策范围内。

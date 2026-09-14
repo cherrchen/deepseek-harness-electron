@@ -119,7 +119,10 @@ export function PluginRemoveDialog({ plugin, plugins, app, onClose, onRemoved, o
           )}
         </div>
       ) : (
-        <p>{t(plugin.kind === 'bundle' ? 'removeBundleWarning' : 'removeRuntimeWarning')}</p>
+        <>
+          {plugin.desktopInstalled === false ? <p>{t('removeExternal')}</p> : null}
+          <p>{t(plugin.kind === 'bundle' ? 'removeBundleWarning' : 'removeRuntimeWarning')}</p>
+        </>
       )}
     </Modal>
   )

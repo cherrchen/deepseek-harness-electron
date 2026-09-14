@@ -1,4 +1,4 @@
-import { mkdirSync, readFileSync, writeFileSync } from 'node:fs'
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { mkdtemp, rm } from 'node:fs/promises'
 import { spawnSync } from 'node:child_process'
 import { tmpdir } from 'node:os'
@@ -10,6 +10,11 @@ import { preparePluginPackageManager, resolveBundledPnpmBin } from '../src/plugi
 import { PluginPackageService } from '../src/plugin-install.ts'
 import { PluginMutationCoordinator } from '../src/plugin-mutation.ts'
 import type { PluginLifecycleController } from '../src/plugin-lifecycle.ts'
+import { PluginMutationCrashInjection } from '../src/plugin-recovery.ts'
+import { readPluginPending } from '../src/plugin-pending.ts'
+import { reconcilePendingPackageMutation } from '../src/plugin-startup.ts'
+import { PluginProfileLock, readLockOwner } from '../src/plugin-profile-lock.ts'
+import { ProfilePluginCatalog } from '../src/plugin-catalog.ts'
 
 const electronRoot = fileURLToPath(new URL('..', import.meta.url))
 
@@ -90,7 +95,7 @@ describe('bundled plugin package manager', () => {
 
 describe('plugin package service', () => {
   it('rejects a reserved Registry package before running pnpm', async () => {
-    const packageName = '@dsh-electron/dsh-client-ui-details-host'
+    const packageName = '@dsh-electron/dsh-theme-studio'
     const runner = vi.fn(async () => ({ exitCode: 0, stdout: '', stderr: '' }))
     const service = new PluginPackageService(
       '/unused/profile',
@@ -132,6 +137,8 @@ describe('plugin package service', () => {
       })
       expect(activateInstalled).toHaveBeenCalledWith('@fixture/plugin')
       expect(JSON.parse(readFileSync(statePath, 'utf8'))).toMatchObject({ profileManaged: ['@fixture/plugin'] })
+      expect(existsSync(join(profileDir, 'pnpm-workspace.yaml'))).toBe(true)
+      expect(readFileSync(join(profileDir, 'pnpm-workspace.yaml'), 'utf8')).toContain('strictDepBuilds: true')
     } finally {
       await rm(root, { recursive: true, force: true })
     }
@@ -192,8 +199,8 @@ describe('plugin package service', () => {
     }
   })
 
-  it('identifies an unchanged Git dependency when retrying the same source', async () => {
-    const root = await mkdtemp(join(tmpdir(), 'dsh-electron-git-retry-'))
+  it('fails when install completes without changing profile dependencies', async () => {
+    const root = await mkdtemp(join(tmpdir(), 'dsh-electron-empty-install-'))
     const profileDir = join(root, 'profiles', 'web')
     const statePath = join(root, 'electron', 'plugin-state.json')
     const packageRoot = join(profileDir, 'node_modules', 'dsh-context')
@@ -205,18 +212,19 @@ describe('plugin package service', () => {
     }), 'utf8')
     writeFileSync(join(packageRoot, 'cordis.patch.yml'), '[]\n', 'utf8')
     writeFileSync(statePath, JSON.stringify({ version: 2, disabled: [], profileManaged: [] }), 'utf8')
-    const lifecycle = {} as PluginLifecycleController
     try {
       const service = new PluginPackageService(
         profileDir,
         statePath,
         async () => ({ exitCode: 0, stdout: '', stderr: '' }),
-        lifecycle,
+        {} as PluginLifecycleController,
         new PluginMutationCoordinator(),
       )
-      await expect(service.install({ source: 'git', repository: 'owner/context' })).resolves.toMatchObject({
-        name: 'dsh-context', kind: 'bundle', activation: 'restart-required',
-      })
+      const failure = await service.install({ source: 'git', repository: 'owner/context' }).catch((error: unknown) => error)
+      expect(failure).toBeInstanceOf(PluginInstallError)
+      if (!(failure instanceof PluginInstallError)) throw new Error('expected PluginInstallError')
+      expect(failure.code).toBe('package-manager-failed')
+      expect(failure.message).toContain('without changing profile dependencies')
     } finally {
       await rm(root, { recursive: true, force: true })
     }
@@ -305,23 +313,29 @@ describe('plugin package service', () => {
     const root = await mkdtemp(join(tmpdir(), 'dsh-electron-package-conflict-'))
     const profileDir = join(root, 'profiles', 'web')
     const statePath = join(root, 'electron', 'plugin-state.json')
-    const packageName = '@dsh-electron/dsh-client-ui-details-host'
-    const packageRoot = join(profileDir, 'node_modules', '@dsh-electron', 'dsh-client-ui-details-host')
+    const packageName = '@dsh-electron/dsh-theme-studio'
+    const packageRoot = join(profileDir, 'node_modules', '@dsh-electron', 'dsh-theme-studio')
     mkdirSync(profileDir, { recursive: true })
     mkdirSync(join(statePath, '..'), { recursive: true })
     writeFileSync(join(profileDir, 'package.json'), JSON.stringify({ dependencies: {} }), 'utf8')
     writeFileSync(statePath, JSON.stringify({ version: 2, disabled: [], profileManaged: [] }), 'utf8')
-    const runner = vi.fn(async (command: { kind: string }) => {
+    const lockPath = join(profileDir, 'lock')
+    const rollbackOwner = process.pid + 100_000
+    const observedRollbackOwners: number[] = []
+    const runner = vi.fn(async (command: { kind: string }, options?: { onSpawn?: (pid: number) => void }) => {
+      const owner = command.kind === 'remove' ? rollbackOwner : process.pid
+      options?.onSpawn?.(owner)
       if (command.kind === 'add') {
         mkdirSync(join(packageRoot, 'lib'), { recursive: true })
         writeFileSync(join(profileDir, 'package.json'), JSON.stringify({
-          dependencies: { [packageName]: 'github:cherrchen/dsh-client-ui-details-host' },
+          dependencies: { [packageName]: 'github:cherrchen/dsh-theme-studio' },
         }), 'utf8')
         writeFileSync(join(packageRoot, 'package.json'), JSON.stringify({
           name: packageName, version: '0.1.0', main: 'lib/index.js',
         }), 'utf8')
         writeFileSync(join(packageRoot, 'lib', 'index.js'), '', 'utf8')
       } else {
+        observedRollbackOwners.push(readLockOwner(lockPath) ?? -1)
         writeFileSync(join(profileDir, 'package.json'), JSON.stringify({ dependencies: {} }), 'utf8')
       }
       return { exitCode: 0, stdout: '', stderr: '' }
@@ -336,17 +350,82 @@ describe('plugin package service', () => {
         new Set([packageName]),
       )
       const failure = await service.install({
-        source: 'git', repository: 'cherrchen/dsh-client-ui-details-host',
+        source: 'git', repository: 'cherrchen/dsh-theme-studio',
       }).catch((error: unknown) => error)
       expect(failure).toBeInstanceOf(PluginInstallError)
       if (!(failure instanceof PluginInstallError)) throw new Error('expected PluginInstallError')
       expect(failure.code).toBe('package-conflict')
       expect(failure.profileChanged).toBe(false)
-      expect(runner.mock.calls).toEqual([
-        [{ kind: 'add', spec: 'github:cherrchen/dsh-client-ui-details-host' }],
-        [{ kind: 'remove', name: packageName }],
+      expect(runner.mock.calls.map(call => call[0])).toEqual([
+        { kind: 'add', spec: 'github:cherrchen/dsh-theme-studio' },
+        { kind: 'remove', name: packageName },
       ])
+      expect(observedRollbackOwners).toEqual([rollbackOwner])
+      expect(existsSync(lockPath)).toBe(false)
       expect(JSON.parse(readFileSync(join(profileDir, 'package.json'), 'utf8'))).toEqual({ dependencies: {} })
+    } finally {
+      await rm(root, { recursive: true, force: true })
+    }
+  })
+
+  it.each([
+    'after-pending-write',
+    'after-command',
+    'after-inspect',
+    'before-pending-clear',
+  ] as const)('leaves packages-pending after a crash at %s so the next instance can reconcile', async (point) => {
+    const root = await mkdtemp(join(tmpdir(), `dsh-electron-crash-${point}-`))
+    const profileDir = join(root, 'profiles', 'web')
+    const statePath = join(root, 'electron', 'plugin-state.json')
+    const pendingPath = join(root, 'electron', 'packages-pending')
+    mkdirSync(profileDir, { recursive: true })
+    mkdirSync(join(statePath, '..'), { recursive: true })
+    writeFileSync(join(profileDir, 'package.json'), JSON.stringify({ dependencies: {} }), 'utf8')
+    writeFileSync(statePath, JSON.stringify({ version: 2, disabled: [], profileManaged: [] }), 'utf8')
+    mkdirSync(join(root, 'app', 'runtime', 'plugins'), { recursive: true })
+    writeFileSync(join(root, 'app', 'package.json'), JSON.stringify({ dshElectron: { ecosystemPlugins: [] } }), 'utf8')
+    const runner = vi.fn(async (_command, options?: { onSpawn?: (pid: number) => void }) => {
+      options?.onSpawn?.(process.pid)
+      writeFileSync(join(profileDir, 'package.json'), JSON.stringify({ dependencies: { '@fixture/plugin': 'file:../../../fixture' } }), 'utf8')
+      const packageRoot = join(profileDir, 'node_modules', '@fixture', 'plugin')
+      mkdirSync(packageRoot, { recursive: true })
+      writeFileSync(join(packageRoot, 'package.json'), JSON.stringify({ name: '@fixture/plugin', version: '1.0.0', main: 'index.js' }), 'utf8')
+      writeFileSync(join(packageRoot, 'index.js'), '', 'utf8')
+      return { exitCode: 0, stdout: '', stderr: '' }
+    })
+    const lifecycle = { activateInstalled: vi.fn(async () => {}) } as unknown as PluginLifecycleController
+    try {
+      const service = new PluginPackageService(
+        profileDir,
+        statePath,
+        runner,
+        lifecycle,
+        new PluginMutationCoordinator(),
+        new Set(),
+        undefined,
+        undefined,
+        {
+          crashHook: (hit) => {
+            if (hit === point) throw new PluginMutationCrashInjection(point)
+          },
+        },
+      )
+      const failure = await service.install({ source: 'local', path: root, mode: 'file' }).catch((error: unknown) => error)
+      expect(failure).toBeInstanceOf(PluginMutationCrashInjection)
+      expect(readPluginPending(pendingPath)?.command).toBe('add')
+      const hostStarts: string[] = []
+      const catalog = new ProfilePluginCatalog(join(root, 'app'), root, 'web', () => ({
+        version: 2, disabled: [], profileManaged: [],
+      }))
+      await reconcilePendingPackageMutation({
+        harnessHome: root,
+        catalog,
+        pendingPath,
+        lock: new PluginProfileLock(join(profileDir, 'lock'), 200, 10),
+      })
+      hostStarts.push('would-start')
+      expect(existsSync(pendingPath)).toBe(false)
+      expect(hostStarts).toEqual(['would-start'])
     } finally {
       await rm(root, { recursive: true, force: true })
     }

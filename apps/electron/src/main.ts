@@ -41,6 +41,7 @@ import {
 } from './protocol.ts'
 import { prepareHostRuntimeOverlay } from './runtime-overlay.ts'
 import {
+  ensureCatalogPluginLinks,
   ensureRuntimePluginsLinked,
   profileModuleLinkPath,
   pluginRuntimeModuleLinkPath,
@@ -55,7 +56,7 @@ import {
   type HarnessStartupScan,
 } from './runtime.ts'
 import { DynamicIncludeCompositionBackend, effectivePluginRoster } from './plugin-runtime-config.ts'
-import { loadPluginState, reconcilePluginState, savePluginState } from './plugin-state.ts'
+import { loadPluginState, savePluginState } from './plugin-state.ts'
 import { PluginLifecycleController } from './plugin-lifecycle.ts'
 import { ProfilePluginCatalog } from './plugin-catalog.ts'
 import { PluginMutationCoordinator } from './plugin-mutation.ts'
@@ -63,6 +64,18 @@ import { PluginPackageService, createPluginCommandRunner } from './plugin-instal
 import { PluginRestartTracker } from './plugin-restart-tracker.ts'
 import { preparePluginPackageManager, resolveBundledPnpmBin } from './plugin-package-manager.ts'
 import { RemotePluginInventoryProbe } from './plugin-inventory-probe.ts'
+import { PluginProfileLock } from './plugin-profile-lock.ts'
+import { failAfterHostTimeout, PluginRecoveryError, retryAfterPluginRecovery } from './plugin-recovery.ts'
+import { presentPluginRecovery } from './plugin-recovery-window.ts'
+import { resolveDesktopMainLocale } from './locale.ts'
+import {
+  disableAllManageablePlugins,
+  loadStartupPluginState,
+  prepareStartupWorkspace,
+  reconcilePendingPackageMutation,
+  resetPluginManagement,
+  webProfileDir,
+} from './plugin-startup.ts'
 import {
   trayIconNeedsLogicalLoad,
   trayIconPath,
@@ -112,18 +125,11 @@ async function startHarness(dshBin: string, harnessHome: string, hostPatch: stri
       if (scan.settled) return
       scan.settled = true
       scan.output = ''
-      const timeoutError = new Error(
+      const timeoutError = new PluginRecoveryError(
         `DeepSeek Harness did not become ready within ${String(HARNESS_START_TIMEOUT_MS / 1000)} seconds.`,
+        'host-timeout',
       )
-      void stopHarness(child).then(
-        () => { reject(timeoutError) },
-        (cleanupError: unknown) => {
-          reject(new AggregateError(
-            [timeoutError, cleanupError],
-            `${timeoutError.message} Harness shutdown also failed.`,
-          ))
-        },
-      )
+      void failAfterHostTimeout(() => stopHarness(child), timeoutError).catch(reject)
     }, HARNESS_START_TIMEOUT_MS)
 
     const fail = (error: Error): void => {
@@ -152,13 +158,6 @@ async function startHarness(dshBin: string, harnessHome: string, hostPatch: stri
 
 function logPlugins(message: string, ...details: unknown[]): void {
   console.info('[electron:plugins]', message, ...details)
-}
-
-function readProfileDependencies(profileDir: string): Record<string, string> {
-  const manifestPath = join(profileDir, 'package.json')
-  if (!existsSync(manifestPath)) return {}
-  const manifest = JSON.parse(readFileSync(manifestPath, 'utf8')) as { dependencies?: Record<string, string> }
-  return manifest.dependencies ?? {}
 }
 
 /** Open one hardened desktop window for the Electron-owned renderer. */
@@ -426,17 +425,65 @@ if (!primaryInstance) {
       'web',
       () => loadPluginState(overlay.pluginStatePath).state,
     )
-    const catalogPlugins = await catalog.list()
-    const restartTracker = new PluginRestartTracker(catalogPlugins)
-    const reconciled = reconcilePluginState(
-      loadedState.state,
-      catalogPlugins.filter(plugin => plugin.manageable).map(plugin => plugin.name),
-      Object.keys(readProfileDependencies(join(harnessHome, 'profiles', 'web'))),
-    )
-    if (reconciled.removed.length > 0) {
-      console.warn('[electron:plugins] ignoring stale plugin state entries', reconciled.removed)
-      await savePluginState(overlay.pluginStatePath, reconciled.state)
+    const profileLock = new PluginProfileLock(overlay.profileLockPath)
+    const locale = resolveDesktopMainLocale(app.getLocale())
+    const repair = {
+      disableAll: () => disableAllManageablePlugins({
+        harnessHome,
+        lock: profileLock,
+        catalog,
+        statePath: overlay.pluginStatePath,
+        configPath: overlay.pluginConfigPath,
+        pendingPath: overlay.packagesPendingPath,
+      }),
+      resetManagement: () => resetPluginManagement({
+        lock: profileLock,
+        harnessHome,
+        catalog,
+        statePath: overlay.pluginStatePath,
+        configPath: overlay.pluginConfigPath,
+        pendingPath: overlay.packagesPendingPath,
+      }),
     }
+    const presentRecovery = async (error: PluginRecoveryError): Promise<void> => {
+      await presentPluginRecovery({
+        messages: locale.messages,
+        lang: locale.id,
+        reason: error.reason,
+        ...(error.details === undefined ? {} : { details: error.details }),
+        disableAll: repair.disableAll,
+        resetManagement: repair.resetManagement,
+      })
+    }
+    try {
+      await reconcilePendingPackageMutation({
+        harnessHome,
+        catalog,
+        pendingPath: overlay.packagesPendingPath,
+        lock: profileLock,
+      })
+    } catch (error) {
+      if (!(error instanceof PluginRecoveryError)) throw error
+      await presentRecovery(error)
+    }
+    await prepareStartupWorkspace(webProfileDir(harnessHome), profileLock)
+    const catalogPlugins = await retryAfterPluginRecovery(
+      async () => {
+        try {
+          return await catalog.list()
+        } catch (error) {
+          throw new PluginRecoveryError(
+            'The web profile plugin list could not be read.',
+            'profile-reconcile-failed',
+            String(error),
+          )
+        }
+      },
+      presentRecovery,
+    )
+    ensureCatalogPluginLinks(harnessHome, catalogPlugins)
+    const restartTracker = new PluginRestartTracker(catalogPlugins)
+    let startupState = await loadStartupPluginState(overlay.pluginStatePath, catalogPlugins, webProfileDir(harnessHome))
     const composition = new DynamicIncludeCompositionBackend(overlay.pluginConfigPath)
     const mutations = new PluginMutationCoordinator()
     const packageManager = preparePluginPackageManager(
@@ -444,8 +491,8 @@ if (!primaryInstance) {
       process.execPath,
       resolveBundledPnpmBin(appPath),
     )
-    await composition.apply(effectivePluginRoster(catalogPlugins, reconciled.state))
-    logPlugins('desired startup roster', effectivePluginRoster(catalogPlugins, reconciled.state).map(plugin => plugin.name))
+    await composition.apply(effectivePluginRoster(catalogPlugins, startupState))
+    logPlugins('desired startup roster', effectivePluginRoster(catalogPlugins, startupState).map(plugin => plugin.name))
     installDesktopIpc(
       transport,
       desktop,
@@ -460,13 +507,21 @@ if (!primaryInstance) {
       },
     )
 
-    const started = await startHarness(resolveDshBin(appPath), harnessHome, overlay.patchPath)
+    const started = await retryAfterPluginRecovery(
+      () => startHarness(resolveDshBin(appPath), harnessHome, overlay.patchPath),
+      presentRecovery,
+      async () => {
+        const repaired = await catalog.list()
+        startupState = await loadStartupPluginState(overlay.pluginStatePath, repaired, webProfileDir(harnessHome))
+        await composition.apply(effectivePluginRoster(repaired, startupState))
+      },
+    )
     harness = started.child
     await transport.start(started.url)
     inventoryProbe = new RemotePluginInventoryProbe(transport)
     pluginLifecycle = new PluginLifecycleController(
       catalog,
-      reconciled.state,
+      startupState,
       overlay.pluginStatePath,
       composition,
       inventoryProbe,

@@ -11,7 +11,6 @@ import { usesFlattenedPackageDependencies } from './package-dependency-policy.ts
 
 /** Package README sentence that records why an invariant companion is omitted. */
 const OMITTED_COMPANION_REASON = /No (?:(?:runtime )?invariant )?companion is published(?: because|[.:;—])\s+\S/i
-const DOWNSTREAM_ECOSYSTEM_PACKAGE = /^packages\/dsh-electron\/[^/]+$/
 
 interface PackageManifest {
   name?: string
@@ -128,7 +127,6 @@ function checkManifest(
   if (!manifest.files?.includes('lib/invariant.js')) {
     addViolation(violations, owner.manifestPath, 'files must publish lib/invariant.js')
   }
-  if (DOWNSTREAM_ECOSYSTEM_PACKAGE.test(owner.dir)) return
   if (owner.packageName === '@deepseek-ai/dsh-invariants') return
   const developmentOnlyInvariant = usesFlattenedPackageDependencies(
     owner.manifestPath,
@@ -157,7 +155,6 @@ function checkBuild(
   hasCompanion: boolean,
   violations: PackageInvariantViolation[],
 ): void {
-  if (DOWNSTREAM_ECOSYSTEM_PACKAGE.test(owner.dir)) return
   const tsconfigPath = `${owner.dir}/tsconfig.json`
   if (hasCompanion
     && owner.packageName !== '@deepseek-ai/dsh-invariants'

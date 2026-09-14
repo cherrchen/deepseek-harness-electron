@@ -10,7 +10,7 @@ export interface PluginState {
   version: typeof PLUGIN_STATE_VERSION
   /** Runtime plugin package names explicitly disabled by the user. */
   disabled: string[]
-  /** Profile dependencies installed through the Desktop Plugin Manager. */
+  /** Profile runtime plugins installed through Desktop and eligible for its private roster. */
   profileManaged: string[]
 }
 

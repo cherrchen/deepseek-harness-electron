@@ -1,8 +1,8 @@
+import { spawnSync } from 'node:child_process'
 import { existsSync, readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { describe, expect, it } from 'vitest'
-import { downstreamPluginPackages, verifyDownstreamPluginWorkspace } from '../scripts/verify-downstream-plugin-workspace.mjs'
 
 const electronRoot = fileURLToPath(new URL('..', import.meta.url))
 
@@ -22,9 +22,14 @@ describe('runtime plugin architecture baselines', () => {
     expect(source).not.toContain('dsh-electron-desktop-capabilities')
   })
 
-  it('keeps downstream ecosystem packages visible to pnpm', () => {
+  it('does not modify upstream CLI or boot packages', () => {
     const root = join(electronRoot, '..', '..')
-    expect(downstreamPluginPackages(root)).toEqual(expect.any(Array))
-    expect(() => { verifyDownstreamPluginWorkspace(root) }).not.toThrow()
+    const diff = spawnSync('git', ['diff', '--', 'apps/cli', 'packages/boot'], {
+      cwd: root,
+      encoding: 'utf8',
+    })
+    expect(diff.status).toBe(0)
+    expect(diff.stdout).toBe('')
   })
+
 })

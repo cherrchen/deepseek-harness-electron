@@ -61,6 +61,8 @@ export interface PluginLifecycleEntry {
   activationMode: PluginActivationMode
   health: PluginPackageHealth
   packageActions: PluginPackageActions
+  /** Whether Desktop recorded this profile dependency as its own install. */
+  desktopInstalled?: boolean
 }
 
 /** Ordered plugin lifecycle snapshot returned by Electron Main. */

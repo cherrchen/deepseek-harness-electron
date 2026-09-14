@@ -2,5 +2,5 @@
 # side as of the last confirmed-consistent state. Both languages carry equal authority;
 # after editing either side, bring the other along and re-record with:
 #   pnpm run verify-translation-pairing --write .agents/notes/implemented/architecture/2026-08-25-electron-profile-plugin-installation.md
-2026-08-25-electron-profile-plugin-installation.md: 306ce0604d5d8c3be302ef3b0410a8f5babee43c
-2026-08-25-electron-profile-plugin-installation.zh.md: 28579d395a5d2de37e995e15959d54701ae2c948
+2026-08-25-electron-profile-plugin-installation.md: f2b21db15935ae3e31065048e3c7b143e000a96d
+2026-08-25-electron-profile-plugin-installation.zh.md: f6e88bf96cd2b43e2740fe1d6f03676183dc3a59

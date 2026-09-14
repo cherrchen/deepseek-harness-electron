@@ -3,7 +3,6 @@ import { nextBetaTag } from '../scripts/next-beta-tag-lib.mjs'
 import {
   DESKTOP_ENTRY_WORKSPACE_DEPENDENCIES,
   assertResolvedWorkspaceDependencies,
-  requiredDesktopWorkspaceDependencies,
   synchronizeDependencies,
 } from '../scripts/sync-version-dependencies.mjs'
 
@@ -69,25 +68,21 @@ describe('Electron dependency synchronization', () => {
     })
   })
 
-  it('retains declared ecosystem plugins as required workspace dependencies', () => {
+  it('retains the exact registry pin for declared ecosystem plugins', () => {
     const dependencies = synchronizeDependencies(
       {
+        '@dsh-electron/dsh-plugin-git': '0.2.0',
         'electron-updater': '^6.8.9',
       },
       ['@deepseek-ai/dsh'],
-      new Set([
-        '@deepseek-ai/dsh',
-        '@dsh-electron/dsh-plugin-git',
-      ]),
-      requiredDesktopWorkspaceDependencies({
-        dshElectron: { ecosystemPlugins: ['@dsh-electron/dsh-plugin-git'] },
-      }),
+      new Set(['@deepseek-ai/dsh']),
+      DESKTOP_ENTRY_WORKSPACE_DEPENDENCIES,
     )
 
     expect(dependencies).toEqual({
       '@deepseek-ai/dsh': 'workspace:^',
       '@deepseek-ai/dsh-client-web': 'workspace:^',
-      '@dsh-electron/dsh-plugin-git': 'workspace:^',
+      '@dsh-electron/dsh-plugin-git': '0.2.0',
       'electron-updater': '^6.8.9',
     })
   })

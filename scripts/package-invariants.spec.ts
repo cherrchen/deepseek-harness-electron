@@ -139,16 +139,6 @@ describe('package invariant gate', () => {
     expect(collectPackageInvariantViolations(fixture({ clientDeclaration: true, clientExport: true }))).toEqual([])
   })
 
-  it('accepts standalone dependency and build metadata in the downstream ecosystem namespace', () => {
-    expect(collectPackageInvariantViolations(fixture({
-      packageName: '@dsh-electron/dsh-plugin-probe',
-      packageDirectory: 'packages/dsh-electron/probe',
-      invariantDependency: false,
-      invariantReference: false,
-      buildEntry: false,
-    }))).toEqual([])
-  })
-
   it('keeps invariant peers for packages that only export a Client API', () => {
     expect(collectPackageInvariantViolations(fixture({ clientExport: true }))).toEqual([])
   })
