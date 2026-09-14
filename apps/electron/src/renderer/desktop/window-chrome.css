@@ -9,6 +9,9 @@
   --dsh-native-control-row-height: 40px;
   --dsh-sidebar-top-inset: 0px;
   --dsh-content-top-inset: 0px;
+  /* Row the fullscreen right panel, which covers the window, reserves for the
+     native controls that overlap it. */
+  --dsh-panel-top-inset: 0px;
   --dsh-macos-sidebar-top-inset: 28px;
   --dsh-macos-sidebar-seam-width: 8px;
   --dsh-macos-traffic-light-safe-width: 80px;
@@ -32,6 +35,17 @@
 [data-dsh-desktop-platform='linux'] [data-dsh-electron-center],
 [data-dsh-desktop-platform='linux'] [data-dsh-electron-rightbar] {
   --dsh-content-top-inset: var(--dsh-native-control-row-height);
+}
+
+/* The fullscreen right panel covers the window on every platform, so it
+   reserves the row the native controls occupy there. */
+[data-dsh-desktop-platform='darwin'] {
+  --dsh-panel-top-inset: var(--dsh-macos-sidebar-top-inset);
+}
+
+[data-dsh-desktop-platform='win32'],
+[data-dsh-desktop-platform='linux'] {
+  --dsh-panel-top-inset: var(--dsh-native-control-row-height);
 }
 
 [data-dsh-electron-sidebar] {
@@ -86,6 +100,28 @@
    box ignores that padding, so the panel takes the inset as its own top. */
 [data-dsh-electron-rightbar] [data-sidebar-right-panel='push'] {
   top: var(--dsh-content-top-inset);
+}
+
+/* The fullscreen panel covers the window instead of a column, so it keeps its
+   own top edge and holds the native-control row as padding; border-box keeps
+   the box inside the viewport while the pane strip and the panel's controls
+   move below the row. */
+[data-dsh-electron-rightbar] [data-sidebar-right-panel='fullscreen'] {
+  box-sizing: border-box;
+  padding-top: var(--dsh-panel-top-inset);
+}
+
+/* That band is the panel's own top edge, over the column strip it covers, so
+   the panel draws the drag surface itself. */
+[data-dsh-electron-rightbar] [data-sidebar-right-panel='fullscreen']::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  right: 0;
+  left: 0;
+  z-index: 3;
+  height: var(--dsh-panel-top-inset);
+  -webkit-app-region: drag;
 }
 
 /* The band above a shifted column stays blank and drags the window. */
@@ -146,6 +182,7 @@
 :root:has([role='dialog'][aria-modal='true']) [data-dsh-electron-sidebar]::before,
 :root:has([role='dialog'][aria-modal='true']) [data-dsh-electron-center]::before,
 :root:has([role='dialog'][aria-modal='true']) [data-dsh-electron-rightbar]::before,
+:root:has([role='dialog'][aria-modal='true']) [data-dsh-electron-rightbar] [data-sidebar-right-panel='fullscreen']::before,
 :root:has([role='dialog'][aria-modal='true']) [data-dsh-electron-main-header] {
   -webkit-app-region: no-drag;
 }

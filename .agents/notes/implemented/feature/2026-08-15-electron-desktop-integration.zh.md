@@ -12,7 +12,7 @@ Electron 包装层在默认浏览器窗口中显示上游 Web UI。操作系统�
 
 `apps/electron` 负责桌面专用的窗口框架、生命周期、权限、菜单、应用元数据和更新行为。上游 Web 组合保持不变并继续在沙箱中运行。
 
-主窗口使用融合式无边框窗体，不绘制独立 Renderer Heading。侧栏和会话的现有填充色延伸至窗口顶部。侧栏的原生控件留白、活动会话 Header 中控件以外的区域、Windows 和 Linux 上侧栏右侧各列上方的留空区域（[右侧面板留白](../bug-fix/2026-09-14-electron-windows-native-control-inset.zh.md)），以及空白会话背景顶部的透明 40 像素命中面共同提供拖拽目标。Header 后代元素和全视口对话框不可拖拽，因此产品控件和模态遮罩保持原有的指针行为。macOS 使用隐藏标题栏和定位后的“交通信号灯”；Windows 和 Linux 使用 Window Controls Overlay。除非正在明确退出或安装更新，关闭事件只隐藏主窗口。托盘保留应用、重新打开窗口，并提供唯一的常规退出操作；单实例锁使再次启动时显示已有窗口。
+主窗口使用融合式无边框窗体，不绘制独立 Renderer Heading。侧栏和会话的现有填充色延伸至窗口顶部。侧栏的原生控件留白、活动会话 Header 中控件以外的区域、Windows 和 Linux 上侧栏右侧各列上方的留空区域及全屏右侧面板自有的同类区域（[右侧面板留白](../bug-fix/2026-09-14-electron-windows-native-control-inset.zh.md)），以及空白会话背景顶部的透明 40 像素命中面共同提供拖拽目标。Header 后代元素和全视口对话框不可拖拽，因此产品控件和模态遮罩保持原有的指针行为。macOS 使用隐藏标题栏和定位后的“交通信号灯”；Windows 和 Linux 使用 Window Controls Overlay。除非正在明确退出或安装更新，关闭事件只隐藏主窗口。托盘保留应用、重新打开窗口，并提供唯一的常规退出操作；单实例锁使再次启动时显示已有窗口。
 
 默认 session（会话）仅在请求源和 `WebContents` 都属于活动环回 Harness 窗口时允许 `clipboard-sanitized-write`。原生右键菜单使用 Chromium 编辑标志，不通过渲染进程 IPC。“关于”文档是采用严格 Content Security Policy 的沙箱 data URL，只有从 `package.json` 解析出的仓库 URL 可以在外部打开。
 
