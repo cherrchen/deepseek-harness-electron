@@ -18,7 +18,7 @@ Windows 发行版将上游 Node.js `24.17.0` 运行时作为 `resources/node/nod
 
 [`resolveHostRuntime`](../../../../apps/electron/src/runtime.ts) 是 Desktop 监督的所有 dsh 子进程的唯一解析点：[`startHarness`](../../../../apps/electron/src/main.ts) 中的受监督 Host，以及 [`createPluginCommandRunner`](../../../../apps/electron/src/plugin-install.ts) 的 `dsh plugin` 命令。Windows 上显式的 `DSH_ELECTRON_NODE_BINARY` 会取代两个随包位置，且必须指向存在的文件；否则依次解析随包的 `resources/node/node.exe` 与预备好的 `.electron-build/node/win-<arch>/node.exe`，二者都不存在时于启动阶段报错，错误信息指明 `pnpm --filter @dsh-electron/dsh-electron prepare:node`，而不是回退到 Electron。其它平台继续使用带 `ELECTRON_RUN_AS_NODE=1` 的 `process.execPath`，该环境会同时传给生成的 pnpm shim 与插件命令子进程，二者在 Windows 上都不带该变量。
 
-[`prepare-node-runtime.mjs`](../../../../apps/electron/scripts/prepare-node-runtime.mjs) 下载 `node-v24.17.0-win-<arch>.zip` 与 Node.js `SHASUMS256.txt`，用清单校验压缩包 SHA-256，把 `node.exe` 解包到 `.electron-build/node/win-<arch>/`，再复制到 `build.win.extraResources` 引用的固定路径 `.electron-build/node/current/`。它按版本幂等，并跳过非 Windows 目标；`prepare:node` 由 `package`、`start` 以及发布工作流的 Windows matrix 行调用。
+[`prepare-node-runtime.mjs`](../../../../apps/electron/scripts/prepare-node-runtime.mjs) 下载 `node-v24.17.0-win-<arch>.zip` 与 Node.js `SHASUMS256.txt`，用清单校验压缩包 SHA-256，把 `node.exe` 解包到 `.electron-build/node/win-<arch>/`，再复制到 `build.win.extraResources` 引用的固定路径 `.electron-build/node/current/`。它按版本幂等，并跳过非 Windows 目标；`prepare:node` 由 `package`、`start` 以及发布工作流的 Windows matrix 行调用。使预备目录可复用的 `VERSION` 标记只在解包后的运行时通过 `--version` 检查后才写入，因此构建主机拒绝的运行时会在下次运行时重新校验，而不会被缓存直接信任并复制到 `current/`。
 
 ## Alternatives considered
 

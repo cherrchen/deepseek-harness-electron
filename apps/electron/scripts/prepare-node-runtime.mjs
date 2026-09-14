@@ -94,8 +94,11 @@ async function prepareNode(arch) {
   mkdirSync(destinationRoot, { recursive: true })
   cpSync(join(EXTRACT_ROOT, folder, 'node.exe'), destination)
   rmSync(EXTRACT_ROOT, { recursive: true, force: true })
-  writeFileSync(versionFile, `${VERSION}\n`)
+  // `VERSION` is what makes this directory reusable, so it is written only once the executable has
+  // been verified: a rejected runtime must never be reused from the cache above or copied into
+  // `current`, which is what `build.win.extraResources` ships.
   verifyNode(destination, arch)
+  writeFileSync(versionFile, `${VERSION}\n`)
   return destinationRoot
 }
 
