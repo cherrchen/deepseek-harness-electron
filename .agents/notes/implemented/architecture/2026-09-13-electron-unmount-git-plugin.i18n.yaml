@@ -2,5 +2,5 @@
 # side as of the last confirmed-consistent state. Both languages carry equal authority;
 # after editing either side, bring the other along and re-record with:
 #   pnpm run verify-translation-pairing --write .agents/notes/implemented/architecture/2026-09-13-electron-unmount-git-plugin.md
-2026-09-13-electron-unmount-git-plugin.md: 73c2ad2c222d62cbfa83d2fdb29a44dd8aea04c4
-2026-09-13-electron-unmount-git-plugin.zh.md: 4160812858eeee42891654d538c47a9e52a9c9f5
+2026-09-13-electron-unmount-git-plugin.md: c5a54e56c6ddbd420e2389e052db1da335e18aff
+2026-09-13-electron-unmount-git-plugin.zh.md: 2ab7e006a44da99554f31545692303ba70b1b005

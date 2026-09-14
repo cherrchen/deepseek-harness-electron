@@ -30,7 +30,7 @@ Governing rules for contributors:
 
 - Desktop-only work stays under `apps/electron/**`; do not customize Desktop UI through `apps/web`.
 - Keep `src/renderer` a thin bootstrap/carrier; do not grow a second product frontend there.
-- Portable and Desktop-aware product features belong in standard DSH/Cordis packages under `packages/dsh-electron/`; `runtime/plugins/` holds Desktop-required adapters, Electron carriers, and Electron-required portable DSH UI infrastructure. Desktop-required Host composition stays in `runtime/host.patch.yml`; bundled ecosystem plugin membership is the generated `$DSH_HOME/electron/plugins.cordis.yml` roster ([plugin lifecycle](../../docs/electron/plugin-lifecycle.md)).
+- Portable and Desktop-aware product features belong in independently published DSH/Cordis packages; `runtime/plugins/` holds Desktop-required adapters, Electron carriers, and Electron-required portable DSH UI infrastructure. Desktop-required Host composition stays in `runtime/host.patch.yml`; bundled ecosystem plugin membership is the generated `$DSH_HOME/electron/plugins.cordis.yml` roster ([plugin lifecycle](../../docs/electron/plugin-lifecycle.md)).
 - A Desktop-aware feature keeps its core fiber portable and installs native enhancements through an optional `ctx.inject(['desktop'], ...)` child fiber. It consumes the `ctx.desktop` capability service, never `window.deepseekDesktop` directly.
 - Loopback Host transport is an internal compatibility mechanism, not a defect to remove without evidence.
 

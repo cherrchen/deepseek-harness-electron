@@ -119,7 +119,7 @@ export function discoverRuntimePlugins(appPath: string): RuntimePluginManifest[]
  * Resolve prebuilt standard DSH packages declared by the Electron distribution.
  * Packaged apps require each name as a production dependency so electron-builder copies it into `node_modules`.
  * @param appPath - Electron application root.
- * @returns manifests backed by installed package artifacts or workspace sources in development.
+ * @returns Manifests backed by installed npm package artifacts.
  */
 export function discoverEcosystemPlugins(appPath: string): RuntimePluginManifest[] {
   const appManifestPath = join(appPath, 'package.json')
@@ -128,8 +128,7 @@ export function discoverEcosystemPlugins(appPath: string): RuntimePluginManifest
   const names = appManifest.dshElectron?.ecosystemPlugins ?? []
   return names.map((name) => {
     const installed = join(appPath, 'node_modules', ...name.split('/'))
-    const workspace = join(appPath, '..', '..', 'packages', 'dsh-electron', name.split('/').at(-1) ?? '')
-    const rootPath = existsSync(installed) ? installed : workspace
+    const rootPath = installed
     const manifestPath = join(rootPath, 'package.json')
     if (!existsSync(manifestPath)) {
       throw new Error(`ecosystem plugins: ${name} is declared but not installed at ${installed}`)

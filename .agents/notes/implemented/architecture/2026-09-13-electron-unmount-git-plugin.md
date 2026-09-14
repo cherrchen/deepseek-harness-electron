@@ -18,7 +18,7 @@ Forking a private `details` slot, or keeping Details-based sources in the host/c
 
 **Keep a Details-based Git client composed and fork a private `details` slot.** Rejected because the upstream Client no longer has that slot, and a private fork would fight the pin.
 
-**Delete `packages/dsh-electron/dsh-plugin-git`.** Rejected because subtree identity and the Sidebar port still need the tree.
+**Delete `packages/dsh-electron/dsh-plugin-git`.** Rejected while the Sidebar port still depended on that source tree. The published package later made the [npm-only distribution](2026-09-14-electron-npm-only-ecosystem-plugins.md) possible.
 
 **Leave Details-based Git sources in the host/client aggregates.** Rejected because Client sources that reference `details` fail `pnpm run build`.
 

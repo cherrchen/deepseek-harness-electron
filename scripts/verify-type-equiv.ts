@@ -13,7 +13,7 @@ import { resolve, sep } from 'node:path'
 import ts from 'typescript'
 import { markdownFences } from './markdown.ts'
 import { partitionPairedMarkdownDerivatives } from './paired-markdown-derivatives.ts'
-import { isArchivedAgentNotePath, isExternalSubtreeDocPath } from './repo-files.ts'
+import { isArchivedAgentNotePath } from './repo-files.ts'
 
 const root = resolve(import.meta.dirname, '..')
 
@@ -280,7 +280,7 @@ const docSet = new Set<string>()
 for (const pattern of MARKDOWN_GLOBS) {
   for (const match of globSync(pattern, { cwd: root })) {
     const normalized = match.split(sep).join('/')
-    if (!isArchivedAgentNotePath(normalized) && !isExternalSubtreeDocPath(normalized)) docSet.add(normalized)
+    if (!isArchivedAgentNotePath(normalized)) docSet.add(normalized)
   }
 }
 const extractedBlocks: EquivBlock[] = [...docSet].sort().flatMap(extractEquivBlocks)

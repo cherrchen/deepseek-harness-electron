@@ -7,7 +7,6 @@ This repository is the **DeepSeek Harness Desktop** downstream fork of [deepseek
 | Area | Owner | Notes |
 |------|-------|-------|
 | `packages/**` | Upstream | Merged from `upstream/master` on `develop` by default |
-| `packages/dsh-electron/**` | Downstream | Public DSH ecosystem plugin subtree mirrors |
 | `vendor/`, `apps/cli`, `apps/web` | Upstream | Merged from `upstream/master` on `develop` |
 | `docs/**` (except `docs/electron/**`) | Upstream | Core harness documentation spine |
 | `docs/electron/` | Downstream | Desktop architecture and other downstream-owned docs — [architecture](docs/electron/architecture.md) |
@@ -98,7 +97,6 @@ Never let upstream sync overwrite:
 
 - `README.md`, `README.zh.md`, `README.i18n.yaml`
 - `docs/electron/**`
-- `packages/dsh-electron/**`
 - `AGENTS.downstream.md`
 - `apps/electron/**` (except shared lockfile regeneration side effects)
 
@@ -114,9 +112,9 @@ Before architecture-sensitive Desktop work, read that guide, then classify the c
 
 Standing rules (do not duplicate the full architecture doc here):
 
-- Desktop-only changes stay under `apps/electron/**` and `docs/electron/**`. Public ecosystem plugins live under the downstream-owned `packages/dsh-electron/**` namespace island. Do not modify `apps/web`, upstream `docs/**` (outside `docs/electron/**`), or other `packages/**` paths for Desktop-only UI unless the change is intentionally upstream-compatible and meant for upstream contribution.
+- Desktop-only changes stay under `apps/electron/**` and `docs/electron/**`. Public ecosystem plugins are independently published npm packages; do not mirror their source into this repository. Do not modify `apps/web`, upstream `docs/**` (outside `docs/electron/**`), or `packages/**` for Desktop-only UI unless the change is intentionally upstream-compatible and meant for upstream contribution.
 - Electron remains the stable desktop platform; DSH/Cordis plugins are the extensible product feature layer. Do not make the Electron app itself a Cordis plugin, and do not rebuild a second product frontend in `apps/electron/src/renderer`.
-- Keep Renderer bootstrap thin (`bootstrap.ts` / `renderer/main.ts`). Portable and Desktop-aware product features belong in standard DSH packages under `packages/dsh-electron/**`; `apps/electron/runtime/plugins/` holds Desktop adapters, Electron carrier plugins, Desktop-only integration, and Electron-required portable DSH UI infrastructure. Host composition stays explicit in `runtime/host.patch.yml`.
+- Keep Renderer bootstrap thin (`bootstrap.ts` / `renderer/main.ts`). Portable and Desktop-aware product features belong in independently published DSH packages; `apps/electron/runtime/plugins/` holds Desktop adapters, Electron carrier plugins, Desktop-only integration, and Electron-required portable DSH UI infrastructure. Host composition stays explicit in `runtime/host.patch.yml`.
 - Feature plugins MUST NOT import Electron, `ipcRenderer`, or Node. Native OS operations cross the Desktop Capability Provider (`ctx.desktop`); only renderer infrastructure and the provider may read `window.deepseekDesktop` directly. Do not add a generic IPC escape hatch.
 - `@dsh-electron/dsh-plugin-*` packages are Native-compatible by default and MUST NOT depend on an Electron provider. Optional native enhancement runs in a child `ctx.inject(['desktop'], ...)` fiber so the portable core remains active when `desktop` is absent or unloads. Reserve `@dsh-electron/dsh-electron-*` for Desktop-required infrastructure. Electron-required portable UI infrastructure under `runtime/plugins/` uses a public package name (currently `@dsh-electron/dsh-theme-studio`), is a required `host.patch.yml` mount when composed, and MUST NOT join `dshElectron.ecosystemPlugins`.
 - Prefer existing upstream Cordis/DSH seams before inventing Desktop-specific APIs; only the privileged portion should enter Electron Main.
@@ -128,7 +126,7 @@ Standing rules (do not duplicate the full architecture doc here):
 - Downstream-owned npm packages under `apps/electron/` publish under the `@dsh-electron/` scope (for example `@dsh-electron/dsh-electron`, `@dsh-electron/dsh-electron-desktop-capabilities`). Upstream-synced packages under `packages/`, `vendor/`, and `apps/cli` / `apps/web` keep the `@deepseek-ai/` scope.
 - All desktop release work targets `apps/electron/`
 - Build the upstream runtime before starting Electron locally (`pnpm run build` then `pnpm --filter @dsh-electron/dsh-electron start`)
-- Desktop-owned registry dependencies (for example `electron-updater`) and declared desktop entry dependencies are retained across upstream dependency sync; other workspace dependencies are regenerated from the upstream CLI graph. A leftover `workspace:` specifier whose package is absent after the merge is dropped; it is not retained as a registry dependency ([rationale](.agents/notes/implemented/bug-fix/2026-08-20-drop-stale-electron-workspace-specifiers.md))
+- Desktop-owned registry dependencies (including exact bundled ecosystem-plugin pins) and declared desktop entry dependencies are retained across upstream dependency sync; other workspace dependencies are regenerated from the upstream CLI graph. A leftover `workspace:` specifier whose package is absent after the merge is dropped; it is not retained as a registry dependency ([rationale](.agents/notes/implemented/bug-fix/2026-08-20-drop-stale-electron-workspace-specifiers.md))
 - Packaged builds use `electron-builder` with NSIS (Windows), DMG/ZIP (macOS), and AppImage/DEB (Linux) on native x64 and ARM64 runners
 - Release artifacts are unsigned unless platform signing credentials are configured
 - The updater reads GitHub Release metadata; tag names follow `v{a.b.c}[-beta.x|-rc.x]` — not the legacy `electron-dsh-v*` format

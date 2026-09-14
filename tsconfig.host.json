@@ -130,8 +130,7 @@
     "scripts/*.client.spec.ts",
     "scripts/client-bundle-css.spec.ts",
     "packages/typert/generator/tests/fixtures/**",
-    "scripts/client-bundle-purity.spec.ts",
-    "packages/dsh-electron/**"
+    "scripts/client-bundle-purity.spec.ts"
   ],
   "references": [
     { "path": "./packages/client/ui-deliverables/tsconfig.host.json" },
@@ -359,7 +358,6 @@
     { "path": "./packages/lsp/tool-lsp" },
     { "path": "./apps/cli" },
     { "path": "./apps/desktop-host" },
-    { "path": "./apps/desktop" },
-    { "path": "./packages/dsh-electron/dsh-plugin-git/tsconfig.host.json" }
+    { "path": "./apps/desktop" }
   ]
 }

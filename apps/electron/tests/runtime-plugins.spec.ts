@@ -78,7 +78,7 @@ describe('runtime plugin discovery', () => {
       .toBe('Desktop capability provider for Electron feature plugins')
   })
 
-  it('discovers declared ecosystem plugins from the workspace checkout', () => {
+  it('discovers declared ecosystem plugins from installed npm packages', () => {
     const plugins = discoverEcosystemPlugins(electronRoot)
     expect(plugins.map(plugin => plugin.name)).toEqual(['@dsh-electron/dsh-plugin-git'])
     expect(readFileSync(buildScript, 'utf8')).not.toContain('packages/dsh-electron')
@@ -282,6 +282,11 @@ describe('runtime plugin inventory layout', () => {
     const source = readFileSync(join(electronRoot, 'src', 'runtime-plugins.ts'), 'utf8')
     expect(source).not.toContain('ui-directory-picker-electron')
     expect(source).not.toContain('ELECTRON_DIRECTORY_PICKER')
+  })
+
+  it('does not fall back to workspace sources for ecosystem plugins', () => {
+    const source = readFileSync(join(electronRoot, 'src', 'runtime-plugins.ts'), 'utf8')
+    expect(source).not.toContain("'packages', 'dsh-electron'")
   })
 })
 

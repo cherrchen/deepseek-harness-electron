@@ -12,7 +12,7 @@ The 0.1.5-rc.2 pin left Plugin Manager and Git uncomposed because Git occupied t
 
 `apps/electron/runtime/host.patch.yml` inserts `@dsh-electron/dsh-electron-ui-plugin-manager`.
 
-`packages/dsh-electron/dsh-plugin-git` tracks `cherrchen/dsh-plugin-git` branch `chore/0.1.5-adapt`. That client injects `sidebarRight` / `sidebarRightTabs` and has no runtime dependency on `details`, `shellDetails`, or `@dsh-electron/dsh-client-ui-details-host`. Desktop lists `@dsh-electron/dsh-plugin-git` in `dshElectron.ecosystemPlugins` and keeps it as a production `workspace:` dependency. Host and Client aggregates reference that package's host and client projects; subtree tests stay out of those programs.
+`@dsh-electron/dsh-plugin-git@0.2.0` injects `sidebarRight` / `sidebarRightTabs` and has no runtime dependency on `details`, `shellDetails`, or `@dsh-electron/dsh-client-ui-details-host`. Desktop lists the package in `dshElectron.ecosystemPlugins` and keeps its exact production npm dependency under the [npm-only ecosystem plugin rule](2026-09-14-electron-npm-only-ecosystem-plugins.md).
 
 ## Alternatives considered
 
@@ -24,4 +24,4 @@ The 0.1.5-rc.2 pin left Plugin Manager and Git uncomposed because Git occupied t
 
 ## Consequences
 
-Desktop Settings shows the Installed tab. Git UI lives in the right sidebar. Overlay tests require Plugin Manager in the bootstrap patch. Git remains absent from `host.patch.yml` because ecosystem composition uses the generated include file. DSH documentation gates skip `packages/dsh-electron/dsh-plugin-git/` because that subtree owns its own bilingual docs and `docs:check`.
+Desktop Settings shows the Installed tab. Git UI lives in the right sidebar. Overlay tests require Plugin Manager in the bootstrap patch. Git remains absent from `host.patch.yml` because ecosystem composition uses the generated include file.

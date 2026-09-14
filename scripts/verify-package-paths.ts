@@ -10,7 +10,6 @@ import { resolve } from 'node:path'
 import {
   findReferenceViolations,
   isArchivedAgentNotePath,
-  isExternalSubtreeDocPath,
   uniqueRepoFiles,
   type ReferenceViolation as Violation,
 } from './repo-files.ts'
@@ -32,7 +31,6 @@ const PATTERNS = [
 /** Paths excluded from the scan: built output and vendored upstream source. */
 const isExcluded = (p: string): boolean =>
   isArchivedAgentNotePath(p)
-  || isExternalSubtreeDocPath(p)
   || p.includes('/lib/')
   || p.endsWith('.d.ts')
   || p.startsWith('vendor/')

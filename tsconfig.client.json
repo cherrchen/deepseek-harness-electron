@@ -38,8 +38,7 @@
   // belongs to the host aggregate, which excludes this program's `*.client.*`
   // in turn. `exclude` wins over `include`, so the test glob above stays broad.
   "exclude": [
-    "packages/client/*/tests/**/*.host.spec.ts",
-    "packages/dsh-electron/**"
+    "packages/client/*/tests/**/*.host.spec.ts"
   ],
   "references": [
     // Producer-to-UI spill tests execute the real nested dispatch worker.
@@ -116,7 +115,6 @@
     { "path": "./packages/api/workspace-files/tsconfig.client.json" },
     { "path": "./packages/client/web" },
     { "path": "./packages/context/file-reference" },
-    { "path": "./apps/web" },
-    { "path": "./packages/dsh-electron/dsh-plugin-git/tsconfig.client.json" }
+    { "path": "./apps/web" }
   ]
 }

@@ -12,7 +12,7 @@ Upstream `dsh-v0.1.5-rc.2` removed the Client `details` slot, so `@dsh-electron/
 
 The mirror is deleted. This repository contains no `ui-details-host` directory, no `@dsh-electron/dsh-client-ui-details-host` dependency, no dedicated Electron integration test, and no client path alias for the package.
 
-The removed surface stays absent: `apps/electron/tests/architecture-baseline.spec.ts` keeps its guards that the Git mirror declares no Details Host runtime imports, and the overlay tests assert `@dsh-electron/dsh-plugin-git` absence from the bootstrap patch. Nothing in the runtime plugin inventory, Plugin Manager display names, or reserved package names references Details Host.
+The removed surface stays absent: overlay tests assert `@dsh-electron/dsh-plugin-git` absence from the bootstrap patch, and the published Git package uses `sidebarRight` instead. Nothing in the runtime plugin inventory, Plugin Manager display names, or reserved package names references Details Host.
 
 Reintroduction requires a Client occupancy slot (Sidebar or a restored Details column) and a consumer, and starts from the canonical `cherrchen/dsh-client-ui-details-host` repository, re-added as a git subtree mirror. This note consolidates and replaces the 2026-09-13 Details Host unmount note; the unmount decision is preserved here rather than as a separate record.
 
@@ -26,4 +26,4 @@ Reintroduction requires a Client occupancy slot (Sidebar or a restored Details c
 
 ## Consequences
 
-`apps/electron/tsconfig.runtime-client.json` compiles only mounted plugin client trees, so CI type-checks the whole inventory and a nested stale dependency can no longer hide a workspace API break. Desktop's plugin surface shrinks to five runtime plugins plus the Git ecosystem mirror. The category definition in [required portable UI infrastructure](2026-08-24-electron-required-portable-ui-infrastructure.md) remains active with Theme Studio as its only member.
+`apps/electron/tsconfig.runtime-client.json` compiles only mounted plugin client trees, so CI type-checks the whole inventory and a nested stale dependency can no longer hide a workspace API break. Desktop's plugin surface contains five runtime plugins plus the npm-installed Git ecosystem plugin. The category definition in [required portable UI infrastructure](2026-08-24-electron-required-portable-ui-infrastructure.md) remains active with Theme Studio as its only member.

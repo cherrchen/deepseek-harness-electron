@@ -16,11 +16,11 @@ Desktop 需要内置的 Client UI：它必须 portable（不含 Electron、`ctx.
 
 `@dsh-electron/dsh-theme-studio` 是当前成员：它通过 `ctx.theme.overrideTokens()` 叠加内置配色，并注册 设置 → 通用 → 主题。前一个成员 Details Host 在上游移除 Client `details` 插槽后已被删除（[删除说明](2026-09-13-electron-remove-details-host.zh.md)）。
 
-此类是"每个 portable 公共插件都应放在 `packages/dsh-electron/`"的例外：Desktop 用 runtime plugin builder 重建它，同时仍禁止 Electron、`ctx.desktop` 与 preload import。用户可禁用的产品功能留在生态 island（[组说明](../../../../packages/dsh-electron/README.zh.md)）。
+Desktop 用 runtime plugin builder 重建此类别，同时仍禁止 Electron、`ctx.desktop` 与 preload import。用户可禁用的产品功能按照 [npm-only ecosystem plugin 规则](2026-09-14-electron-npm-only-ecosystem-plugins.zh.md)保留为独立发布的 npm 依赖。
 
 ## Alternatives considered
 
-**作为 `packages/dsh-electron/` 下的生态插件发布。** 拒绝：用户可以通过 Plugin Manager 禁用必需 UI 基础设施。
+**作为可管理的生态插件发布。** 拒绝：用户可以通过 Plugin Manager 禁用必需 UI 基础设施。
 
 **先在 Electron 镜像里开发再拷回。** 拒绝：两棵树会争夺真源。
 

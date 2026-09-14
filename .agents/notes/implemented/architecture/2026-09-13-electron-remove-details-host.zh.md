@@ -12,7 +12,7 @@ Status: implemented
 
 镜像已删除。本仓库不再包含 `ui-details-host` 目录、对 `@dsh-electron/dsh-client-ui-details-host` 的依赖、专用 Electron 集成测试或该包的 client 路径别名。
 
-被删除的表面保持缺席：`apps/electron/tests/architecture-baseline.spec.ts` 保留其守卫，断言 Git 镜像不声明 Details Host 运行时 import；overlay 测试断言 bootstrap patch 不含 `@dsh-electron/dsh-plugin-git`。runtime plugin 清单、Plugin Manager 显示名与 reserved package 名单均不再引用 Details Host。
+被删除的表面保持缺席：overlay 测试断言 bootstrap patch 不含 `@dsh-electron/dsh-plugin-git`，已发布的 Git package 改用 `sidebarRight`。runtime plugin 清单、Plugin Manager 显示名与 reserved package 名单均不再引用 Details Host。
 
 重新引入需要 Client 占用插槽（Sidebar 或恢复的 Details 栏）以及消费者，并从 canonical 仓库 `cherrchen/dsh-client-ui-details-host` 重新以 git subtree 镜像加入。本说明合并并取代 2026-09-13 的 Details Host 卸载说明；卸载决策在此保留，不再单列记录。
 
@@ -26,4 +26,4 @@ Status: implemented
 
 ## Consequences
 
-`apps/electron/tsconfig.runtime-client.json` 只编译已挂载插件的 client 目录，CI 因此检查全部清单，嵌套的陈旧依赖不再可能掩盖 workspace API 破坏。Desktop 的插件面收缩为五个 runtime plugin 加 Git 生态镜像。[必需 portable UI 基础设施](2026-08-24-electron-required-portable-ui-infrastructure.zh.md)的类别定义继续有效，Theme Studio 是其唯一成员。
+`apps/electron/tsconfig.runtime-client.json` 只编译已挂载插件的 client 目录，CI 因此检查全部清单，嵌套的陈旧依赖不再可能掩盖 workspace API 破坏。Desktop 的插件面包含五个 runtime plugin 与从 npm 安装的 Git ecosystem 插件。[必需 portable UI 基础设施](2026-08-24-electron-required-portable-ui-infrastructure.zh.md)的类别定义继续有效，Theme Studio 是其唯一成员。

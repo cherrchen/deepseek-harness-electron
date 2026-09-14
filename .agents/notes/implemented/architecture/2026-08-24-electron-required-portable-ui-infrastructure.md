@@ -16,11 +16,11 @@ The package uses only upstream DSH client services, is a required `host.patch.ym
 
 `@dsh-electron/dsh-theme-studio` is the current member: it overlays builtin color palettes through `ctx.theme.overrideTokens()` and registers Settings → General → Themes. The former Details Host member was deleted when upstream removed the Client `details` slot ([removal note](2026-09-13-electron-remove-details-host.md)).
 
-This category is the exception to putting every portable public plugin under `packages/dsh-electron/`: Desktop rebuilds it with the runtime plugin builder and still forbids Electron, `ctx.desktop`, and preload imports. User-disableable product features stay in the ecosystem island ([group map](../../../../packages/dsh-electron/README.md)).
+Desktop rebuilds this category with the runtime plugin builder and still forbids Electron, `ctx.desktop`, and preload imports. User-disableable product features remain independently published npm dependencies under the [npm-only ecosystem plugin rule](2026-09-14-electron-npm-only-ecosystem-plugins.md).
 
 ## Alternatives considered
 
-**Ship it as an ecosystem plugin under `packages/dsh-electron/`.** Rejected because users could disable required UI infrastructure through Plugin Manager.
+**Ship it as a manageable ecosystem plugin.** Rejected because users could disable required UI infrastructure through Plugin Manager.
 
 **Develop in the Electron mirror and copy back.** Rejected because two trees would compete as source of truth.
 

@@ -12,7 +12,7 @@ Status: implemented
 
 `apps/electron/runtime/host.patch.yml` 插入 `@dsh-electron/dsh-electron-ui-plugin-manager`。
 
-`packages/dsh-electron/dsh-plugin-git` 跟踪 `cherrchen/dsh-plugin-git` 的 `chore/0.1.5-adapt` 分支。该 Client 注入 `sidebarRight` / `sidebarRightTabs`，运行时不依赖 `details`、`shellDetails` 或 `@dsh-electron/dsh-client-ui-details-host`。Desktop 把 `@dsh-electron/dsh-plugin-git` 列入 `dshElectron.ecosystemPlugins`，并保留为 production `workspace:` 依赖。Host 与 Client 聚合引用该包的 host 与 client 工程；subtree 测试不进入这两个程序。
+`@dsh-electron/dsh-plugin-git@0.2.0` 注入 `sidebarRight` / `sidebarRightTabs`，运行时不依赖 `details`、`shellDetails` 或 `@dsh-electron/dsh-client-ui-details-host`。Desktop 把该 package 列入 `dshElectron.ecosystemPlugins`，并按照 [npm-only ecosystem plugin 规则](2026-09-14-electron-npm-only-ecosystem-plugins.zh.md)保留其精确版本 production npm 依赖。
 
 ## Alternatives considered
 
@@ -24,4 +24,4 @@ Status: implemented
 
 ## Consequences
 
-Desktop 设置会显示 Installed tab。Git UI 位于右侧边栏。Overlay 测试要求 bootstrap patch 包含 Plugin Manager。Git 不出现在 `host.patch.yml` 中，因为生态组合走生成的 include 文件。DSH 文档门禁跳过 `packages/dsh-electron/dsh-plugin-git/`，因为该 subtree 自有双语文档和 `docs:check`。
+Desktop 设置会显示 Installed tab。Git UI 位于右侧边栏。Overlay 测试要求 bootstrap patch 包含 Plugin Manager。Git 不出现在 `host.patch.yml` 中，因为生态组合走生成的 include 文件。

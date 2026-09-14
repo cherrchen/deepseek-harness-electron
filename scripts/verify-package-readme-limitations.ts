@@ -9,7 +9,6 @@
 import { existsSync, globSync, readFileSync } from 'node:fs'
 import { resolve, sep } from 'node:path'
 import { markdownHeadingLines, markdownProseLines } from './markdown.ts'
-import { isExternalSubtreeDocPath } from './repo-files.ts'
 
 const root = resolve(import.meta.dirname, '..')
 
@@ -32,10 +31,7 @@ function isLimitationsLike(headingText: string): boolean {
   )
 }
 
-const packageJsons = globSync('packages/*/*/package.json', { cwd: root })
-  .map(path => path.split(sep).join('/'))
-  .filter(path => !isExternalSubtreeDocPath(path))
-  .sort()
+const packageJsons = globSync('packages/*/*/package.json', { cwd: root }).map(path => path.split(sep).join('/')).sort()
 const scannedPackages = new Set(packageJsons.map(path => path.slice(0, -'/package.json'.length)))
 const failures: string[] = []
 

@@ -22,13 +22,15 @@ describe('Electron packaging', () => {
     expect(manifest.build.extraMetadata.name).toBe('deepseek-harness-desktop')
   })
 
-  it('installs every declared ecosystem plugin as a production workspace dependency', async () => {
+  it('installs every declared ecosystem plugin as a production registry dependency', async () => {
     const electronRoot = join(import.meta.dirname, '..')
     const manifest = JSON.parse(await readFile(join(electronRoot, 'package.json'), 'utf8')) as ElectronManifest
     const names = manifest.dshElectron?.ecosystemPlugins ?? []
     for (const name of names) {
-      expect(manifest.dependencies?.[name]).toBe('workspace:^')
+      expect(manifest.dependencies?.[name]).toBeDefined()
+      expect(manifest.dependencies?.[name]).not.toMatch(/^workspace:/)
       expect(existsSync(join(electronRoot, 'node_modules', ...name.split('/'), 'package.json'))).toBe(true)
     }
+    expect(manifest.dependencies?.['@dsh-electron/dsh-plugin-git']).toBe('0.2.0')
   })
 })

@@ -11,7 +11,7 @@ import { gfmFromMarkdown } from 'mdast-util-gfm'
 import { gfm } from 'micromark-extension-gfm'
 import { JSDOM } from 'jsdom'
 import type { Nodes } from 'mdast'
-import { isArchivedAgentNotePath, isExternalSubtreeDocPath } from './repo-files.ts'
+import { isArchivedAgentNotePath } from './repo-files.ts'
 
 const root = resolve(import.meta.dirname, '..')
 
@@ -65,7 +65,7 @@ const seen = new Set<string>()
 let checkedFiles = 0
 for (const pattern of PATTERNS) {
   for (const match of globSync(pattern, { cwd: root })) {
-    if (isArchivedAgentNotePath(match) || isExternalSubtreeDocPath(match)) continue
+    if (isArchivedAgentNotePath(match)) continue
     const real = realpathSync(resolve(root, match))
     if (seen.has(real)) continue
     seen.add(real)

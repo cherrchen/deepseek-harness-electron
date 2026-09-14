@@ -49,7 +49,6 @@ DeepSeek Harness Desktop 是构建于上游 `deepseek-ai/deepseek-harness` 仓�
 | 区域                         | 所有权     | 规则                                                                                                                          |
 | ---------------------------- | ---------- | ----------------------------------------------------------------------------------------------------------------------------- |
 | `packages/**`                | 上游       | 默认由上游拥有；不要在下述例外之外加入下游桌面行为。 |
-| `packages/dsh-electron/**`   | 下游       | 通过 subtree 集成的公共 DSH 生态插件，具有独立 repository 与版本。 |
 | `apps/cli/**`                | 上游       | 不要将其作为下游定制面使用。                                                                             |
 | `apps/web/**`                | 上游       | Desktop MUST NOT 依赖修改此应用来实现仅桌面端的 UI。                                                            |
 | `docs/**`（`docs/electron/**` 除外） | 上游       | 避免会造成同步冲突的下游专属编辑。                                                            |
@@ -327,11 +326,11 @@ Unprivileged Renderer / Client Plugins
 
 **CURRENT**
 
-里程碑 3 在 `apps/electron/runtime/plugins/` 下建立了 bundled runtime 插件基础设施。标准公共 DSH 生态插件位于 `packages/dsh-electron/`，并保留自身预构建的 Host 与 Client artifacts。
+里程碑 3 在 `apps/electron/runtime/plugins/` 下建立了 bundled runtime 插件基础设施。标准公共 DSH 生态插件是精确版本的 production npm 依赖，并保留其发布的 Host 与 Client artifacts。
 
 ```text
 runtime/plugins/*          Desktop adapters, Electron carriers, and Electron-required portable UI infrastructure (build + link)
-packages/dsh-electron/*    standard public DSH packages (prebuilt + link)
+node_modules/*             standard public DSH packages installed from npm (prebuilt + link)
 runtime/host.patch.yml     bootstrap overlay: required runtime plugins, include seat, config-only HMR
 scripts/build-runtime-plugins.mjs
 src/runtime-plugins.ts     discovery, validation, profile and nested-include linking
@@ -347,7 +346,7 @@ Desktop Capability Provider（`@dsh-electron/dsh-electron-desktop-capabilities`�
 
 Plugin Manager（`@dsh-electron/dsh-electron-ui-plugin-manager`）消费 `ctx.desktop.plugins`，并通过 upstream 拥有的 `settings.plugins.tab` slot 贡献 `installed` view。`host.patch.yml` 挂载它。Main 仍拥有 lifecycle 读取、mutation、polling、rollback 与 Renderer refresh，记录在 [plugin-lifecycle.zh.md](plugin-lifecycle.zh.md)。
 
-Git（`@dsh-electron/dsh-plugin-git`）是 bundled ecosystem 插件。其 Client 占用 `ctx.sidebarRight` / `sidebarRightTabs`，并列入 `dshElectron.ecosystemPlugins`（[组合说明](../../.agents/notes/implemented/architecture/2026-09-13-electron-plugin-manager-and-git-sidebar.zh.md)）。
+Git（`@dsh-electron/dsh-plugin-git@0.2.0`）是仅从 npm 安装的 bundled ecosystem 插件。其 Client 占用 `ctx.sidebarRight` / `sidebarRightTabs`，并列入 `dshElectron.ecosystemPlugins`（[组合说明](../../.agents/notes/implemented/architecture/2026-09-13-electron-plugin-manager-and-git-sidebar.zh.md)）。
 
 Theme Studio（`@dsh-electron/dsh-theme-studio`）是必需的 portable UI，用于内置配色覆盖层。源码真源是 `cherrchen/dsh-theme-studio`；`apps/electron/runtime/plugins/dsh-theme-studio` 是 git subtree 镜像。Electron 从该源码重新构建 Host 与 Client artifacts。该包注册**设置 → 通用 → 主题**，并调用 `ctx.theme.overrideTokens()`；它不替换官方外观，也不自己呈现 CSS。
 
@@ -368,7 +367,7 @@ Electron Main
 Native OS APIs
 ```
 
-`runtime/plugins/<name>/` 下的每个目录都从源码重新构建。Portable 产品功能使用 `packages/dsh-electron/` 下的 `@dsh-electron/dsh-plugin-*` package；Electron 直接打包并链接其现有 artifacts，不重新构建或转换。
+`runtime/plugins/<name>/` 下的每个目录都从源码重新构建。Portable 产品功能使用独立发布的 `@dsh-electron/dsh-plugin-*` package；Electron 安装、打包并链接其已发布 artifacts，不重新构建或转换。
 
 # 第二部分 — 架构原则
 
@@ -618,8 +617,8 @@ apps/electron/runtime/plugins/
 ├─ ui-plugin-manager-electron/    Electron carrier plugin
 └─ dsh-theme-studio/              portable theme overlay (subtree)
 
-packages/dsh-electron/
-└─ dsh-plugin-<feature>/           portable or Desktop-aware public DSH plugin
+npm registry
+└─ @dsh-electron/dsh-plugin-*     portable or Desktop-aware public DSH plugin
 ```
 
 架构规则：
@@ -667,7 +666,7 @@ Desktop-required adapter 把 `desktop` 声明为 required service，归属 `apps
 
 ### Electron 必需的 portable DSH UI 基础设施
 
-这是 Desktop 在上游 Client 仍提供占用插槽时作为必需 Host 组合挂载的 portable `platform: web` 公共包。它只使用上游 DSH 服务，不依赖 Electron，源码真源是独立仓库。`apps/electron/runtime/plugins/<name>/` 是 git subtree 镜像；Electron 从该源码重新构建 artifacts。加载该包 MUST NOT 占用产品 UI，直到消费者调用已发布的服务。当前唯一成员是 Theme Studio。用户可禁用的产品功能归属 `packages/dsh-electron/`，不属于此类。
+这是 Desktop 在上游 Client 仍提供占用插槽时作为必需 Host 组合挂载的 portable `platform: web` 公共包。它只使用上游 DSH 服务，不依赖 Electron，源码真源是独立仓库。`apps/electron/runtime/plugins/<name>/` 是 git subtree 镜像；Electron 从该源码重新构建 artifacts。加载该包 MUST NOT 占用产品 UI，直到消费者调用已发布的服务。当前唯一成员是 Theme Studio。用户可禁用的产品功能以 npm 依赖安装，不在此源码树中保存。
 
 ## 20. 原生实现与功能所有权
 

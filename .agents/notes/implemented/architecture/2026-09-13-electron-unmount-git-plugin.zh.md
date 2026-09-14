@@ -18,7 +18,7 @@ Desktop 不组合基于 Details 的 Git Client。进入组合的是 Sidebar 移�
 
 **继续组合基于 Details 的 Git Client 并私有分叉 `details` 插槽。** 拒绝：上游 Client 已没有该插槽，私有分叉会与本次 pin 冲突。
 
-**删除 `packages/dsh-electron/dsh-plugin-git`。** 拒绝：subtree 身份与 Sidebar 移植仍需要这棵树。
+**删除 `packages/dsh-electron/dsh-plugin-git`。** 在 Sidebar 移植仍依赖该源码树时拒绝。该包发布后，[npm-only 发行方式](2026-09-14-electron-npm-only-ecosystem-plugins.zh.md)才成为可能。
 
 **让基于 Details 的 Git 源码留在 host/client 聚合中。** 拒绝：引用 `details` 的 Client 源码会让 `pnpm run build` 失败。
 

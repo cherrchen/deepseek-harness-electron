@@ -1,7 +1,7 @@
 /** Regression tests for bilingual snapshots, corpus scope, and structure. */
 
 import { execFileSync, spawnSync } from 'node:child_process'
-import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
@@ -177,17 +177,6 @@ describe('translation pairing manifest', () => {
     expect(translationPairSourcePredicate(manifest)('docs/generated/page.md')).toBe(false)
     expect(translationPairSourcePredicate(manifest)('docs/guide.md')).toBe(true)
     expect(translationPairSourcePredicate(manifest)('packages/example/guide.md')).toBe(false)
-  })
-
-  it('excludes the Git plugin subtree from the DSH bilingual corpus', () => {
-    const manifest = parseTranslationPairingManifest(readFileSync(
-      new URL('./translation-pairing.manifest.json', import.meta.url),
-      'utf8',
-    ))
-    expect(isTranslationPairingManifestExcluded('packages/dsh-electron/dsh-plugin-git/README.md', manifest)).toBe(true)
-    expect(isTranslationPairingManifestExcluded('packages/dsh-electron/dsh-plugin-git/docs/README.md', manifest)).toBe(true)
-    expect(isTranslationPairingManifestExcluded('packages/dsh-electron/dsh-plugin-git/README.i18n.yaml', manifest)).toBe(true)
-    expect(isTranslationPairingManifestExcluded('packages/dsh-electron/README.md', manifest)).toBe(false)
   })
 
   it.each([

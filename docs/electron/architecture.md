@@ -49,7 +49,6 @@ This repository is a downstream fork of `deepseek-ai/deepseek-harness`.
 | Area                         | Ownership  | Rule                                                                                                                          |
 | ---------------------------- | ---------- | ----------------------------------------------------------------------------------------------------------------------------- |
 | `packages/**`                | Upstream   | Upstream-owned by default; do not add downstream desktop behavior outside the exception below.                               |
-| `packages/dsh-electron/**`   | Downstream | Subtree-integrated public DSH ecosystem plugins with independent repositories and versions.                                  |
 | `apps/cli/**`                | Upstream   | Do not use as a downstream customization surface.                                                                             |
 | `apps/web/**`                | Upstream   | Desktop MUST NOT depend on modifying this app for desktop-only UI.                                                            |
 | `docs/**` (except `docs/electron/**`) | Upstream   | Avoid downstream-only edits that create synchronization conflicts.                                                            |
@@ -327,11 +326,11 @@ A plugin MUST NOT receive raw Electron or Node access simply because it runs in 
 
 **CURRENT**
 
-Milestone 3 established bundled runtime plugin infrastructure under `apps/electron/runtime/plugins/`. Standard public DSH ecosystem plugins live under `packages/dsh-electron/` and retain their prebuilt Host and Client artifacts.
+Milestone 3 established bundled runtime plugin infrastructure under `apps/electron/runtime/plugins/`. Standard public DSH ecosystem plugins are exact production npm dependencies and retain their published Host and Client artifacts.
 
 ```text
 runtime/plugins/*          Desktop adapters, Electron carriers, and Electron-required portable UI infrastructure (build + link)
-packages/dsh-electron/*    standard public DSH packages (prebuilt + link)
+node_modules/*             standard public DSH packages installed from npm (prebuilt + link)
 runtime/host.patch.yml     bootstrap overlay: required runtime plugins, include seat, config-only HMR
 scripts/build-runtime-plugins.mjs
 src/runtime-plugins.ts     discovery, validation, profile and nested-include linking
@@ -347,7 +346,7 @@ The brand plugin (`@dsh-electron/dsh-electron-ui-brand`) always fills `sidebar.b
 
 The Plugin Manager (`@dsh-electron/dsh-electron-ui-plugin-manager`) consumes `ctx.desktop.plugins` and contributes the `installed` view through the upstream-owned `settings.plugins.tab` slot. `host.patch.yml` mounts it. Main still owns lifecycle reads, mutations, polling, rollback, and Renderer refresh as documented in [plugin-lifecycle.md](plugin-lifecycle.md).
 
-Git (`@dsh-electron/dsh-plugin-git`) is a bundled ecosystem plugin. Its client occupies `ctx.sidebarRight` / `sidebarRightTabs` and is listed in `dshElectron.ecosystemPlugins` ([composition note](../../.agents/notes/implemented/architecture/2026-09-13-electron-plugin-manager-and-git-sidebar.md)).
+Git (`@dsh-electron/dsh-plugin-git@0.2.0`) is a bundled ecosystem plugin installed only from npm. Its client occupies `ctx.sidebarRight` / `sidebarRightTabs` and is listed in `dshElectron.ecosystemPlugins` ([composition note](../../.agents/notes/implemented/architecture/2026-09-13-electron-plugin-manager-and-git-sidebar.md)).
 
 Theme Studio (`@dsh-electron/dsh-theme-studio`) is required portable UI for builtin color overlays. Canonical source is `cherrchen/dsh-theme-studio`; `apps/electron/runtime/plugins/dsh-theme-studio` is the git subtree mirror. Electron rebuilds Host and Client artifacts from that source. The package registers **Settings → General → Themes** and calls `ctx.theme.overrideTokens()`; it does not replace official Appearance or present CSS itself.
 
@@ -368,7 +367,7 @@ Electron Main
 Native OS APIs
 ```
 
-Every directory under `runtime/plugins/<name>/` is rebuilt from source. Portable product features use `@dsh-electron/dsh-plugin-*` packages under `packages/dsh-electron/`; Electron packages and links their existing artifacts without rebuilding or converting them.
+Every directory under `runtime/plugins/<name>/` is rebuilt from source. Portable product features use independently published `@dsh-electron/dsh-plugin-*` packages; Electron installs, packages, and links their published artifacts without rebuilding or converting them.
 
 # Part II — Architecture Principles
 
@@ -618,8 +617,8 @@ apps/electron/runtime/plugins/
 ├─ ui-plugin-manager-electron/    Electron carrier plugin
 └─ dsh-theme-studio/              portable theme overlay (subtree)
 
-packages/dsh-electron/
-└─ dsh-plugin-<feature>/           portable or Desktop-aware public DSH plugin
+npm registry
+└─ @dsh-electron/dsh-plugin-*     portable or Desktop-aware public DSH plugin
 ```
 
 The architectural rules:
@@ -667,7 +666,7 @@ A Desktop-required adapter declares `desktop` as a required service and belongs 
 
 ### Electron-required portable DSH UI infrastructure
 
-A portable `platform: web` public package that Desktop mounts as required Host composition when the upstream Client still provides its occupancy slot. It uses only upstream DSH services, has no Electron dependency, and lives in a standalone canonical repository. `apps/electron/runtime/plugins/<name>/` is a git subtree mirror; Electron rebuilds artifacts from that source. Loading the package MUST NOT occupy product UI until a consumer calls the published service. Theme Studio is the only member. Product features that consumers may disable belong under `packages/dsh-electron/`, not this category.
+A portable `platform: web` public package that Desktop mounts as required Host composition when the upstream Client still provides its occupancy slot. It uses only upstream DSH services, has no Electron dependency, and lives in a standalone canonical repository. `apps/electron/runtime/plugins/<name>/` is a git subtree mirror; Electron rebuilds artifacts from that source. Loading the package MUST NOT occupy product UI until a consumer calls the published service. Theme Studio is the only member. Product features that consumers may disable are installed as npm dependencies, not kept in this source tree.
 
 ## 20. Native implementation versus feature ownership
 
