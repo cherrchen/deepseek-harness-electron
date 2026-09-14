@@ -5,7 +5,6 @@ import { tmpdir } from 'node:os'
 import type { Readable } from 'node:stream'
 import {
   HARNESS_STARTUP_BUFFER_LIMIT,
-  consoleStdinDevice,
   harnessArguments,
   parseHarnessReadyUrl,
   resolveDshBin,
@@ -162,12 +161,19 @@ describe('Host runtime resolution', () => {
   })
 })
 
+/**
+ * The child's own console device in the Win32 device namespace. The DOS alias `CONOUT$` is not
+ * openable through `fs`: the path is resolved and rewritten into the `\\?\` namespace first, where
+ * it names a regular file, exactly like `NUL`.
+ */
+const CONSOLE_DEVICE = String.raw`\\.\CONOUT$`
+
 /** Reads stdin to end of stream and reports whether the child owns a console. */
 const HOST_CHILD_PROBE = [
   "const fs = require('node:fs')",
   'const bytes = fs.readSync(0, Buffer.alloc(1), 0, 1, null)',
   'let ownsConsole = false',
-  "try { fs.closeSync(fs.openSync('CONOUT$', 'r+')); ownsConsole = true } catch {}",
+  `try { fs.closeSync(fs.openSync(${JSON.stringify(CONSOLE_DEVICE)}, 'r+')); ownsConsole = true } catch {}`,
   'process.stdout.write(JSON.stringify({ bytes, ownsConsole }))',
 ].join(';')
 
@@ -186,28 +192,23 @@ async function probeHostChild(
 }
 
 describe('supervised Host console', () => {
-  it('reads the platform stdin device that keeps the console allocated', () => {
-    expect(consoleStdinDevice('win32')).toBe('NUL')
-    expect(consoleStdinDevice('darwin')).toBe('/dev/null')
-    expect(consoleStdinDevice('linux')).toBe('/dev/null')
-  })
-
   it('starts the Host child with an exhausted stdin and piped logs', async () => {
     const child = spawnHarnessChild(process.execPath, ['-e', HOST_CHILD_PROBE], { cwd: tmpdir() })
     expect(child.stdin).toBeNull()
     await expect(probeHostChild(child)).resolves.toMatchObject({ bytes: 0 })
   })
 
-  it.runIf(process.platform === 'win32')('gives the spawned child a console that windowsHide alone suppresses', async () => {
+  it.runIf(process.platform === 'win32')('gives the spawned child a console, unlike a console-less launch', async () => {
     const owned = await probeHostChild(spawnHarnessChild(process.execPath, ['-e', HOST_CHILD_PROBE], { cwd: tmpdir() }))
-    // Control: the piped-only launch spec whose CREATE_NO_WINDOW leaves the child without a console.
-    // It proves the CONOUT$ probe reports console ownership instead of always succeeding.
-    const suppressed = await probeHostChild(spawn(process.execPath, ['-e', HOST_CHILD_PROBE], {
+    // Control: `windowsHide` alone keeps the child attached to the parent's console on a runner
+    // whose own process tree has one; `DETACHED_PROCESS` is the launch flag that carries no console
+    // attachment at all, so the probe reports the absence of a console instead of always succeeding.
+    const detached = await probeHostChild(spawn(process.execPath, ['-e', HOST_CHILD_PROBE], {
       cwd: tmpdir(),
       stdio: ['ignore', 'pipe', 'pipe'],
-      windowsHide: true,
+      detached: true,
     }))
     expect(owned.ownsConsole).toBe(true)
-    expect(suppressed.ownsConsole).toBe(false)
+    expect(detached.ownsConsole).toBe(false)
   })
 })

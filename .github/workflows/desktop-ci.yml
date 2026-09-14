@@ -126,3 +126,25 @@ jobs:
 
       - name: Test Electron runtime
         run: pnpm --filter @dsh-electron/dsh-electron test
+
+  windows-host-startup:
+    name: Windows Host startup
+    if: github.event_name != 'pull_request' || github.event.pull_request.user.login != 'dependabot[bot]' || github.base_ref == 'main'
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 24
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      # The supervised Host's stdio wiring is Windows-only behavior: the Linux job
+      # never opens the null device or observes console ownership.
+      - name: Test supervised Host startup
+        run: pnpm exec vitest run apps/electron/tests/runtime.spec.ts

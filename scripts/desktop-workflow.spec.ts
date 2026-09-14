@@ -41,6 +41,17 @@ describe('Desktop synchronization and release workflows', () => {
     expect(ciSteps.filter(step => step.name === 'Type-check Electron application')).toHaveLength(2)
     expect(ciSteps.filter(step => step.name === 'Lint Electron application')).toHaveLength(2)
 
+    // The supervised Host's stdio wiring is Windows-only: the Linux job never opens
+    // the null device, so a Windows runner is the only place the spawn path is real.
+    const windowsJob = workflowJob(ci, 'windows-host-startup')
+    expect(windowsJob).toMatchObject({ 'runs-on': 'windows-latest' })
+    if (!Array.isArray(windowsJob.steps)) {
+      throw new TypeError('Desktop CI must define the Windows Host startup steps')
+    }
+    const windowsTest = windowsJob.steps.filter(isRecord).find(step => step.name === 'Test supervised Host startup')
+    expect(windowsTest?.run).toBe('pnpm exec vitest run apps/electron/tests/runtime.spec.ts')
+    expect(windowsJob.steps.filter(isRecord).map(step => step.name)).not.toContain('Build upstream application')
+
     const packageJob = workflowJob(release, 'package')
     if (!isRecord(packageJob.strategy) || !isRecord(packageJob.strategy.matrix) || !Array.isArray(packageJob.strategy.matrix.include)) {
       throw new TypeError('Desktop release package job must define an include matrix')
