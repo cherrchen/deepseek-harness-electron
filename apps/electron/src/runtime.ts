@@ -31,10 +31,10 @@ export interface HostRuntime {
  * @param options.packaged - Whether this process runs from a packaged application.
  * @param options.platform - Target platform; defaults to the running platform.
  * @param options.arch - Target architecture; defaults to the running architecture.
- * @param options.override - Explicit executable path that wins over both packaged locations.
+ * @param options.override - Explicit Windows executable that replaces both packaged locations; a path that does not exist is an error.
  * @param options.exists - Existence probe used for candidate paths.
  * @returns Executable and environment for supervised dsh children.
- * @throws When a Windows target has no prepared Node.js at any candidate path.
+ * @throws When a Windows `override` names a missing file, or a Windows target has no prepared Node.js at any candidate path.
  */
 export function resolveHostRuntime(options: {
   appPath: string
@@ -47,17 +47,22 @@ export function resolveHostRuntime(options: {
 }): HostRuntime {
   const platform = options.platform ?? process.platform
   if (platform !== 'win32') return { executable: process.execPath, env: { ELECTRON_RUN_AS_NODE: '1' } }
+  const exists = options.exists ?? existsSync
+  if (options.override !== undefined) {
+    if (!exists(options.override)) {
+      throw new Error(`electron runtime: DSH_ELECTRON_NODE_BINARY does not name an existing executable (${options.override})`)
+    }
+    return { executable: options.override, env: {} }
+  }
   const arch = options.arch ?? process.arch
   const candidates = [
-    options.override,
     options.packaged ? join(options.resourcesPath, 'node', 'node.exe') : undefined,
     join(options.appPath, '.electron-build', 'node', `win-${arch}`, 'node.exe'),
   ].filter((candidate): candidate is string => candidate !== undefined)
-  const exists = options.exists ?? existsSync
   const executable = candidates.find(candidate => exists(candidate))
   if (executable === undefined) {
     throw new Error(
-      `electron runtime: prepared Node.js is missing (looked for ${candidates[candidates.length - 1] ?? 'no candidate'}); `
+      `electron runtime: prepared Node.js is missing (looked for ${candidates.join(', ')}); `
       + 'run pnpm --filter @dsh-electron/dsh-electron prepare:node',
     )
   }

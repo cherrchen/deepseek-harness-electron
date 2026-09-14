@@ -133,6 +133,18 @@ describe('Host runtime resolution', () => {
     })).toEqual({ executable: 'C:\\tools\\node.exe', env: {} })
   })
 
+  it('rejects an override that names no existing executable', () => {
+    expect(() => resolveHostRuntime({
+      appPath: '/app',
+      resourcesPath: '/resources',
+      packaged: true,
+      platform: 'win32',
+      arch: 'x64',
+      override: 'C:\\tools\\node.exe',
+      exists: () => false,
+    })).toThrow(/DSH_ELECTRON_NODE_BINARY/u)
+  })
+
   it('fails loudly when Windows has no prepared Node.js', () => {
     expect(() => resolveHostRuntime({
       appPath: '/app',
