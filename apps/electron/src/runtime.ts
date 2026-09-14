@@ -1,21 +1,11 @@
 import { spawn, type ChildProcessByStdio, type SpawnOptionsWithoutStdio } from 'node:child_process'
 import { closeSync, existsSync, openSync } from 'node:fs'
+import { devNull } from 'node:os'
 import { join } from 'node:path'
 import type { Readable } from 'node:stream'
 
 /** The bounded startup window before Electron reports a failed Harness boot. */
 export const HARNESS_START_TIMEOUT_MS = 60_000
-
-/**
- * Resolve the device handle that keeps a spawned dsh child's console allocated.
- * The child reads an immediately exhausted stream, exactly as `stdio: 'ignore'` provides; the
- * inherited descriptor is what stops libuv from suppressing the console.
- * @param platform - Target platform; defaults to the running platform.
- * @returns Device path read as the child's stdin.
- */
-export function consoleStdinDevice(platform: NodeJS.Platform = process.platform): string {
-  return platform === 'win32' ? 'NUL' : '/dev/null'
-}
 
 /**
  * Executable and extra environment for every dsh child the Desktop supervises.
@@ -98,6 +88,11 @@ export function resolveHostRuntime(options: {
  * lose nothing: the descriptor reads as an exhausted stream, which is what `stdio: 'ignore'`
  * already provided.
  *
+ * The device path is `os.devNull`, never the DOS alias `NUL`: `fs` resolves the path and rewrites
+ * it into the `\\?\` extended-length namespace (`toNamespacedPath`), where `NUL` names a regular
+ * file and Windows fails the open with `ENOENT`. `os.devNull` is `\\.\nul` on Windows — the Win32
+ * device namespace that rewrite leaves alone — and `/dev/null` elsewhere.
+ *
  * @param executable - Resolved Host runtime executable.
  * @param args - Arguments passed to `executable`.
  * @param options - Spawn options for cwd, environment, and signals; `stdio` and `windowsHide` are always supplied here.
@@ -108,7 +103,7 @@ export function spawnHarnessChild(
   args: readonly string[],
   options: SpawnOptionsWithoutStdio,
 ): ChildProcessByStdio<null, Readable, Readable> {
-  const stdin = openSync(consoleStdinDevice(), 'r')
+  const stdin = openSync(devNull, 'r')
   try {
     // Node's spawn overloads infer stdio types from tuple literals only, so the descriptor in the
     // tuple forces this cast.

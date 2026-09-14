@@ -7,6 +7,7 @@ import {
   DESKTOP_PLATFORM_ATTR,
   MARKER_CENTER,
   MARKER_MAIN_HEADER,
+  MARKER_RIGHTBAR,
   MARKER_SIDEBAR,
 } from '../src/renderer/desktop/window-chrome.ts'
 
@@ -28,19 +29,24 @@ describe('Electron renderer source structure', () => {
     const height = css.match(/--dsh-native-control-row-height:\s*(\d+)px/)
     expect(Number(height?.[1])).toBe(NATIVE_CONTROL_ROW_HEIGHT)
     expect(css).toContain('--dsh-sidebar-top-inset: 0px')
+    expect(css).toContain('--dsh-content-top-inset: 0px')
+    expect(css).toContain('--dsh-panel-top-inset: 0px')
+    expect(css).not.toContain('--dsh-windows-caption-inset')
     expect(css).toContain('--dsh-macos-sidebar-top-inset')
     expect(css).toContain('--dsh-macos-sidebar-seam-width')
     expect(css).not.toContain("[data-dsh-desktop-platform='win32'] [data-dsh-electron-sidebar]")
     expect(css).not.toContain("[data-dsh-desktop-platform='linux'] [data-dsh-electron-sidebar]")
     expect(css).not.toContain('#root::before')
     expect(css).not.toContain('#root {\n  position: relative')
-    expect(css.match(/-webkit-app-region:\s*drag/g)).toHaveLength(3)
+    expect(css.match(/-webkit-app-region:\s*drag/g)).toHaveLength(4)
     expect(css).not.toContain('[data-conversation-scroll]')
     expect(css).not.toContain('data-dsh-electron-drag-region')
     expect(css.match(/-webkit-app-region:\s*no-drag/g)).toHaveLength(3)
     expect(css).toContain("[role='tab']")
     expect(css).toContain(":root:has([role='dialog'][aria-modal='true']) [data-dsh-electron-sidebar]::before")
     expect(css).toContain(":root:has([role='dialog'][aria-modal='true']) [data-dsh-electron-center]::before")
+    expect(css).toContain(":root:has([role='dialog'][aria-modal='true']) [data-dsh-electron-rightbar] [data-sidebar-right-panel='fullscreen']::before")
+    expect(css).toContain("[data-dsh-electron-rightbar] [data-sidebar-right-panel='fullscreen']::before")
     expect(css).toContain(":root:has([role='dialog'][aria-modal='true']) [data-dsh-electron-main-header]")
     expect(css).toContain("[role='presentation'] > [aria-hidden='true']:has(")
     expect(css).toContain("[role='presentation'] > [role='dialog'][aria-modal='true']")
@@ -49,6 +55,7 @@ describe('Electron renderer source structure', () => {
     expect(css).not.toContain('#dsh-electron-titlebar')
     expect(css).toContain(MARKER_SIDEBAR)
     expect(css).toContain(MARKER_CENTER)
+    expect(css).toContain(MARKER_RIGHTBAR)
     expect(css).toContain(MARKER_MAIN_HEADER)
     expect(css).toContain(DESKTOP_PLATFORM_ATTR)
   })

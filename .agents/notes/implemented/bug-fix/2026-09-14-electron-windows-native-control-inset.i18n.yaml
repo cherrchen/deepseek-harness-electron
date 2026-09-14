@@ -1,0 +1,6 @@
+# Bilingual-pair consistency record (docs/i18n/README.md): the git blob hash of each
+# side as of the last confirmed-consistent state. Both languages carry equal authority;
+# after editing either side, bring the other along and re-record with:
+#   pnpm run verify-translation-pairing --write .agents/notes/implemented/bug-fix/2026-09-14-electron-windows-native-control-inset.md
+2026-09-14-electron-windows-native-control-inset.md: 133a4a8bfe0dabaa101829eb9cef717a1ee0bfc7
+2026-09-14-electron-windows-native-control-inset.zh.md: 169d438b33012857a246c1368104c865170908cf
