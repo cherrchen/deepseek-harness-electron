@@ -349,7 +349,7 @@ The brand plugin (`@dsh-electron/dsh-electron-ui-brand`) always fills `sidebar.b
 
 The Plugin Manager (`@dsh-electron/dsh-electron-ui-plugin-manager`) consumes `ctx.desktop.plugins` and contributes the `installed` view through the upstream-owned `settings.plugins.tab` slot. `host.patch.yml` mounts it. Main still owns lifecycle reads, mutations, polling, rollback, and Renderer refresh as documented in [plugin-lifecycle.md](plugin-lifecycle.md).
 
-Git (`@dsh-electron/dsh-plugin-git@0.2.0`) is a bundled ecosystem plugin installed only from npm. Its client occupies `ctx.sidebarRight` / `sidebarRightTabs` and is listed in `dshElectron.ecosystemPlugins` ([composition note](../../.agents/notes/implemented/architecture/2026-09-13-electron-plugin-manager-and-git-sidebar.md)).
+Git (`@dsh-electron/dsh-plugin-git@0.2.1`) is a bundled ecosystem plugin installed only from npm. Its client occupies `ctx.sidebarRight` / `sidebarRightTabs` and is listed in `dshElectron.ecosystemPlugins` ([composition note](../../.agents/notes/implemented/architecture/2026-09-13-electron-plugin-manager-and-git-sidebar.md)).
 
 Theme Studio (`@dsh-electron/dsh-theme-studio`) is required portable UI for builtin color overlays. Canonical source is `cherrchen/dsh-theme-studio`; `apps/electron/runtime/plugins/dsh-theme-studio` is the git subtree mirror. Electron rebuilds Host and Client artifacts from that source. The package registers **Settings → General → Themes** and calls `ctx.theme.overrideTokens()`; it does not replace official Appearance or present CSS itself.
 

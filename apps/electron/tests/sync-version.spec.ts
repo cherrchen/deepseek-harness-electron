@@ -71,7 +71,7 @@ describe('Electron dependency synchronization', () => {
   it('retains the exact registry pin for declared ecosystem plugins', () => {
     const dependencies = synchronizeDependencies(
       {
-        '@dsh-electron/dsh-plugin-git': '0.2.0',
+        '@dsh-electron/dsh-plugin-git': '0.2.1',
         'electron-updater': '^6.8.9',
       },
       ['@deepseek-ai/dsh'],
@@ -82,7 +82,7 @@ describe('Electron dependency synchronization', () => {
     expect(dependencies).toEqual({
       '@deepseek-ai/dsh': 'workspace:^',
       '@deepseek-ai/dsh-client-web': 'workspace:^',
-      '@dsh-electron/dsh-plugin-git': '0.2.0',
+      '@dsh-electron/dsh-plugin-git': '0.2.1',
       'electron-updater': '^6.8.9',
     })
   })
