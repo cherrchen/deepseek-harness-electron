@@ -1,4 +1,4 @@
-# Agent Note: Electron 将健康 runtime-plugin 视为可管理，不再以 profileManaged 为门槛
+# Agent Note: Electron 仅在 Desktop 记录执行意图后热加载 profile package
 
 Status: implemented
 
@@ -6,20 +6,20 @@ Status: implemented
 
 ## Problem
 
-`ProfilePluginCatalog` 把 `profileManaged` 当作 manageable 门槛。用 `dsh plugin --profile web` 安装的 runtime-plugin 在 Electron 中被降成 `dependency`，Installed tab 无法 enable、disable、reload 或 remove，即使 Host 可以加载它。
+许多普通 npm library 都会暴露 `main` 或 root export，因此仅凭 package entry point 无法证明 web profile 的 direct dependency 是 Cordis 插件。若把 CLI 安装的每个可 import dependency 都加入 Electron generated roster，Host 启动时可能会执行无关的 library module。
 
 ## Decision
 
-健康且 `activationMode === 'hot'` 的 `runtime-plugin` 一律 `manageable: true`，不论 Desktop 是否把它记入 `profileManaged`。CLI 安装的 runtime-plugin 保持 kind `runtime-plugin`。`profileManaged` 只作来源记账，并投影为 `desktopInstalled` 供 UI 文案与卸载确认使用。`plugin-state.json` 保持 version 2。
+健康的 profile `runtime-plugin` 只有在 Desktop 已将其名称记入 `profileManaged` 时才可管理。该列表同时记录 Desktop 安装来源，以及用户通过 Electron 私有 generated roster 执行该 package 的意图。可 import 的 CLI dependency 仍会按 inspect 结果进入 catalog，但不进入 roster。`plugin-state.json` 保持 version 2。
 
-Desktop 安装仍会写入 `profileManaged`。Bundle 仍是共享 profile 组合层（`profile-restart`）。Runtime-plugin 仍通过 `plugins.cordis.yml` 作为 Electron 私有激活面。Plain dependency 保持惰性。若要在 `dsh web` 中也可用，作者应声明 `dsh.bundle.patch`。
+Desktop 安装会在激活前把有效 runtime plugin 追加到 `profileManaged`。Bundle 继续使用共享 profile 组合（`profile-restart`），因为 `dsh.bundle.patch` 是其显式插件判别信号。Distribution-owned ecosystem plugin 仍可独立于 profile state 进行管理。
 
 ## Alternatives considered
 
-**继续用 `profileManaged` 作为启停门槛。** 拒绝：这会把 CLI 安装的 runtime-plugin 从唯一的 Desktop 管理 UI 中藏起来。
+**把每个拥有 root entry 的健康 package 都当作 runtime plugin。** 拒绝：普通 library 使用相同的 npm entry field，因此会在 Host 启动时被执行。
 
-**把 `plugin-state.json` 升到 version 3 以单独存储来源。** 拒绝：现有 `profileManaged` 列表已经记录 Desktop 安装。
+**为 hot plugin 新增一个 package manifest 判别字段。** 拒绝：Desktop 安装已经记录了明确的执行意图，无需修改公开 package 格式。
 
 ## Consequences
 
-启动 roster 与 `activateAfterPackageMutation` 跟随 catalog 的 health 与 kind，而不是 Desktop 成员资格。Overlay 与 catalog 测试固定 `apps/cli` 与 `packages/boot` 不被修改。Installed tab 为 bundle 与 runtime-plugin 显示类别文案，并在 CLI 卸载时给出说明。
+启动组合与 package 重新激活同时要求 catalog health、runtime-plugin kind 与 Desktop membership。CLI dependency 仍可见且可执行 package action，但不获得 runtime control，也不进入 `plugins.cordis.yml`。

@@ -113,7 +113,7 @@ describe('profile plugin catalog', () => {
     }
   })
 
-  it('treats a healthy CLI-installed runtime plugin as manageable without profileManaged', async () => {
+  it('keeps an importable CLI dependency out of the runtime roster without Desktop intent', async () => {
     const root = await mkdtemp(join(tmpdir(), 'dsh-electron-catalog-cli-'))
     const appPath = join(root, 'app')
     const harnessHome = join(root, 'home')
@@ -129,12 +129,12 @@ describe('profile plugin catalog', () => {
       const entries = await new ProfilePluginCatalog(appPath, harnessHome, 'web', () => state).list()
       expect(entries.find(entry => entry.name === '@fixture/cli-runtime')).toMatchObject({
         kind: 'runtime-plugin',
-        manageable: true,
+        manageable: false,
         desktopInstalled: false,
         activationMode: 'hot',
         health: 'healthy',
       })
-      expect(effectivePluginRoster(entries, state).map(entry => entry.name)).toContain('@fixture/cli-runtime')
+      expect(effectivePluginRoster(entries, state).map(entry => entry.name)).not.toContain('@fixture/cli-runtime')
     } finally {
       await rm(root, { recursive: true, force: true })
     }

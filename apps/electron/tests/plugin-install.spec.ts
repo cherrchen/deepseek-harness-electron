@@ -13,7 +13,7 @@ import type { PluginLifecycleController } from '../src/plugin-lifecycle.ts'
 import { PluginMutationCrashInjection } from '../src/plugin-recovery.ts'
 import { readPluginPending } from '../src/plugin-pending.ts'
 import { reconcilePendingPackageMutation } from '../src/plugin-startup.ts'
-import { PluginProfileLock } from '../src/plugin-profile-lock.ts'
+import { PluginProfileLock, readLockOwner } from '../src/plugin-profile-lock.ts'
 import { ProfilePluginCatalog } from '../src/plugin-catalog.ts'
 
 const electronRoot = fileURLToPath(new URL('..', import.meta.url))
@@ -319,7 +319,12 @@ describe('plugin package service', () => {
     mkdirSync(join(statePath, '..'), { recursive: true })
     writeFileSync(join(profileDir, 'package.json'), JSON.stringify({ dependencies: {} }), 'utf8')
     writeFileSync(statePath, JSON.stringify({ version: 2, disabled: [], profileManaged: [] }), 'utf8')
-    const runner = vi.fn(async (command: { kind: string }) => {
+    const lockPath = join(profileDir, 'lock')
+    const rollbackOwner = process.pid + 100_000
+    const observedRollbackOwners: number[] = []
+    const runner = vi.fn(async (command: { kind: string }, options?: { onSpawn?: (pid: number) => void }) => {
+      const owner = command.kind === 'remove' ? rollbackOwner : process.pid
+      options?.onSpawn?.(owner)
       if (command.kind === 'add') {
         mkdirSync(join(packageRoot, 'lib'), { recursive: true })
         writeFileSync(join(profileDir, 'package.json'), JSON.stringify({
@@ -330,6 +335,7 @@ describe('plugin package service', () => {
         }), 'utf8')
         writeFileSync(join(packageRoot, 'lib', 'index.js'), '', 'utf8')
       } else {
+        observedRollbackOwners.push(readLockOwner(lockPath) ?? -1)
         writeFileSync(join(profileDir, 'package.json'), JSON.stringify({ dependencies: {} }), 'utf8')
       }
       return { exitCode: 0, stdout: '', stderr: '' }
@@ -354,6 +360,8 @@ describe('plugin package service', () => {
         { kind: 'add', spec: 'github:cherrchen/dsh-theme-studio' },
         { kind: 'remove', name: packageName },
       ])
+      expect(observedRollbackOwners).toEqual([rollbackOwner])
+      expect(existsSync(lockPath)).toBe(false)
       expect(JSON.parse(readFileSync(join(profileDir, 'package.json'), 'utf8'))).toEqual({ dependencies: {} })
     } finally {
       await rm(root, { recursive: true, force: true })

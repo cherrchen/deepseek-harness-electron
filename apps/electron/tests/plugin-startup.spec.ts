@@ -29,10 +29,25 @@ describe('plugin startup reconcile and recovery actions', () => {
     mkdirSync(join(appPath, 'runtime', 'plugins'), { recursive: true })
     writeManifest(appPath, { dshElectron: { ecosystemPlugins: [] } })
     const profileDir = join(harnessHome, 'profiles', 'web')
-    writeManifest(profileDir, { dependencies: { '@fixture/cli-runtime': 'github:fixture/cli-runtime' } })
+    writeManifest(profileDir, {
+      dependencies: {
+        '@fixture/cli-runtime': 'github:fixture/cli-runtime',
+        '@fixture/healthy-bundle': 'github:fixture/healthy-bundle',
+        '@fixture/broken-bundle': 'github:fixture/broken-bundle',
+      },
+      dsh: { profile: { bundles: ['@fixture/healthy-bundle', '@fixture/broken-bundle'] } },
+    })
     const runtimeRoot = join(profileDir, 'node_modules', '@fixture', 'cli-runtime')
     writeManifest(runtimeRoot, { name: '@fixture/cli-runtime', version: '1.0.0', main: 'index.js' })
     writeFileSync(join(runtimeRoot, 'index.js'), '', 'utf8')
+    const healthyBundleRoot = join(profileDir, 'node_modules', '@fixture', 'healthy-bundle')
+    writeManifest(healthyBundleRoot, {
+      name: '@fixture/healthy-bundle', version: '1.0.0', dsh: { bundle: { patch: 'cordis.patch.yml' } },
+    })
+    writeFileSync(join(healthyBundleRoot, 'cordis.patch.yml'), '[]\n', 'utf8')
+    writeManifest(join(profileDir, 'node_modules', '@fixture', 'broken-bundle'), {
+      name: '@fixture/broken-bundle', version: '1.0.0', dsh: { bundle: { patch: 'missing.patch.yml' } },
+    })
     const statePath = join(harnessHome, 'electron', 'plugin-state.json')
     const configPath = join(harnessHome, 'electron', PLUGIN_RUNTIME_CONFIG_FILENAME)
     const pendingPath = join(harnessHome, 'electron', 'packages-pending')
@@ -128,6 +143,7 @@ describe('plugin startup reconcile and recovery actions', () => {
     try {
       await writePluginPending(f.pendingPath, 'add', '@fixture/cli-runtime')
       await disableAllManageablePlugins({
+        harnessHome: f.harnessHome,
         lock: new PluginProfileLock(join(f.profileDir, 'lock'), 200, 10),
         catalog: f.catalog,
         statePath: f.statePath,
@@ -137,7 +153,12 @@ describe('plugin startup reconcile and recovery actions', () => {
       expect(loadPluginState(f.statePath).state.disabled).toContain('@fixture/cli-runtime')
       expect(existsSync(f.pendingPath)).toBe(false)
       expect(JSON.parse(readFileSync(join(f.profileDir, 'package.json'), 'utf8'))).toMatchObject({
-        dependencies: { '@fixture/cli-runtime': 'github:fixture/cli-runtime' },
+        dependencies: {
+          '@fixture/cli-runtime': 'github:fixture/cli-runtime',
+          '@fixture/healthy-bundle': 'github:fixture/healthy-bundle',
+          '@fixture/broken-bundle': 'github:fixture/broken-bundle',
+        },
+        dsh: { profile: { bundles: ['@fixture/healthy-bundle'] } },
       })
     } finally {
       await rm(f.root, { recursive: true, force: true })
@@ -160,8 +181,11 @@ describe('plugin startup reconcile and recovery actions', () => {
       expect(existsSync(f.pendingPath)).toBe(false)
       const profileManifest = JSON.parse(readFileSync(join(f.profileDir, 'package.json'), 'utf8')) as {
         dependencies?: Record<string, string>
+        dsh?: { profile?: { bundles?: string[] } }
       }
       expect(profileManifest.dependencies?.['@fixture/cli-runtime']).toBe('github:fixture/cli-runtime')
+      expect(profileManifest.dependencies?.['@fixture/broken-bundle']).toBe('github:fixture/broken-bundle')
+      expect(profileManifest.dsh?.profile?.bundles).toEqual(['@fixture/healthy-bundle'])
     } finally {
       await rm(f.root, { recursive: true, force: true })
     }

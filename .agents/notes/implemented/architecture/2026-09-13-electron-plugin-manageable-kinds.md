@@ -1,4 +1,4 @@
-# Agent Note: Electron treats healthy runtime-plugins as manageable without profileManaged
+# Agent Note: Electron requires Desktop intent before hot-loading profile packages
 
 Status: implemented
 
@@ -6,20 +6,20 @@ English | [中文](2026-09-13-electron-plugin-manageable-kinds.zh.md)
 
 ## Problem
 
-`ProfilePluginCatalog` used `profileManaged` as the manageable gate. A runtime-plugin installed with `dsh plugin --profile web` became a `dependency` in Electron, so the Installed tab could not enable, disable, reload, or remove it even though Host could load it.
+Many ordinary npm libraries expose `main` or a root export, so package entry points alone cannot prove that a direct web-profile dependency is a Cordis plugin. Adding every importable CLI dependency to Electron's generated roster can make Host startup execute unrelated library modules.
 
 ## Decision
 
-A healthy `runtime-plugin` with `activationMode === 'hot'` is `manageable: true` whether or not Desktop recorded the name in `profileManaged`. CLI-installed runtime-plugins keep kind `runtime-plugin`. `profileManaged` is source accounting only and is projected as `desktopInstalled` for UI copy and uninstall confirmation. `plugin-state.json` stays at version 2.
+A healthy profile `runtime-plugin` is manageable only when Desktop recorded its name in `profileManaged`. The list records both Desktop installation provenance and the user's intent to execute that package through Electron's private generated roster. An importable CLI dependency remains catalogued by its inspected kind but stays out of the roster. `plugin-state.json` stays at version 2.
 
-Desktop installs still append to `profileManaged`. Bundles stay shared profile composition (`profile-restart`). Runtime-plugins stay Electron-private via `plugins.cordis.yml`. Plain dependencies stay inert. Authors who need `dsh web` as well declare `dsh.bundle.patch`.
+Desktop installs append valid runtime plugins to `profileManaged` before activation. Bundles stay shared profile composition (`profile-restart`) because `dsh.bundle.patch` is their explicit plugin discriminator. Distribution-owned ecosystem plugins remain manageable independently of profile state.
 
 ## Alternatives considered
 
-**Keep `profileManaged` as the enable/disable gate.** Rejected because it hid CLI-installed runtime-plugins from the only Desktop management UI.
+**Treat every healthy package with a root entry as a runtime plugin.** Rejected because ordinary libraries use the same npm entry fields and would execute during Host startup.
 
-**Bump `plugin-state.json` to version 3 to store source separately.** Rejected because the existing `profileManaged` list already records Desktop installs.
+**Add another package-manifest discriminator for hot plugins.** Rejected because Desktop installation already records explicit execution intent without changing the public package format.
 
 ## Consequences
 
-Startup roster and `activateAfterPackageMutation` follow catalog health and kind, not Desktop membership. Overlay and catalog tests pin that `apps/cli` and `packages/boot` stay unmodified. The Installed tab shows category copy for bundles and runtime-plugins and warns on CLI uninstall.
+Startup composition and package reactivation require catalog health, runtime-plugin kind, and Desktop membership. CLI dependencies remain visible for package actions without receiving runtime controls or entering `plugins.cordis.yml`.

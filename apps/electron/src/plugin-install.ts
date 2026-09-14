@@ -209,7 +209,7 @@ export class PluginPackageService {
         }
         this.crash('after-inspect', lock)
         if (this.reservedPackageNames.has(inspected.name)) {
-          throw await this.rollbackPackageConflict(inspected.name, dependencyName, before[dependencyName])
+          throw await this.rollbackPackageConflict(inspected.name, dependencyName, before[dependencyName], lock)
         }
         if (inspected.entryProblem !== undefined) {
           throw new PluginInstallError(
@@ -486,6 +486,7 @@ export class PluginPackageService {
     packageName: string,
     dependencyName: string,
     previousSpec: string | undefined,
+    lock: PluginProfileLock,
   ): Promise<PluginInstallError> {
     if (previousSpec !== undefined) {
       return new PluginInstallError(
@@ -497,7 +498,9 @@ export class PluginPackageService {
     }
     let rollback: PluginCommandResult
     try {
-      rollback = await this.runCommand({ kind: 'remove', name: dependencyName })
+      rollback = await this.runCommand({ kind: 'remove', name: dependencyName }, {
+        onSpawn: (pid) => { lock.writeOwner(pid) },
+      })
     } catch (error) {
       return new PluginInstallError(
         'package-conflict',
@@ -505,6 +508,8 @@ export class PluginPackageService {
         `Automatic removal could not start: ${String(error)}`,
         true,
       )
+    } finally {
+      lock.writeOwner(process.pid)
     }
     const restored = rollback.exitCode === 0 && readDependencies(this.profileDir)[dependencyName] === undefined
     return new PluginInstallError(

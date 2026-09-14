@@ -8,6 +8,7 @@ import type { PluginProfileLock } from './plugin-profile-lock.ts'
 import { ensureCatalogPluginLinks } from './runtime-plugins.ts'
 import { loadPluginState, reconcilePluginState, savePluginState, type PluginState } from './plugin-state.ts'
 import { DynamicIncludeCompositionBackend, effectivePluginRoster } from './plugin-runtime-config.ts'
+import { writeTextFileAtomic } from './text-file.ts'
 
 /** Result of inspecting a leftover packages-pending marker at startup. */
 export type PendingReconcileResult = 'absent' | 'recovered'
@@ -85,10 +86,12 @@ export async function reconcilePendingPackageMutation(options: {
 
 /**
  * Disable every manageable plugin and rewrite the generated roster.
- * Holds the profile lock through pending-marker removal. Required system plugins stay composed.
- * @param options - Catalog, state, and generated include path.
+ * Excludes unloadable profile bundles while retaining their dependency entries.
+ * Holds the profile lock through pending-marker removal; required system plugins stay composed.
+ * @param options - Harness home, catalog, state, and generated include path.
  */
 export async function disableAllManageablePlugins(options: {
+  harnessHome: string
   lock: PluginProfileLock
   catalog: PluginCatalog
   statePath: string
@@ -98,6 +101,7 @@ export async function disableAllManageablePlugins(options: {
   await options.lock.acquire()
   try {
     const plugins = await options.catalog.list()
+    await excludeUnhealthyProfileBundles(webProfileDir(options.harnessHome), plugins)
     const loaded = loadPluginState(options.statePath).state
     const disabled = [...new Set([
       ...loaded.disabled,
@@ -114,7 +118,8 @@ export async function disableAllManageablePlugins(options: {
 
 /**
  * Clear Desktop-managed membership and disabled preferences, then relink.
- * Holds the profile lock through pending-marker removal; profile dependencies stay on disk.
+ * Excludes unloadable profile bundles while retaining every profile dependency.
+ * Holds the profile lock through pending-marker removal.
  * @param options - Catalog, state, generated include, and DSH home.
  */
 export async function resetPluginManagement(options: {
@@ -128,8 +133,9 @@ export async function resetPluginManagement(options: {
   await options.lock.acquire()
   try {
     const state: PluginState = { version: 2, disabled: [], profileManaged: [] }
-    await savePluginState(options.statePath, state)
     const plugins = await options.catalog.list()
+    await excludeUnhealthyProfileBundles(webProfileDir(options.harnessHome), plugins)
+    await savePluginState(options.statePath, state)
     ensureCatalogPluginLinks(options.harnessHome, plugins)
     await new DynamicIncludeCompositionBackend(options.configPath).apply(effectivePluginRoster(plugins, state))
     await clearPluginPending(options.pendingPath)
@@ -171,4 +177,35 @@ export async function prepareStartupWorkspace(profileDir: string, lock: PluginPr
   } finally {
     lock.release()
   }
+}
+
+interface WebProfileManifest {
+  dependencies?: Record<string, string>
+  dsh?: {
+    profile?: {
+      bundles?: string[]
+      [key: string]: unknown
+    }
+    [key: string]: unknown
+  }
+  [key: string]: unknown
+}
+
+async function excludeUnhealthyProfileBundles(
+  profileDir: string,
+  plugins: Awaited<ReturnType<PluginCatalog['list']>>,
+): Promise<void> {
+  const excluded = new Set(plugins
+    .filter(plugin => plugin.ownership === 'profile' && plugin.kind === 'bundle' && plugin.health !== 'healthy')
+    .map(plugin => plugin.name))
+  if (excluded.size === 0) return
+  const path = join(profileDir, 'package.json')
+  const manifest = JSON.parse(readFileSync(path, 'utf8')) as WebProfileManifest
+  const bundles = manifest.dsh?.profile?.bundles
+  if (bundles === undefined) return
+  const retained = bundles.filter(name => !excluded.has(name))
+  if (retained.length === bundles.length) return
+  const profile = { ...manifest.dsh?.profile, bundles: retained }
+  const dsh = { ...manifest.dsh, profile }
+  await writeTextFileAtomic(path, `${JSON.stringify({ ...manifest, dsh }, undefined, 2)}\n`)
 }

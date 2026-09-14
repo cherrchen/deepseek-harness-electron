@@ -429,6 +429,7 @@ if (!primaryInstance) {
     const locale = resolveDesktopMainLocale(app.getLocale())
     const repair = {
       disableAll: () => disableAllManageablePlugins({
+        harnessHome,
         lock: profileLock,
         catalog,
         statePath: overlay.pluginStatePath,

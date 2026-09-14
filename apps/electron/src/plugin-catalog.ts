@@ -98,7 +98,7 @@ export class ProfilePluginCatalog implements PluginCatalog {
         kind,
         installSource,
         requestedSpec,
-        manageable: activationMode === 'hot' && health === 'healthy',
+        manageable: activationMode === 'hot' && health === 'healthy' && desktopInstalled,
         required: false,
         activationMode,
         health,

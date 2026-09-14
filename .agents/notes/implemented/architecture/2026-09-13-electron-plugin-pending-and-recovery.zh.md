@@ -14,11 +14,11 @@ Main 拥有插件 desired state。`PluginPackageService` 在 spawn `dsh plugin` 
 
 启动对账是只读的：解析 profile 依赖、修复 hot-plugin symlink、重列 catalog，然后清除标记。它不回滚磁盘。锁只串行化 Desktop 进程；手工 `dsh plugin --profile web` 不参与该锁。
 
-pending 对账失败、Host 就绪行超时，或无法读取 profile catalog 时，Main 打开双语 `data:text/html` 恢复窗，不加载 Host 也不加载 `dsh-client-web`。用户可以禁用全部可管理插件（system/required 行仍保留），或清空 `profileManaged`/`disabled` 而不删除 profile 依赖。其他启动失败仍走 error box。
+pending 对账失败、Host 就绪行超时，或无法读取 profile catalog 时，Main 打开双语 `data:text/html` 恢复窗，不加载 Host 也不加载 `dsh-client-web`。用户可以禁用全部可管理插件（system/required 行仍保留），或清空 `profileManaged`/`disabled` 而不删除 profile 依赖。两个动作都会从 `dsh.profile.bundles` 移除无法加载的 Bundle，但保留其 dependency entry，确保重试不会再次应用已知无效的 Bundle。其他启动失败仍走 error box。
 
 崩溃注入钩子在 pending 写入后、命令结束后、inspect 后、或清除标记前中止，这样测试可以留下残留而不真杀 Electron。
 
-命令执行器在向锁归属回调传递已启动的 PID 前注册 error 和 close 处理器。启动错误仅在 close 后报告。归属交接抛错时，Main 终止子进程并等待 close 后才报告失败，避免事务清理与所持有的子进程竞争。回调失败后立即返回会使包进程在释放锁后继续运行。命令执行器测试覆盖事件顺序和真实的可执行文件缺失；这些失败不产生 Session 事件，也不改变 GUI 展示。
+命令执行器在向锁归属回调传递已启动的 PID 前注册 error 和 close 处理器。启动错误仅在 close 后报告。归属交接抛错时，Main 终止子进程并等待 close 后才报告失败，避免事务清理与所持有的子进程竞争。Reserved-name 自动回滚使用相同的子进程归属交接，并在 close 后把归属恢复给 Main。回调失败后立即返回会使包进程在释放锁后继续运行。命令执行器测试覆盖事件顺序和真实的可执行文件缺失；这些失败不产生 Session 事件，也不改变 GUI 展示。
 
 恢复操作持有 profile 锁直至完成偏好写入、组合更新和 pending 标记删除。workspace 策略写入也在 pending 对账后取得该锁。超时 Host 必须完成关闭才提供恢复；关闭失败不可重试，否则另一个 Host 可能与仍存活的子进程重叠。修复后，启动流程重新加载并对账持久化偏好，用于组合配置与生命周期构造。YAML 策略合并使用解析后的映射，确保行内映射和带引号键保留用户覆盖值。
 

@@ -24,17 +24,17 @@ Electron 拥有插件的 desired state。DSH Host 拥有实际的 Cordis fiber s
 
 链接本身不是启用状态信号。Electron 会把 bundled artifact 同时暴露到 `$DSH_HOME/profiles/node_modules` 与 `$DSH_HOME/electron/node_modules`；运行时启停仅由生成的 Cordis 组合控制。
 
-同一真实 package name 重复时，system 与 bundled ownership 优先于 profile ownership。每个 entry 会分离 ownership、package kind（`runtime-plugin`、`bundle` 或 `dependency`）、installation source、activation mode、package health 与 Main-owned package action。只有采用 hot activation 的 package 带有 Host runtime state。`profileManaged` / `desktopInstalled` 只记录 Desktop 是否执行了安装，不是 manageable 门槛。
+同一真实 package name 重复时，system 与 bundled ownership 优先于 profile ownership。每个 entry 会分离 ownership、package kind（`runtime-plugin`、`bundle` 或 `dependency`）、installation source、activation mode、package health 与 Main-owned package action。只有采用 hot activation 的 package 带有 Host runtime state。对于 profile runtime plugin，`profileManaged` 同时记录 Desktop 安装来源与进入 Electron 私有 roster 的显式意图；catalog 把该事实投影为 `desktopInstalled`。
 
 ## 插件类别与激活语义
 
 | 类别 | 谁加载 | 激活 | 健康时可管理 |
 | --- | --- | --- | --- |
 | `bundle` | 共享 web profile 组合（`dsh web` 与 Electron） | `profile-restart` | 无运行时启停；重启后应用该层 |
-| `runtime-plugin` | Electron 私有的 `plugins.cordis.yml`（`dsh web` 永不加载这些行） | `hot` | 可以，包括 CLI 安装的 profile package |
+| `runtime-plugin` | Electron 私有的 `plugins.cordis.yml`（`dsh web` 永不加载这些行） | `hot` | Profile package 仅在 Desktop 记录安装意图后可管理 |
 | `dependency` | 无 Cordis entry 的惰性 package | `none` | 无运行时控件 |
 
-若要在 `dsh web` 中也可用，作者应声明 `dsh.bundle.patch`。健康的 CLI 安装 `runtime-plugin` 会进入 Electron roster，不必出现在 `profileManaged` 中。
+若要在 `dsh web` 中也可用，作者应声明 `dsh.bundle.patch`。Electron 不会在缺少 `profileManaged` 记录时热加载可 import 的 CLI dependency，因为普通 library 与 Cordis 插件使用相同的 npm entry field。
 
 ## 运行时拥有的文件
 
@@ -60,7 +60,7 @@ Electron Main 以如下顺序启动 Host：
 6. 生成初始 `plugins.cordis.yml`；
 7. 渲染 `electron-host.patch.yml`；
 8. 启动 `dsh web --patch <electron-host.patch.yml>`；
-9. 若就绪行超时，停止 Host，打开同一恢复窗，用户禁用可管理插件或重置 Desktop 管理后再重试。
+9. 若就绪行超时，停止 Host，打开同一恢复窗，用户禁用可管理插件或重置 Desktop 管理后再重试；两个动作都会从 profile stack 排除 catalog 中无法加载的 Bundle，但不删除其 dependency entry。
 
 启动阶段与后续生命周期变更都操作同一个生成的 `plugins.cordis.yml` 路径。
 
@@ -94,9 +94,9 @@ Electron Main 校验请求，把它转换成一个 pnpm-compatible spec，再调
 
 打包后的 Desktop 包含仓库 package-manager version 对应的 pnpm。`$DSH_HOME/electron/bin` 下的 generated platform shim 会通过 Electron Node mode 启动 bundled pnpm，Main 把该目录放到 child PATH 最前。用户不需要全局 Node.js、Corepack 或 pnpm。
 
-普通 runtime 插件会进入 `plugins.cordis.yml`，并通过既有 lifecycle controller 热激活。Client-bearing 插件会在 Host 稳定后刷新 Renderer。Healthy Bundle 显示**已安装**，因为 `profile-restart` 是其 activation mode，并不表示存在未应用的变更。Plain dependency 显示**已作为依赖安装**且不提供 runtime lifecycle control。只有 patch 能够解析，并且 manifest 声明的 Host 与 client package export 都存在时，上游协调才会把 Bundle 加入 profile stack。Electron 还会在激活前校验普通 runtime 的 Host 与 client target。pnpm 失败后留下的 direct dependency、因无效而未进入 profile stack 的 Bundle、缺失的 installed package，以及缺少声明产物的 runtime 插件，都会显示为**安装未完成**，并提供可用于 repair 或 remove 的 package action。Electron 不会自动重启 Host。
+通过 Desktop 安装的普通 runtime 插件会进入 `plugins.cordis.yml`，并通过既有 lifecycle controller 热激活。Client-bearing 插件会在 Host 稳定后刷新 Renderer。Healthy Bundle 显示**已安装**，因为 `profile-restart` 是其 activation mode，并不表示存在未应用的变更。Plain dependency 显示**已作为依赖安装**且不提供 runtime lifecycle control。只有 patch 能够解析，并且 manifest 声明的 Host 与 client package export 都存在时，上游协调才会把 Bundle 加入 profile stack。Electron 还会在激活前校验普通 runtime 的 Host 与 client target。pnpm 失败后留下的 direct dependency、因无效而未进入 profile stack 的 Bundle、缺失的 installed package，以及缺少声明产物的 runtime 插件，都会显示为**安装未完成**，并提供可用于 repair 或 remove 的 package action。Electron 不会自动重启 Host。
 
-System 与 bundled package name 是 reserved name，因为 Host 解析 package 时 profile 的 `node_modules` tree 具有优先权。针对这些名称的 Registry request 会在安装前失败。如果 Git 或 local source 解析为 reserved name，Electron 会在报告冲突前移除新加入的依赖。Profile 中已存在的冲突依赖必须先通过 `dsh plugin --profile web remove <package-name>` 移除，Desktop 才能启动。
+System 与 bundled package name 是 reserved name，因为 Host 解析 package 时 profile 的 `node_modules` tree 具有优先权。针对这些名称的 Registry request 会在安装前失败。如果 Git 或 local source 解析为 reserved name，Electron 会在报告冲突前移除新加入的依赖；回滚子进程在 close 前持有 profile 锁。Profile 中已存在的冲突依赖必须先通过 `dsh plugin --profile web remove <package-name>` 移除，Desktop 才能启动。
 
 安装会使用 Harness process permission 执行 third-party package 与 plugin code，位于 agent sandbox 之外。对话框会提醒用户只安装可信 package。Stable error category 会区分 invalid request、missing package 或 path、Git failure、blocked install-time build script、profile reconciliation 与 activation failure，同时保留 technical details。Blocked-build 诊断会列出从 pnpm 输出解析出的实际 package，不会把已有 dependency 的脚本归因给本次请求的插件。如果 pnpm 在失败前改写了 profile dependencies，错误会记录这一事实，Renderer 也会刷新 catalog，而不会声称已回滚。
 
@@ -104,7 +104,7 @@ System 与 bundled package name 是 reserved name，因为 Host 解析 package �
 
 Renderer 只按 direct dependency name 请求 package lifecycle operation。Main 会重新读取 catalog entry、requested dependency spec、source、kind、ownership、health 与 permitted action；Renderer field 永远不会授权 mutation。System 与 bundled package 不能 update、reinstall 或 remove。Profile Registry package 支持遵循 range 的 update check、update、reinstall 与 remove。Git 与本地 `file:` dependency 从其 recorded source refresh。Healthy 本地 `link:` dependency 使用 runtime reload 而不是 package update；incomplete link 可以 repair。Unknown profile dependency 默认只允许 remove。
 
-只有用户选择**检查更新**时才会执行 update check。Main 通过 `dsh plugin --profile web outdated --format json` 调用 bundled pnpm，将结果过滤到 Registry-owned direct dependency，并保持 `wanted` 与 `latest` 的区别。Registry 与 Git update 调用 `dsh plugin --profile web update <name>`；Registry target 因此由现有 dependency range 选择，且不会选择新的 major version。Copied local package 与 explicit reinstall 调用 `add <requestedSpec> --force`，remove 调用 `remove <name>`。上游 dsh 仍是 `dsh.profile.bundles` reconciliation 的唯一 owner。
+只有用户选择**检查更新**时才会执行 update check。Main 通过 `dsh plugin --profile web outdated --format json` 调用 bundled pnpm，将结果过滤到 Registry-owned direct dependency，并保持 `wanted` 与 `latest` 的区别。Registry 与 Git update 调用 `dsh plugin --profile web update <name>`；Registry target 因此由现有 dependency range 选择，且不会选择新的 major version。Copied local package 与 explicit reinstall 调用 `add <requestedSpec> --force`，remove 调用 `remove <name>`。上游 dsh 负责普通的 `dsh.profile.bundles` reconciliation；启动恢复可以从该列表移除 catalog 中无法加载的 Bundle，同时保留其 dependency 以便之后 repair 或 remove。
 
 在 update、reinstall 或 removal 修改 package file 之前，`PluginLifecycleController.quiesceForPackageMutation()` 会从 generated roster 中移除 active hot plugin，并等待 Host inventory 报告 absent。此 temporary quiescence 不会编辑 persisted disabled preference。如果 package command 失败，且 dependency manifest、lockfile 与 installed package manifest 均未变化，controller 会恢复之前的 runtime。如果任何 captured disk state 已变化，Electron 会让插件保持 unloaded、刷新 catalog 并报告 `profile-changed`；它不会执行可能处于 partial 状态的 artifact。Removal 成功后会从 `profileManaged` 与 `disabled` 同时删除 package name。Electron 只在移除 hot-activated、带 client half 的 package 后 soft-refresh Renderer，因为 Host 已不再引用它。移除 `profile-restart` package 时绝不 soft-refresh：Host 在 Desktop relaunch 前仍持有 startup Bundle composition，reload 会尝试抓取已删除的 client script。
 
@@ -163,7 +163,7 @@ Electron 只会在 Host 稳定之后，并且仅当 manageable、hot-activated �
 
 * runtime overlay 渲染与占位符替换；
 * plugin-state migration、解析、持久化与 stale-name 协调；
-* catalog precedence、CLI 安装 runtime-plugin 的可管理性，以及 runtime-plugin/bundle/dependency classification；
+* catalog precedence、Desktop 意图门槛，以及 runtime-plugin/bundle/dependency classification；
 * Registry、Git 与 local request normalization，覆盖 POSIX 与 Windows path；
 * bundled pnpm shim generation、update-result parsing、空安装拒绝、pending/lock 崩溃注入与 package mutation recovery；
 * web profile workspace 的 `strictDepBuilds`/`allowBuilds` 合并与启动 symlink 巡检；

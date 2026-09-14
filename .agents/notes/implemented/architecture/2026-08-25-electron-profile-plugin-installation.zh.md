@@ -12,7 +12,7 @@ Electron Plugin Manager 只能控制应用启动时组装的、由发行版拥�
 
 Electron 将 profile 插件安装暴露为类型化 Desktop capability，同时保留 [profile 插件组合包](2026-08-05-profile-plugin-bundles.zh.md)规定的上游 profile 与 bundle 模型。
 
-`ProfilePluginCatalog` 是当前 inventory authority。每次读取都会合并 Electron 必需 runtime 插件、bundled ecosystem 插件和安装在 `$DSH_HOME/profiles/web` 中的直接依赖，并由 system 与 bundled entry 按真实 package name 取得优先权。Catalog entry 分离 ownership、package kind、installation source、activation behavior 与可选 Host runtime state。普通 runtime 插件使用热激活，已协调的 `dsh.bundle` 包需要下一次 profile 启动，没有 runtime declaration 的包则作为 plain dependency 保持可见但不提供 lifecycle control。位于 Desktop 管理之外的直接依赖仍会显示在 catalog 中。CLI 安装且健康的 runtime-plugin 可管理并进入 Electron roster；`profileManaged` 只记录该安装是否由 Desktop 执行（[可管理类别说明](2026-09-13-electron-plugin-manageable-kinds.zh.md)）。无法加载的声明 entry 仍为安装未完成，且不会进入 startup roster。
+`ProfilePluginCatalog` 是当前 inventory authority。每次读取都会合并 Electron 必需 runtime 插件、bundled ecosystem 插件和安装在 `$DSH_HOME/profiles/web` 中的直接依赖，并由 system 与 bundled entry 按真实 package name 取得优先权。Catalog entry 分离 ownership、package kind、installation source、activation behavior 与可选 Host runtime state。普通 runtime 插件使用热激活，已协调的 `dsh.bundle` 包需要下一次 profile 启动，没有 runtime declaration 的包则作为 plain dependency 保持可见但不提供 lifecycle control。位于 Desktop 管理之外的直接依赖仍会显示在 catalog 中。可 import 的 CLI dependency 会留在 Electron roster 之外，直到 Desktop 把执行意图记入 `profileManaged`（[可管理类别说明](2026-09-13-electron-plugin-manageable-kinds.zh.md)）。无法加载的声明 entry 仍为安装未完成，且不会进入 startup roster。
 
 `plugin-state.json` version 2 保存 disabled runtime package name，并记录哪些 profile direct dependency 属于 Desktop 管理。Version 1 会在不丢失 disabled set 的情况下迁移。依赖 spec 仍以 profile `package.json` 为真源；Electron 不会把它复制到自身 state file。
 
