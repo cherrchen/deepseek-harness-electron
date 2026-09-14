@@ -1,15 +1,29 @@
-import { existsSync } from 'node:fs'
+import { spawn, type ChildProcessByStdio, type SpawnOptionsWithoutStdio } from 'node:child_process'
+import { closeSync, existsSync, openSync } from 'node:fs'
 import { join } from 'node:path'
+import type { Readable } from 'node:stream'
 
 /** The bounded startup window before Electron reports a failed Harness boot. */
 export const HARNESS_START_TIMEOUT_MS = 60_000
+
+/**
+ * Resolve the device handle that keeps a spawned dsh child's console allocated.
+ * The child reads an immediately exhausted stream, exactly as `stdio: 'ignore'` provides; the
+ * inherited descriptor is what stops libuv from suppressing the console.
+ * @param platform - Target platform; defaults to the running platform.
+ * @returns Device path read as the child's stdin.
+ */
+export function consoleStdinDevice(platform: NodeJS.Platform = process.platform): string {
+  return platform === 'win32' ? 'NUL' : '/dev/null'
+}
 
 /**
  * Executable and extra environment for every dsh child the Desktop supervises.
  *
  * Windows needs a console-subsystem image: a GUI image such as `electron.exe` has no console, so
  * every console target it creates receives a new visible Windows Terminal. Launching the packaged
- * Node.js with `windowsHide` gives the whole process tree one hidden console to inherit.
+ * Node.js with the stdio of {@link spawnHarnessChild} gives the whole process tree one hidden
+ * console to inherit.
  */
 export interface HostRuntime {
   /** Executable that starts a Node.js-compatible dsh process. */
@@ -67,6 +81,45 @@ export function resolveHostRuntime(options: {
     )
   }
   return { executable, env: {} }
+}
+
+/**
+ * Spawn one supervised dsh child that owns a hidden, inheritable console.
+ *
+ * `windowsHide` alone makes libuv pass `CREATE_NO_WINDOW`, which starts a console-subsystem child
+ * with no console handle at all: the job runner
+ * (`packages/subprocess/subprocess-local/src/windows-job.ts`) and every child under the restricted
+ * sandbox token then allocate a new visible console, and a restricted child dies during DLL
+ * initialization with `STATUS_DLL_INIT_FAILED`. libuv omits `CREATE_NO_WINDOW` when one stdio entry
+ * is an inherited descriptor
+ * (https://github.com/libuv/libuv/blob/v1.52.1/src/win/process.c#L1034-L1042), so handing the child
+ * the stdin device descriptor keeps `windowsHide`'s `SW_HIDE` half: Windows allocates one console
+ * for the child with a hidden window, and every descendant inherits it. Other platforms gain and
+ * lose nothing: the descriptor reads as an exhausted stream, which is what `stdio: 'ignore'`
+ * already provided.
+ *
+ * @param executable - Resolved Host runtime executable.
+ * @param args - Arguments passed to `executable`.
+ * @param options - Spawn options for cwd, environment, and signals; `stdio` and `windowsHide` are always supplied here.
+ * @returns Child process with no stdin stream and piped stdout and stderr.
+ */
+export function spawnHarnessChild(
+  executable: string,
+  args: readonly string[],
+  options: SpawnOptionsWithoutStdio,
+): ChildProcessByStdio<null, Readable, Readable> {
+  const stdin = openSync(consoleStdinDevice(), 'r')
+  try {
+    // Node's spawn overloads infer stdio types from tuple literals only, so the descriptor in the
+    // tuple forces this cast.
+    return spawn(executable, args, {
+      ...options,
+      stdio: [stdin, 'pipe', 'pipe'],
+      windowsHide: true,
+    }) as ChildProcessByStdio<null, Readable, Readable>
+  } finally {
+    closeSync(stdin)
+  }
 }
 
 /**

@@ -1,4 +1,3 @@
-import { spawn } from 'node:child_process'
 import { existsSync, readFileSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import type { PluginLifecycleController } from './plugin-lifecycle.ts'
@@ -28,7 +27,7 @@ import {
   type PluginMutationCrashPoint,
 } from './plugin-recovery.ts'
 import { ensureWebProfileWorkspace } from './plugin-profile-workspace.ts'
-import type { HostRuntime } from './runtime.ts'
+import { spawnHarnessChild, type HostRuntime } from './runtime.ts'
 
 /** Captured dsh plugin subprocess result. */
 export interface PluginCommandResult {
@@ -73,7 +72,7 @@ export function createPluginCommandRunner(options: {
 }): PluginCommandRunner {
   return async (command, runOptions) => await new Promise((resolve, reject) => {
     const args = pluginCommandArguments(command)
-    const child = spawn(options.runtime.executable, [
+    const child = spawnHarnessChild(options.runtime.executable, [
       '--expose-internals',
       options.dshBin,
       'plugin',
@@ -87,8 +86,6 @@ export function createPluginCommandRunner(options: {
         PATH: options.envPath,
         ...options.runtime.env,
       },
-      stdio: ['ignore', 'pipe', 'pipe'],
-      windowsHide: true,
     })
     let stdout = ''
     let stderr = ''

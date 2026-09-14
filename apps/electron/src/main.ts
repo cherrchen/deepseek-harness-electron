@@ -5,7 +5,7 @@
  */
 
 import { existsSync, readFileSync } from 'node:fs'
-import { spawn, type ChildProcessByStdio } from 'node:child_process'
+import type { ChildProcessByStdio } from 'node:child_process'
 import type { Readable } from 'node:stream'
 import { join } from 'node:path'
 import {
@@ -54,6 +54,7 @@ import {
   resolveHarnessHome,
   resolveHostRuntime,
   scanHarnessStartupChunk,
+  spawnHarnessChild,
   type HarnessStartupScan,
   type HostRuntime,
 } from './runtime.ts'
@@ -116,15 +117,13 @@ async function startHarness(
   harnessHome: string,
   hostPatch: string,
 ): Promise<{ child: HarnessProcess; url: string }> {
-  const child = spawn(runtime.executable, harnessArguments(dshBin, hostPatch), {
+  const child = spawnHarnessChild(runtime.executable, harnessArguments(dshBin, hostPatch), {
     cwd: app.getPath('home'),
     env: {
       ...process.env,
       DSH_HOME: harnessHome,
       ...runtime.env,
     },
-    stdio: ['ignore', 'pipe', 'pipe'],
-    windowsHide: true,
   })
 
   return await new Promise((resolve, reject) => {

@@ -84,12 +84,15 @@ describe('plugin command process lifecycle', () => {
     await expect(result).resolves.toEqual({ exitCode: 1, stdout: 'output', stderr: 'diagnostic' })
   })
 
-  it('runs the dsh child without a visible console and without Electron child mode', async () => {
+  it('runs the dsh child with the console-bearing stdio and without Electron child mode', async () => {
     const { child, run } = setup(42)
     const result = run({ kind: 'outdated' })
     child.emit('close', 0)
     await result
     const options = vi.mocked(spawn).mock.calls[0]?.[2]
+    // A piped-only stdio would make libuv pass CREATE_NO_WINDOW and leave the child without the
+    // console its package-manager descendants inherit.
+    expect(options?.stdio).toEqual([expect.any(Number), 'pipe', 'pipe'])
     expect(options?.windowsHide).toBe(true)
     expect(options?.env?.ELECTRON_RUN_AS_NODE).toBeUndefined()
     expect(vi.mocked(spawn).mock.calls[0]?.[0]).toBe('node')
