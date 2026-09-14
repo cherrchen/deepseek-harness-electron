@@ -19,7 +19,7 @@ Electron 拥有插件的 desired state。DSH Host 拥有实际的 Cordis fiber s
 `ProfilePluginCatalog` 会刷新并合并三种 ownership class：
 
 * `runtime/plugins/` 下的 **system runtime 插件** 在 Host 启动前完成链接，且不允许用户管理。
-* `dshElectron.ecosystemPlugins` 声明的 **bundled ecosystem 插件** 是 Electron 应用的精确版本 production npm 依赖，在 Host 启动前完成链接，允许用户管理，并通过 generated include file 进入组合。当前 pin 列出 `@dsh-electron/dsh-plugin-git@0.2.0`，它占用 `ctx.sidebarRight`（[Git 组合](../../.agents/notes/implemented/architecture/2026-09-13-electron-plugin-manager-and-git-sidebar.zh.md)）。
+* `dshElectron.ecosystemPlugins` 声明的 **bundled ecosystem 插件** 是 Electron 应用的精确版本 production npm 依赖，在 Host 启动前完成链接，允许用户管理，并通过 generated include file 进入组合。当前 pin 列出 `@dsh-electron/dsh-plugin-git@0.2.1`，它占用 `ctx.sidebarRight`（[Git 组合](../../.agents/notes/implemented/architecture/2026-09-13-electron-plugin-manager-and-git-sidebar.zh.md)）。
 * **Profile package** 是 `$DSH_HOME/profiles/web/package.json` 中通过 Desktop 安装或声明为 profile bundle 的 direct dependency。
 
 链接本身不是启用状态信号。Electron 会把 bundled artifact 同时暴露到 `$DSH_HOME/profiles/node_modules` 与 `$DSH_HOME/electron/node_modules`；运行时启停仅由生成的 Cordis 组合控制。
@@ -92,7 +92,7 @@ preload lifecycle group 通过 `@dsh-electron/dsh-electron-desktop-capabilities`
 
 Electron Main 校验请求，把它转换成一个 pnpm-compatible spec，再调用 `dsh plugin --profile web add <spec>`。未指定版本的 Registry 请求会显式使用 `@latest`，从而替换已有 Git 或 local spec，而不是继续保留原 source。上游 dsh 仍负责 profile 初始化与 bundle 协调。Catalog identity 与 package kind 由 pnpm 写入的 installed dependency name 与 manifest 决定，而不是 request text。`install()` 在命令以 0 退出且未改 profile dependencies 时失败；`reinstall` 与 `update --force` 可以在不新增 dependency 键的情况下刷新。spawn 前，Main 把 `strictDepBuilds: true` 与一份已评审的 `allowBuilds` 种子合并进 web profile 的 `pnpm-workspace.yaml`，并保留用户已有键。
 
-打包后的 Desktop 包含仓库 package-manager version 对应的 pnpm。`$DSH_HOME/electron/bin` 下的 generated platform shim 会通过 Electron Node mode 启动 bundled pnpm，Main 把该目录放到 child PATH 最前。用户不需要全局 Node.js、Corepack 或 pnpm。
+打包后的 Desktop 包含仓库 package-manager version 对应的 pnpm。`$DSH_HOME/electron/bin` 下的 generated platform shim 会通过解析出的 Host runtime 启动 bundled pnpm——Windows 上是打包的 Node.js，其它平台是 Electron Node mode——Main 把该目录放到 child PATH 最前。用户不需要全局 Node.js、Corepack 或 pnpm。
 
 通过 Desktop 安装的普通 runtime 插件会进入 `plugins.cordis.yml`，并通过既有 lifecycle controller 热激活。Client-bearing 插件会在 Host 稳定后刷新 Renderer。Healthy Bundle 显示**已安装**，因为 `profile-restart` 是其 activation mode，并不表示存在未应用的变更。Plain dependency 显示**已作为依赖安装**且不提供 runtime lifecycle control。只有 patch 能够解析，并且 manifest 声明的 Host 与 client package export 都存在时，上游协调才会把 Bundle 加入 profile stack。Electron 还会在激活前校验普通 runtime 的 Host 与 client target。pnpm 失败后留下的 direct dependency、因无效而未进入 profile stack 的 Bundle、缺失的 installed package，以及缺少声明产物的 runtime 插件，都会显示为**安装未完成**，并提供可用于 repair 或 remove 的 package action。Electron 不会自动重启 Host。
 

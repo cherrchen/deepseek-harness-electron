@@ -1,11 +1,18 @@
 import { describe, expect, it } from 'vitest'
+import { spawn, type ChildProcessByStdio } from 'node:child_process'
+import { join } from 'node:path'
+import { tmpdir } from 'node:os'
+import type { Readable } from 'node:stream'
 import {
   HARNESS_STARTUP_BUFFER_LIMIT,
+  consoleStdinDevice,
   harnessArguments,
   parseHarnessReadyUrl,
   resolveDshBin,
   resolveHarnessHome,
+  resolveHostRuntime,
   scanHarnessStartupChunk,
+  spawnHarnessChild,
 } from '../src/runtime.ts'
 
 describe('Electron Harness runtime', () => {
@@ -84,5 +91,123 @@ describe('Electron Harness runtime', () => {
     expect(scanHarnessStartupChunk(scan, 'dsh web: http://127.0.0.1:43127\n')).toBe(
       'http://127.0.0.1:43127',
     )
+  })
+})
+
+describe('Host runtime resolution', () => {
+  const packagedNode = join('/resources', 'node', 'node.exe')
+  const preparedNode = join('/app', '.electron-build', 'node', 'win-x64', 'node.exe')
+
+  it('keeps Electron as the Host executable outside Windows', () => {
+    expect(resolveHostRuntime({
+      appPath: '/app', resourcesPath: '/resources', packaged: true, platform: 'darwin', exists: () => false,
+    })).toEqual({ executable: process.execPath, env: { ELECTRON_RUN_AS_NODE: '1' } })
+  })
+
+  it('uses the packaged Node.js on Windows without Electron child mode', () => {
+    expect(resolveHostRuntime({
+      appPath: '/app',
+      resourcesPath: '/resources',
+      packaged: true,
+      platform: 'win32',
+      arch: 'x64',
+      exists: path => path === packagedNode,
+    })).toEqual({ executable: packagedNode, env: {} })
+  })
+
+  it('uses the prepared build-time Node.js for an unpackaged Windows run', () => {
+    expect(resolveHostRuntime({
+      appPath: '/app',
+      resourcesPath: '/resources',
+      packaged: false,
+      platform: 'win32',
+      arch: 'x64',
+      exists: path => path === preparedNode,
+    })).toEqual({ executable: preparedNode, env: {} })
+  })
+
+  it('prefers an explicit override over both locations', () => {
+    expect(resolveHostRuntime({
+      appPath: '/app',
+      resourcesPath: '/resources',
+      packaged: true,
+      platform: 'win32',
+      arch: 'x64',
+      override: 'C:\\tools\\node.exe',
+      exists: () => true,
+    })).toEqual({ executable: 'C:\\tools\\node.exe', env: {} })
+  })
+
+  it('rejects an override that names no existing executable', () => {
+    expect(() => resolveHostRuntime({
+      appPath: '/app',
+      resourcesPath: '/resources',
+      packaged: true,
+      platform: 'win32',
+      arch: 'x64',
+      override: 'C:\\tools\\node.exe',
+      exists: () => false,
+    })).toThrow(/DSH_ELECTRON_NODE_BINARY/u)
+  })
+
+  it('fails loudly when Windows has no prepared Node.js', () => {
+    expect(() => resolveHostRuntime({
+      appPath: '/app',
+      resourcesPath: '/resources',
+      packaged: false,
+      platform: 'win32',
+      arch: 'x64',
+      exists: () => false,
+    })).toThrow(/prepare:node/u)
+  })
+})
+
+/** Reads stdin to end of stream and reports whether the child owns a console. */
+const HOST_CHILD_PROBE = [
+  "const fs = require('node:fs')",
+  'const bytes = fs.readSync(0, Buffer.alloc(1), 0, 1, null)',
+  'let ownsConsole = false',
+  "try { fs.closeSync(fs.openSync('CONOUT$', 'r+')); ownsConsole = true } catch {}",
+  'process.stdout.write(JSON.stringify({ bytes, ownsConsole }))',
+].join(';')
+
+/**
+ * Read one probe child's stdout report.
+ * @param child - Child started by the launch under test.
+ * @returns Stdin byte count and console ownership.
+ */
+async function probeHostChild(
+  child: ChildProcessByStdio<null, Readable, Readable>,
+): Promise<{ bytes: number; ownsConsole: boolean }> {
+  let stdout = ''
+  child.stdout.setEncoding('utf8').on('data', (chunk: string) => { stdout += chunk })
+  await new Promise(resolve => child.once('close', resolve))
+  return JSON.parse(stdout) as { bytes: number; ownsConsole: boolean }
+}
+
+describe('supervised Host console', () => {
+  it('reads the platform stdin device that keeps the console allocated', () => {
+    expect(consoleStdinDevice('win32')).toBe('NUL')
+    expect(consoleStdinDevice('darwin')).toBe('/dev/null')
+    expect(consoleStdinDevice('linux')).toBe('/dev/null')
+  })
+
+  it('starts the Host child with an exhausted stdin and piped logs', async () => {
+    const child = spawnHarnessChild(process.execPath, ['-e', HOST_CHILD_PROBE], { cwd: tmpdir() })
+    expect(child.stdin).toBeNull()
+    await expect(probeHostChild(child)).resolves.toMatchObject({ bytes: 0 })
+  })
+
+  it.runIf(process.platform === 'win32')('gives the spawned child a console that windowsHide alone suppresses', async () => {
+    const owned = await probeHostChild(spawnHarnessChild(process.execPath, ['-e', HOST_CHILD_PROBE], { cwd: tmpdir() }))
+    // Control: the piped-only launch spec whose CREATE_NO_WINDOW leaves the child without a console.
+    // It proves the CONOUT$ probe reports console ownership instead of always succeeding.
+    const suppressed = await probeHostChild(spawn(process.execPath, ['-e', HOST_CHILD_PROBE], {
+      cwd: tmpdir(),
+      stdio: ['ignore', 'pipe', 'pipe'],
+      windowsHide: true,
+    }))
+    expect(owned.ownsConsole).toBe(true)
+    expect(suppressed.ownsConsole).toBe(false)
   })
 })

@@ -9,6 +9,7 @@ interface ElectronManifest {
   build: {
     extraMetadata: { name: string }
     nsis: { useZip: boolean; differentialPackage: boolean }
+    win: { extraResources: Array<{ from: string; to: string }> }
   }
 }
 
@@ -22,6 +23,16 @@ describe('Electron packaging', () => {
     expect(manifest.build.extraMetadata.name).toBe('deepseek-harness-desktop')
   })
 
+  it('ships the prepared Node.js beside the packaged Windows Host', async () => {
+    const manifestPath = join(import.meta.dirname, '..', 'package.json')
+    const manifest = JSON.parse(await readFile(manifestPath, 'utf8')) as ElectronManifest
+
+    expect(manifest.build.win.extraResources).toContainEqual({
+      from: '.electron-build/node/current',
+      to: 'node',
+    })
+  })
+
   it('installs every declared ecosystem plugin as a production registry dependency', async () => {
     const electronRoot = join(import.meta.dirname, '..')
     const manifest = JSON.parse(await readFile(join(electronRoot, 'package.json'), 'utf8')) as ElectronManifest
@@ -31,6 +42,6 @@ describe('Electron packaging', () => {
       expect(manifest.dependencies?.[name]).not.toMatch(/^workspace:/)
       expect(existsSync(join(electronRoot, 'node_modules', ...name.split('/'), 'package.json'))).toBe(true)
     }
-    expect(manifest.dependencies?.['@dsh-electron/dsh-plugin-git']).toBe('0.2.0')
+    expect(manifest.dependencies?.['@dsh-electron/dsh-plugin-git']).toBe('0.2.1')
   })
 })

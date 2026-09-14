@@ -47,13 +47,28 @@ describe('bundled plugin package manager', () => {
     mkdirSync(join(pnpmBin, '..'), { recursive: true })
     writeFileSync(pnpmBin, '', 'utf8')
     try {
-      const posix = preparePluginPackageManager(root, '/Applications/DeepSeek Harness', pnpmBin, '/usr/bin', 'darwin')
+      const posix = preparePluginPackageManager(
+        root,
+        { executable: '/Applications/DeepSeek Harness', env: { ELECTRON_RUN_AS_NODE: '1' } },
+        pnpmBin,
+        '/usr/bin',
+        'darwin',
+      )
       expect(posix.envPath.startsWith(posix.binDirectory)).toBe(true)
-      expect(readFileSync(join(posix.binDirectory, 'pnpm'), 'utf8')).toContain('ELECTRON_RUN_AS_NODE=1 exec')
-      const windows = preparePluginPackageManager(root, 'C:\\Program Files\\DeepSeek Harness.exe', pnpmBin, 'C:\\Windows', 'win32')
+      const posixShim = readFileSync(join(posix.binDirectory, 'pnpm'), 'utf8')
+      expect(posixShim).toContain("ELECTRON_RUN_AS_NODE=1 exec '/Applications/DeepSeek Harness'")
+      expect(posixShim).toContain(pnpmBin)
+      const windows = preparePluginPackageManager(
+        root,
+        { executable: 'C:\\Program Files\\node\\node.exe', env: {} },
+        pnpmBin,
+        'C:\\Windows',
+        'win32',
+      )
       const windowsShim = readFileSync(join(windows.binDirectory, 'pnpm.cmd'), 'utf8')
-      expect(windowsShim).toContain('ELECTRON_RUN_AS_NODE=1')
-      expect(windowsShim).toContain('"C:\\Program Files\\DeepSeek Harness.exe"')
+      expect(windowsShim).not.toContain('ELECTRON_RUN_AS_NODE')
+      expect(windowsShim).toContain('"C:\\Program Files\\node\\node.exe"')
+      expect(windowsShim).toContain(pnpmBin)
       expect(windowsShim).toContain(' %*')
     } finally {
       await rm(root, { recursive: true, force: true })

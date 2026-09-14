@@ -12,7 +12,7 @@ Status: implemented
 
 `apps/electron/runtime/host.patch.yml` 插入 `@dsh-electron/dsh-electron-ui-plugin-manager`。
 
-`@dsh-electron/dsh-plugin-git@0.2.0` 注入 `sidebarRight` / `sidebarRightTabs`，运行时不依赖 `details`、`shellDetails` 或 `@dsh-electron/dsh-client-ui-details-host`。Desktop 把该 package 列入 `dshElectron.ecosystemPlugins`，并按照 [npm-only ecosystem plugin 规则](2026-09-14-electron-npm-only-ecosystem-plugins.zh.md)保留其精确版本 production npm 依赖。
+`@dsh-electron/dsh-plugin-git@0.2.1` 注入 `sidebarRight` / `sidebarRightTabs`，运行时不依赖 `details`、`shellDetails` 或 `@dsh-electron/dsh-client-ui-details-host`。Desktop 把该 package 列入 `dshElectron.ecosystemPlugins`，并按照 [npm-only ecosystem plugin 规则](2026-09-14-electron-npm-only-ecosystem-plugins.zh.md)保留其精确版本 production npm 依赖。
 
 ## Alternatives considered
 

@@ -865,8 +865,8 @@ importers:
         specifier: link:../../vendor/schemastery
         version: link:../../vendor/schemastery
       '@dsh-electron/dsh-plugin-git':
-        specifier: 0.2.0
-        version: 0.2.0(99fb79d6866325454342b314c81a2901)
+        specifier: 0.2.1
+        version: 0.2.1(99fb79d6866325454342b314c81a2901)
       electron-updater:
         specifier: ^6.8.9
         version: 6.8.9
@@ -937,6 +937,9 @@ importers:
       electron-builder:
         specifier: 26.15.3
         version: 26.15.3(electron-builder-squirrel-windows@26.15.3)
+      extract-zip:
+        specifier: ^2.0.1
+        version: 2.0.1(supports-color@9.4.0)
       react:
         specifier: ^18.2.0
         version: 18.3.1
@@ -12241,8 +12244,8 @@ packages:
       search-insights:
         optional: true
 
-  '@dsh-electron/dsh-plugin-git@0.2.0':
-    resolution: {integrity: sha512-7m+F5Jo6HgfOeB7RueIu+l14VFK/oG/09pOMdCHmMg9ZiwlEKV4xa/Sr9elq2OWbXDt0V0AjnDGCHRSoSSa1Uw==}
+  '@dsh-electron/dsh-plugin-git@0.2.1':
+    resolution: {integrity: sha512-jXs7S/83yrUm9JlB+Pwd+oQp1fwNfJNcCATkv1Z9aIIW7fjaIpAslLsbobVhc8uisx36NFJ8XWpxdnRRkUK4+g==}
     engines: {node: ^22.19.0 || >=24.0.0}
     peerDependencies:
       '@deepseek-ai/cordis': '>=4.0.2 <5.0.0'
@@ -19319,7 +19322,7 @@ snapshots:
     transitivePeerDependencies:
       - '@algolia/client-search'
 
-  '@dsh-electron/dsh-plugin-git@0.2.0(99fb79d6866325454342b314c81a2901)':
+  '@dsh-electron/dsh-plugin-git@0.2.1(99fb79d6866325454342b314c81a2901)':
     dependencies:
       '@deepseek-ai/cordis': link:vendor/cordis
       '@deepseek-ai/dsh-api-session-controller': link:packages/api/session-controller

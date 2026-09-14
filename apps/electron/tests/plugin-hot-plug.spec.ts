@@ -70,7 +70,6 @@ async function startHarnessForPlugins(
       ...process.env,
       ...env,
       DSH_HOME: harnessHome,
-      ELECTRON_RUN_AS_NODE: '1',
     },
     stdio: ['ignore', 'pipe', 'pipe'],
   })
