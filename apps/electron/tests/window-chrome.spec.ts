@@ -7,6 +7,7 @@ import {
   DESKTOP_PLATFORM_ATTR,
   MARKER_CENTER,
   MARKER_MAIN_HEADER,
+  MARKER_RIGHTBAR,
   MARKER_SIDEBAR,
 } from '../src/renderer/desktop/window-chrome.ts'
 
@@ -28,6 +29,8 @@ describe('Electron renderer source structure', () => {
     const height = css.match(/--dsh-native-control-row-height:\s*(\d+)px/)
     expect(Number(height?.[1])).toBe(NATIVE_CONTROL_ROW_HEIGHT)
     expect(css).toContain('--dsh-sidebar-top-inset: 0px')
+    expect(css).toContain('--dsh-content-top-inset: 0px')
+    expect(css).not.toContain('--dsh-windows-caption-inset')
     expect(css).toContain('--dsh-macos-sidebar-top-inset')
     expect(css).toContain('--dsh-macos-sidebar-seam-width')
     expect(css).not.toContain("[data-dsh-desktop-platform='win32'] [data-dsh-electron-sidebar]")
@@ -49,6 +52,7 @@ describe('Electron renderer source structure', () => {
     expect(css).not.toContain('#dsh-electron-titlebar')
     expect(css).toContain(MARKER_SIDEBAR)
     expect(css).toContain(MARKER_CENTER)
+    expect(css).toContain(MARKER_RIGHTBAR)
     expect(css).toContain(MARKER_MAIN_HEADER)
     expect(css).toContain(DESKTOP_PLATFORM_ATTR)
   })

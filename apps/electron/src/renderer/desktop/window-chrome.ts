@@ -17,6 +17,9 @@ export const MARKER_CENTER = 'data-dsh-electron-center'
 /** Visible conversation header marker for the active-session drag surface. */
 export const MARKER_MAIN_HEADER = 'data-dsh-electron-main-header'
 
+/** Right panel column marker for the native-control inset and its drag strip. */
+export const MARKER_RIGHTBAR = 'data-dsh-electron-rightbar'
+
 /** Supported desktop platforms for integrated chrome layout. */
 export type DesktopPlatform = 'darwin' | 'win32' | 'linux'
 
@@ -25,6 +28,7 @@ export interface LayoutTargets {
   frame: Element
   sidebar: Element
   center: Element
+  rightbar: Element
   mainHeader: Element
 }
 
@@ -78,6 +82,16 @@ export function resolveCenterColumn(frame: Element): Element | null {
 }
 
 /**
+ * Resolve the right panel grid column (third structural child of the frame).
+ * @param frame - AppFrame element from {@link resolveLayoutFrame}.
+ * @returns the right panel column element.
+ */
+export function resolveRightbarColumn(frame: Element): Element | null {
+  const center = resolveCenterColumn(frame)
+  return center?.nextElementSibling ?? null
+}
+
+/**
  * Resolve the active conversation header, falling back to its hidden blank-session node.
  * @param center - Center column from {@link resolveCenterColumn}.
  * @returns the conversation header element, or null before it mounts.
@@ -97,9 +111,10 @@ export function resolveLayoutTargets(root: ParentNode): LayoutTargets | null {
   if (frame === null) return null
   const sidebar = resolveSidebarColumn(frame)
   const center = resolveCenterColumn(frame)
-  if (sidebar === null || center === null) return null
+  const rightbar = resolveRightbarColumn(frame)
+  if (sidebar === null || center === null || rightbar === null) return null
   const mainHeader = resolveMainHeader(center)
-  return mainHeader === null ? null : { frame, sidebar, center, mainHeader }
+  return mainHeader === null ? null : { frame, sidebar, center, rightbar, mainHeader }
 }
 
 /**
@@ -112,6 +127,7 @@ export function attachLayoutMarkers(targets: LayoutTargets): boolean {
   for (const [element, marker] of [
     [targets.sidebar, MARKER_SIDEBAR],
     [targets.center, MARKER_CENTER],
+    [targets.rightbar, MARKER_RIGHTBAR],
     [targets.mainHeader, MARKER_MAIN_HEADER],
   ] as const) {
     if (element.hasAttribute(marker)) continue
@@ -131,6 +147,7 @@ export function layoutNeedsReconcile(root: ParentNode): boolean {
   if (targets === null) return true
   return !targets.sidebar.hasAttribute(MARKER_SIDEBAR)
     || !targets.center.hasAttribute(MARKER_CENTER)
+    || !targets.rightbar.hasAttribute(MARKER_RIGHTBAR)
     || !targets.mainHeader.hasAttribute(MARKER_MAIN_HEADER)
 }
 

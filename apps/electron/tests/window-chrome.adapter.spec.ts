@@ -5,6 +5,7 @@ import {
   layoutNeedsReconcile,
   MARKER_CENTER,
   MARKER_MAIN_HEADER,
+  MARKER_RIGHTBAR,
   MARKER_SIDEBAR,
   normalizeDesktopPlatform,
   reconcileWindowChromeLayout,
@@ -12,6 +13,7 @@ import {
   resolveLayoutTargets,
   resolveCenterColumn,
   resolveMainHeader,
+  resolveRightbarColumn,
   resolveSidebarColumn,
 } from '../src/renderer/desktop/window-chrome.ts'
 
@@ -52,19 +54,22 @@ describe('Electron window chrome adapter', () => {
     expect(frame).not.toBeNull()
     expect(resolveSidebarColumn(frame!)).toBe(root.querySelector('.sidebar-col'))
     expect(resolveCenterColumn(frame!)).toBe(root.querySelector('.center-col'))
+    expect(resolveRightbarColumn(frame!)).toBe(root.querySelector('.details-col'))
     expect(resolveMainHeader(root.querySelector('.center-col')!)).toBe(root.querySelector('header'))
   })
 
-  it('marks the existing sidebar, center, and conversation header nodes', () => {
+  it('marks the existing sidebar, center, right panel, and conversation header nodes', () => {
     const root = mountHarnessShell()
     const targets = resolveLayoutTargets(root)
     expect(targets).not.toBeNull()
     expect(attachLayoutMarkers(targets!)).toBe(true)
     expect(targets!.sidebar.hasAttribute(MARKER_SIDEBAR)).toBe(true)
     expect(targets!.center.hasAttribute(MARKER_CENTER)).toBe(true)
+    expect(targets!.rightbar.hasAttribute(MARKER_RIGHTBAR)).toBe(true)
     expect(targets!.mainHeader.hasAttribute(MARKER_MAIN_HEADER)).toBe(true)
     expect(root.querySelectorAll('[data-dsh-electron-sidebar]')).toHaveLength(1)
     expect(root.querySelectorAll('[data-dsh-electron-center]')).toHaveLength(1)
+    expect(root.querySelectorAll('[data-dsh-electron-rightbar]')).toHaveLength(1)
     expect(root.querySelectorAll('[data-dsh-electron-main-header]')).toHaveLength(1)
     expect(root.querySelectorAll('[data-dsh-electron-drag-region]')).toHaveLength(0)
     expect(attachLayoutMarkers(targets!)).toBe(false)

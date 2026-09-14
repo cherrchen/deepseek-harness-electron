@@ -8,13 +8,11 @@
   /* Native Windows/Linux controls occupy this much of the top-right corner. */
   --dsh-native-control-row-height: 40px;
   --dsh-sidebar-top-inset: 0px;
+  --dsh-content-top-inset: 0px;
   --dsh-macos-sidebar-top-inset: 28px;
   --dsh-macos-sidebar-seam-width: 8px;
   --dsh-macos-traffic-light-safe-width: 80px;
   --dsh-sidebar-collapsed-width: 56px;
-  --dsh-windows-caption-inset: calc(
-    100vw - env(titlebar-area-x, 0px) - env(titlebar-area-width, 100vw)
-  );
 }
 
 #root {
@@ -24,6 +22,16 @@
 /* Keep the sidebar fill behind native controls and move its UI below them. */
 [data-dsh-desktop-platform='darwin'] [data-dsh-electron-sidebar] {
   --dsh-sidebar-top-inset: var(--dsh-macos-sidebar-top-inset);
+}
+
+/* The Windows/Linux controls own the window's top-right corner: every column
+   right of the sidebar moves below their row, as the macOS sidebar moves below
+   the traffic lights. */
+[data-dsh-desktop-platform='win32'] [data-dsh-electron-center],
+[data-dsh-desktop-platform='win32'] [data-dsh-electron-rightbar],
+[data-dsh-desktop-platform='linux'] [data-dsh-electron-center],
+[data-dsh-desktop-platform='linux'] [data-dsh-electron-rightbar] {
+  --dsh-content-top-inset: var(--dsh-native-control-row-height);
 }
 
 [data-dsh-electron-sidebar] {
@@ -66,21 +74,38 @@
   pointer-events: none;
 }
 
-/* The blank-session UI has no header; its transparent top hit surface leaves
-   the existing conversation background fully visible. */
+/* The center column carries its content in flow: the inset is padding, and
+   border-box keeps the column inside its grid row. */
 [data-dsh-electron-center] {
   position: relative;
+  box-sizing: border-box;
+  padding-top: var(--dsh-content-top-inset);
 }
 
-[data-dsh-electron-center]:has(header[aria-hidden='true'])::before {
+/* The right column holds only an absolutely positioned panel, and an absolute
+   box ignores that padding, so the panel takes the inset as its own top. */
+[data-dsh-electron-rightbar] [data-sidebar-right-panel='push'] {
+  top: var(--dsh-content-top-inset);
+}
+
+/* The band above a shifted column stays blank and drags the window. */
+[data-dsh-electron-center]::before,
+[data-dsh-electron-rightbar]::before {
   content: '';
   position: absolute;
   top: 0;
   right: 0;
   left: 0;
   z-index: 3;
-  height: var(--dsh-native-control-row-height);
+  height: var(--dsh-content-top-inset);
   -webkit-app-region: drag;
+}
+
+/* The blank-session UI has no visible header; its transparent top hit surface
+   leaves the existing conversation background fully visible and also covers the
+   row the hidden header occupies below the inset. */
+[data-dsh-electron-center]:has(header[aria-hidden='true'])::before {
+  height: calc(var(--dsh-content-top-inset) + var(--dsh-native-control-row-height));
 }
 
 /* The active conversation's own header supplies its matching drag surface. */
@@ -115,18 +140,12 @@
   );
 }
 
-/* Leave the Windows/Linux Window Controls Overlay clear of header actions. */
-[data-dsh-desktop-platform='win32'] [data-dsh-electron-main-header],
-[data-dsh-desktop-platform='linux'] [data-dsh-electron-main-header] {
-  box-sizing: border-box;
-  padding-right: var(--dsh-windows-caption-inset);
-}
-
 /* Modal layers are structural siblings of the native drag sources, so their
    no-drag descendants cannot subtract an overlapping native hit region.
    Suspend every page drag surface until the modal closes. */
 :root:has([role='dialog'][aria-modal='true']) [data-dsh-electron-sidebar]::before,
 :root:has([role='dialog'][aria-modal='true']) [data-dsh-electron-center]::before,
+:root:has([role='dialog'][aria-modal='true']) [data-dsh-electron-rightbar]::before,
 :root:has([role='dialog'][aria-modal='true']) [data-dsh-electron-main-header] {
   -webkit-app-region: no-drag;
 }
