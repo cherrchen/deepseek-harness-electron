@@ -147,7 +147,7 @@ Electron Main
     │
     │ spawn
     ▼
-Windows: resources/node/node.exe with windowsHide (holds one hidden console)
+Windows: resources/node/node.exe with one hidden console
 Other platforms: Electron executable with ELECTRON_RUN_AS_NODE=1
     │
     ▼
@@ -157,7 +157,7 @@ dsh web
 127.0.0.1:<random-port>
 ```
 
-Windows 上 Host 运行于随包发布的 Node.js，因为 `electron.exe` 是 GUI 子系统映像：自身没有控制台的进程会让 Windows 为每个控制台子系统后代新建可见控制台，Windows 11 会将其渲染为 Windows Terminal 窗口。随包发布的 Node.js 是控制台子系统映像，并以 `windowsHide` 启动，因此 Host 持有一个隐藏控制台，job、ACL 与沙箱子进程都继承它。其它平台继续使用 Electron 的 Node 兼容子模式。
+Windows 上 Host 运行于随包发布的 Node.js，因为 `electron.exe` 是 GUI 子系统映像：自身没有控制台的进程会让 Windows 为每个控制台子系统后代新建可见控制台，Windows 11 会将其渲染为 Windows Terminal 窗口。随包发布的 Node.js 是控制台子系统映像，并以 `windowsHide` 和一个继承的 stdin 设备句柄启动，因此 Host 持有一个隐藏控制台，job、ACL 与沙箱子进程都继承它；仅用 `CREATE_NO_WINDOW` 会让控制台子系统子进程完全没有控制台，而受限令牌无法为其子进程创建控制台。其它平台继续使用 Electron 的 Node 兼容子模式。
 
 该 sidecar 拥有上游 Harness 行为：
 

@@ -147,7 +147,7 @@ Electron Main
     │
     │ spawn
     ▼
-Windows: resources/node/node.exe with windowsHide (holds one hidden console)
+Windows: resources/node/node.exe with one hidden console
 Other platforms: Electron executable with ELECTRON_RUN_AS_NODE=1
     │
     ▼
@@ -157,7 +157,7 @@ dsh web
 127.0.0.1:<random-port>
 ```
 
-On Windows the Host runs on the packaged Node.js, because `electron.exe` is a GUI-subsystem image: a process without a console makes Windows allocate a visible console for every console-subsystem descendant, which Windows 11 renders as a Windows Terminal window. The packaged Node.js is a console-subsystem image started with `windowsHide`, so the Host holds one hidden console that job, ACL, and sandboxed child processes inherit. Other platforms keep Electron's Node-compatible child mode.
+On Windows the Host runs on the packaged Node.js, because `electron.exe` is a GUI-subsystem image: a process without a console makes Windows allocate a visible console for every console-subsystem descendant, which Windows 11 renders as a Windows Terminal window. The packaged Node.js is a console-subsystem image started with `windowsHide` and an inherited stdin device handle, so the Host holds one hidden console that job, ACL, and sandboxed child processes inherit; `CREATE_NO_WINDOW` alone leaves a console-subsystem child without any console, which a restricted token cannot create for its children. Other platforms keep Electron's Node-compatible child mode.
 
 The sidecar owns upstream Harness behavior:
 
