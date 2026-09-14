@@ -28,6 +28,7 @@ import {
   type PluginMutationCrashPoint,
 } from './plugin-recovery.ts'
 import { ensureWebProfileWorkspace } from './plugin-profile-workspace.ts'
+import type { HostRuntime } from './runtime.ts'
 
 /** Captured dsh plugin subprocess result. */
 export interface PluginCommandResult {
@@ -60,11 +61,11 @@ export interface PluginPackageServiceOptions {
 
 /**
  * Build the packaged `dsh plugin --profile web` command runner.
- * @param options - Executable, profile, Harness home, and controlled PATH values.
+ * @param options - Host runtime, executable, profile, Harness home, and controlled PATH values.
  * @returns Command runner that captures diagnostics and settles after child close, including on spawn or handoff failure.
  */
 export function createPluginCommandRunner(options: {
-  electronExecutable: string
+  runtime: HostRuntime
   dshBin: string
   harnessHome: string
   profile: string
@@ -72,7 +73,7 @@ export function createPluginCommandRunner(options: {
 }): PluginCommandRunner {
   return async (command, runOptions) => await new Promise((resolve, reject) => {
     const args = pluginCommandArguments(command)
-    const child = spawn(options.electronExecutable, [
+    const child = spawn(options.runtime.executable, [
       '--expose-internals',
       options.dshBin,
       'plugin',
@@ -83,10 +84,11 @@ export function createPluginCommandRunner(options: {
       env: {
         ...safeInstallEnvironment(process.env),
         DSH_HOME: options.harnessHome,
-        ELECTRON_RUN_AS_NODE: '1',
         PATH: options.envPath,
+        ...options.runtime.env,
       },
       stdio: ['ignore', 'pipe', 'pipe'],
+      windowsHide: true,
     })
     let stdout = ''
     let stderr = ''

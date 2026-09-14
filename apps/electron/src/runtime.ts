@@ -1,7 +1,68 @@
+import { existsSync } from 'node:fs'
 import { join } from 'node:path'
 
 /** The bounded startup window before Electron reports a failed Harness boot. */
 export const HARNESS_START_TIMEOUT_MS = 60_000
+
+/**
+ * Executable and extra environment for every dsh child the Desktop supervises.
+ *
+ * Windows needs a console-subsystem image: a GUI image such as `electron.exe` has no console, so
+ * every console target it creates receives a new visible Windows Terminal. Launching the packaged
+ * Node.js with `windowsHide` gives the whole process tree one hidden console to inherit.
+ */
+export interface HostRuntime {
+  /** Executable that starts a Node.js-compatible dsh process. */
+  executable: string
+  /** Extra environment required by `executable`, empty for a packaged Node.js. */
+  env: Record<string, string>
+}
+
+/**
+ * Resolve the executable that carries the supervised Host and its plugin commands.
+ *
+ * Windows packaging ships `node.exe` under `resources/node`; development builds use the copy
+ * created by `pnpm --filter @dsh-electron/dsh-electron prepare:node`. Other platforms keep using
+ * Electron's own Node-compatible child mode, which has no console-visibility defect there.
+ *
+ * @param options - Application paths, packaging state, and optional executable override.
+ * @param options.appPath - Electron application root.
+ * @param options.resourcesPath - Electron `resources` directory beside the packaged application.
+ * @param options.packaged - Whether this process runs from a packaged application.
+ * @param options.platform - Target platform; defaults to the running platform.
+ * @param options.arch - Target architecture; defaults to the running architecture.
+ * @param options.override - Explicit executable path that wins over both packaged locations.
+ * @param options.exists - Existence probe used for candidate paths.
+ * @returns Executable and environment for supervised dsh children.
+ * @throws When a Windows target has no prepared Node.js at any candidate path.
+ */
+export function resolveHostRuntime(options: {
+  appPath: string
+  resourcesPath: string
+  packaged: boolean
+  platform?: NodeJS.Platform
+  arch?: string
+  override?: string | undefined
+  exists?: (path: string) => boolean
+}): HostRuntime {
+  const platform = options.platform ?? process.platform
+  if (platform !== 'win32') return { executable: process.execPath, env: { ELECTRON_RUN_AS_NODE: '1' } }
+  const arch = options.arch ?? process.arch
+  const candidates = [
+    options.override,
+    options.packaged ? join(options.resourcesPath, 'node', 'node.exe') : undefined,
+    join(options.appPath, '.electron-build', 'node', `win-${arch}`, 'node.exe'),
+  ].filter((candidate): candidate is string => candidate !== undefined)
+  const exists = options.exists ?? existsSync
+  const executable = candidates.find(candidate => exists(candidate))
+  if (executable === undefined) {
+    throw new Error(
+      `electron runtime: prepared Node.js is missing (looked for ${candidates[candidates.length - 1] ?? 'no candidate'}); `
+      + 'run pnpm --filter @dsh-electron/dsh-electron prepare:node',
+    )
+  }
+  return { executable, env: {} }
+}
 
 /**
  * Resolve the shared Harness home below the operating-system user home.

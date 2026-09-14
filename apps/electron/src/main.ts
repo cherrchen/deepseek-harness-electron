@@ -52,8 +52,10 @@ import {
   harnessArguments,
   resolveDshBin,
   resolveHarnessHome,
+  resolveHostRuntime,
   scanHarnessStartupChunk,
   type HarnessStartupScan,
+  type HostRuntime,
 } from './runtime.ts'
 import { DynamicIncludeCompositionBackend, effectivePluginRoster } from './plugin-runtime-config.ts'
 import { loadPluginState, savePluginState } from './plugin-state.ts'
@@ -108,15 +110,21 @@ const desktop = new DesktopServices({
 registerRendererScheme()
 
 /** Start dsh and resolve only after its complete Web composition is ready. */
-async function startHarness(dshBin: string, harnessHome: string, hostPatch: string): Promise<{ child: HarnessProcess; url: string }> {
-  const child = spawn(process.execPath, harnessArguments(dshBin, hostPatch), {
+async function startHarness(
+  runtime: HostRuntime,
+  dshBin: string,
+  harnessHome: string,
+  hostPatch: string,
+): Promise<{ child: HarnessProcess; url: string }> {
+  const child = spawn(runtime.executable, harnessArguments(dshBin, hostPatch), {
     cwd: app.getPath('home'),
     env: {
       ...process.env,
       DSH_HOME: harnessHome,
-      ELECTRON_RUN_AS_NODE: '1',
+      ...runtime.env,
     },
     stdio: ['ignore', 'pipe', 'pipe'],
+    windowsHide: true,
   })
 
   return await new Promise((resolve, reject) => {
@@ -411,6 +419,12 @@ if (!primaryInstance) {
   void app.whenReady().then(async () => {
     installRendererProtocol(resolveRendererRoot(app.getAppPath()), transport.harnessProxy)
     const appPath = app.getAppPath()
+    const hostRuntime = resolveHostRuntime({
+      appPath,
+      resourcesPath: process.resourcesPath,
+      packaged: app.isPackaged,
+      override: process.env.DSH_ELECTRON_NODE_BINARY,
+    })
     const harnessHome = resolveHarnessHome(app.getPath('home'))
     ensureRuntimePluginsLinked(appPath, harnessHome)
     const overlay = await prepareHostRuntimeOverlay(appPath, app.getPath('userData'), harnessHome)
@@ -488,7 +502,7 @@ if (!primaryInstance) {
     const mutations = new PluginMutationCoordinator()
     const packageManager = preparePluginPackageManager(
       harnessHome,
-      process.execPath,
+      hostRuntime,
       resolveBundledPnpmBin(appPath),
     )
     await composition.apply(effectivePluginRoster(catalogPlugins, startupState))
@@ -508,7 +522,7 @@ if (!primaryInstance) {
     )
 
     const started = await retryAfterPluginRecovery(
-      () => startHarness(resolveDshBin(appPath), harnessHome, overlay.patchPath),
+      () => startHarness(hostRuntime, resolveDshBin(appPath), harnessHome, overlay.patchPath),
       presentRecovery,
       async () => {
         const repaired = await catalog.list()
@@ -538,7 +552,7 @@ if (!primaryInstance) {
       join(harnessHome, 'profiles', 'web'),
       overlay.pluginStatePath,
       createPluginCommandRunner({
-        electronExecutable: process.execPath,
+        runtime: hostRuntime,
         dshBin: resolveDshBin(appPath),
         harnessHome,
         profile: 'web',
