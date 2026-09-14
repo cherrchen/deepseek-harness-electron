@@ -9,6 +9,7 @@ interface ElectronManifest {
   build: {
     extraMetadata: { name: string }
     nsis: { useZip: boolean; differentialPackage: boolean }
+    win: { extraResources: Array<{ from: string; to: string }> }
   }
 }
 
@@ -20,6 +21,16 @@ describe('Electron packaging', () => {
     expect(manifest.build.nsis.useZip).toBe(true)
     expect(manifest.build.nsis.differentialPackage).toBe(false)
     expect(manifest.build.extraMetadata.name).toBe('deepseek-harness-desktop')
+  })
+
+  it('ships the prepared Node.js beside the packaged Windows Host', async () => {
+    const manifestPath = join(import.meta.dirname, '..', 'package.json')
+    const manifest = JSON.parse(await readFile(manifestPath, 'utf8')) as ElectronManifest
+
+    expect(manifest.build.win.extraResources).toContainEqual({
+      from: '.electron-build/node/current',
+      to: 'node',
+    })
   })
 
   it('installs every declared ecosystem plugin as a production registry dependency', async () => {

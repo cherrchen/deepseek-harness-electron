@@ -29,6 +29,7 @@ mise.toml
 dist-exe/
 /dist/
 apps/desktop/.desktop-build/
+apps/electron/.electron-build/
 python/sdk-runtime/src/deepseek_harness_runtime/runtime/deepseek-harness-sdk-runtime-*
 python/sdk-runtime/src/deepseek_harness_runtime/runtime/node/
 python/**/__pycache__/

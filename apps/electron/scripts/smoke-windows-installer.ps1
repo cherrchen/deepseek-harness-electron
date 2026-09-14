@@ -25,11 +25,14 @@ if ($install.ExitCode -ne 0) {
 }
 
 $application = Join-Path $installDirectory 'DeepSeek Harness.exe'
+$manifest = Join-Path $installDirectory 'resources\app\package.json'
+$uninstaller = Join-Path $installDirectory 'Uninstall DeepSeek Harness.exe'
 $requiredFiles = @(
   $application,
-  (Join-Path $installDirectory 'resources\app\package.json'),
+  $manifest,
   (Join-Path $installDirectory 'resources\app\node_modules\@deepseek-ai\dsh\lib\bin.js'),
-  (Join-Path $installDirectory 'Uninstall DeepSeek Harness.exe')
+  (Join-Path $installDirectory 'resources\node\node.exe'),
+  $uninstaller
 )
 foreach ($path in $requiredFiles) {
   if (-not (Test-Path -LiteralPath $path -PathType Leaf)) {
@@ -37,7 +40,7 @@ foreach ($path in $requiredFiles) {
   }
 }
 
-$packagedManifest = Get-Content -LiteralPath $requiredFiles[1] -Raw | ConvertFrom-Json
+$packagedManifest = Get-Content -LiteralPath $manifest -Raw | ConvertFrom-Json
 if ($packagedManifest.name -ne 'deepseek-harness-desktop') {
   throw "Packaged application name is '$($packagedManifest.name)', expected 'deepseek-harness-desktop'."
 }
@@ -55,7 +58,6 @@ foreach ($shortcutPath in @($desktopShortcut, $startMenuShortcut)) {
   }
 }
 
-$uninstaller = $requiredFiles[3]
 $uninstall = Start-Process -FilePath $uninstaller -ArgumentList @('/S', '/currentuser') -Wait -PassThru
 if ($uninstall.ExitCode -ne 0) {
   throw "Uninstaller exited with code $($uninstall.ExitCode)."
