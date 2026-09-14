@@ -86,3 +86,5 @@ pnpm --filter @dsh-electron/dsh-electron test
 受监督的 Harness 进程仅绑定 `127.0.0.1` 上的随机端口，且永远不是 BrowserWindow 的页面源。Renderer 无 Node.js 集成，启用上下文隔离与 Chromium 沙箱，仅接收类型化的 `window.deepseekDesktop` 桥接，且不能离开 `dsh-electron://localhost`。以新窗口请求的 HTTP/HTTPS 链接在系统浏览器中打开。
 
 受监督进程将 `$DSH_HOME` 设为操作系统用户主目录下的 `.dsh`，因此 Harness profile、设置、会话等状态在 macOS/Linux 使用 `~/.dsh`，在 Windows 使用 `%USERPROFILE%\.dsh`。Electron 将 Chromium 数据、缓存与桌面更新偏好保留在其平台专属 `userData` 目录。Agent shell 命令以当前用户主目录为初始工作区；用户可通过 Harness UI 选择其他工作区。
+
+启动恢复与 workspace 策略写入在修改文件前取得 web-profile 锁。Host 超时仅在成功关闭后允许恢复；关闭失败会终止启动。修复后，组合配置与生命周期操作共享重新加载的插件偏好。workspace 策略接受块式和行内 YAML 映射，保留用户的构建覆盖值和无关配置值。

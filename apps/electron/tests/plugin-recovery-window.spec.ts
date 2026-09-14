@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from 'vitest'
 import { en, zh } from '../src/locale.ts'
 import {
+  failAfterHostTimeout,
   PluginRecoveryError,
   retryAfterPluginRecovery,
 } from '../src/plugin-recovery.ts'
@@ -95,6 +96,32 @@ describe('plugin recovery window', () => {
     await presented
     expect(action === 'disable-all' ? disableAll : resetManagement).toHaveBeenCalledTimes(1)
     expect(action === 'disable-all' ? resetManagement : disableAll).not.toHaveBeenCalled()
+  })
+
+  it('does not offer recovery or spawn a replacement when timed-out Host shutdown fails', async () => {
+    const timeout = new PluginRecoveryError('timed out', 'host-timeout')
+    const cleanup = new Error('child still alive')
+    const present = vi.fn(async () => {})
+    const start = vi.fn(() => failAfterHostTimeout(async () => { throw cleanup }, timeout))
+    await expect(retryAfterPluginRecovery(start, present)).rejects.toMatchObject({ errors: [timeout, cleanup] })
+    expect(start).toHaveBeenCalledTimes(1)
+    expect(present).not.toHaveBeenCalled()
+  })
+
+  it('waits for Host shutdown to settle before offering recovery', async () => {
+    let stopped!: () => void
+    const shutdown = new Promise<void>((resolve) => { stopped = resolve })
+    const present = vi.fn(async () => {})
+    const timeout = new PluginRecoveryError('timed out', 'host-timeout')
+    const start = vi.fn<() => Promise<string>>()
+      .mockImplementationOnce(() => failAfterHostTimeout(() => shutdown, timeout))
+      .mockResolvedValueOnce('ready')
+    const result = retryAfterPluginRecovery(start, present)
+    expect(present).not.toHaveBeenCalled()
+    expect(start).toHaveBeenCalledTimes(1)
+    stopped()
+    await expect(result).resolves.toBe('ready')
+    expect(present).toHaveBeenCalledTimes(1)
   })
 
   it('retries Host start after a recovery action and skips recovery on the happy path', async () => {

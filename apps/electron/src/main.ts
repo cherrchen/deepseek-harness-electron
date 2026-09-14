@@ -56,7 +56,7 @@ import {
   type HarnessStartupScan,
 } from './runtime.ts'
 import { DynamicIncludeCompositionBackend, effectivePluginRoster } from './plugin-runtime-config.ts'
-import { loadPluginState, reconcilePluginState, savePluginState } from './plugin-state.ts'
+import { loadPluginState, savePluginState } from './plugin-state.ts'
 import { PluginLifecycleController } from './plugin-lifecycle.ts'
 import { ProfilePluginCatalog } from './plugin-catalog.ts'
 import { PluginMutationCoordinator } from './plugin-mutation.ts'
@@ -65,13 +65,13 @@ import { PluginRestartTracker } from './plugin-restart-tracker.ts'
 import { preparePluginPackageManager, resolveBundledPnpmBin } from './plugin-package-manager.ts'
 import { RemotePluginInventoryProbe } from './plugin-inventory-probe.ts'
 import { PluginProfileLock } from './plugin-profile-lock.ts'
-import { PluginRecoveryError, retryAfterPluginRecovery } from './plugin-recovery.ts'
+import { failAfterHostTimeout, PluginRecoveryError, retryAfterPluginRecovery } from './plugin-recovery.ts'
 import { presentPluginRecovery } from './plugin-recovery-window.ts'
 import { resolveDesktopMainLocale } from './locale.ts'
-import { ensureWebProfileWorkspace } from './plugin-profile-workspace.ts'
 import {
   disableAllManageablePlugins,
-  readWebProfileDependencies,
+  loadStartupPluginState,
+  prepareStartupWorkspace,
   reconcilePendingPackageMutation,
   resetPluginManagement,
   webProfileDir,
@@ -129,13 +129,7 @@ async function startHarness(dshBin: string, harnessHome: string, hostPatch: stri
         `DeepSeek Harness did not become ready within ${String(HARNESS_START_TIMEOUT_MS / 1000)} seconds.`,
         'host-timeout',
       )
-      void stopHarness(child).then(
-        () => { reject(timeoutError) },
-        (cleanupError: unknown) => {
-          console.error('desktop recovery: Harness shutdown after startup timeout failed', cleanupError)
-          reject(timeoutError)
-        },
-      )
+      void failAfterHostTimeout(() => stopHarness(child), timeoutError).catch(reject)
     }, HARNESS_START_TIMEOUT_MS)
 
     const fail = (error: Error): void => {
@@ -431,17 +425,18 @@ if (!primaryInstance) {
       'web',
       () => loadPluginState(overlay.pluginStatePath).state,
     )
-    ensureWebProfileWorkspace(webProfileDir(harnessHome))
     const profileLock = new PluginProfileLock(overlay.profileLockPath)
     const locale = resolveDesktopMainLocale(app.getLocale())
     const repair = {
       disableAll: () => disableAllManageablePlugins({
+        lock: profileLock,
         catalog,
         statePath: overlay.pluginStatePath,
         configPath: overlay.pluginConfigPath,
         pendingPath: overlay.packagesPendingPath,
       }),
       resetManagement: () => resetPluginManagement({
+        lock: profileLock,
         harnessHome,
         catalog,
         statePath: overlay.pluginStatePath,
@@ -470,6 +465,7 @@ if (!primaryInstance) {
       if (!(error instanceof PluginRecoveryError)) throw error
       await presentRecovery(error)
     }
+    await prepareStartupWorkspace(webProfileDir(harnessHome), profileLock)
     const catalogPlugins = await retryAfterPluginRecovery(
       async () => {
         try {
@@ -486,16 +482,7 @@ if (!primaryInstance) {
     )
     ensureCatalogPluginLinks(harnessHome, catalogPlugins)
     const restartTracker = new PluginRestartTracker(catalogPlugins)
-    const currentState = loadPluginState(overlay.pluginStatePath).state
-    const reconciled = reconcilePluginState(
-      currentState,
-      catalogPlugins.filter(plugin => plugin.manageable).map(plugin => plugin.name),
-      Object.keys(readWebProfileDependencies(webProfileDir(harnessHome))),
-    )
-    if (reconciled.removed.length > 0) {
-      console.warn('[electron:plugins] ignoring stale plugin state entries', reconciled.removed)
-      await savePluginState(overlay.pluginStatePath, reconciled.state)
-    }
+    let startupState = await loadStartupPluginState(overlay.pluginStatePath, catalogPlugins, webProfileDir(harnessHome))
     const composition = new DynamicIncludeCompositionBackend(overlay.pluginConfigPath)
     const mutations = new PluginMutationCoordinator()
     const packageManager = preparePluginPackageManager(
@@ -503,8 +490,8 @@ if (!primaryInstance) {
       process.execPath,
       resolveBundledPnpmBin(appPath),
     )
-    await composition.apply(effectivePluginRoster(catalogPlugins, reconciled.state))
-    logPlugins('desired startup roster', effectivePluginRoster(catalogPlugins, reconciled.state).map(plugin => plugin.name))
+    await composition.apply(effectivePluginRoster(catalogPlugins, startupState))
+    logPlugins('desired startup roster', effectivePluginRoster(catalogPlugins, startupState).map(plugin => plugin.name))
     installDesktopIpc(
       transport,
       desktop,
@@ -524,7 +511,8 @@ if (!primaryInstance) {
       presentRecovery,
       async () => {
         const repaired = await catalog.list()
-        await composition.apply(effectivePluginRoster(repaired, loadPluginState(overlay.pluginStatePath).state))
+        startupState = await loadStartupPluginState(overlay.pluginStatePath, repaired, webProfileDir(harnessHome))
+        await composition.apply(effectivePluginRoster(repaired, startupState))
       },
     )
     harness = started.child
@@ -532,7 +520,7 @@ if (!primaryInstance) {
     inventoryProbe = new RemotePluginInventoryProbe(transport)
     pluginLifecycle = new PluginLifecycleController(
       catalog,
-      reconciled.state,
+      startupState,
       overlay.pluginStatePath,
       composition,
       inventoryProbe,

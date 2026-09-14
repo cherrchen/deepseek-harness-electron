@@ -2,5 +2,5 @@
 # side as of the last confirmed-consistent state. Both languages carry equal authority;
 # after editing either side, bring the other along and re-record with:
 #   pnpm run verify-translation-pairing --write .agents/notes/implemented/architecture/2026-09-13-electron-plugin-pending-and-recovery.md
-2026-09-13-electron-plugin-pending-and-recovery.md: 1a802c6592e0c1359619c9f079e2d663f95756e7
-2026-09-13-electron-plugin-pending-and-recovery.zh.md: 0fd04e26db696cd18cc11ef25772481d88cbe40c
+2026-09-13-electron-plugin-pending-and-recovery.md: 48a5c5286efa436c7107702a4590e504e5750cae
+2026-09-13-electron-plugin-pending-and-recovery.zh.md: 150087fc3251c8365960b1f87fa1ed4609da1b83

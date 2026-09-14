@@ -20,6 +20,8 @@ pending 对账失败、Host 就绪行超时，或无法读取 profile catalog �
 
 命令执行器在向锁归属回调传递已启动的 PID 前注册 error 和 close 处理器。启动错误仅在 close 后报告。归属交接抛错时，Main 终止子进程并等待 close 后才报告失败，避免事务清理与所持有的子进程竞争。回调失败后立即返回会使包进程在释放锁后继续运行。命令执行器测试覆盖事件顺序和真实的可执行文件缺失；这些失败不产生 Session 事件，也不改变 GUI 展示。
 
+恢复操作持有 profile 锁直至完成偏好写入、组合更新和 pending 标记删除。workspace 策略写入也在 pending 对账后取得该锁。超时 Host 必须完成关闭才提供恢复；关闭失败不可重试，否则另一个 Host 可能与仍存活的子进程重叠。修复后，启动流程重新加载并对账持久化偏好，用于组合配置与生命周期构造。YAML 策略合并使用解析后的映射，确保行内映射和带引号键保留用户覆盖值。
+
 ## Alternatives considered
 
 **像 Desktop project-manager 那样遇到活 owner 直接抛错。** 拒绝：孤儿 pnpm 子进程仍是活 owner，新实例必须等待。

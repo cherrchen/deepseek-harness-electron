@@ -1,5 +1,6 @@
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
+import { load, dump } from 'js-yaml'
 
 /** Reviewed install-script policy merged into the shared web profile. */
 export const WEB_PROFILE_ALLOW_BUILDS: Readonly<Record<string, boolean>> = {
@@ -15,7 +16,7 @@ const DEFAULT_WORKSPACE = `packages:
 nodeLinker: hoisted
 autoInstallPeers: false
 strictDepBuilds: true
-${renderAllowBuilds(WEB_PROFILE_ALLOW_BUILDS)}`
+`
 
 /**
  * Ensure the web profile workspace file enables strict dependency builds
@@ -40,40 +41,15 @@ export function ensureWebProfileWorkspace(profileDir: string): void {
  * @returns Policy with `strictDepBuilds` and merged `allowBuilds`.
  */
 export function mergeWorkspacePolicy(text: string): string {
-  let next = text.endsWith('\n') ? text : `${text}\n`
-  if (!/^strictDepBuilds:/m.test(next)) {
-    next += 'strictDepBuilds: true\n'
-  } else {
-    next = next.replace(/^strictDepBuilds:\s*\S.*$/m, 'strictDepBuilds: true')
-  }
-  if (!/^allowBuilds:/m.test(next)) {
-    next += renderAllowBuilds(WEB_PROFILE_ALLOW_BUILDS)
-    return next
-  }
-  return insertMissingAllowBuilds(next, WEB_PROFILE_ALLOW_BUILDS)
+  const workspace: unknown = load(text) ?? {}
+  if (!isMapping(workspace)) throw new Error('Web profile workspace must be a YAML mapping.')
+  const builds = workspace['allowBuilds'] ?? {}
+  if (!isMapping(builds)) throw new Error('Web profile allowBuilds must be a YAML mapping.')
+  workspace['strictDepBuilds'] = true
+  workspace['allowBuilds'] = { ...WEB_PROFILE_ALLOW_BUILDS, ...builds }
+  return dump(workspace, { lineWidth: -1, noRefs: true })
 }
 
-function renderAllowBuilds(entries: Readonly<Record<string, boolean>>): string {
-  const lines = ['allowBuilds:']
-  for (const [name, allowed] of Object.entries(entries)) {
-    lines.push(`  ${yamlKey(name)}: ${String(allowed)}`)
-  }
-  return `${lines.join('\n')}\n`
-}
-
-function insertMissingAllowBuilds(text: string, seed: Readonly<Record<string, boolean>>): string {
-  const present = new Set<string>()
-  for (const match of text.matchAll(/^\s+('[^']+'|[A-Za-z0-9@._/-]+):\s*(?:true|false)\s*$/gm)) {
-    const raw = match[1]
-    if (raw === undefined) continue
-    present.add(raw.startsWith("'") ? raw.slice(1, -1) : raw)
-  }
-  const missing = Object.entries(seed).filter(([name]) => !present.has(name))
-  if (missing.length === 0) return text
-  const insertion = missing.map(([name, allowed]) => `  ${yamlKey(name)}: ${String(allowed)}`).join('\n')
-  return text.replace(/^allowBuilds:\s*$/m, `allowBuilds:\n${insertion}`)
-}
-
-function yamlKey(name: string): string {
-  return name.startsWith('@') || name.includes('/') ? `'${name.replaceAll("'", "''")}'` : name
+function isMapping(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value)
 }

@@ -73,3 +73,18 @@ export async function retryAfterPluginRecovery<T>(
     return await run()
   }
 }
+
+/**
+ * Stop a timed-out Host before allowing startup recovery.
+ * @param stop - Shutdown operation that resolves only after Host exits.
+ * @param timeoutError - Recoverable startup timeout.
+ * @returns Never resolves; shutdown failure prevents recovery and retry.
+ */
+export async function failAfterHostTimeout(stop: () => Promise<void>, timeoutError: PluginRecoveryError): Promise<never> {
+  try {
+    await stop()
+  } catch (cleanupError) {
+    throw new AggregateError([timeoutError, cleanupError], `${timeoutError.message} Harness shutdown also failed.`)
+  }
+  throw timeoutError
+}

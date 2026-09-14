@@ -1,11 +1,12 @@
 import { existsSync, readFileSync } from 'node:fs'
 import { join } from 'node:path'
+import { ensureWebProfileWorkspace } from './plugin-profile-workspace.ts'
 import type { PluginCatalog } from './plugin-catalog.ts'
 import { PluginRecoveryError } from './plugin-recovery.ts'
 import { clearPluginPending, readPluginPending } from './plugin-pending.ts'
 import type { PluginProfileLock } from './plugin-profile-lock.ts'
 import { ensureCatalogPluginLinks } from './runtime-plugins.ts'
-import { loadPluginState, savePluginState, type PluginState } from './plugin-state.ts'
+import { loadPluginState, reconcilePluginState, savePluginState, type PluginState } from './plugin-state.ts'
 import { DynamicIncludeCompositionBackend, effectivePluginRoster } from './plugin-runtime-config.ts'
 
 /** Result of inspecting a leftover packages-pending marker at startup. */
@@ -84,43 +85,90 @@ export async function reconcilePendingPackageMutation(options: {
 
 /**
  * Disable every manageable plugin and rewrite the generated roster.
- * Required system plugins stay composed through the bootstrap overlay.
+ * Holds the profile lock through pending-marker removal. Required system plugins stay composed.
  * @param options - Catalog, state, and generated include path.
  */
 export async function disableAllManageablePlugins(options: {
+  lock: PluginProfileLock
   catalog: PluginCatalog
   statePath: string
   configPath: string
   pendingPath: string
 }): Promise<void> {
-  const plugins = await options.catalog.list()
-  const loaded = loadPluginState(options.statePath).state
-  const disabled = [...new Set([
-    ...loaded.disabled,
-    ...plugins.filter(plugin => plugin.manageable).map(plugin => plugin.name),
-  ])]
-  const state: PluginState = { ...loaded, disabled }
-  await savePluginState(options.statePath, state)
-  await new DynamicIncludeCompositionBackend(options.configPath).apply(effectivePluginRoster(plugins, state))
-  await clearPluginPending(options.pendingPath)
+  await options.lock.acquire()
+  try {
+    const plugins = await options.catalog.list()
+    const loaded = loadPluginState(options.statePath).state
+    const disabled = [...new Set([
+      ...loaded.disabled,
+      ...plugins.filter(plugin => plugin.manageable).map(plugin => plugin.name),
+    ])]
+    const state: PluginState = { ...loaded, disabled }
+    await savePluginState(options.statePath, state)
+    await new DynamicIncludeCompositionBackend(options.configPath).apply(effectivePluginRoster(plugins, state))
+    await clearPluginPending(options.pendingPath)
+  } finally {
+    options.lock.release()
+  }
 }
 
 /**
  * Clear Desktop-managed membership and disabled preferences, then relink.
- * Profile dependencies are left on disk.
+ * Holds the profile lock through pending-marker removal; profile dependencies stay on disk.
  * @param options - Catalog, state, generated include, and DSH home.
  */
 export async function resetPluginManagement(options: {
   harnessHome: string
+  lock: PluginProfileLock
   catalog: PluginCatalog
   statePath: string
   configPath: string
   pendingPath: string
 }): Promise<void> {
-  const state: PluginState = { version: 2, disabled: [], profileManaged: [] }
-  await savePluginState(options.statePath, state)
-  const plugins = await options.catalog.list()
-  ensureCatalogPluginLinks(options.harnessHome, plugins)
-  await new DynamicIncludeCompositionBackend(options.configPath).apply(effectivePluginRoster(plugins, state))
-  await clearPluginPending(options.pendingPath)
+  await options.lock.acquire()
+  try {
+    const state: PluginState = { version: 2, disabled: [], profileManaged: [] }
+    await savePluginState(options.statePath, state)
+    const plugins = await options.catalog.list()
+    ensureCatalogPluginLinks(options.harnessHome, plugins)
+    await new DynamicIncludeCompositionBackend(options.configPath).apply(effectivePluginRoster(plugins, state))
+    await clearPluginPending(options.pendingPath)
+  } finally {
+    options.lock.release()
+  }
+}
+
+/**
+ * Reload durable preferences and reconcile them with the repaired catalog.
+ * @param statePath - Desktop plugin preferences path.
+ * @param plugins - Current catalog after any startup repair.
+ * @param profileDir - Active web profile directory.
+ * @returns Preferences shared by startup composition and lifecycle operations.
+ */
+export async function loadStartupPluginState(
+  statePath: string,
+  plugins: Awaited<ReturnType<PluginCatalog['list']>>,
+  profileDir: string,
+): Promise<PluginState> {
+  const reconciled = reconcilePluginState(
+    loadPluginState(statePath).state,
+    plugins.filter(plugin => plugin.manageable).map(plugin => plugin.name),
+    Object.keys(readWebProfileDependencies(profileDir)),
+  )
+  await savePluginState(statePath, reconciled.state)
+  return reconciled.state
+}
+
+/**
+ * Prepare workspace policy after acquiring ownership of the web profile.
+ * @param profileDir - Active web profile directory.
+ * @param lock - Shared Desktop package transaction lock.
+ */
+export async function prepareStartupWorkspace(profileDir: string, lock: PluginProfileLock): Promise<void> {
+  await lock.acquire()
+  try {
+    ensureWebProfileWorkspace(profileDir)
+  } finally {
+    lock.release()
+  }
 }

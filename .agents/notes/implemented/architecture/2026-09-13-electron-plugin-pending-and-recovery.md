@@ -20,6 +20,8 @@ Crash-injection hooks abort after pending write, after the command, after inspec
 
 The command runner registers error and close handlers before handing the spawned PID to the lock owner. Spawn errors reject only after close. If owner handoff throws, Main kills the child and waits for close before rejecting, so transaction cleanup cannot race the owned child. Returning immediately after a callback failure would leave the package process running after lock release. Command-runner tests cover event ordering and a real missing executable; these failures do not produce Session events or alter GUI presentation.
 
+Recovery actions hold the profile lock through preference writes, composition updates, and pending-marker removal. Workspace-policy writes also acquire that lock after pending reconciliation. A timed-out Host must finish shutdown before recovery is offered; shutdown failure remains non-retryable because another Host could overlap the live child. After repair, startup reloads and reconciles durable preferences for both composition and lifecycle construction. YAML policy merging uses parsed mappings so inline maps and quoted keys preserve user overrides.
+
 ## Alternatives considered
 
 **Throw when the lock owner is alive, as Desktop project-manager does.** Rejected because an orphan pnpm child is a live owner the next instance must wait for.
