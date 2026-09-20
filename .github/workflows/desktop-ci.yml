@@ -74,6 +74,9 @@ jobs:
       - name: Test Electron runtime
         run: pnpm --filter @dsh-electron/dsh-electron test
 
+      - name: Test Network Runtime
+        run: pnpm --filter @dsh-electron/dsh-electron test:network-runtime
+
   validate:
     name: Test and compile
     if: github.event_name != 'pull_request' || github.event.pull_request.user.login != 'dependabot[bot]' || github.base_ref == 'main'
@@ -127,6 +130,9 @@ jobs:
       - name: Test Electron runtime
         run: pnpm --filter @dsh-electron/dsh-electron test
 
+      - name: Test Network Runtime
+        run: pnpm --filter @dsh-electron/dsh-electron test:network-runtime
+
   windows-host-startup:
     name: Windows Host startup
     if: github.event_name != 'pull_request' || github.event.pull_request.user.login != 'dependabot[bot]' || github.base_ref == 'main'
@@ -148,3 +154,6 @@ jobs:
       # never opens the null device or observes console ownership.
       - name: Test supervised Host startup
         run: pnpm exec vitest run apps/electron/tests/runtime.spec.ts
+
+      - name: Test Windows Network Runtime
+        run: pnpm --filter @dsh-electron/dsh-electron test:network-runtime

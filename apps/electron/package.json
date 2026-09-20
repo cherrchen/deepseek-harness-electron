@@ -26,7 +26,9 @@
     "build": "pnpm run build:tray && pnpm run build:runtime-plugins && pnpm run build:main && pnpm run build:preload && pnpm run build:renderer",
     "typecheck": "tsc -p tsconfig.json --noEmit && tsc -p tsconfig.preload.json && tsc -p tsconfig.renderer.json && tsc -p tsconfig.runtime-host.json && tsc -p tsconfig.runtime-client.json",
     "prepare:node": "node ./scripts/prepare-node-runtime.mjs",
-    "package": "pnpm run prepare:node && electron-builder --publish never",
+    "prepare:network-runtime": "node ./scripts/prepare-network-runtime.mjs",
+    "test:network-runtime": "cargo test --manifest-path native/network-runtime/Cargo.toml",
+    "package": "pnpm run prepare:node && pnpm run prepare:network-runtime && electron-builder --publish never",
     "start": "pnpm run build && pnpm run prepare:node && env -u ELECTRON_RUN_AS_NODE electron .",
     "test": "pnpm run build:runtime-plugins && vitest run --root ../.. apps/electron/tests"
   },
@@ -188,6 +190,10 @@
       {
         "from": "build/LICENSE.lobe-icons",
         "to": "LICENSE.lobe-icons"
+      },
+      {
+        "from": ".electron-build/network-runtime/current",
+        "to": "network-runtime"
       }
     ],
     "mac": {

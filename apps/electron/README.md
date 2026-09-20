@@ -83,6 +83,10 @@ Desktop releases use `v{a.b.c}-beta.{x}` on `develop`, `v{a.b.c}-rc.{x}` on `mai
 
 ## Runtime and security
 
+Electron Main loads versioned Desktop preferences before Host startup. The Network foundation retains the update channel during partial writes, defaults an invalid Network section without discarding a valid channel, encrypts Manual proxy passwords through `safeStorage`, rejects Linux `basic_text` persistence, consumes a one-use Default override, and centralizes Default, Direct, Managed-child, and opt-in Agent environment derivation. Default does not change an inherited child environment or Electron proxy configuration.
+
+The release resources include a Rust Network Runtime bootstrap at a fixed application-owned path. Its versioned JSON Lines handshake exposes an IPv4 loopback CONNECT probe and reports connector, system-proxy, watcher, PAC, and authentication capabilities as unavailable until their implementations have executable platform evidence; Desktop does not route product traffic through this bootstrap helper yet.
+
 The supervised Harness process binds only to `127.0.0.1` on a random port and is never the BrowserWindow page origin. The renderer has no Node.js integration, runs with context isolation and Chromium sandboxing, receives the typed `window.deepseekDesktop` bridge only, and cannot navigate away from `dsh-electron://localhost`. HTTP and HTTPS links requested as new windows open in the system browser.
 
 On Windows the supervised process is the packaged Node.js runtime (`resources/node/node.exe`), started with `windowsHide` and an inherited stdin device handle so it holds one hidden console that agent shell commands such as `pwsh`, `git`, and `cmd` inherit instead of opening a Windows Terminal window; other platforms use Electron's Node-compatible child mode.

@@ -83,6 +83,10 @@ pnpm --filter @dsh-electron/dsh-electron test
 
 ## 运行时与安全
 
+Electron Main 在 Host 启动前加载版本化 Desktop preferences。Network 基础在 partial write 期间保留更新通道，对无效 Network section 使用默认值且不丢弃有效通道，通过 `safeStorage` 加密 Manual 代理密码，拒绝 Linux `basic_text` 持久化，消费一次性 Default override，并集中派生 Default、Direct、Managed child 和选择启用的 Agent 环境。Default 不修改继承的子进程环境或 Electron 代理配置。
+
+Release 资源在固定的应用自有路径中包含 Rust Network Runtime bootstrap。它的版本化 JSON Lines 握手暴露 IPv4 环回 CONNECT 探测，并在 connector、system proxy、watcher、PAC 和认证实现拥有可执行平台证据前将这些 capability 报告为不可用；Desktop 尚不通过该 bootstrap helper 路由产品流量。
+
 受监督的 Harness 进程仅绑定 `127.0.0.1` 上的随机端口，且永远不是 BrowserWindow 的页面源。Renderer 无 Node.js 集成，启用上下文隔离与 Chromium 沙箱，仅接收类型化的 `window.deepseekDesktop` 桥接，且不能离开 `dsh-electron://localhost`。以新窗口请求的 HTTP/HTTPS 链接在系统浏览器中打开。
 
 Windows 上受监督进程是随包发布的 Node.js 运行时（`resources/node/node.exe`），以 `windowsHide` 和一个继承的 stdin 设备句柄启动，因此它持有一个隐藏控制台，`pwsh`、`git`、`cmd` 等 agent shell 命令会继承该控制台，而不会打开 Windows Terminal 窗口；其它平台使用 Electron 的 Node 兼容子模式。

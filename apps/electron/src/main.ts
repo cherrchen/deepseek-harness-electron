@@ -15,6 +15,7 @@ import {
   Menu,
   nativeImage,
   nativeTheme,
+  safeStorage,
   screen,
   session,
   Tray,
@@ -33,7 +34,9 @@ import { HttpHarnessTransport } from './harness/transport.ts'
 import { installDesktopIpc } from './ipc.ts'
 import { readDesktopManifest, resolveUpdateRepository } from './manifest.ts'
 import { RENDERER_ENTRY_URL, RENDERER_ORIGIN } from './bridge-types.ts'
-import { loadUpdateChannel, saveUpdateChannel, type UpdateChannel } from './preferences.ts'
+import { DesktopPreferencesStore, loadUpdateChannel, saveUpdateChannel, type UpdateChannel } from './preferences.ts'
+import { DesktopNetworkController } from './network/controller.ts'
+import { SafeStorageSecretStore } from './network/secret-store.ts'
 import {
   installRendererProtocol,
   registerRendererScheme,
@@ -98,6 +101,7 @@ let updater: UpdaterController | undefined
 let pluginLifecycle: PluginLifecycleController | undefined
 let pluginPackages: PluginPackageService | undefined
 let inventoryProbe: RemotePluginInventoryProbe | undefined
+let network: DesktopNetworkController | undefined
 let quitting = false
 let stopping = false
 const transport = new HttpHarnessTransport()
@@ -243,6 +247,7 @@ async function prepareToInstall(): Promise<void> {
   stopping = true
   await pluginLifecycle?.shutdown().catch(() => undefined)
   await inventoryProbe?.dispose().catch(() => undefined)
+  await network?.shutdown().catch(() => undefined)
   await transport.stop()
   const child = harness
   harness = undefined
@@ -418,6 +423,14 @@ if (!primaryInstance) {
   void app.whenReady().then(async () => {
     installRendererProtocol(resolveRendererRoot(app.getAppPath()), transport.harnessProxy)
     const appPath = app.getAppPath()
+    const userDataPath = app.getPath('userData')
+    network = new DesktopNetworkController({
+      userDataPath,
+      preferences: new DesktopPreferencesStore(userDataPath),
+      secrets: new SafeStorageSecretStore(join(userDataPath, 'network-secrets'), safeStorage),
+      relaunch: relaunchDesktop,
+    })
+    await network.prepare()
     const hostRuntime = resolveHostRuntime({
       appPath,
       resourcesPath: process.resourcesPath,
@@ -426,7 +439,7 @@ if (!primaryInstance) {
     })
     const harnessHome = resolveHarnessHome(app.getPath('home'))
     ensureRuntimePluginsLinked(appPath, harnessHome)
-    const overlay = await prepareHostRuntimeOverlay(appPath, app.getPath('userData'), harnessHome)
+    const overlay = await prepareHostRuntimeOverlay(appPath, userDataPath, harnessHome)
     const loadedState = loadPluginState(overlay.pluginStatePath)
     for (const warning of loadedState.warnings) console.warn(warning)
     if (!existsSync(overlay.pluginStatePath) || loadedState.dirty) {
@@ -575,14 +588,12 @@ if (!primaryInstance) {
     const repository = resolveUpdateRepository(readDesktopManifest(app.getAppPath()))
     if (repository === undefined) throw new Error('The packaged GitHub update repository is missing.')
     updater = createUpdater({
-      channel: loadUpdateChannel(app.getPath('userData')),
+      channel: loadUpdateChannel(userDataPath),
       getWindow: () => mainWindow,
       onChannelChanged: (channel) => {
-        try {
-          saveUpdateChannel(app.getPath('userData'), channel)
-        } catch (error: unknown) {
+        void saveUpdateChannel(userDataPath, channel).catch((error: unknown) => {
           console.error('Unable to save desktop preferences', error)
-        }
+        })
       },
       onStateChanged: installDesktopMenus,
       prepareToInstall,
