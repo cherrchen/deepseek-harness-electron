@@ -1,305 +1,162 @@
-//! Bootstrap process for Desktop-managed networking.
-//! Version 1 intentionally exposes only protocol negotiation and a loopback
-//! Gateway probe. Connector and system-provider commands arrive in M2/M3.
+//! Desktop-owned network process: private stdio control and loopback-only data plane.
+mod config;
+mod connector;
+mod gateway;
+mod protocol;
 
-use std::io::{self, BufRead, Read, Write};
-use std::net::{Shutdown, TcpListener, TcpStream};
-use std::thread;
+use futures_util::StreamExt;
+use protocol::{Command, Events, Request, response};
+use serde_json::json;
+use std::{
+    sync::{Arc, RwLock},
+    time::Duration,
+};
+use tokio::{io::AsyncWriteExt, net::TcpListener, sync::mpsc, time::timeout};
+use tokio_util::{
+    codec::{FramedRead, LinesCodec},
+    sync::CancellationToken,
+    task::TaskTracker,
+};
+use zeroize::Zeroizing;
 
-const PROTOCOL_VERSION: u8 = 1;
-const MAX_CONTROL_FRAME_BYTES: usize = 1024 * 1024;
-const MAX_GATEWAY_HEADER_BYTES: usize = 64 * 1024;
-
-fn main() -> io::Result<()> {
-    let listener = TcpListener::bind(("127.0.0.1", 0))?;
-    let gateway_port = listener.local_addr()?.port();
-    thread::Builder::new()
-        .name("network-gateway-spike".into())
-        .spawn(move || gateway_loop(listener))?;
-
-    let stdin = io::stdin();
-    let mut stdout = io::stdout().lock();
-    for line in stdin.lock().lines() {
-        let line = line?;
-        if line.len() > MAX_CONTROL_FRAME_BYTES {
-            writeln!(
-                stdout,
-                "{{\"v\":1,\"event\":\"runtime_warning\",\"payload\":{{\"code\":\"FRAME_TOO_LARGE\"}}}}"
-            )?;
-            stdout.flush()?;
-            continue;
-        }
-        let Some(id) = json_string_field(&line, "id") else {
-            writeln!(
-                stdout,
-                "{{\"v\":1,\"event\":\"runtime_warning\",\"payload\":{{\"code\":\"MALFORMED_FRAME\"}}}}"
-            )?;
-            stdout.flush()?;
-            continue;
-        };
-        if json_number_field(&line, "v") != Some(PROTOCOL_VERSION.into()) {
-            writeln!(
-                stdout,
-                "{{\"v\":1,\"id\":\"{}\",\"ok\":false,\"error\":{{\"code\":\"PROTOCOL_MISMATCH\",\"message\":\"The Network Runtime protocol version is incompatible.\"}}}}",
-                escape_json(&id)
-            )?;
-            stdout.flush()?;
-            continue;
-        }
-        let command = json_string_field(&line, "type").unwrap_or_default();
-        if command == "hello" {
-            writeln!(
-                stdout,
-                "{{\"v\":1,\"id\":\"{}\",\"ok\":true,\"result\":{{\"protocolVersion\":{},\"gateway\":{{\"host\":\"127.0.0.1\",\"port\":{}}},\"systemBackend\":\"{}\",\"capabilities\":{{\"manual\":{{\"http\":false,\"https\":false,\"socks5\":false,\"socks5Auth\":false}},\"system\":{{\"manual\":false,\"pac\":false,\"wpad\":false,\"watchers\":false}},\"auth\":{{\"basic\":false,\"digest\":false,\"ntlm\":false,\"negotiate\":false}}}}}}}}",
-                escape_json(&id),
-                PROTOCOL_VERSION,
-                gateway_port,
-                platform_backend(),
-            )?;
-        } else if command == "shutdown" {
-            writeln!(
-                stdout,
-                "{{\"v\":1,\"id\":\"{}\",\"ok\":true,\"result\":{{}}}}",
-                escape_json(&id)
-            )?;
-            stdout.flush()?;
-            break;
-        } else {
-            writeln!(
-                stdout,
-                "{{\"v\":1,\"id\":\"{}\",\"ok\":false,\"error\":{{\"code\":\"UNSUPPORTED_COMMAND\",\"message\":\"The bootstrap runtime does not implement this command.\"}}}}",
-                escape_json(&id)
-            )?;
-        }
-        stdout.flush()?;
-    }
-    Ok(())
-}
-
-fn gateway_loop(listener: TcpListener) {
-    for client in listener.incoming() {
-        match client {
-            Ok(client) => {
-                let _ = thread::Builder::new()
-                    .name("network-gateway-client".into())
-                    .spawn(move || {
-                        if let Err(error) = handle_gateway_client(client) {
-                            eprintln!("network runtime gateway request failed: {error}");
-                        }
-                    });
-            }
-            Err(error) => eprintln!("network runtime gateway accept failed: {error}"),
-        }
+#[tokio::main]
+async fn main() {
+    if run().await.is_err() {
+        eprintln!("network runtime: process I/O failed");
+        std::process::exit(1);
     }
 }
 
-fn handle_gateway_client(mut client: TcpStream) -> io::Result<()> {
-    let header = read_http_header(&mut client)?;
-    let first_line = header.lines().next().unwrap_or_default();
-    let mut parts = first_line.split_whitespace();
-    let method = parts.next().unwrap_or_default();
-    let target = parts.next().unwrap_or_default();
-    if method != "CONNECT" {
-        client.write_all(b"HTTP/1.1 501 Not Implemented\r\nConnection: close\r\n\r\n")?;
-        return Ok(());
-    }
-    let Some((host, port)) = parse_authority(target) else {
-        client.write_all(b"HTTP/1.1 400 Bad Request\r\nConnection: close\r\n\r\n")?;
-        return Ok(());
-    };
-    let upstream = TcpStream::connect((host.as_str(), port));
-    let mut upstream = match upstream {
-        Ok(stream) => stream,
-        Err(error) => {
-            client.write_all(b"HTTP/1.1 502 Bad Gateway\r\nConnection: close\r\n\r\n")?;
-            return Err(error);
+async fn run() -> Result<(), Box<dyn std::error::Error>> {
+    let listener = TcpListener::bind(("127.0.0.1", 0)).await?;
+    let port = listener.local_addr()?.port();
+    use rustls_platform_verifier::BuilderVerifierExt;
+    let tls = tokio_rustls::TlsConnector::from(Arc::new(
+        rustls::ClientConfig::builder()
+            .with_platform_verifier()?
+            .with_no_client_auth(),
+    ));
+    let current: gateway::Current = Arc::new(RwLock::new(None));
+    let stop = CancellationToken::new();
+    let force = CancellationToken::new();
+    let tasks = TaskTracker::new();
+    let (output, mut frames) = mpsc::channel::<serde_json::Value>(256);
+    let events = Events(output.clone());
+    let writer = tokio::spawn(async move {
+        let mut stdout = tokio::io::stdout();
+        while let Some(frame) = frames.recv().await {
+            let mut bytes = serde_json::to_vec(&frame)?;
+            bytes.push(b'\n');
+            stdout.write_all(&bytes).await?;
+            stdout.flush().await?;
         }
-    };
-    client.write_all(b"HTTP/1.1 200 Connection Established\r\n\r\n")?;
-    let mut client_reader = client.try_clone()?;
-    let mut upstream_writer = upstream.try_clone()?;
-    let upload = thread::spawn(move || {
-        let result = io::copy(&mut client_reader, &mut upstream_writer);
-        let _ = upstream_writer.shutdown(Shutdown::Write);
-        result
+        Ok::<_, std::io::Error>(())
     });
-    let _ = io::copy(&mut upstream, &mut client)?;
-    let _ = client.shutdown(Shutdown::Write);
-    let _ = upload.join();
-    Ok(())
-}
-
-fn read_http_header(stream: &mut TcpStream) -> io::Result<String> {
-    let mut bytes = Vec::new();
-    let mut byte = [0_u8; 1];
-    while bytes.len() < MAX_GATEWAY_HEADER_BYTES {
-        if stream.read(&mut byte)? == 0 {
+    let gateway = tokio::spawn(gateway::serve(
+        listener,
+        current.clone(),
+        tls,
+        events.clone(),
+        stop.clone(),
+        force.clone(),
+        tasks.clone(),
+    ));
+    let mut input = FramedRead::new(
+        tokio::io::stdin(),
+        LinesCodec::new_with_max_length(protocol::MAX_FRAME_BYTES),
+    );
+    let mut negotiated = false;
+    let mut shutdown_id = None;
+    while let Some(line) = input.next().await {
+        let line = match line {
+            Ok(line) => Zeroizing::new(line),
+            Err(_) => {
+                events.emit("runtime_warning", json!({"code": "MALFORMED_FRAME"}));
+                break;
+            }
+        };
+        let envelope = match serde_json::from_str::<protocol::Envelope>(&line) {
+            Ok(envelope)
+                if !envelope.id.is_empty()
+                    && envelope.id.len() <= 128
+                    && !envelope.id.chars().any(char::is_control) =>
+            {
+                envelope
+            }
+            _ => {
+                events.emit("runtime_warning", json!({"code": "MALFORMED_FRAME"}));
+                continue;
+            }
+        };
+        if envelope.v != 1 {
+            output
+                .send(response(
+                    &envelope.id,
+                    Err("NETWORK_RUNTIME_PROTOCOL_MISMATCH"),
+                ))
+                .await?;
             break;
         }
-        bytes.push(byte[0]);
-        if bytes.ends_with(b"\r\n\r\n") {
-            return String::from_utf8(bytes).map_err(|_| {
-                io::Error::new(io::ErrorKind::InvalidData, "gateway header is not UTF-8")
-            });
-        }
-    }
-    Err(io::Error::new(
-        io::ErrorKind::InvalidData,
-        "gateway header is incomplete or too large",
-    ))
-}
-
-fn parse_authority(value: &str) -> Option<(String, u16)> {
-    if let Some(rest) = value.strip_prefix('[') {
-        let end = rest.find(']')?;
-        let host = rest[..end].to_owned();
-        let port = rest[end + 1..].strip_prefix(':')?.parse().ok()?;
-        return Some((host, port));
-    }
-    let (host, port) = value.rsplit_once(':')?;
-    if host.is_empty() {
-        return None;
-    }
-    Some((host.to_owned(), port.parse().ok()?))
-}
-
-fn json_string_field(input: &str, field: &str) -> Option<String> {
-    let marker = format!("\"{field}\"");
-    let after_field = input.get(input.find(&marker)? + marker.len()..)?;
-    let after_colon = after_field.get(after_field.find(':')? + 1..)?.trim_start();
-    let mut chars = after_colon.chars();
-    if chars.next()? != '"' {
-        return None;
-    }
-    let mut result = String::new();
-    let mut escaped = false;
-    for ch in chars {
-        if escaped {
-            match ch {
-                '"' | '\\' | '/' => result.push(ch),
-                'n' => result.push('\n'),
-                'r' => result.push('\r'),
-                't' => result.push('\t'),
-                _ => return None,
+        let request = match serde_json::from_str::<Request>(&line) {
+            Ok(request) => request,
+            Err(_) => {
+                let code = if ["hello", "configure", "get_diagnostics", "shutdown"]
+                    .contains(&envelope.kind.as_str())
+                {
+                    "INVALID_CONFIG"
+                } else {
+                    "UNSUPPORTED_COMMAND"
+                };
+                output.send(response(&envelope.id, Err(code))).await?;
+                continue;
             }
-            escaped = false;
-        } else if ch == '\\' {
-            escaped = true;
-        } else if ch == '"' {
-            return Some(result);
-        } else {
-            result.push(ch);
-        }
+        };
+        let result = match request.command {
+            Command::Hello {} => {
+                negotiated = true;
+                Ok(protocol::hello(port))
+            }
+            Command::Shutdown {} => {
+                shutdown_id = Some(request.id);
+                break;
+            }
+            _ if !negotiated => Err("HELLO_REQUIRED"),
+            Command::Configure { config, limits } => protocol::configure(&current, config, limits),
+            Command::GetDiagnostics {} => {
+                Ok(json!({"configured": current.read().unwrap().is_some()}))
+            }
+        };
+        output.send(response(&request.id, result)).await?;
     }
-    None
-}
-
-fn json_number_field(input: &str, field: &str) -> Option<u64> {
-    let marker = format!("\"{field}\"");
-    let after_field = input.get(input.find(&marker)? + marker.len()..)?;
-    let after_colon = after_field.get(after_field.find(':')? + 1..)?.trim_start();
-    let digits = after_colon
-        .chars()
-        .take_while(char::is_ascii_digit)
-        .collect::<String>();
-    if digits.is_empty() {
-        return None;
+    stop.cancel();
+    gateway.await?;
+    tasks.close();
+    let drain_ms = current
+        .read()
+        .unwrap()
+        .as_ref()
+        .map_or(5_000, |v| v.limits.shutdown_timeout_ms);
+    if timeout(Duration::from_millis(drain_ms), tasks.wait())
+        .await
+        .is_err()
+    {
+        force.cancel();
+        tasks.wait().await;
     }
-    digits.parse().ok()
-}
-
-fn escape_json(value: &str) -> String {
-    value
-        .replace('\\', "\\\\")
-        .replace('"', "\\\"")
-        .replace('\n', "\\n")
-        .replace('\r', "\\r")
-}
-
-#[cfg(target_os = "windows")]
-fn platform_backend() -> &'static str {
-    "windows-winhttp"
-}
-
-#[cfg(target_os = "macos")]
-fn platform_backend() -> &'static str {
-    "macos-cfnetwork"
-}
-
-#[cfg(target_os = "linux")]
-fn platform_backend() -> &'static str {
-    "unsupported"
-}
-
-#[cfg(not(any(target_os = "windows", target_os = "macos", target_os = "linux")))]
-fn platform_backend() -> &'static str {
-    "unsupported"
+    current.write().unwrap().take();
+    if let Some(id) = shutdown_id {
+        output.send(response(&id, Ok(json!({})))).await?;
+    }
+    drop(events);
+    drop(output);
+    // Main may have stopped reading; shutdown must remain bounded in that case too.
+    let mut writer = writer;
+    if timeout(Duration::from_secs(1), &mut writer).await.is_err() {
+        writer.abort();
+        let _ = writer.await;
+    }
+    Ok(())
 }
 
 #[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn extracts_json_string_fields_without_accepting_non_strings() {
-        assert_eq!(
-            json_string_field(r#"{"id":"a\"b","type":"hello"}"#, "id"),
-            Some("a\"b".into())
-        );
-        assert_eq!(json_string_field(r#"{"id":1}"#, "id"), None);
-        assert_eq!(json_number_field(r#"{"v":1}"#, "v"), Some(1));
-        assert_eq!(json_number_field(r#"{"v":"1"}"#, "v"), None);
-    }
-
-    #[test]
-    fn parses_ipv4_hostname_and_ipv6_connect_authorities() {
-        assert_eq!(
-            parse_authority("proxy.example:443"),
-            Some(("proxy.example".into(), 443))
-        );
-        assert_eq!(parse_authority("[::1]:8443"), Some(("::1".into(), 8443)));
-        assert_eq!(parse_authority("missing-port"), None);
-    }
-
-    #[test]
-    fn connect_gateway_relays_bytes_to_one_selected_target() {
-        let origin = TcpListener::bind(("127.0.0.1", 0)).unwrap();
-        let origin_port = origin.local_addr().unwrap().port();
-        let origin_thread = thread::spawn(move || {
-            let (mut stream, _) = origin.accept().unwrap();
-            let mut request = [0_u8; 4];
-            stream.read_exact(&mut request).unwrap();
-            assert_eq!(&request, b"ping");
-            stream.write_all(b"pong").unwrap();
-        });
-
-        let gateway = TcpListener::bind(("127.0.0.1", 0)).unwrap();
-        let gateway_port = gateway.local_addr().unwrap().port();
-        let gateway_thread = thread::spawn(move || {
-            let (client, _) = gateway.accept().unwrap();
-            handle_gateway_client(client).unwrap();
-        });
-
-        let mut client = TcpStream::connect(("127.0.0.1", gateway_port)).unwrap();
-        write!(
-            client,
-            "CONNECT 127.0.0.1:{origin_port} HTTP/1.1\r\nHost: 127.0.0.1:{origin_port}\r\n\r\n"
-        )
-        .unwrap();
-        let mut response = Vec::new();
-        let mut byte = [0_u8; 1];
-        while !response.ends_with(b"\r\n\r\n") {
-            client.read_exact(&mut byte).unwrap();
-            response.push(byte[0]);
-        }
-        assert!(response.starts_with(b"HTTP/1.1 200"));
-        client.write_all(b"ping").unwrap();
-        let mut reply = [0_u8; 4];
-        client.read_exact(&mut reply).unwrap();
-        assert_eq!(&reply, b"pong");
-        let _ = client.shutdown(Shutdown::Both);
-        drop(client);
-        gateway_thread.join().unwrap();
-        origin_thread.join().unwrap();
-    }
-}
+mod tests;

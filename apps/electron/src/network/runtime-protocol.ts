@@ -83,6 +83,7 @@ export interface RuntimeHelloResult {
 /** Configure request payload. */
 export interface RuntimeConfigureRequest {
   config: RuntimeNetworkConfig
+  limits?: RuntimeLimits
 }
 
 /** Sanitized platform policy snapshot. */
@@ -93,4 +94,12 @@ export interface RuntimeSystemSnapshot {
   selectedRoute?: SanitizedResolvedRoute
   alternativeRoutes: SanitizedResolvedRoute[]
   error?: DesktopNetworkErrorSummary
+}
+
+/** Runtime deadlines and admission limit, validated again in the native process. */
+export interface RuntimeLimits {
+  connectTimeoutMs: number
+  headerTimeoutMs: number
+  shutdownTimeoutMs: number
+  maxConnections: number
 }

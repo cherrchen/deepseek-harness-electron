@@ -26,7 +26,7 @@ The Main-only secret store encrypts values with Electron `safeStorage`, rejects 
 
 Environment policy is a pure mode decision. Default clones the input unchanged; Direct removes every upper- and lowercase proxy variable plus `NODE_USE_ENV_PROXY`; System and Manual route Desktop-owned children through the loopback Gateway; Agent processes retain their existing environment unless the user opts in, except that Direct always removes proxy variables.
 
-The bootstrap Rust helper binds an ephemeral IPv4 loopback socket, supports a bounded JSON Lines `hello` and `shutdown`, reports all unimplemented capabilities as false, and proves CONNECT byte relay with a local fixture. Packaging copies the compiled executable into `resources/network-runtime`; path resolution never searches `PATH`. Desktop CI runs Rust tests on Linux and Windows, and each native release job builds the helper before `electron-builder` collects resources.
+The [Rust Network Runtime](../../../../docs/electron/network-runtime.md) binds an ephemeral IPv4 loopback Gateway and supports versioned JSONL negotiation, validated configuration replacement, HTTP/HTTPS/SOCKS5 Manual routing, and bounded shutdown. The Main client launches the prepared or packaged executable without PATH lookup, transfers credentials through stdin, and fails closed on protocol or process failure. Local fixtures exercise the actual DSH HTTP dispatcher through all three Manual protocols. Production network-plane wiring remains outside this foundation.
 
 The macOS feasibility probe successfully called `CFNetworkCopySystemProxySettings` and `CFNetworkCopyProxiesForURL` on an arm64 development host. Windows WinHTTP/SSPI, Linux GNOME/KDE and PAC sandbox behavior, macOS PAC and change notifications, signed-package launch, and installer inclusion remain platform qualification work; capability flags stay false until those paths have executable evidence.
 
@@ -39,6 +39,8 @@ The macOS feasibility probe successfully called `CFNetworkCopySystemProxySetting
 **Write proxy credentials into environment variables.** This would let Harness, tools, diagnostics, and model-controlled children read the upstream secret. The Gateway keeps credentials in Main/runtime memory and exposes only a credential-free loopback endpoint.
 
 **Reuse the repository atomic-write package.** The Electron TypeScript program has a package-local `rootDir`; resolving workspace source through the repository path map pulls that package outside the compiler program. The Desktop-local writer adds the required file and directory flushes and is limited to the single-instance Desktop persistence boundary.
+
+**Implement HTTP, SOCKS, and TLS from scratch.** Hyper owns HTTP framing and streaming, tokio-socks owns SOCKS5 negotiation, and Rustls with the platform verifier owns TLS and system certificate validation. The Runtime owns route selection and lifecycle; duplicating those protocol libraries would add parser and cryptographic maintenance without changing the routing guarantee.
 
 ## Acceptance criteria
 

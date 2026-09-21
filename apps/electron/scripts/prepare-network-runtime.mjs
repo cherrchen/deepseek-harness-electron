@@ -10,7 +10,7 @@ const executableName = process.platform === 'win32'
   : 'dsh-electron-network-runtime'
 const outputRoot = join(electronRoot, '.electron-build', 'network-runtime', 'current')
 
-await runCargo(['build', '--release', '--manifest-path', join(crateRoot, 'Cargo.toml')])
+await runCargo(['build', '--locked', '--release', '--manifest-path', join(crateRoot, 'Cargo.toml')])
 await mkdir(outputRoot, { recursive: true })
 const destination = join(outputRoot, executableName)
 await copyFile(join(crateRoot, 'target', 'release', executableName), destination)

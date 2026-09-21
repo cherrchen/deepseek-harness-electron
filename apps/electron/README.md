@@ -53,6 +53,8 @@ pnpm --filter @dsh-electron/dsh-electron test
 
 Repository Python integration tests require CPython 3.10+ selected by `python3` on PATH. If mise reports an inactive shim, activate an installed version for the command, for example `mise exec python@3.13.12 -- pnpm test packages/experimental/code-runtime-python/tests/runtime.spec.ts packages/experimental/code-runtime-python/tests/boot-write-failure.spec.ts`. Use a version installed on your machine; `python3 --version` must succeed before running the tests.
 
+The independent [Network Runtime](../../docs/electron/network-runtime.md) provides a loopback Gateway for Manual HTTP, HTTPS, and SOCKS5. Its verification command and integration limits are documented there.
+
 ## Desktop integration
 
 The main window uses a hidden title bar without a separate heading row. The sidebar background extends to the window top: macOS reserves a draggable sidebar inset for its traffic lights, and Windows and Linux start the columns right of the sidebar below the native control row, leaving that band blank and draggable; the fullscreen right panel reserves the same kind of row inside its own box. Unused parts of the active conversation header are draggable, and a transparent hit surface covers the empty-session background and the blank band. Header controls are explicitly non-draggable, and every page drag region is suspended while a modal dialog is open so its mask and controls retain pointer input. Closing the main window hides it while the Harness process continues running. Use the tray menu to reopen the window or quit the application and stop the supervised process.
