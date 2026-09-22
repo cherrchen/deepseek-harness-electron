@@ -55,26 +55,59 @@ pub enum Command {
         config: Config,
         #[serde(default)]
         limits: Limits,
+        #[serde(default)]
+        system: crate::system::Options,
     },
     GetDiagnostics {},
+    GetSystemSnapshot {},
+    ReloadSystem {},
     Shutdown {},
 }
 
 pub fn hello(port: u16) -> Value {
-    json!({"protocolVersion": 1, "gateway": {"host": "127.0.0.1", "port": port}, "systemBackend": "unsupported",
+    json!({"protocolVersion": 1, "gateway": {"host": "127.0.0.1", "port": port}, "systemBackend": crate::system::backend(),
         "capabilities": {"manual": {"http": true, "https": true, "socks5": true, "socks5Auth": false},
-        "system": {"manual": false, "pac": false, "wpad": false, "watchers": false},
+        "system": {"manual": crate::system::backend() != "unsupported", "pac": crate::system::backend() != "unsupported", "wpad": cfg!(windows), "watchers": crate::system::backend() != "unsupported"},
         "auth": {"basic": true, "digest": false, "ntlm": false, "negotiate": false}}})
 }
 
+#[cfg(test)]
 pub fn configure(current: &Current, config: Config, limits: Limits) -> Result<Value, &'static str> {
+    configure_system(current, config, limits, crate::system::Options::default())
+}
+
+pub fn configure_system(
+    current: &Current,
+    config: Config,
+    limits: Limits,
+    options: crate::system::Options,
+) -> Result<Value, &'static str> {
     config.validate()?;
+    if !options.valid() {
+        return Err("INVALID_CONFIG");
+    }
+    let system = if matches!(config, Config::System { .. }) {
+        if crate::system::backend() == "unsupported" {
+            return Err(crate::system::UNAVAILABLE);
+        }
+        Some(crate::system::SystemState {
+            provider: Arc::new(crate::system::NativeProvider { options }),
+            latest: std::sync::Mutex::new(Err(crate::connector::Failure(
+                crate::system::UNAVAILABLE,
+            ))),
+        })
+    } else {
+        None
+    };
     if !limits.valid() {
         return Err("INVALID_CONFIG");
     }
     let next = Arc::new(Generation {
         config,
         limits,
+        system,
+        system_options: options,
+        route_cancelled: std::sync::RwLock::new(CancellationToken::new()),
         cancelled: CancellationToken::new(),
         slots: Arc::new(Semaphore::new(limits.max_connections)),
     });

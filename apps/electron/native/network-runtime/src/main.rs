@@ -3,6 +3,7 @@ mod config;
 mod connector;
 mod gateway;
 mod protocol;
+mod system;
 
 use futures_util::StreamExt;
 use protocol::{Command, Events, Request, response};
@@ -19,9 +20,18 @@ use tokio_util::{
 };
 use zeroize::Zeroizing;
 
-#[tokio::main]
-async fn main() {
-    if run().await.is_err() {
+fn main() {
+    if std::env::args().nth(1).as_deref() == Some("--system-query") {
+        system::worker();
+        return;
+    }
+    if tokio::runtime::Builder::new_multi_thread()
+        .enable_all()
+        .build()
+        .unwrap()
+        .block_on(run())
+        .is_err()
+    {
         eprintln!("network runtime: process I/O failed");
         std::process::exit(1);
     }
@@ -59,6 +69,12 @@ async fn run() -> Result<(), Box<dyn std::error::Error>> {
         events.clone(),
         stop.clone(),
         force.clone(),
+        tasks.clone(),
+    ));
+    let monitor = tokio::spawn(system::monitor(
+        current.clone(),
+        events.clone(),
+        stop.clone(),
         tasks.clone(),
     ));
     let mut input = FramedRead::new(
@@ -100,8 +116,15 @@ async fn run() -> Result<(), Box<dyn std::error::Error>> {
         let request = match serde_json::from_str::<Request>(&line) {
             Ok(request) => request,
             Err(_) => {
-                let code = if ["hello", "configure", "get_diagnostics", "shutdown"]
-                    .contains(&envelope.kind.as_str())
+                let code = if [
+                    "hello",
+                    "configure",
+                    "get_diagnostics",
+                    "get_system_snapshot",
+                    "reload_system",
+                    "shutdown",
+                ]
+                .contains(&envelope.kind.as_str())
                 {
                     "INVALID_CONFIG"
                 } else {
@@ -121,15 +144,37 @@ async fn run() -> Result<(), Box<dyn std::error::Error>> {
                 break;
             }
             _ if !negotiated => Err("HELLO_REQUIRED"),
-            Command::Configure { config, limits } => protocol::configure(&current, config, limits),
-            Command::GetDiagnostics {} => {
-                Ok(json!({"configured": current.read().unwrap().is_some()}))
+            Command::Configure {
+                config,
+                limits,
+                system,
+            } => protocol::configure_system(&current, config, limits, system),
+            command @ (Command::GetSystemSnapshot {} | Command::ReloadSystem {}) => {
+                let reload = matches!(command, Command::ReloadSystem {});
+                let active = current.read().unwrap().clone();
+                if let Some(active) = active.as_ref().filter(|g| g.system.is_some()) {
+                    let system = active.system.as_ref().unwrap();
+                    let result = system.provider.reload().await;
+                    *system.latest.lock().unwrap() = result.clone();
+                    if reload {
+                        active.invalidate_routes();
+                        events.emit("system_policy_changed", system.diagnostics());
+                    }
+                    result.map(|s| json!(s)).map_err(|e| e.0)
+                } else {
+                    Err("NOT_IN_SYSTEM_MODE")
+                }
             }
+            Command::GetDiagnostics {} => Ok({
+                let active = current.read().unwrap();
+                json!({"configured": active.is_some(), "system": active.as_ref().and_then(|g| g.system.as_ref()).map(|s| s.diagnostics())})
+            }),
         };
         output.send(response(&request.id, result)).await?;
     }
     stop.cancel();
     gateway.await?;
+    monitor.await?;
     tasks.close();
     let drain_ms = current
         .read()

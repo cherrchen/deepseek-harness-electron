@@ -111,4 +111,38 @@ describe('Network Runtime client', () => {
     dispose()
     await f.client.shutdown()
   })
+  it('reads and reloads sanitized system snapshots and accepts native capabilities', async () => {
+    const snapshot = { backend: 'macos-cfnetwork', policySource: 'pac', policyFingerprint: 'a'.repeat(64), networkFingerprint: 'c'.repeat(64), routeFingerprint: 'b'.repeat(64), selectedRoute: { kind: 'http', host: 'proxy.example', port: 8080 }, alternativeRoutes: [{ kind: 'direct' }], pac: { configured: true, state: 'loaded' } }
+    const nativeHello = { ...hello, systemBackend: 'macos-cfnetwork', capabilities: { ...hello.capabilities, system: { manual: true, pac: true, wpad: false, watchers: true } } }
+    const f = fixture((frame, stdout) => {
+      const result = frame.type === 'hello' ? nativeHello : frame.type === 'get_diagnostics' ? { configured: true, system: snapshot } : snapshot
+      stdout.write(`${JSON.stringify({ v: 1, id: frame.id, ok: true, result })}\n`)
+    })
+    await f.client.start()
+    await f.client.configure({ mode: 'system', strictFallback: true }, undefined, { resolveTimeoutMs: 1000, pollIntervalMs: 500, pacMaxBytes: 1024, pacMemoryBytes: 1024 * 1024 })
+    expect(f.requests[1]).toMatchObject({ payload: { system: { resolveTimeoutMs: 1000 } } })
+    await expect(f.client.getSystemSnapshot()).resolves.toEqual(snapshot)
+    await expect(f.client.reloadSystem()).resolves.toEqual(snapshot)
+    await expect(f.client.diagnostics()).resolves.toEqual({ configured: true, system: snapshot })
+    await f.client.shutdown()
+  })
+
+  it('keeps the runtime available after policy errors and rejects secret-bearing snapshots', async () => {
+    let invalid = false
+    const f = fixture((frame, stdout) => {
+      const response = frame.type === 'hello' ? { ok: true, result: hello }
+        : frame.type === 'shutdown' ? { ok: true, result: {} }
+          : invalid ? { ok: true, result: { backend: 'linux-kde', policySource: 'pac', policyFingerprint: 'a'.repeat(64), networkFingerprint: 'c'.repeat(64), alternativeRoutes: [], pac: { configured: true, state: 'loading' }, password: 'TOP_SECRET' } }
+            : { ok: false, error: { code: 'PAC_EVALUATION_FAILED', message: 'TOP_SECRET' } }
+      stdout.write(`${JSON.stringify({ v: 1, id: frame.id, ...response })}\n`)
+    })
+    await f.client.start()
+    await expect(f.client.reloadSystem()).rejects.toMatchObject({ code: 'PAC_EVALUATION_FAILED' })
+    expect(f.kill).not.toHaveBeenCalled()
+    invalid = true
+    await expect(f.client.getSystemSnapshot()).rejects.toMatchObject({ code: 'NETWORK_RUNTIME_PROTOCOL_MISMATCH' })
+    expect(f.kill).toHaveBeenCalledOnce()
+    await f.client.shutdown()
+  })
+
 })

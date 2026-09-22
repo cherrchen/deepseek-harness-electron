@@ -84,6 +84,7 @@ export interface RuntimeHelloResult {
 export interface RuntimeConfigureRequest {
   config: RuntimeNetworkConfig
   limits?: RuntimeLimits
+  system?: RuntimeSystemOptions
 }
 
 /** Sanitized platform policy snapshot. */
@@ -91,6 +92,9 @@ export interface RuntimeSystemSnapshot {
   backend: SystemProxyBackend
   policySource: SystemProxyPolicySource
   policyFingerprint: string
+  networkFingerprint: string
+  routeFingerprint?: string
+  pac: { configured: boolean; state: 'none' | 'loading' | 'loaded' | 'failed' }
   selectedRoute?: SanitizedResolvedRoute
   alternativeRoutes: SanitizedResolvedRoute[]
   error?: DesktopNetworkErrorSummary
@@ -102,4 +106,12 @@ export interface RuntimeLimits {
   headerTimeoutMs: number
   shutdownTimeoutMs: number
   maxConnections: number
+}
+
+/** System policy worker deadlines, polling cadence, and PAC resource bounds. */
+export interface RuntimeSystemOptions {
+  resolveTimeoutMs: number
+  pollIntervalMs: number
+  pacMaxBytes: number
+  pacMemoryBytes: number
 }

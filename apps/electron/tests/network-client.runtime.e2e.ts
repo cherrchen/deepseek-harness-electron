@@ -58,7 +58,7 @@ describe('Main client with built Network Runtime', () => {
       expect(requests[0]).toContain('GET http://remote-only.invalid/health HTTP/1.1')
       expect(requests[0]).toContain('proxy-authorization: Basic dXNlcjpzZWNyZXQ=')
       expect(JSON.stringify(events)).not.toMatch(/secret|dXNlcjpzZWNyZXQ=/)
-      await expect(runtime.configure({ mode: 'system', strictFallback: true })).rejects.toMatchObject({ code: 'SYSTEM_PROXY_BACKEND_UNAVAILABLE' })
+      await expect(runtime.reloadSystem()).rejects.toMatchObject({ code: 'NOT_IN_SYSTEM_MODE' })
       expect(await runtime.diagnostics()).toEqual({ configured: true })
       await runtime.configure({ mode: 'manual', strictFallback: true, proxy: { protocol: 'http', host: '127.0.0.1', port } })
       expect(await getThroughGateway(hello.gateway.port)).toBe('200 ok')

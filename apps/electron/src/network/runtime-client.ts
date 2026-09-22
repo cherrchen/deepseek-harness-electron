@@ -3,7 +3,7 @@ import { spawn, type ChildProcessWithoutNullStreams } from 'node:child_process'
 import { DesktopNetworkOperationError } from './errors.ts'
 import type { RuntimeNetworkConfig } from './domain.ts'
 import { resolveNetworkRuntimePath } from './runtime-path.ts'
-import type { RuntimeCommand, RuntimeHelloResult, RuntimeLimits } from './runtime-protocol.ts'
+import type { RuntimeCommand, RuntimeHelloResult, RuntimeLimits, RuntimeSystemOptions, RuntimeSystemSnapshot } from './runtime-protocol.ts'
 
 const MAX_FRAME_BYTES = 1024 * 1024
 
@@ -48,7 +48,7 @@ export class NetworkRuntimeClient {
     try {
       const path = resolveNetworkRuntimePath(this.options)
       const env: NodeJS.ProcessEnv = {}
-      for (const key of ['SYSTEMROOT', 'WINDIR', 'HOME', 'USERPROFILE', 'TMPDIR', 'TMP', 'TEMP']) {
+      for (const key of ['SYSTEMROOT', 'WINDIR', 'HOME', 'USERPROFILE', 'TMPDIR', 'TMP', 'TEMP', 'XDG_CURRENT_DESKTOP', 'XDG_CONFIG_HOME', 'XDG_CONFIG_DIRS', 'XDG_RUNTIME_DIR', 'DBUS_SESSION_BUS_ADDRESS', 'DESKTOP_SESSION']) {
         const value = process.env[key]
         if (value !== undefined) env[key] = value
       }
@@ -82,18 +82,34 @@ export class NetworkRuntimeClient {
    * Replace the active route and cancel old tunnels.
    * @param config - In-memory route, including optional ephemeral password.
    * @param limits - Runtime resource deadlines.
+   * @param system - System resolver deadlines and PAC resource bounds.
    */
-  async configure(config: RuntimeNetworkConfig, limits?: RuntimeLimits): Promise<void> {
-    await this.request('configure', { config, ...(limits === undefined ? {} : { limits }) })
+  async configure(config: RuntimeNetworkConfig, limits?: RuntimeLimits, system?: RuntimeSystemOptions): Promise<void> {
+    await this.request('configure', { config, ...(limits === undefined ? {} : { limits }), ...(system === undefined ? {} : { system }) })
   }
 
-  /** @returns whether a validated route has been configured; never returns credentials. */
-  async diagnostics(): Promise<{ configured: boolean }> {
+  /** @returns configuration status and sanitized System diagnostics; never returns credentials. */
+  async diagnostics(): Promise<{ configured: boolean; system?: RuntimeSystemSnapshot }> {
     const result = await this.request('get_diagnostics', {})
     if (!isRecord(result) || typeof result.configured !== 'boolean') {
       throw this.fail('NETWORK_RUNTIME_PROTOCOL_MISMATCH')
     }
-    return { configured: result.configured }
+    return { configured: result.configured, ...(result.system == null ? {} : { system: this.systemSnapshot(result.system) }) }
+  }
+
+  /** @returns a fresh OS policy snapshot without invalidating live connections. */
+  async getSystemSnapshot(): Promise<RuntimeSystemSnapshot> {
+    return this.systemSnapshot(await this.request('get_system_snapshot', {}))
+  }
+
+  /** Re-read System policy and cancel stale tunnels. @returns the fresh sanitized policy snapshot. */
+  async reloadSystem(): Promise<RuntimeSystemSnapshot> {
+    return this.systemSnapshot(await this.request('reload_system', {}))
+  }
+
+  private systemSnapshot(value: unknown): RuntimeSystemSnapshot {
+    if (!isSystemSnapshot(value)) throw this.fail('NETWORK_RUNTIME_PROTOCOL_MISMATCH')
+    return value
   }
 
   /** @param listener - Main-only event consumer. @returns subscription disposer. */
@@ -160,8 +176,7 @@ export class NetworkRuntimeClient {
       clearTimeout(pending.timer)
       if (frame.ok && 'result' in frame) pending.resolve(frame.result)
       else if (!frame.ok && isRecord(frame.error) && typeof frame.error.code === 'string') {
-        const code = frame.error.code === 'INVALID_CONFIG' || frame.error.code === 'SYSTEM_PROXY_BACKEND_UNAVAILABLE'
-          ? frame.error.code : 'NETWORK_RUNTIME_PROTOCOL_MISMATCH'
+        const code = runtimeError(frame.error.code)
         pending.reject(new DesktopNetworkOperationError(code, 'Network Runtime rejected the request.'))
         if (code === 'NETWORK_RUNTIME_PROTOCOL_MISMATCH') this.fail(code)
       } else {
@@ -201,7 +216,7 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 }
 
 function isHello(value: unknown): value is RuntimeHelloResult {
-  if (!isRecord(value) || value.protocolVersion !== 1 || value.systemBackend !== 'unsupported' || !isRecord(value.gateway)) return false
+  if (!isRecord(value) || value.protocolVersion !== 1 || !isBackend(value.systemBackend) || !isRecord(value.gateway)) return false
   if (value.gateway.host !== '127.0.0.1' || !Number.isInteger(value.gateway.port) || Number(value.gateway.port) < 1 || Number(value.gateway.port) > 65535) return false
   if (!isRecord(value.capabilities)) return false
   for (const [group, keys] of Object.entries({ manual: ['http', 'https', 'socks5', 'socks5Auth'], system: ['manual', 'pac', 'wpad', 'watchers'], auth: ['basic', 'digest', 'ntlm', 'negotiate'] })) {
@@ -209,4 +224,45 @@ function isHello(value: unknown): value is RuntimeHelloResult {
     if (!isRecord(capabilities) || keys.some(key => typeof capabilities[key] !== 'boolean')) return false
   }
   return true
+}
+
+function isBackend(value: unknown): value is RuntimeHelloResult['systemBackend'] {
+  return typeof value === 'string' && ['unsupported', 'windows-winhttp', 'macos-cfnetwork', 'linux-gnome', 'linux-kde'].includes(value)
+}
+
+function runtimeError(code: string): DesktopNetworkOperationError['code'] {
+  switch (code) {
+    case 'INVALID_CONFIG':
+    case 'SYSTEM_PROXY_BACKEND_UNAVAILABLE':
+    case 'SYSTEM_PROXY_RESOLUTION_FAILED':
+    case 'PAC_FETCH_FAILED':
+    case 'PAC_EVALUATION_FAILED':
+    case 'NOT_IN_SYSTEM_MODE':
+      return code
+    default:
+      return 'NETWORK_RUNTIME_PROTOCOL_MISMATCH'
+  }
+}
+
+function isRoute(value: unknown): boolean {
+  if (!isRecord(value)) return false
+  if (value.kind === 'direct') return Object.keys(value).length === 1
+  return ['http', 'https', 'socks5'].includes(String(value.kind))
+    && typeof value.host === 'string' && /^[a-zA-Z0-9.:-]+$/.test(value.host)
+    && Number.isInteger(value.port) && Number(value.port) > 0 && Number(value.port) <= 65535
+    && Object.keys(value).every(key => ['kind', 'host', 'port'].includes(key))
+}
+
+function isSystemSnapshot(value: unknown): value is RuntimeSystemSnapshot {
+  if (!isRecord(value) || !isBackend(value.backend)
+    || !['none', 'manual', 'pac', 'wpad', 'mixed', 'unknown'].includes(String(value.policySource))
+    || typeof value.policyFingerprint !== 'string' || !/^[a-f0-9]{64}$/.test(value.policyFingerprint)
+    || typeof value.networkFingerprint !== 'string' || !/^[a-f0-9]{64}$/.test(value.networkFingerprint)
+    || !Array.isArray(value.alternativeRoutes) || value.alternativeRoutes.length > 64 || !value.alternativeRoutes.every(isRoute)
+    || (value.selectedRoute !== undefined && !isRoute(value.selectedRoute))
+    || (value.routeFingerprint !== undefined && (typeof value.routeFingerprint !== 'string' || !/^[a-f0-9]{64}$/.test(value.routeFingerprint)))
+    || !isRecord(value.pac) || typeof value.pac.configured !== 'boolean' || !['none', 'loading', 'loaded', 'failed'].includes(String(value.pac.state))) return false
+  return Object.keys(value).every(key => ['backend', 'policySource', 'policyFingerprint', 'networkFingerprint', 'selectedRoute', 'alternativeRoutes', 'routeFingerprint', 'pac', 'error'].includes(key))
+    && (value.error === undefined || (isRecord(value.error) && ['SYSTEM_PROXY_BACKEND_UNAVAILABLE', 'SYSTEM_PROXY_RESOLUTION_FAILED', 'PAC_FETCH_FAILED', 'PAC_EVALUATION_FAILED'].includes(String(value.error.code)) && value.error.message === 'System proxy policy is unavailable.' && value.error.retryable === true && Object.keys(value.error).length === 3))
+    && Object.keys(value.pac).every(key => ['configured', 'state'].includes(key))
 }

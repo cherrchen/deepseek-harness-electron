@@ -1,0 +1,28 @@
+{
+  "protocolVersion": 1,
+  "gateway": {
+    "host": "127.0.0.1",
+    "port": 0
+  },
+  "systemBackend": "linux-kde",
+  "capabilities": {
+    "manual": {
+      "http": true,
+      "https": true,
+      "socks5": true,
+      "socks5Auth": false
+    },
+    "system": {
+      "manual": true,
+      "pac": true,
+      "wpad": false,
+      "watchers": true
+    },
+    "auth": {
+      "basic": true,
+      "digest": false,
+      "ntlm": false,
+      "negotiate": false
+    }
+  }
+}

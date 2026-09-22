@@ -1,4 +1,4 @@
-import { chmod, copyFile, mkdir } from 'node:fs/promises'
+import { chmod, copyFile, cp, mkdir } from 'node:fs/promises'
 import { join } from 'node:path'
 import { spawn } from 'node:child_process'
 import process from 'node:process'
@@ -14,6 +14,8 @@ await runCargo(['build', '--locked', '--release', '--manifest-path', join(crateR
 await mkdir(outputRoot, { recursive: true })
 const destination = join(outputRoot, executableName)
 await copyFile(join(crateRoot, 'target', 'release', executableName), destination)
+await cp(join(crateRoot, 'licenses'), join(outputRoot, 'licenses'), { recursive: true })
+await copyFile(join(crateRoot, 'src/system/pac-helpers.js.inc'), join(outputRoot, 'licenses/pac-helpers.js'))
 if (process.platform !== 'win32') await chmod(destination, 0o755)
 
 function runCargo(args) {

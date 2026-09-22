@@ -28,7 +28,7 @@ Environment policy is a pure mode decision. Default clones the input unchanged; 
 
 The [Rust Network Runtime](../../../../docs/electron/network-runtime.md) binds an ephemeral IPv4 loopback Gateway and supports versioned JSONL negotiation, validated configuration replacement, HTTP/HTTPS/SOCKS5 Manual routing, and bounded shutdown. The Main client launches the prepared or packaged executable without PATH lookup, transfers credentials through stdin, and fails closed on protocol or process failure. Local fixtures exercise the actual DSH HTTP dispatcher through all three Manual protocols. Production network-plane wiring remains outside this foundation.
 
-The macOS feasibility probe successfully called `CFNetworkCopySystemProxySettings` and `CFNetworkCopyProxiesForURL` on an arm64 development host. Windows WinHTTP/SSPI, Linux GNOME/KDE and PAC sandbox behavior, macOS PAC and change notifications, signed-package launch, and installer inclusion remain platform qualification work; capability flags stay false until those paths have executable evidence.
+System providers use current-user WinHTTP, CFNetwork, and GNOME/KDE settings. Every resolution runs in a bounded helper process, and Linux PAC uses a memory-limited QuickJS context without filesystem or environment APIs. Native settings notifications and network fingerprints invalidate existing connections. Native macOS tests cover ordered PAC output, malformed first entries, repeatable snapshots, and reload; Desktop CI owns Windows WinHTTP and isolated GNOME/KDE store execution. Signed packages, installers, enterprise WPAD, and integrated authentication still need platform qualification.
 
 ## Alternatives considered
 
@@ -41,6 +41,8 @@ The macOS feasibility probe successfully called `CFNetworkCopySystemProxySetting
 **Reuse the repository atomic-write package.** The Electron TypeScript program has a package-local `rootDir`; resolving workspace source through the repository path map pulls that package outside the compiler program. The Desktop-local writer adds the required file and directory flushes and is limited to the single-instance Desktop persistence boundary.
 
 **Implement HTTP, SOCKS, and TLS from scratch.** Hyper owns HTTP framing and streaming, tokio-socks owns SOCKS5 negotiation, and Rustls with the platform verifier owns TLS and system certificate validation. The Runtime owns route selection and lifecycle; duplicating those protocol libraries would add parser and cryptographic maintenance without changing the routing guarantee.
+
+**Delegate all automatic routing to a general proxy resolver.** Resolvers that skip malformed PAC entries, fall back from failed automatic discovery to static settings, or try later proxies violate the first-route rule. Platform APIs supply policy; strict result validation and the single-route connector remain Runtime-owned. A process deadline bounds native PAC and blocking DNS without delaying the Gateway control loop. CFNetwork HTTPS dictionaries identify the destination scheme, so they map to HTTP CONNECT rather than TLS to the proxy.
 
 ## Acceptance criteria
 

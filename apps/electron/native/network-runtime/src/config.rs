@@ -67,7 +67,7 @@ impl Config {
                 }
                 Ok(())
             }
-            Self::System { strict: true } => Err("SYSTEM_PROXY_BACKEND_UNAVAILABLE"),
+            Self::System { strict: true } => Ok(()),
             _ => Err("INVALID_CONFIG"),
         }
     }
@@ -78,7 +78,8 @@ impl Config {
                 let (host, port) = proxy.endpoint();
                 serde_json::json!({"kind": proxy.kind(), "host": host, "port": port, "source": "manual"})
             }
-            _ => serde_json::json!({"kind": "direct"}),
+            Self::Direct { .. } => serde_json::json!({"kind": "direct"}),
+            Self::System { .. } => serde_json::Value::Null,
         }
     }
 }

@@ -78,10 +78,23 @@ impl Runtime {
         assert!((1..=65535).contains(&port));
         let mut normalized = value["result"].clone();
         normalized["gateway"]["port"] = json!(0);
-        let expected: Value = serde_json::from_str(include_str!(
-            "../../../tests/expected/network-runtime-hello.json"
-        ))
-        .unwrap();
+        let recorded = match normalized["systemBackend"].as_str().unwrap() {
+            "macos-cfnetwork" => {
+                include_str!("../../../tests/expected/network-runtime-hello-macos-cfnetwork.json")
+            }
+            "windows-winhttp" => {
+                include_str!("../../../tests/expected/network-runtime-hello-windows-winhttp.json")
+            }
+            "linux-gnome" => {
+                include_str!("../../../tests/expected/network-runtime-hello-linux-gnome.json")
+            }
+            "linux-kde" => {
+                include_str!("../../../tests/expected/network-runtime-hello-linux-kde.json")
+            }
+            "unsupported" => include_str!("../../../tests/expected/network-runtime-hello.json"),
+            other => panic!("unexpected backend: {other}"),
+        };
+        let expected: Value = serde_json::from_str(recorded).unwrap();
         assert_eq!(normalized, expected);
         port as u16
     }
@@ -151,7 +164,7 @@ fn negotiation_malformed_input_and_secret_free_responses() {
     assert!(!result.to_string().contains("TOP_SECRET"));
     assert_eq!(
         runtime.call("get_diagnostics", json!({}))["result"],
-        json!({"configured":true})
+        json!({"configured":true,"system":null})
     );
     assert_eq!(
         runtime.call(
@@ -244,4 +257,35 @@ fn process_crash_closes_managed_gateway_without_connecting_to_target() {
         origin.accept().unwrap_err().kind(),
         std::io::ErrorKind::WouldBlock
     );
+}
+
+#[test]
+#[cfg(target_os = "macos")]
+fn native_system_snapshot_reload_and_shutdown() {
+    let mut runtime = Runtime::new();
+    runtime.hello();
+    assert_eq!(
+        runtime.call(
+            "configure",
+            json!({"config":{"mode":"system","strictFallback":true}})
+        )["ok"],
+        true
+    );
+    let first = runtime.call("get_system_snapshot", json!({}));
+    assert_eq!(first["ok"], true, "{first}");
+    assert_eq!(first["result"]["backend"], "macos-cfnetwork");
+    assert_eq!(
+        first["result"]["policyFingerprint"].as_str().unwrap().len(),
+        64
+    );
+    assert_eq!(
+        runtime.call("get_system_snapshot", json!({}))["result"],
+        first["result"]
+    );
+    assert_eq!(
+        runtime.call("reload_system", json!({}))["result"],
+        first["result"]
+    );
+    assert_eq!(runtime.call("shutdown", json!({}))["ok"], true);
+    runtime.finish();
 }

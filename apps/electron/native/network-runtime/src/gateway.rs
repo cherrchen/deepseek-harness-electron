@@ -31,6 +31,18 @@ pub struct Generation {
     pub limits: Limits,
     pub cancelled: CancellationToken,
     pub slots: Arc<Semaphore>,
+    pub system: Option<crate::system::SystemState>,
+    pub system_options: crate::system::Options,
+    pub route_cancelled: RwLock<CancellationToken>,
+}
+impl Generation {
+    pub fn invalidate_routes(&self) {
+        let old = std::mem::replace(
+            &mut *self.route_cancelled.write().unwrap(),
+            CancellationToken::new(),
+        );
+        old.cancel();
+    }
 }
 pub type Current = Arc<RwLock<Option<Arc<Generation>>>>;
 
@@ -60,6 +72,7 @@ pub async fn serve(
             continue;
         };
         let permit = Arc::new(permit);
+        let route_cancelled = generation.route_cancelled.read().unwrap().clone();
         let tls = tls.clone();
         let events = events.clone();
         let force = force.clone();
@@ -88,6 +101,7 @@ pub async fn serve(
                 .with_upgrades();
             tokio::select! {
                 _ = generation.cancelled.cancelled() => {},
+                _ = route_cancelled.cancelled() => {},
                 _ = force.cancelled() => {},
                 _ = connection => {},
             }
@@ -110,15 +124,41 @@ async fn handle(
     };
     let tunnel = request.method() == Method::CONNECT;
     let budget = Duration::from_millis(generation.limits.connect_timeout_ms);
+    let route_cancelled = generation.route_cancelled.read().unwrap().clone();
+    let resolution = if let Some(system) = &generation.system {
+        let url = if tunnel {
+            format!("https://{}/", connector::authority(&host, port))
+        } else {
+            request.uri().to_string()
+        };
+        match system.resolve(&url).await {
+            Ok(snapshot) => Some(snapshot),
+            Err(failure) => {
+                events.emit("proxy_failure", serde_json::json!({"failure": {"code": failure.0, "retryable": true}, "stage": "system-resolution"}));
+                return Ok(error_response(StatusCode::BAD_GATEWAY));
+            }
+        }
+    } else {
+        None
+    };
+    let selected = resolution
+        .as_ref()
+        .and_then(|s| s.selected_route.as_ref())
+        .map(|r| r.config());
+    let config = selected.as_ref().unwrap_or(&generation.config);
+    let route = resolution
+        .as_ref()
+        .map(|s| serde_json::to_value(&s.selected_route).unwrap())
+        .unwrap_or_else(|| config.route());
     events.emit(
         "route_selected",
-        serde_json::json!({"route": generation.config.route()}),
+        serde_json::json!({"route": route, "system": resolution}),
     );
-    let socket = connector::connect(&generation.config, &host, port, tunnel, &tls, budget).await;
+    let socket = connector::connect(config, &host, port, tunnel, &tls, budget).await;
     let mut socket = match socket {
         Ok(socket) => socket,
         Err(failure) => {
-            report(&events, &generation.config, failure);
+            report(&events, &route, failure);
             return Ok(error_response(StatusCode::BAD_GATEWAY));
         }
     };
@@ -131,7 +171,7 @@ async fn handle(
                     let _ = tokio::io::copy_bidirectional(&mut client, &mut socket).await;
                 }
             };
-            tokio::select! { _ = generation.cancelled.cancelled() => {}, _ = force.cancelled() => {}, _ = relay => {} }
+            tokio::select! { _ = generation.cancelled.cancelled() => {}, _ = route_cancelled.cancelled() => {}, _ = force.cancelled() => {}, _ = relay => {} }
         });
         return Ok(Response::new(empty()));
     }
@@ -142,7 +182,7 @@ async fn handle(
         HeaderValue::from_str(&connector::authority(&host, port)).unwrap(),
     );
     let absolute = matches!(
-        generation.config,
+        config,
         Config::Manual {
             proxy: Proxy::Http(_) | Proxy::Https(_),
             ..
@@ -157,7 +197,7 @@ async fn handle(
             .parse()
             .unwrap();
     }
-    if let Config::Manual { proxy, .. } = &generation.config
+    if let Config::Manual { proxy, .. } = config
         && absolute
         && let Some(auth) = connector::authorization(proxy)
     {
@@ -176,7 +216,7 @@ async fn handle(
             .await
             .map_err(|_| Failure("TARGET_CONNECT_FAILED"))?;
         let cancel = generation.cancelled.clone();
-        tasks.spawn(async move { tokio::select! { _ = cancel.cancelled() => {}, _ = force.cancelled() => {}, _ = connection => {} } });
+        tasks.spawn(async move { tokio::select! { _ = cancel.cancelled() => {}, _ = route_cancelled.cancelled() => {}, _ = force.cancelled() => {}, _ = connection => {} } });
         sender
             .send_request(request)
             .await
@@ -190,8 +230,8 @@ async fn handle(
     match response {
         Ok(Ok(mut response)) => {
             if response.status() == StatusCode::PROXY_AUTHENTICATION_REQUIRED && absolute {
-                if let Config::Manual { proxy, .. } = &generation.config {
-                    report(&events, &generation.config, connector::auth_failure(proxy));
+                if let Config::Manual { proxy, .. } = config {
+                    report(&events, &route, connector::auth_failure(proxy));
                 }
                 return Ok(error_response(StatusCode::BAD_GATEWAY));
             }
@@ -210,7 +250,7 @@ async fn handle(
                     })
                 })
                 .unwrap_or(Failure("TARGET_CONNECT_FAILED"));
-            report(&events, &generation.config, failure);
+            report(&events, &route, failure);
             Ok(error_response(StatusCode::BAD_GATEWAY))
         }
     }
@@ -283,11 +323,14 @@ fn error_response(status: StatusCode) -> Response<Body> {
     *response.status_mut() = status;
     response
 }
-fn report(events: &Events, config: &Config, failure: Failure) {
+fn report(events: &Events, route: &serde_json::Value, failure: Failure) {
     if !failure.0.starts_with("PROXY_") && failure.0 != "SOCKS_HANDSHAKE_FAILED" {
         return;
     }
-    events.emit("proxy_failure", serde_json::json!({"route": config.route(), "failure": {"code": failure.0, "retryable": true}}));
+    events.emit(
+        "proxy_failure",
+        serde_json::json!({"route": route, "failure": {"code": failure.0, "retryable": true}}),
+    );
     if failure.0 == "PROXY_AUTH_REQUIRED" || failure.0 == "PROXY_AUTH_REJECTED" {
         events.emit(
             if failure.0 == "PROXY_AUTH_REQUIRED" {
@@ -295,7 +338,7 @@ fn report(events: &Events, config: &Config, failure: Failure) {
             } else {
                 "credential_rejected"
             },
-            serde_json::json!({"route": config.route()}),
+            serde_json::json!({"route": route}),
         );
     }
 }

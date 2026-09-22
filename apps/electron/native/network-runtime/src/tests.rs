@@ -577,3 +577,188 @@ async fn timeout_and_refusal_do_not_attempt_the_target() {
             .is_err()
     );
 }
+
+struct PolicyFixture {
+    read: tokio::sync::Notify,
+    state: std::sync::Mutex<Result<crate::system::Snapshot, crate::connector::Failure>>,
+}
+impl crate::system::SystemProvider for PolicyFixture {
+    fn snapshot(
+        &self,
+    ) -> futures_util::future::BoxFuture<
+        '_,
+        Result<crate::system::Snapshot, crate::connector::Failure>,
+    > {
+        Box::pin(async {
+            let value = self.state.lock().unwrap().clone();
+            self.read.notify_one();
+            value
+        })
+    }
+    fn resolve<'a>(
+        &'a self,
+        _: &'a str,
+    ) -> futures_util::future::BoxFuture<
+        'a,
+        Result<crate::system::Snapshot, crate::connector::Failure>,
+    > {
+        self.snapshot()
+    }
+    fn reload(
+        &self,
+    ) -> futures_util::future::BoxFuture<
+        '_,
+        Result<crate::system::Snapshot, crate::connector::Failure>,
+    > {
+        self.snapshot()
+    }
+    fn watch(
+        &self,
+        stop: CancellationToken,
+        _: mpsc::Sender<()>,
+    ) -> futures_util::future::BoxFuture<'static, ()> {
+        Box::pin(async move { stop.cancelled().await })
+    }
+}
+fn install_policy(gateway: &Gateway, policy: Arc<PolicyFixture>) {
+    let old = gateway
+        .current
+        .write()
+        .unwrap()
+        .replace(Arc::new(gateway::Generation {
+            config: Config::System { strict: true },
+            limits: Limits::default(),
+            cancelled: CancellationToken::new(),
+            slots: Arc::new(tokio::sync::Semaphore::new(256)),
+            system: Some(crate::system::SystemState {
+                provider: policy.clone(),
+                latest: std::sync::Mutex::new(policy.state.lock().unwrap().clone()),
+            }),
+            system_options: crate::system::Options {
+                poll_interval_ms: 200,
+                ..Default::default()
+            },
+            route_cancelled: RwLock::new(CancellationToken::new()),
+        }));
+    if let Some(old) = old {
+        old.cancelled.cancel();
+    }
+}
+
+#[tokio::test]
+async fn system_first_proxy_failure_never_connects_alternative_or_direct() {
+    // Bound listeners expose any attempted alternative or origin connection.
+    let first = TcpListener::bind("127.0.0.1:0").await.unwrap();
+    let second = TcpListener::bind("127.0.0.1:0").await.unwrap();
+    let origin = TcpListener::bind("127.0.0.1:0").await.unwrap();
+    let routes = crate::system::parse_routes(&format!(
+        "PROXY {}; PROXY {}; DIRECT",
+        first.local_addr().unwrap(),
+        second.local_addr().unwrap()
+    ))
+    .unwrap();
+    let policy = Arc::new(PolicyFixture {
+        read: tokio::sync::Notify::new(),
+        state: std::sync::Mutex::new(Ok(crate::system::Snapshot::new("fixture", "pac", "one")
+            .select(routes)
+            .unwrap())),
+    });
+    let gateway = Gateway::new(Config::Direct { strict: true }, default_tls()).await;
+    install_policy(&gateway, policy.clone());
+    let reject = tokio::spawn(async move {
+        let (mut socket, _) = first.accept().await.unwrap();
+        let _ = header(&mut socket).await;
+        socket.write_all(b"HTTP/1.1 407 Proxy Authentication Required\r\nContent-Length: 0\r\nConnection: close\r\n\r\n").await.unwrap();
+    });
+    let response = gateway
+        .request(&format!(
+            "GET http://{}/ HTTP/1.1\r\nHost: fixture\r\nConnection: close\r\n\r\n",
+            origin.local_addr().unwrap()
+        ))
+        .await;
+    reject.await.unwrap();
+    assert!(response.starts_with("HTTP/1.1 502"));
+    assert!(futures_util::FutureExt::now_or_never(second.accept()).is_none());
+    assert!(futures_util::FutureExt::now_or_never(origin.accept()).is_none());
+    *policy.state.lock().unwrap() = Err(crate::connector::Failure("PAC_EVALUATION_FAILED"));
+    assert!(
+        gateway
+            .request(&format!(
+                "CONNECT {} HTTP/1.1\r\nHost: fixture\r\nConnection: close\r\n\r\n",
+                origin.local_addr().unwrap()
+            ))
+            .await
+            .starts_with("HTTP/1.1 502")
+    );
+    assert!(futures_util::FutureExt::now_or_never(origin.accept()).is_none());
+    gateway.close().await;
+}
+
+#[tokio::test]
+async fn system_intentional_direct_and_policy_change_cancel_old_tunnel() {
+    let origin = TcpListener::bind("127.0.0.1:0").await.unwrap();
+    let policy = Arc::new(PolicyFixture {
+        read: tokio::sync::Notify::new(),
+        state: std::sync::Mutex::new(Ok(crate::system::Snapshot::new("fixture", "none", "one")
+            .select(vec![crate::system::Route::Direct])
+            .unwrap())),
+    });
+    let gateway = Gateway::new(Config::Direct { strict: true }, default_tls()).await;
+    install_policy(&gateway, policy.clone());
+    let (events, mut observed) = mpsc::channel(8);
+    let monitor = tokio::spawn(crate::system::monitor(
+        gateway.current.clone(),
+        Events(events),
+        gateway.stop.clone(),
+        gateway.tasks.clone(),
+    ));
+    timeout(Duration::from_secs(5), policy.read.notified())
+        .await
+        .unwrap();
+    let mut client = TcpStream::connect(("127.0.0.1", gateway.port))
+        .await
+        .unwrap();
+    client
+        .write_all(
+            format!(
+                "CONNECT {} HTTP/1.1\r\nHost: fixture\r\n\r\n",
+                origin.local_addr().unwrap()
+            )
+            .as_bytes(),
+        )
+        .await
+        .unwrap();
+    let (mut target, _) = origin.accept().await.unwrap();
+    assert!(header(&mut client).await.starts_with("HTTP/1.1 200"));
+    client.write_all(b"ping").await.unwrap();
+    let mut ping = [0; 4];
+    target.read_exact(&mut ping).await.unwrap();
+    assert_eq!(&ping, b"ping");
+    let initial = gateway.current.read().unwrap().clone().unwrap();
+    let token = initial.route_cancelled.read().unwrap().clone();
+    *policy.state.lock().unwrap() =
+        Err(crate::connector::Failure("SYSTEM_PROXY_RESOLUTION_FAILED"));
+    let event = timeout(Duration::from_secs(5), observed.recv())
+        .await
+        .unwrap()
+        .unwrap();
+    assert_eq!(event["event"], "system_policy_changed");
+    assert_eq!(
+        event["payload"]["error"]["code"],
+        "SYSTEM_PROXY_RESOLUTION_FAILED"
+    );
+    timeout(Duration::from_secs(5), token.cancelled())
+        .await
+        .unwrap();
+    let mut byte = [0; 1];
+    assert_eq!(
+        timeout(Duration::from_secs(5), target.read(&mut byte))
+            .await
+            .unwrap()
+            .unwrap(),
+        0
+    );
+    gateway.stop.cancel();
+    monitor.await.unwrap();
+    gateway.close().await;
+}

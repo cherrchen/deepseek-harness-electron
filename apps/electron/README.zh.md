@@ -53,7 +53,7 @@ pnpm --filter @dsh-electron/dsh-electron test
 
 仓库的 Python 集成测试要求 PATH 中的 `python3` 指向 CPython 3.10+。若 mise 提示 shim 未激活，可为命令激活已安装版本，例如 `mise exec python@3.13.12 -- pnpm test packages/experimental/code-runtime-python/tests/runtime.spec.ts packages/experimental/code-runtime-python/tests/boot-write-failure.spec.ts`。请使用本机已安装的版本；运行测试前，`python3 --version` 必须成功。
 
-独立的 [Network Runtime](../../docs/electron/network-runtime.zh.md) 为 Manual HTTP、HTTPS 和 SOCKS5 提供环回 Gateway。验证命令及接入限制见该文档。
+独立的 [Network Runtime](../../docs/electron/network-runtime.zh.md) 为 Manual HTTP、HTTPS、SOCKS5 和严格 System 策略路由提供环回 Gateway。验证命令及接入限制见该文档。
 
 ## 桌面集成
 

@@ -28,7 +28,7 @@ Main-only secret store 使用 Electron `safeStorage` 加密值，拒绝 Linux `b
 
 [Rust Network Runtime](../../../../docs/electron/network-runtime.zh.md) 绑定临时 IPv4 环回 Gateway，支持版本化 JSONL 协商、经过验证的配置替换、HTTP/HTTPS/SOCKS5 Manual 路由和有界关闭。Main 客户端不搜索 PATH，直接启动准备好或已打包的可执行程序，通过 stdin 传递凭据，并在协议或进程失败时阻断网络。本地 fixture 通过三种 Manual 协议验证真实 DSH HTTP dispatcher。生产网络平面接入尚不属于该基础实现。
 
-macOS 可行性探测在 arm64 开发主机上成功调用 `CFNetworkCopySystemProxySettings` 和 `CFNetworkCopyProxiesForURL`。Windows WinHTTP/SSPI、Linux GNOME/KDE 与 PAC sandbox 行为、macOS PAC 与变更通知、签名包启动和安装程序收录仍属平台验收工作；在这些路径拥有可执行证据前，capability flag 保持 false。
+System provider 使用当前用户 WinHTTP、CFNetwork 及 GNOME/KDE 设置。每次解析都在有时限的 helper 进程中运行，Linux PAC 使用限制内存且不提供文件系统或环境变量 API 的 QuickJS context。原生设置通知和网络指纹使现有连接失效。macOS 原生测试覆盖有序 PAC 输出、畸形首项、可重复快照及重新加载；Desktop CI 负责 Windows WinHTTP 和隔离 GNOME/KDE 设置的执行验证。签名包、安装程序、企业 WPAD 和集成认证仍需平台验收。
 
 ## Alternatives considered
 
@@ -41,6 +41,8 @@ macOS 可行性探测在 arm64 开发主机上成功调用 `CFNetworkCopySystemP
 **复用仓库 atomic-write package。** Electron TypeScript program 使用 package-local `rootDir`；经仓库 path map 解析 workspace source 会把该 package 拉到 compiler program 之外。Desktop-local writer 添加所需文件和目录 flush，并只限于单实例 Desktop 持久化边界。
 
 **自行实现 HTTP、SOCKS 和 TLS。** Hyper 负责 HTTP framing 与流式传输，tokio-socks 负责 SOCKS5 协商，Rustls 与平台验证器负责 TLS 和系统证书验证。Runtime 负责路由选择与生命周期；复制这些协议库只会增加解析器及密码学维护负担，不会改变路由保证。
+
+**把全部自动路由交给通用代理解析器。** 跳过畸形 PAC 条目、自动发现失败后回退静态设置或尝试后续代理的解析器会违反首路由规则。平台 API 提供策略；严格结果校验和单路由 connector 仍由 Runtime 负责。进程时限约束原生 PAC 和阻塞 DNS，避免阻塞 Gateway 控制循环。CFNetwork HTTPS 字典表示目标协议，因此映射到 HTTP CONNECT，而非到代理的 TLS 连接。
 
 ## Acceptance criteria
 
