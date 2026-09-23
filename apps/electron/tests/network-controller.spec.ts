@@ -1,12 +1,46 @@
-import { mkdtemp, readFile } from 'node:fs/promises'
+import { mkdtemp, readFile, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { describe, expect, it, vi } from 'vitest'
 import { DesktopPreferencesStore } from '../src/preferences.ts'
 import { DesktopNetworkController } from '../src/network/controller.ts'
 import type { DesktopSecretStore } from '../src/network/secret-store.ts'
+import type { NetworkRuntimeClient } from '../src/network/runtime-client.ts'
+import { MANUAL_PROXY_PASSWORD_REF } from '../src/network/domain.ts'
 
 describe('Desktop Network controller foundation', () => {
+  it('configures the sole Manual endpoint before publishing the Gateway to Harness children', async () => {
+    const fixture = await createFixture()
+    try {
+      await fixture.preferences.updateNetwork({
+        mode: 'manual',
+        manual: { protocol: 'https', host: 'proxy.example', port: 443, username: 'alice', credentialRef: MANUAL_PROXY_PASSWORD_REF },
+      })
+      fixture.secrets.get = vi.fn().mockResolvedValue('secret-value')
+      await fixture.controller.prepare()
+      expect(() => fixture.controller.environmentForHarness({})).toThrow(/ready Gateway/)
+      const runtime = {
+        start: vi.fn().mockResolvedValue({
+          protocolVersion: 1, gateway: { host: '127.0.0.1', port: 4123 },
+          systemBackend: 'unsupported', capabilities: { manual: { http: true, https: true, socks5: true, socks5Auth: false }, system: { manual: false, pac: false, wpad: false, watchers: false }, auth: { basic: true, digest: false, ntlm: false, negotiate: false } },
+        }),
+        configure: vi.fn().mockResolvedValue(undefined),
+        onEvent: vi.fn(),
+        shutdown: vi.fn().mockResolvedValue(undefined),
+      }
+      await fixture.controller.startRuntime(runtime as unknown as NetworkRuntimeClient)
+      expect(runtime.configure).toHaveBeenCalledWith({
+        mode: 'manual', strictFallback: true,
+        proxy: { protocol: 'https', host: 'proxy.example', port: 443, username: 'alice', password: 'secret-value' },
+      })
+      expect(fixture.controller.environmentForHarness({ HTTP_PROXY: 'ambient' }).HTTP_PROXY).toBe('http://127.0.0.1:4123')
+      expect(JSON.stringify(fixture.controller.state())).not.toContain('secret-value')
+      await fixture.controller.shutdown()
+      expect(runtime.shutdown).toHaveBeenCalledOnce()
+    } finally {
+      await rm(fixture.root, { recursive: true, force: true })
+    }
+  })
   it('prepares Default without activating a runtime', async () => {
     const fixture = await createFixture()
     await fixture.controller.prepare()

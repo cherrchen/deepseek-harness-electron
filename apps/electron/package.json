@@ -29,7 +29,7 @@
     "prepare:network-runtime": "node ./scripts/prepare-network-runtime.mjs",
     "test:network-runtime": "cargo test --locked --manifest-path native/network-runtime/Cargo.toml && pnpm run prepare:network-runtime && vitest run --config vitest.network-runtime.config.ts",
     "package": "pnpm run prepare:node && pnpm run prepare:network-runtime && electron-builder --publish never",
-    "start": "pnpm run build && pnpm run prepare:node && env -u ELECTRON_RUN_AS_NODE electron .",
+    "start": "pnpm run build && pnpm run prepare:node && pnpm run prepare:network-runtime && env -u ELECTRON_RUN_AS_NODE electron .",
     "test": "pnpm run build:runtime-plugins && vitest run --root ../.. apps/electron/tests"
   },
   "dependencies": {
@@ -108,6 +108,7 @@
     "@deepseek-ai/dsh-subagent": "workspace:^",
     "@deepseek-ai/dsh-subagent-in-process-driver": "workspace:^",
     "@deepseek-ai/dsh-subprocess": "workspace:^",
+    "@deepseek-ai/dsh-subprocess-local": "workspace:^",
     "@deepseek-ai/dsh-system-prompt": "workspace:^",
     "@deepseek-ai/dsh-terminal": "workspace:^",
     "@deepseek-ai/dsh-timeout": "workspace:^",

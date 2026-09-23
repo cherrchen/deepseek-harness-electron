@@ -26,14 +26,25 @@ export const PROXY_ENV_KEYS = [
   'NODE_USE_ENV_PROXY',
 ] as const
 
+/** Pass the Agent-only proxy view to the Desktop subprocess provider in the Host. */
+export function agentProxyPolicyForHost(
+  ambient: NodeJS.ProcessEnv,
+  policy: NetworkEnvironmentPolicy,
+): string | undefined {
+  if (policy.mode === 'default') return undefined
+  const selected = environmentForAgent(ambient, policy)
+  const values = Object.fromEntries(PROXY_ENV_KEYS.map(key => [key, selected[key] ?? null]))
+  return JSON.stringify({ force: policy.mode === 'direct' || policy.proxyAgentTraffic, values })
+}
+
 /**
  * Remove standard proxy routing variables without mutating the caller's object.
  * @param base - Source environment.
  * @returns a fresh environment without Desktop-controlled proxy variables.
  */
 export function clearProxyEnvironment(base: NodeJS.ProcessEnv): NodeJS.ProcessEnv {
-  const proxyKeys: ReadonlySet<string> = new Set(PROXY_ENV_KEYS)
-  return Object.fromEntries(Object.entries(base).filter(([key]) => !proxyKeys.has(key)))
+  const proxyKeys: ReadonlySet<string> = new Set(PROXY_ENV_KEYS.map(key => key.toUpperCase()))
+  return Object.fromEntries(Object.entries(base).filter(([key]) => !proxyKeys.has(key.toUpperCase())))
 }
 
 /**
@@ -47,6 +58,20 @@ export function environmentForHarness(
   policy: NetworkEnvironmentPolicy,
 ): NodeJS.ProcessEnv {
   return environmentForOwnedChild(base, policy)
+}
+
+/**
+ * Keep Direct authoritative when the Harness launcher reads `$DSH_HOME/.env` below process env.
+ * Blank process-layer proxy names mask that lower-priority file; the Desktop Agent provider removes
+ * these empty names from child processes before spawn.
+ */
+export function environmentForHarnessLaunch(base: NodeJS.ProcessEnv, policy: NetworkEnvironmentPolicy): NodeJS.ProcessEnv {
+  const routed = environmentForHarness(base, policy)
+  if (policy.mode !== 'direct') return routed
+  for (const key of PROXY_ENV_KEYS) {
+    if (key !== 'NODE_USE_ENV_PROXY') routed[key] = ''
+  }
+  return routed
 }
 
 /**

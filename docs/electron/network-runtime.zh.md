@@ -4,7 +4,7 @@
 
 ## 概要
 
-Desktop Network Runtime 通过唯一 Manual 代理或 System 策略选择的首个最终路由转发 HTTP 和 CONNECT 流量。失败绝不授权改用第二个代理或 Direct。Runtime 与 Main 客户端是可独立使用的基础设施；Desktop 启动、Electron session、updater、插件命令和 Settings UI 尚未启用它们。
+Desktop Network Runtime 通过唯一 Manual 代理或 System 策略选择的首个最终路由转发 HTTP 和 CONNECT 流量。失败绝不授权改用第二个代理或 Direct。Desktop 在 Manual 和 System 模式下于 Harness 启动前启用 Runtime；Default 保持现有网络行为不变。
 
 ## 目录
 
@@ -13,6 +13,7 @@ Desktop Network Runtime 通过唯一 Manual 代理或 System 策略选择的首�
 - [系统策略](#system-policy)
 - [凭据与 TLS](#credentials-and-tls)
 - [生命周期与限制](#lifecycle-and-limits)
+- [Desktop 接入](#desktop-integration)
 - [局限](#limitations)
 
 <a id="verification"></a>
@@ -85,10 +86,18 @@ Rustls 通过 `rustls-platform-verifier` 使用操作系统证书验证器。证
 
 TCP/DNS 建连和代理握手各自受连接超时限制。传入 header 和上游响应 header 受 header 超时限制。已建立的隧道和响应 body 持续流式传输，直到完成、配置取消或关闭。每代配置限制准入连接数，包括已升级的隧道。控制帧上限为 1 MiB，HTTP header 上限为 64 KiB。诊断事件使用有界队列；饱和时丢弃事件，不累积内存或阻塞流量。Main 请求和关闭超时是构造参数，必须长于配置的 drain 时限。
 
+<a id="desktop-integration"></a>
+
+## Desktop 接入
+
+Electron Main 在 Manual 和 System 模式下先启动并配置 Runtime，再启动 Harness。Harness 和 Desktop 自有插件命令的代理环境中只包含环回 Gateway URL；Direct 移除有效代理值，Default 保留现有启动环境。Direct 的 Host 启动使用空代理条目屏蔽低优先级 `$DSH_HOME/.env` 值；Agent 子进程通过 tombstone 删除这些条目。Electron app 网络服务、默认 Session 和 updater Session 使用同一显式代理模式。Updater 的 release 查询使用其 Session，元数据和下载也使用该 Session。若 Runtime 无法提供 Gateway，Managed 启动会明确报错并停止。Runtime 后续退出时，已配置的 Gateway 端点仍保留，请求因此失败，而不会改变路由。
+
+Desktop Host 挂载 subprocess provider，通过 Main 单独提供的代理策略派生 Agent 子进程环境。即使调用方显式提供代理值，Direct 也会清理代理变量。Manual 和 System 在 Agent 开关关闭时保留原有 Agent 代理环境，开启时改为 Gateway。此行为覆盖通过 `ctx.subprocess` 创建的子进程，包括持久化终端 session；它不强制代理 raw socket 或忽略代理环境变量的进程。System 策略与网络变化事件会关闭 Electron 连接池，使下一次请求使用 Runtime 的当前策略。
+
 <a id="limitations"></a>
 
 ## 局限
 
-实现覆盖 Network Settings 的 Runtime 和 System provider 里程碑。生产网络平面接入属于 M4；全局 incident 和交互式凭据恢复属于 M5；Settings 和诊断测试命令属于 M6。因此应用 Default 行为保持不变。不支持 SOCKS5 认证、任意 HTTP Upgrade、UDP、自定义代理 CA 配置、客户端证书、Manual bypass 和集成代理认证。
+全局 incident 和交互式凭据恢复尚未接入当前实现。Settings 和诊断测试命令尚未暴露。不支持 SOCKS5 认证、任意 HTTP Upgrade、UDP、自定义代理 CA 配置、客户端证书、Manual bypass 和集成代理认证。
 
 [网络设置提案](../../.agents/notes/proposed/feature/2026-09-20-electron-managed-network-settings.zh.md) 负责整体架构及剩余接入工作。

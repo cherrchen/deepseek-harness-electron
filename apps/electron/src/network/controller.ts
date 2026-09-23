@@ -10,8 +10,9 @@ import type {
 } from './domain.ts'
 import { MANUAL_PROXY_PASSWORD_REF } from './domain.ts'
 import {
+  agentProxyPolicyForHost,
   environmentForAgent,
-  environmentForHarness,
+  environmentForHarnessLaunch,
   environmentForOwnedChild,
   type DesktopGatewayEndpoint,
   type NetworkEnvironmentPolicy,
@@ -19,6 +20,7 @@ import {
 import type { DesktopSecretStore } from './secret-store.ts'
 import { consumeNetworkStartupOverride } from './startup-override.ts'
 import { normalizeNetworkConfigInput } from './validation.ts'
+import { NetworkRuntimeClient } from './runtime-client.ts'
 
 /** Dependencies that keep the controller independent of Electron globals. */
 export interface DesktopNetworkControllerOptions {
@@ -32,6 +34,7 @@ export interface DesktopNetworkControllerOptions {
 export class DesktopNetworkController {
   private current: DesktopNetworkState | undefined
   private gateway: DesktopGatewayEndpoint | undefined
+  private runtime: NetworkRuntimeClient | undefined
 
   /** @param options - Main-owned persistence, secret, and lifecycle services. */
   constructor(private readonly options: DesktopNetworkControllerOptions) {}
@@ -64,10 +67,54 @@ export class DesktopNetworkController {
     return structuredClone(this.current)
   }
 
-  /** Stop runtime-owned resources; M1 has no active runtime yet. */
-  shutdown(): Promise<void> {
+  /** Start the native Gateway before any managed Desktop or Harness request can run. */
+  async startRuntime(runtime: NetworkRuntimeClient): Promise<void> {
+    const state = this.state()
+    if (state.effectiveMode === 'default' || state.effectiveMode === 'direct') return
+    this.current = { ...state, runtime: { status: 'starting' } }
+    this.runtime = runtime
+    try {
+      const hello = await runtime.start()
+      const configured = this.options.preferences.load().preferences.network
+      if (state.effectiveMode === 'manual') {
+        const proxy = configured.manual
+        if (proxy === undefined) throw new Error('desktop network: Manual proxy is missing')
+        const password = proxy.protocol === 'socks5' || proxy.credentialRef === undefined
+          ? undefined : await this.options.secrets.get(proxy.credentialRef)
+        await runtime.configure({
+          mode: 'manual', strictFallback: true,
+          proxy: proxy.protocol === 'socks5' ? proxy : {
+            protocol: proxy.protocol, host: proxy.host, port: proxy.port,
+            ...(proxy.username === undefined ? {} : { username: proxy.username }),
+            ...(password === undefined ? {} : { password }),
+          },
+        })
+      } else {
+        await runtime.configure({ mode: 'system', strictFallback: true })
+      }
+      this.setGateway(hello.gateway)
+      this.current = { ...this.state(), runtime: {
+        status: 'ready', gateway: hello.gateway,
+        protocolVersion: hello.protocolVersion,
+        systemBackend: hello.systemBackend,
+        capabilities: hello.capabilities,
+      } }
+      runtime.onEvent((event) => {
+        if (event.event === 'runtime-exited') {
+          this.current = { ...this.state(), runtime: { ...this.state().runtime, status: 'failed' } }
+        }
+      })
+    } catch (error) {
+      this.current = { ...this.state(), runtime: { status: 'failed' } }
+      await runtime.shutdown()
+      throw error
+    }
+  }
+
+  /** Stop the Gateway after its consumers have drained. */
+  async shutdown(): Promise<void> {
+    await this.runtime?.shutdown()
     if (this.current !== undefined) this.current = { ...this.current, runtime: { status: 'stopped' } }
-    return Promise.resolve()
   }
 
   /**
@@ -102,7 +149,7 @@ export class DesktopNetworkController {
 
   /** @param base - Ambient Harness environment. @returns effective routed environment. */
   environmentForHarness(base: NodeJS.ProcessEnv): NodeJS.ProcessEnv {
-    return environmentForHarness(base, this.environmentPolicy())
+    return environmentForHarnessLaunch(base, this.environmentPolicy())
   }
 
   /** @param base - Ambient Desktop-owned child environment. @returns effective routed environment. */
@@ -113,6 +160,11 @@ export class DesktopNetworkController {
   /** @param base - Existing Agent child environment. @returns effective opt-in routed environment. */
   environmentForAgent(base: NodeJS.ProcessEnv): NodeJS.ProcessEnv {
     return environmentForAgent(base, this.environmentPolicy())
+  }
+
+  /** @param ambient - Electron's original environment. @returns Host-only Agent policy. */
+  agentProxyPolicyForHost(ambient: NodeJS.ProcessEnv): string | undefined {
+    return agentProxyPolicyForHost(ambient, this.environmentPolicy())
   }
 
   private environmentPolicy(): NetworkEnvironmentPolicy {

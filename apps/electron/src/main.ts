@@ -36,6 +36,8 @@ import { readDesktopManifest, resolveUpdateRepository } from './manifest.ts'
 import { RENDERER_ENTRY_URL, RENDERER_ORIGIN } from './bridge-types.ts'
 import { DesktopPreferencesStore, loadUpdateChannel, saveUpdateChannel, type UpdateChannel } from './preferences.ts'
 import { DesktopNetworkController } from './network/controller.ts'
+import { ElectronProxyApplier } from './network/electron-proxy.ts'
+import { NetworkRuntimeClient } from './network/runtime-client.ts'
 import { SafeStorageSecretStore } from './network/secret-store.ts'
 import {
   installRendererProtocol,
@@ -89,7 +91,7 @@ import {
   trayIconRasterScale,
   trayIconSize,
 } from './tray.ts'
-import { createUpdater, type UpdaterController } from './updater.ts'
+import { createUpdater, updaterNetworkSession, type UpdaterController } from './updater.ts'
 import * as process from 'node:process'
 
 type HarnessProcess = ChildProcessByStdio<null, Readable, Readable>
@@ -121,13 +123,17 @@ async function startHarness(
   harnessHome: string,
   hostPatch: string,
 ): Promise<{ child: HarnessProcess; url: string }> {
+  const activeNetwork = network
+  if (activeNetwork === undefined) throw new Error('desktop network: controller is unavailable')
+  const agentPolicy = activeNetwork.agentProxyPolicyForHost(process.env)
   const child = spawnHarnessChild(runtime.executable, harnessArguments(dshBin, hostPatch), {
     cwd: app.getPath('home'),
-    env: {
+    env: activeNetwork.environmentForHarness({
       ...process.env,
       DSH_HOME: harnessHome,
       ...runtime.env,
-    },
+      DSH_ELECTRON_AGENT_PROXY_POLICY: agentPolicy,
+    }),
   })
 
   return await new Promise((resolve, reject) => {
@@ -247,11 +253,11 @@ async function prepareToInstall(): Promise<void> {
   stopping = true
   await pluginLifecycle?.shutdown().catch(() => undefined)
   await inventoryProbe?.dispose().catch(() => undefined)
-  await network?.shutdown().catch(() => undefined)
   await transport.stop()
   const child = harness
   harness = undefined
   if (child !== undefined) await stopHarness(child)
+  await network?.shutdown().catch(() => undefined)
 }
 
 /** Stop Host cleanly, then relaunch this Desktop process. */
@@ -430,7 +436,23 @@ if (!primaryInstance) {
       secrets: new SafeStorageSecretStore(join(userDataPath, 'network-secrets'), safeStorage),
       relaunch: relaunchDesktop,
     })
+    const activeNetwork = network
     await network.prepare()
+    const networkRuntime = new NetworkRuntimeClient({
+      appPath,
+      resourcesPath: process.resourcesPath,
+      packaged: app.isPackaged,
+    })
+    await network.startRuntime(networkRuntime)
+    const electronProxy = new ElectronProxyApplier(app, session.defaultSession)
+    const networkState = network.state()
+    if (networkState.effectiveMode !== 'default') await electronProxy.register(updaterNetworkSession())
+    await electronProxy.apply(networkState.effectiveMode, networkState.runtime.gateway)
+    networkRuntime.onEvent((event) => {
+      if (event.event === 'system_policy_changed' || event.event === 'network_changed') {
+        void electronProxy.closeConnections().catch(() => undefined)
+      }
+    })
     const hostRuntime = resolveHostRuntime({
       appPath,
       resourcesPath: process.resourcesPath,
@@ -569,6 +591,7 @@ if (!primaryInstance) {
         harnessHome,
         profile: 'web',
         envPath: packageManager.envPath,
+        environmentForOwnedChild: base => activeNetwork.environmentForOwnedChild(base),
       }),
       pluginLifecycle,
       mutations,
@@ -598,12 +621,14 @@ if (!primaryInstance) {
       onStateChanged: installDesktopMenus,
       prepareToInstall,
       repository,
+      useManagedSession: networkState.effectiveMode !== 'default',
     })
     installDesktopMenus()
     void updater.check(false)
-  }).catch((error: unknown) => {
+  }).catch(async (error: unknown) => {
     const message = error instanceof Error ? error.message : String(error)
     dialog.showErrorBox(`${app.name} failed to start`, message)
+    await prepareToInstall().catch(() => undefined)
     requestQuit()
   })
 }

@@ -4,7 +4,7 @@ English | [中文](network-runtime.zh.md)
 
 ## Summary
 
-Desktop Network Runtime routes HTTP and CONNECT traffic through one Manual proxy or the first final route selected by System policy. Failures never authorize a second proxy or Direct. The Runtime and Main client are independently usable infrastructure; Desktop startup, Electron sessions, updater, plugin commands, and Settings UI do not yet activate them.
+Desktop Network Runtime routes HTTP and CONNECT traffic through one Manual proxy or the first final route selected by System policy. Failures never authorize a second proxy or Direct. Desktop activates it before Harness startup for Manual and System modes; Default leaves the existing network behavior untouched.
 
 ## Contents
 
@@ -13,6 +13,7 @@ Desktop Network Runtime routes HTTP and CONNECT traffic through one Manual proxy
 - [System policy](#system-policy)
 - [Credentials and TLS](#credentials-and-tls)
 - [Lifecycle and limits](#lifecycle-and-limits)
+- [Desktop integration](#desktop-integration)
 - [Limitations](#limitations)
 
 <a id="verification"></a>
@@ -85,10 +86,18 @@ Configuration validation completes before replacement; a rejected configuration 
 
 TCP/DNS establishment and proxy handshakes each have the connection deadline. Incoming headers and upstream response headers have the header deadline. Established tunnels and response bodies remain streaming until completion, configuration cancellation, or shutdown. Admission is limited per configuration generation, including upgraded tunnels. Control frames are capped at 1 MiB and HTTP headers at 64 KiB. Diagnostic events use a bounded queue; saturation drops events rather than accumulating memory or blocking traffic. Main request and shutdown deadlines are constructor options and must exceed the configured drain deadline.
 
+<a id="desktop-integration"></a>
+
+## Desktop integration
+
+Electron Main starts and configures the Runtime before starting Harness in Manual and System modes. Harness and Desktop-owned plugin commands receive only the loopback Gateway URL in their proxy environment; Direct removes active proxy values, and Default preserves its existing launch environment. The Direct Host launch uses empty proxy entries to mask lower-priority `$DSH_HOME/.env` values; Agent children receive tombstones that remove those entries. Electron's app network service, default Session, and updater Session use the same explicit proxy mode. The updater's release discovery uses its Session, as do its metadata and downloads. Managed startup stops with an error if the Runtime cannot supply a Gateway. A later Runtime exit leaves the configured Gateway endpoint in place, so requests fail rather than changing route.
+
+The Desktop Host mounts a subprocess provider that derives Agent child environments from a separate Main-provided proxy policy. Direct clears proxy variables even when a caller supplies explicit values. Manual and System preserve the original Agent proxy environment while the Agent toggle is off and replace it with the Gateway when enabled. This covers children created through `ctx.subprocess`, including persistent terminal sessions; it does not enforce routing for raw sockets or processes that ignore proxy environment variables. System policy and network change events close pooled Electron connections so the next request uses the current Runtime policy.
+
 <a id="limitations"></a>
 
 ## Limitations
 
-The implementation covers the Network Settings runtime and System-provider milestones. Production network-plane wiring belongs to M4; global incidents and interactive credential recovery belong to M5; Settings and diagnostic test commands belong to M6. Default application behavior therefore remains unchanged. SOCKS5 authentication, arbitrary HTTP Upgrade, UDP, custom proxy CA configuration, client certificates, Manual bypass, and integrated proxy authentication are unsupported.
+Global incidents and interactive credential recovery remain outside the current integration. Settings and diagnostic test commands are not exposed yet. SOCKS5 authentication, arbitrary HTTP Upgrade, UDP, custom proxy CA configuration, client certificates, Manual bypass, and integrated proxy authentication are unsupported.
 
 The [network settings proposal](../../.agents/notes/proposed/feature/2026-09-20-electron-managed-network-settings.md) owns the overall architecture and remaining integration work.

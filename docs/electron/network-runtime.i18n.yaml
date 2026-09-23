@@ -2,5 +2,5 @@
 # side as of the last confirmed-consistent state. Both languages carry equal authority;
 # after editing either side, bring the other along and re-record with:
 #   pnpm run verify-translation-pairing --write docs/electron/network-runtime.md
-network-runtime.md: c632051ad04f53b1fb83581ae498d885a7f86957
-network-runtime.zh.md: 697b3a92272317a3298c7727cddae06012472e12
+network-runtime.md: 5c2200cef489048751b83b8742a48d042c865fe3
+network-runtime.zh.md: 3efe6d993df6712409240b09cbd7d6ba66686194

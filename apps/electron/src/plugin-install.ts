@@ -69,9 +69,16 @@ export function createPluginCommandRunner(options: {
   harnessHome: string
   profile: string
   envPath: string
+  environmentForOwnedChild?: (base: NodeJS.ProcessEnv) => NodeJS.ProcessEnv
 }): PluginCommandRunner {
   return async (command, runOptions) => await new Promise((resolve, reject) => {
     const args = pluginCommandArguments(command)
+    const baseEnv = {
+      ...safeInstallEnvironment(process.env),
+      DSH_HOME: options.harnessHome,
+      PATH: options.envPath,
+      ...options.runtime.env,
+    }
     const child = spawnHarnessChild(options.runtime.executable, [
       '--expose-internals',
       options.dshBin,
@@ -80,12 +87,7 @@ export function createPluginCommandRunner(options: {
       options.profile,
       ...args,
     ], {
-      env: {
-        ...safeInstallEnvironment(process.env),
-        DSH_HOME: options.harnessHome,
-        PATH: options.envPath,
-        ...options.runtime.env,
-      },
+      env: options.environmentForOwnedChild?.(baseEnv) ?? baseEnv,
     })
     let stdout = ''
     let stderr = ''

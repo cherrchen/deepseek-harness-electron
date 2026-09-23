@@ -16,6 +16,7 @@ const mocks = vi.hoisted(() => {
     }),
     quitAndInstall: vi.fn(),
     setFeedURL: vi.fn(),
+    netSession: { fetch: vi.fn() },
   }
   return {
     app: { isPackaged: true, name: 'DeepSeek Harness', getVersion: () => '1.0.0' },
@@ -49,6 +50,7 @@ describe('Electron updater controller', () => {
     mocks.autoUpdater.checkForUpdates.mockReset()
     mocks.autoUpdater.quitAndInstall.mockReset()
     mocks.autoUpdater.setFeedURL.mockReset()
+    mocks.autoUpdater.netSession.fetch.mockReset()
     mocks.dialog.showMessageBox.mockClear()
     mocks.handlers.clear()
   })
@@ -99,6 +101,27 @@ describe('Electron updater controller', () => {
     const controller = createController({ channel: 'stable' })
     await controller.check(false)
     expect(mocks.autoUpdater.allowPrerelease).toBe(false)
+  })
+
+  it('uses the updater Session for managed release discovery', async () => {
+    mocks.autoUpdater.netSession.fetch.mockResolvedValue({
+      ok: true,
+      json: async () => [{ draft: false, prerelease: true, tag_name: 'v1.1.0-beta.1' }],
+    })
+    mocks.autoUpdater.checkForUpdates.mockResolvedValue({ isUpdateAvailable: false, updateInfo: { version: '1.0.0' } })
+    const controller = createUpdater({
+      channel: 'prerelease', getWindow: () => undefined, onChannelChanged: vi.fn(), onStateChanged: vi.fn(),
+      prepareToInstall: vi.fn().mockResolvedValue(undefined), repository: { owner: 'owner', repo: 'desktop' },
+      useManagedSession: true,
+    })
+    await controller.check(false)
+    expect(mocks.autoUpdater.netSession.fetch).toHaveBeenCalledWith(
+      'https://api.github.com/repos/owner/desktop/releases?per_page=20',
+      { headers: { accept: 'application/vnd.github+json', 'x-github-api-version': '2022-11-28' } },
+    )
+    expect(mocks.autoUpdater.setFeedURL).toHaveBeenCalledWith({
+      provider: 'generic', url: 'https://github.com/owner/desktop/releases/download/v1.1.0-beta.1',
+    })
   })
 
   it('logs the technical updater error but shows only concise user guidance', async () => {

@@ -30,6 +30,12 @@ interface UpdaterOptions {
   prepareToInstall: () => Promise<void>
   repository: UpdateRepository
   resolveFeed?: typeof resolveUpdateFeed
+  useManagedSession?: boolean
+}
+
+/** The updater's metadata and download requests share this Electron Session. */
+export function updaterNetworkSession(): Electron.Session {
+  return autoUpdater.netSession
 }
 
 /** Configure GitHub release discovery, background downloads, and manual checks. */
@@ -107,7 +113,11 @@ export function createUpdater(options: UpdaterOptions): UpdaterController {
 
       setState('checking')
       try {
-        const feedUrl = await (options.resolveFeed ?? resolveUpdateFeed)(options.repository, channel)
+        const feedUrl = await (options.resolveFeed ?? resolveUpdateFeed)(
+          options.repository,
+          channel,
+          options.useManagedSession ? ((input, init) => updaterNetworkSession().fetch(input as string, init)) : fetch,
+        )
         if (feedUrl === undefined) {
           setState('idle')
           if (manual) await showMessage(parent, {

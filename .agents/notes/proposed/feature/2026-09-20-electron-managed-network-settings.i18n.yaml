@@ -2,5 +2,5 @@
 # side as of the last confirmed-consistent state. Both languages carry equal authority;
 # after editing either side, bring the other along and re-record with:
 #   pnpm run verify-translation-pairing --write .agents/notes/proposed/feature/2026-09-20-electron-managed-network-settings.md
-2026-09-20-electron-managed-network-settings.md: 94d8caae6f17e52ada19a29a2796864808f6b240
-2026-09-20-electron-managed-network-settings.zh.md: b1f0b20c5d55ae52e8a260500d819329ab91a944
+2026-09-20-electron-managed-network-settings.md: 082ceb22bec682ec452846f891099509b110d1ba
+2026-09-20-electron-managed-network-settings.zh.md: bcfb1ed8e04d292bca710e8d2f7b023145b2632d

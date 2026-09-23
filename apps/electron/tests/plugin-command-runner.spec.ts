@@ -27,6 +27,19 @@ function setup(pid?: number, runtime: HostRuntime = { executable: 'node', env: {
 }
 
 describe('plugin command process lifecycle', () => {
+  it('passes Desktop-owned package commands through the managed environment policy', async () => {
+    const { child } = setup(42)
+    const policy = vi.fn((base: NodeJS.ProcessEnv) => ({ ...base, HTTP_PROXY: 'http://127.0.0.1:4123' }))
+    const run = createPluginCommandRunner({
+      runtime: { executable: 'node', env: {} }, dshBin: 'dsh', harnessHome: 'home',
+      profile: 'web', envPath: '', environmentForOwnedChild: policy,
+    })
+    const result = run({ kind: 'outdated' })
+    child.emit('close', 0)
+    await result
+    expect(policy).toHaveBeenCalledOnce()
+    expect(vi.mocked(spawn).mock.calls.at(-1)?.[2]?.env?.HTTP_PROXY).toBe('http://127.0.0.1:4123')
+  })
   it('reports an actual missing executable without an unhandled process error', async () => {
     const actual = await vi.importActual<typeof import('node:child_process')>('node:child_process')
     vi.mocked(spawn).mockImplementation(actual.spawn)

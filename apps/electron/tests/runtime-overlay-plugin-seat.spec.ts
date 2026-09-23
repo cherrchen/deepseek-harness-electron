@@ -23,6 +23,7 @@ describe('runtime overlay plugin seat', () => {
       expect(overlay.profileLockPath.replaceAll('\\', '/')).toBe(join(harnessHome, 'profiles', 'web', 'lock').replaceAll('\\', '/'))
       expect(body).toContain('@deepseek-ai/dsh-host-directory-picker-browse')
       expect(body).toContain('@dsh-electron/dsh-electron-desktop-capabilities')
+      expect(body).toMatch(/- id: subprocess\n  name: '@dsh-electron\/dsh-electron-network-subprocess'/)
       expect(body).toContain('@dsh-electron/dsh-theme-studio')
       expect(body).toContain('@dsh-electron/dsh-electron-ui-directory-picker')
       expect(body).toContain('@dsh-electron/dsh-electron-ui-brand')
