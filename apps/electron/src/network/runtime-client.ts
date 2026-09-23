@@ -2,8 +2,9 @@
 import { spawn, type ChildProcessWithoutNullStreams } from 'node:child_process'
 import { DesktopNetworkOperationError } from './errors.ts'
 import type { RuntimeNetworkConfig } from './domain.ts'
+import type { RuntimeManualProxy } from './domain.ts'
 import { resolveNetworkRuntimePath } from './runtime-path.ts'
-import type { RuntimeCommand, RuntimeHelloResult, RuntimeLimits, RuntimeSystemOptions, RuntimeSystemSnapshot } from './runtime-protocol.ts'
+import { NETWORK_RUNTIME_PROTOCOL_VERSION, type RuntimeCommand, type RuntimeHelloResult, type RuntimeLimits, type RuntimeSystemOptions, type RuntimeSystemSnapshot } from './runtime-protocol.ts'
 
 const MAX_FRAME_BYTES = 1024 * 1024
 
@@ -107,6 +108,14 @@ export class NetworkRuntimeClient {
     return this.systemSnapshot(await this.request('reload_system', {}))
   }
 
+  /** Supply one in-memory System Basic credential for the exact selected endpoint. */
+  async submitCredential(proxy: Extract<RuntimeManualProxy, { protocol: 'http' | 'https' }>): Promise<void> {
+    await this.request('submit_credential', { proxy })
+  }
+
+  /** Drop the current System credential and its connections. */
+  async clearCredential(): Promise<void> { await this.request('clear_credential', {}) }
+
   private systemSnapshot(value: unknown): RuntimeSystemSnapshot {
     if (!isSystemSnapshot(value)) throw this.fail('NETWORK_RUNTIME_PROTOCOL_MISMATCH')
     return value
@@ -143,7 +152,7 @@ export class NetworkRuntimeClient {
     const child = this.child
     if (child === undefined || (this.stopping && type !== 'shutdown')) return Promise.reject(new Error('desktop network: runtime is not active'))
     const id = String(++this.sequence)
-    const frame = Buffer.from(`${JSON.stringify({ v: 1, id, type, payload })}\n`)
+    const frame = Buffer.from(`${JSON.stringify({ v: NETWORK_RUNTIME_PROTOCOL_VERSION, id, type, payload })}\n`)
     if (frame.byteLength > MAX_FRAME_BYTES) {
       frame.fill(0)
       return Promise.reject(new DesktopNetworkOperationError('INVALID_CONFIG', 'Network Runtime request exceeds the frame limit.'))
@@ -165,7 +174,7 @@ export class NetworkRuntimeClient {
       this.buffer = this.buffer.subarray(newline + 1)
       let frame: unknown
       try { frame = JSON.parse(line.toString('utf8')) } catch { this.fail('NETWORK_RUNTIME_PROTOCOL_MISMATCH'); return }
-      if (!isRecord(frame) || frame.v !== 1) { this.fail('NETWORK_RUNTIME_PROTOCOL_MISMATCH'); return }
+      if (!isRecord(frame) || frame.v !== NETWORK_RUNTIME_PROTOCOL_VERSION) { this.fail('NETWORK_RUNTIME_PROTOCOL_MISMATCH'); return }
       if (typeof frame.event === 'string' && EVENT_NAMES.has(frame.event) && 'payload' in frame) {
         this.emit({ event: frame.event, payload: frame.payload })
         continue
@@ -209,15 +218,19 @@ export class NetworkRuntimeClient {
   }
 }
 
-const EVENT_NAMES = new Set(['ready', 'system_policy_changed', 'network_changed', 'route_selected', 'proxy_failure', 'credential_required', 'credential_rejected', 'runtime_warning'])
+const EVENT_NAMES = new Set(['ready', 'system_policy_changed', 'network_changed', 'route_selected', 'route_succeeded', 'proxy_failure', 'credential_required', 'credential_rejected', 'runtime_warning'])
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value)
 }
 
 function isHello(value: unknown): value is RuntimeHelloResult {
-  if (!isRecord(value) || value.protocolVersion !== 1 || !isBackend(value.systemBackend) || !isRecord(value.gateway)) return false
+  if (!isRecord(value) || value.protocolVersion !== NETWORK_RUNTIME_PROTOCOL_VERSION
+    || !isBackend(value.systemBackend) || !isRecord(value.gateway)) return false
   if (value.gateway.host !== '127.0.0.1' || !Number.isInteger(value.gateway.port) || Number(value.gateway.port) < 1 || Number(value.gateway.port) > 65535) return false
+  if (!isRecord(value.updaterGateway) || value.updaterGateway.host !== '127.0.0.1'
+    || !Number.isInteger(value.updaterGateway.port) || Number(value.updaterGateway.port) < 1
+    || Number(value.updaterGateway.port) > 65535) return false
   if (!isRecord(value.capabilities)) return false
   for (const [group, keys] of Object.entries({ manual: ['http', 'https', 'socks5', 'socks5Auth'], system: ['manual', 'pac', 'wpad', 'watchers'], auth: ['basic', 'digest', 'ntlm', 'negotiate'] })) {
     const capabilities = value.capabilities[group]
@@ -238,6 +251,7 @@ function runtimeError(code: string): DesktopNetworkOperationError['code'] {
     case 'PAC_FETCH_FAILED':
     case 'PAC_EVALUATION_FAILED':
     case 'NOT_IN_SYSTEM_MODE':
+    case 'UNSUPPORTED_PROXY_AUTH_SCHEME':
       return code
     default:
       return 'NETWORK_RUNTIME_PROTOCOL_MISMATCH'

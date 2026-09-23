@@ -33,7 +33,17 @@ pub fn authorization(proxy: &Proxy) -> Option<Zeroizing<String>> {
     Some(value)
 }
 
-pub fn auth_failure(proxy: &Proxy) -> Failure {
+pub fn auth_failure(proxy: &Proxy, challenge: Option<&str>) -> Failure {
+    // Never guess a credential scheme or retry a different route after an unknown challenge.
+    if !challenge.is_some_and(|value| {
+        value
+            .trim_start()
+            .to_ascii_lowercase()
+            .starts_with("basic ")
+    }) && !challenge.is_some_and(|value| value.trim().eq_ignore_ascii_case("basic"))
+    {
+        return Failure("UNSUPPORTED_PROXY_AUTH_SCHEME");
+    }
     Failure(
         if proxy
             .auth()
@@ -157,7 +167,14 @@ pub async fn connect(
                 .map_err(|_| Failure("TARGET_CONNECT_FAILED"))?;
             match parsed.code {
                 Some(200..=299) => {}
-                Some(407) => return Err(auth_failure(proxy)),
+                Some(407) => {
+                    let challenge = parsed
+                        .headers
+                        .iter()
+                        .find(|header| header.name.eq_ignore_ascii_case("proxy-authenticate"))
+                        .and_then(|header| std::str::from_utf8(header.value).ok());
+                    return Err(auth_failure(proxy, challenge));
+                }
                 _ => return Err(Failure("TARGET_CONNECT_FAILED")),
             }
         }

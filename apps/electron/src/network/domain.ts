@@ -151,11 +151,26 @@ export interface DesktopNetworkIncidentSummary {
   createdAt: string
   epochId: string
   mode: 'system' | 'manual'
-  route: SanitizedResolvedRoute
+  route?: SanitizedResolvedRoute
   failure: DesktopNetworkFailure
   dialogShown: boolean
   resolvedAt?: string
 }
+
+/** One real-traffic Basic challenge; its identifier expires on epoch change. */
+export interface ProxyCredentialChallenge {
+  id: string
+  mode: 'manual' | 'system'
+  proxy: { host: string; port: number; kind: 'http' | 'https' }
+  scheme: 'Basic'
+  rejected: boolean
+  canPersist: boolean
+}
+
+/** New credentials flow only from the secure prompt to Electron Main. */
+export type ProxyCredentialSubmission =
+  | { action: 'cancel' }
+  | { action: 'use-once' | 'save-securely'; username: string; password: string }
 
 /** System proxy provider selected for the current platform. */
 export type SystemProxyBackend =

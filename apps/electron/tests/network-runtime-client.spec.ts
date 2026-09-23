@@ -9,8 +9,9 @@ vi.mock('node:child_process', () => ({ spawn: mocks.spawn }))
 vi.mock('../src/network/runtime-path.ts', () => ({ resolveNetworkRuntimePath: () => '/app/network-runtime' }))
 
 const hello = {
-  protocolVersion: 1,
+  protocolVersion: 2,
   gateway: { host: '127.0.0.1', port: 12345 },
+  updaterGateway: { host: '127.0.0.1', port: 12346 },
   systemBackend: 'unsupported',
   capabilities: {
     manual: { http: true, https: true, socks5: true, socks5Auth: false },
@@ -30,7 +31,7 @@ function fixture(respond?: (frame: Record<string, unknown>, output: PassThrough)
       requests.push(frame)
       queueMicrotask(() => {
         if (respond !== undefined) respond(frame, stdout)
-        else stdout.write(`${JSON.stringify({ v: 1, id: frame.id, ok: true, result: frame.type === 'hello' ? hello : {} })}\n`)
+        else stdout.write(`${JSON.stringify({ v: 2, id: frame.id, ok: true, result: frame.type === 'hello' ? hello : {} })}\n`)
         if (frame.type === 'shutdown') child.emit('close', 0, null)
       })
       callback()
@@ -62,7 +63,13 @@ describe('Network Runtime client', () => {
   })
 
   it('terminates incompatible hello, malformed frames, and oversized stdout', async () => {
-    for (const output of [JSON.stringify({ v: 1, id: '1', ok: true, result: { ...hello, gateway: { host: '0.0.0.0', port: 1 } } }) + '\n', '{invalid}\n', 'x'.repeat(1024 * 1024 + 1)]) {
+    const invalidOutputs = [
+      JSON.stringify({ v: 1, id: '1', ok: true, result: hello }) + '\n',
+      JSON.stringify({ v: 2, id: '1', ok: true, result: { ...hello, gateway: { host: '0.0.0.0', port: 1 } } }) + '\n',
+      '{invalid}\n',
+      'x'.repeat(1024 * 1024 + 1),
+    ]
+    for (const output of invalidOutputs) {
       const f = fixture((_frame, stdout) => { stdout.write(output) })
       await expect(f.client.start()).rejects.toMatchObject({ code: 'NETWORK_RUNTIME_PROTOCOL_MISMATCH' })
       expect(f.kill).toHaveBeenCalledOnce()
@@ -72,7 +79,7 @@ describe('Network Runtime client', () => {
 
   it('rejects pending commands on crash without changing the selected route', async () => {
     const f = fixture((frame, stdout) => {
-      if (frame.type === 'hello') stdout.write(`${JSON.stringify({ v: 1, id: frame.id, ok: true, result: hello })}\n`)
+      if (frame.type === 'hello') stdout.write(`${JSON.stringify({ v: 2, id: frame.id, ok: true, result: hello })}\n`)
     })
     const events: unknown[] = []
     f.client.onEvent(event => events.push(event))
@@ -105,7 +112,7 @@ describe('Network Runtime client', () => {
     f.client.onEvent(() => { throw new Error('TOP_SECRET') })
     const observed = vi.fn()
     const dispose = f.client.onEvent(observed)
-    f.stdout.write('{"v":1,"event":"runtime_warning","payload":{"code":"MALFORMED_FRAME"}}\n')
+    f.stdout.write('{"v":2,"event":"runtime_warning","payload":{"code":"MALFORMED_FRAME"}}\n')
     expect(observed).toHaveBeenCalledOnce()
     expect(warn).toHaveBeenCalledWith('desktop network: runtime event listener failed')
     dispose()
@@ -116,7 +123,7 @@ describe('Network Runtime client', () => {
     const nativeHello = { ...hello, systemBackend: 'macos-cfnetwork', capabilities: { ...hello.capabilities, system: { manual: true, pac: true, wpad: false, watchers: true } } }
     const f = fixture((frame, stdout) => {
       const result = frame.type === 'hello' ? nativeHello : frame.type === 'get_diagnostics' ? { configured: true, system: snapshot } : snapshot
-      stdout.write(`${JSON.stringify({ v: 1, id: frame.id, ok: true, result })}\n`)
+      stdout.write(`${JSON.stringify({ v: 2, id: frame.id, ok: true, result })}\n`)
     })
     await f.client.start()
     await f.client.configure({ mode: 'system', strictFallback: true }, undefined, { resolveTimeoutMs: 1000, pollIntervalMs: 500, pacMaxBytes: 1024, pacMemoryBytes: 1024 * 1024 })
@@ -134,7 +141,7 @@ describe('Network Runtime client', () => {
         : frame.type === 'shutdown' ? { ok: true, result: {} }
           : invalid ? { ok: true, result: { backend: 'linux-kde', policySource: 'pac', policyFingerprint: 'a'.repeat(64), networkFingerprint: 'c'.repeat(64), alternativeRoutes: [], pac: { configured: true, state: 'loading' }, password: 'TOP_SECRET' } }
             : { ok: false, error: { code: 'PAC_EVALUATION_FAILED', message: 'TOP_SECRET' } }
-      stdout.write(`${JSON.stringify({ v: 1, id: frame.id, ...response })}\n`)
+      stdout.write(`${JSON.stringify({ v: 2, id: frame.id, ...response })}\n`)
     })
     await f.client.start()
     await expect(f.client.reloadSystem()).rejects.toMatchObject({ code: 'PAC_EVALUATION_FAILED' })

@@ -12,22 +12,23 @@ describe('Electron network application', () => {
     const primary = session()
     const updater = session()
     const applier = new ElectronProxyApplier(application, primary as unknown as Session)
-    await applier.register(updater as unknown as Session)
+    await applier.register(updater as unknown as Session, 'updater')
     await applier.apply('default')
     expect(application.setProxy).not.toHaveBeenCalled()
     expect(primary.setProxy).not.toHaveBeenCalled()
     expect(updater.setProxy).not.toHaveBeenCalled()
   })
 
-  it('routes every registered Session and app to the same single Gateway', async () => {
+  it('isolates updater failures while preserving one selected upstream route', async () => {
     const application = { setProxy: vi.fn().mockResolvedValue(undefined) }
     const primary = session()
     const updater = session()
     const applier = new ElectronProxyApplier(application, primary as unknown as Session)
-    await applier.register(updater as unknown as Session)
-    await applier.apply('system', { host: '127.0.0.1', port: 4123 })
+    await applier.register(updater as unknown as Session, 'updater')
+    await applier.apply('system', { host: '127.0.0.1', port: 4123 }, { host: '127.0.0.1', port: 4124 })
     const expected = { mode: 'fixed_servers', proxyRules: 'http://127.0.0.1:4123' }
-    for (const target of [application, primary, updater]) expect(target.setProxy).toHaveBeenCalledWith(expected)
+    for (const target of [application, primary]) expect(target.setProxy).toHaveBeenCalledWith(expected)
+    expect(updater.setProxy).toHaveBeenCalledWith({ mode: 'fixed_servers', proxyRules: 'http://127.0.0.1:4124' })
     expect(primary.closeAllConnections).toHaveBeenCalledOnce()
     expect(updater.closeAllConnections).toHaveBeenCalledOnce()
     const late = session()

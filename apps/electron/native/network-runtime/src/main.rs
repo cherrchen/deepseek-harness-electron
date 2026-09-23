@@ -40,6 +40,8 @@ fn main() {
 async fn run() -> Result<(), Box<dyn std::error::Error>> {
     let listener = TcpListener::bind(("127.0.0.1", 0)).await?;
     let port = listener.local_addr()?.port();
+    let updater_listener = TcpListener::bind(("127.0.0.1", 0)).await?;
+    let updater_port = updater_listener.local_addr()?.port();
     use rustls_platform_verifier::BuilderVerifierExt;
     let tls = tokio_rustls::TlsConnector::from(Arc::new(
         rustls::ClientConfig::builder()
@@ -51,7 +53,7 @@ async fn run() -> Result<(), Box<dyn std::error::Error>> {
     let force = CancellationToken::new();
     let tasks = TaskTracker::new();
     let (output, mut frames) = mpsc::channel::<serde_json::Value>(256);
-    let events = Events(output.clone());
+    let events = Events(output.clone(), true);
     let writer = tokio::spawn(async move {
         let mut stdout = tokio::io::stdout();
         while let Some(frame) = frames.recv().await {
@@ -65,8 +67,17 @@ async fn run() -> Result<(), Box<dyn std::error::Error>> {
     let gateway = tokio::spawn(gateway::serve(
         listener,
         current.clone(),
-        tls,
+        tls.clone(),
         events.clone(),
+        stop.clone(),
+        force.clone(),
+        tasks.clone(),
+    ));
+    let updater_gateway = tokio::spawn(gateway::serve(
+        updater_listener,
+        current.clone(),
+        tls,
+        Events(output.clone(), false),
         stop.clone(),
         force.clone(),
         tasks.clone(),
@@ -104,7 +115,7 @@ async fn run() -> Result<(), Box<dyn std::error::Error>> {
                 continue;
             }
         };
-        if envelope.v != 1 {
+        if envelope.v != protocol::VERSION {
             output
                 .send(response(
                     &envelope.id,
@@ -122,6 +133,8 @@ async fn run() -> Result<(), Box<dyn std::error::Error>> {
                     "get_diagnostics",
                     "get_system_snapshot",
                     "reload_system",
+                    "submit_credential",
+                    "clear_credential",
                     "shutdown",
                 ]
                 .contains(&envelope.kind.as_str())
@@ -137,7 +150,7 @@ async fn run() -> Result<(), Box<dyn std::error::Error>> {
         let result = match request.command {
             Command::Hello {} => {
                 negotiated = true;
-                Ok(protocol::hello(port))
+                Ok(protocol::hello(port, updater_port))
             }
             Command::Shutdown {} => {
                 shutdown_id = Some(request.id);
@@ -169,11 +182,46 @@ async fn run() -> Result<(), Box<dyn std::error::Error>> {
                 let active = current.read().unwrap();
                 json!({"configured": active.is_some(), "system": active.as_ref().and_then(|g| g.system.as_ref()).map(|s| s.diagnostics())})
             }),
+            Command::SubmitCredential { proxy } => {
+                let active = current.read().unwrap().clone();
+                match active.as_ref().filter(|g| g.system.is_some()) {
+                    Some(active) => {
+                        let valid =
+                            matches!(proxy, config::Proxy::Http(_) | config::Proxy::Https(_))
+                                && (config::Config::Manual {
+                                    strict: true,
+                                    proxy: proxy.clone(),
+                                })
+                                .validate()
+                                .is_ok();
+                        if !valid {
+                            Err("INVALID_CONFIG")
+                        } else {
+                            *active.system_credential.lock().unwrap() = Some(proxy);
+                            active.invalidate_routes();
+                            Ok(json!({}))
+                        }
+                    }
+                    None => Err("NOT_IN_SYSTEM_MODE"),
+                }
+            }
+            Command::ClearCredential {} => {
+                let active = current.read().unwrap().clone();
+                match active.as_ref().filter(|g| g.system.is_some()) {
+                    Some(active) => {
+                        active.system_credential.lock().unwrap().take();
+                        active.invalidate_routes();
+                        Ok(json!({}))
+                    }
+                    None => Err("NOT_IN_SYSTEM_MODE"),
+                }
+            }
         };
         output.send(response(&request.id, result)).await?;
     }
     stop.cancel();
     gateway.await?;
+    updater_gateway.await?;
     monitor.await?;
     tasks.close();
     let drain_ms = current

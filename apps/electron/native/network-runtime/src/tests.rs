@@ -78,7 +78,7 @@ impl Gateway {
             listener,
             current.clone(),
             tls,
-            Events(sender),
+            Events(sender, true),
             stop.clone(),
             force.clone(),
             tasks.clone(),
@@ -119,11 +119,11 @@ impl Gateway {
 
 #[test]
 fn protocol_requires_real_json_and_rejects_unsafe_configuration() {
-    let request = r#"{"v":1,"id":"one","type":"hello","payload":{}}"#;
+    let request = r#"{"v":2,"id":"one","type":"hello","payload":{}}"#;
     assert!(serde_json::from_str::<protocol::Request>(request).is_ok());
     for invalid in [
-        r#"{"v":1,"id":"x","type":"hello","payload":{}} trailing"#,
-        r#"{"v":1,"v":2,"id":"x","type":"hello","payload":{}}"#,
+        r#"{"v":2,"id":"x","type":"hello","payload":{}} trailing"#,
+        r#"{"v":2,"v":2,"id":"x","type":"hello","payload":{}}"#,
     ] {
         assert!(serde_json::from_str::<protocol::Request>(invalid).is_err());
     }
@@ -141,6 +141,24 @@ fn protocol_requires_real_json_and_rejects_unsafe_configuration() {
     ] {
         assert!(config(value).validate().is_err());
     }
+    assert!(serde_json::from_value::<protocol::Request>(json!({
+        "v": 2, "id": "credential", "type": "submit_credential",
+        "payload": {"proxy": {"protocol": "http", "host": "localhost", "port": 8080, "username": "user", "password": "secret"}}
+    })).is_ok());
+    assert!(serde_json::from_value::<protocol::Request>(json!({
+        "v": 2, "id": "credential", "type": "submit_credential",
+        "payload": {"proxy": {"protocol": "socks5", "host": "localhost", "port": 1080, "password": "secret"}}
+    })).is_err());
+}
+
+#[tokio::test]
+async fn updater_events_never_enter_the_global_incident_channel() {
+    let (sender, mut frames) = mpsc::channel(1);
+    Events(sender, false).emit(
+        "proxy_failure",
+        json!({"failure": {"code": "PROXY_CONNECT_REFUSED"}}),
+    );
+    assert!(frames.try_recv().is_err());
 }
 
 #[tokio::test]
@@ -345,10 +363,21 @@ async fn gateway_streams_http_bodies_and_never_forwards_client_proxy_credentials
 
 #[tokio::test]
 async fn failure_never_connects_to_origin_and_auth_events_are_sanitized() {
-    for (status, password, expected) in [
-        (407, false, "PROXY_AUTH_REQUIRED"),
-        (407, true, "PROXY_AUTH_REJECTED"),
-        (502, false, "TARGET_CONNECT_FAILED"),
+    for (status, password, challenge, expected) in [
+        (
+            407,
+            false,
+            "Basic realm=secret-realm",
+            "PROXY_AUTH_REQUIRED",
+        ),
+        (407, true, "Basic realm=secret-realm", "PROXY_AUTH_REJECTED"),
+        (407, false, "Negotiate", "UNSUPPORTED_PROXY_AUTH_SCHEME"),
+        (
+            502,
+            false,
+            "Basic realm=secret-realm",
+            "TARGET_CONNECT_FAILED",
+        ),
     ] {
         let origin = TcpListener::bind(("127.0.0.1", 0)).await.unwrap();
         let target_port = origin.local_addr().unwrap().port();
@@ -357,7 +386,13 @@ async fn failure_never_connects_to_origin_and_auth_events_are_sanitized() {
         let task = tokio::spawn(async move {
             let (mut stream, _) = proxy.accept().await.unwrap();
             header(&mut stream).await;
-            stream.write_all(format!("HTTP/1.1 {status} Failed\r\nProxy-Authenticate: Basic realm=secret-realm\r\n\r\n").as_bytes()).await.unwrap();
+            stream
+                .write_all(
+                    format!("HTTP/1.1 {status} Failed\r\nProxy-Authenticate: {challenge}\r\n\r\n")
+                        .as_bytes(),
+                )
+                .await
+                .unwrap();
         });
         let cfg = if password {
             config(
@@ -638,6 +673,7 @@ fn install_policy(gateway: &Gateway, policy: Arc<PolicyFixture>) {
                 poll_interval_ms: 200,
                 ..Default::default()
             },
+            system_credential: std::sync::Mutex::new(None),
             route_cancelled: RwLock::new(CancellationToken::new()),
         }));
     if let Some(old) = old {
@@ -695,6 +731,59 @@ async fn system_first_proxy_failure_never_connects_alternative_or_direct() {
 }
 
 #[tokio::test]
+async fn system_basic_credential_is_scoped_to_the_selected_proxy() {
+    let proxy = TcpListener::bind("127.0.0.1:0").await.unwrap();
+    let port = proxy.local_addr().unwrap().port();
+    let origin = TcpListener::bind("127.0.0.1:0").await.unwrap();
+    let policy = Arc::new(PolicyFixture {
+        read: tokio::sync::Notify::new(),
+        state: std::sync::Mutex::new(Ok(crate::system::Snapshot::new("fixture", "manual", "one")
+            .select(vec![crate::system::Route::Http {
+                host: "127.0.0.1".into(),
+                port,
+            }])
+            .unwrap())),
+    });
+    let gateway = Gateway::new(Config::Direct { strict: true }, default_tls()).await;
+    install_policy(&gateway, policy);
+    let task = tokio::spawn(async move {
+        let (mut first, _) = proxy.accept().await.unwrap();
+        assert!(!header(&mut first).await.contains("Proxy-Authorization"));
+        first.write_all(b"HTTP/1.1 407 Proxy Authentication Required\r\nProxy-Authenticate: Basic realm=fixture\r\nContent-Length: 0\r\nConnection: close\r\n\r\n").await.unwrap();
+        let (mut second, _) = proxy.accept().await.unwrap();
+        assert!(
+            header(&mut second)
+                .await
+                .to_ascii_lowercase()
+                .contains("proxy-authorization: basic dxnlcjpwyxnz")
+        );
+        second
+            .write_all(b"HTTP/1.1 200 OK\r\nContent-Length: 2\r\nConnection: close\r\n\r\nok")
+            .await
+            .unwrap();
+    });
+    let target = format!(
+        "GET http://{}/ HTTP/1.1\r\nHost: fixture\r\nConnection: close\r\n\r\n",
+        origin.local_addr().unwrap()
+    );
+    assert!(gateway.request(&target).await.starts_with("HTTP/1.1 502"));
+    let active = gateway.current.read().unwrap().clone().unwrap();
+    *active.system_credential.lock().unwrap() = Some(crate::config::Proxy::Http(
+        crate::config::AuthenticatedProxy {
+            host: "127.0.0.1".into(),
+            port,
+            username: Some("user".into()),
+            password: Some("pass".into()),
+        },
+    ));
+    active.invalidate_routes();
+    assert!(gateway.request(&target).await.ends_with("ok"));
+    task.await.unwrap();
+    assert!(futures_util::FutureExt::now_or_never(origin.accept()).is_none());
+    gateway.close().await;
+}
+
+#[tokio::test]
 async fn system_intentional_direct_and_policy_change_cancel_old_tunnel() {
     let origin = TcpListener::bind("127.0.0.1:0").await.unwrap();
     let policy = Arc::new(PolicyFixture {
@@ -708,7 +797,7 @@ async fn system_intentional_direct_and_policy_change_cancel_old_tunnel() {
     let (events, mut observed) = mpsc::channel(8);
     let monitor = tokio::spawn(crate::system::monitor(
         gateway.current.clone(),
-        Events(events),
+        Events(events, true),
         gateway.stop.clone(),
         gateway.tasks.clone(),
     ));

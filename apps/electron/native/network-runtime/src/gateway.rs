@@ -14,7 +14,7 @@ use hyper::{
 use hyper_util::rt::{TokioIo, TokioTimer};
 use std::{
     convert::Infallible,
-    sync::{Arc, RwLock},
+    sync::{Arc, Mutex, RwLock},
     time::Duration,
 };
 use tokio::{
@@ -33,6 +33,7 @@ pub struct Generation {
     pub slots: Arc<Semaphore>,
     pub system: Option<crate::system::SystemState>,
     pub system_options: crate::system::Options,
+    pub system_credential: Mutex<Option<Proxy>>,
     pub route_cancelled: RwLock<CancellationToken>,
 }
 impl Generation {
@@ -145,7 +146,30 @@ async fn handle(
         .as_ref()
         .and_then(|s| s.selected_route.as_ref())
         .map(|r| r.config());
-    let config = selected.as_ref().unwrap_or(&generation.config);
+    let credential = selected.as_ref().and_then(|selected| {
+        let Config::Manual { proxy, .. } = selected else {
+            return None;
+        };
+        generation
+            .system_credential
+            .lock()
+            .unwrap()
+            .as_ref()
+            .and_then(|saved| {
+                if saved.kind() == proxy.kind() && saved.endpoint() == proxy.endpoint() {
+                    Some(Config::Manual {
+                        strict: true,
+                        proxy: saved.clone(),
+                    })
+                } else {
+                    None
+                }
+            })
+    });
+    let config = credential
+        .as_ref()
+        .or(selected.as_ref())
+        .unwrap_or(&generation.config);
     let route = resolution
         .as_ref()
         .map(|s| serde_json::to_value(&s.selected_route).unwrap())
@@ -163,6 +187,7 @@ async fn handle(
         }
     };
     if tunnel {
+        events.emit("route_succeeded", serde_json::json!({"route": route}));
         tasks.spawn(async move {
             let _permit = permit;
             let relay = async {
@@ -231,10 +256,15 @@ async fn handle(
         Ok(Ok(mut response)) => {
             if response.status() == StatusCode::PROXY_AUTHENTICATION_REQUIRED && absolute {
                 if let Config::Manual { proxy, .. } = config {
-                    report(&events, &route, connector::auth_failure(proxy));
+                    let challenge = response
+                        .headers()
+                        .get(PROXY_AUTHENTICATE)
+                        .and_then(|value| value.to_str().ok());
+                    report(&events, &route, connector::auth_failure(proxy, challenge));
                 }
                 return Ok(error_response(StatusCode::BAD_GATEWAY));
             }
+            events.emit("route_succeeded", serde_json::json!({"route": route}));
             strip_hop_headers(response.headers_mut());
             response.headers_mut().remove(PROXY_AUTHENTICATE);
             Ok(response.map(|body| body.boxed()))
@@ -324,7 +354,10 @@ fn error_response(status: StatusCode) -> Response<Body> {
     response
 }
 fn report(events: &Events, route: &serde_json::Value, failure: Failure) {
-    if !failure.0.starts_with("PROXY_") && failure.0 != "SOCKS_HANDSHAKE_FAILED" {
+    if !failure.0.starts_with("PROXY_")
+        && failure.0 != "SOCKS_HANDSHAKE_FAILED"
+        && failure.0 != "UNSUPPORTED_PROXY_AUTH_SCHEME"
+    {
         return;
     }
     events.emit(

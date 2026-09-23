@@ -61,7 +61,7 @@ impl Runtime {
         .unwrap()
     }
     fn call(&mut self, command: &str, payload: Value) -> Value {
-        self.send(json!({"v":1,"id":command,"type":command,"payload":payload}));
+        self.send(json!({"v":2,"id":command,"type":command,"payload":payload}));
         loop {
             let value = self.next();
             if value.get("id").is_some() {
@@ -76,8 +76,12 @@ impl Runtime {
         assert_eq!(value["result"]["gateway"]["host"], "127.0.0.1");
         let port = value["result"]["gateway"]["port"].as_u64().unwrap();
         assert!((1..=65535).contains(&port));
+        let updater_port = value["result"]["updaterGateway"]["port"].as_u64().unwrap();
+        assert!((1..=65535).contains(&updater_port));
+        assert_ne!(port, updater_port);
         let mut normalized = value["result"].clone();
         normalized["gateway"]["port"] = json!(0);
+        normalized["updaterGateway"]["port"] = json!(0);
         let recorded = match normalized["systemBackend"].as_str().unwrap() {
             "macos-cfnetwork" => {
                 include_str!("../../../tests/expected/network-runtime-hello-macos-cfnetwork.json")
@@ -201,7 +205,7 @@ fn mismatched_version_and_oversized_frame_close_runtime() {
                 .unwrap();
             assert_eq!(runtime.next()["event"], "runtime_warning");
         } else {
-            runtime.send(json!({"v":2,"id":"mismatch","type":"hello","payload":{}}));
+            runtime.send(json!({"v":3,"id":"mismatch","type":"hello","payload":{}}));
             assert_eq!(
                 runtime.next()["error"]["code"],
                 "NETWORK_RUNTIME_PROTOCOL_MISMATCH"

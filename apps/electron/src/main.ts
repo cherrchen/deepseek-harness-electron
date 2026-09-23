@@ -37,6 +37,8 @@ import { RENDERER_ENTRY_URL, RENDERER_ORIGIN } from './bridge-types.ts'
 import { DesktopPreferencesStore, loadUpdateChannel, saveUpdateChannel, type UpdateChannel } from './preferences.ts'
 import { DesktopNetworkController } from './network/controller.ts'
 import { ElectronProxyApplier } from './network/electron-proxy.ts'
+import { presentNetworkFailure } from './network/failure-dialog.ts'
+import { presentCredentialChallenge } from './network/credential-window.ts'
 import { NetworkRuntimeClient } from './network/runtime-client.ts'
 import { SafeStorageSecretStore } from './network/secret-store.ts'
 import {
@@ -104,6 +106,9 @@ let pluginLifecycle: PluginLifecycleController | undefined
 let pluginPackages: PluginPackageService | undefined
 let inventoryProbe: RemotePluginInventoryProbe | undefined
 let network: DesktopNetworkController | undefined
+let electronProxy: ElectronProxyApplier | undefined
+let networkDialogQueue: Promise<void> = Promise.resolve()
+let credentialPromptQueue: Promise<void> = Promise.resolve()
 let quitting = false
 let stopping = false
 const transport = new HttpHarnessTransport()
@@ -435,6 +440,37 @@ if (!primaryInstance) {
       preferences: new DesktopPreferencesStore(userDataPath),
       secrets: new SafeStorageSecretStore(join(userDataPath, 'network-secrets'), safeStorage),
       relaunch: relaunchDesktop,
+      onEpochChanged: () => { void electronProxy?.closeConnections().catch(() => undefined) },
+      onIncident: (incident) => {
+        const activeNetwork = network
+        if (activeNetwork === undefined) return
+        const messages = resolveDesktopMainLocale(app.getLocale()).messages
+        networkDialogQueue = networkDialogQueue.then(async () => {
+          if (activeNetwork.state().lastIncident?.id !== incident.id) return
+          const action = await presentNetworkFailure({
+            incident, messages, ...(mainWindow === undefined ? {} : { window: mainWindow }),
+            dialog: { showMessageBox: async (window, options) => window === undefined
+              ? dialog.showMessageBox(options) : dialog.showMessageBox(window, options) },
+          })
+          if (action === 'open-settings') showMainWindow()
+          await activeNetwork.handleFailureAction(incident.id, action)
+        }).catch(() => undefined)
+      },
+      onCredentialRequired: (challenge) => {
+        const activeNetwork = network
+        if (activeNetwork === undefined) return
+        credentialPromptQueue = credentialPromptQueue.then(async () => {
+          if (!activeNetwork.isPendingChallenge(challenge.id)) return
+          const input = await presentCredentialChallenge({
+            challenge, locale: resolveDesktopMainLocale(app.getLocale()), appPath,
+            ...(mainWindow === undefined ? {} : { parent: mainWindow }),
+          })
+          await activeNetwork.submitCredential(challenge.id, input)
+        }).catch(() => {
+          dialog.showErrorBox(resolveDesktopMainLocale(app.getLocale()).messages.networkCredentialTitle,
+            resolveDesktopMainLocale(app.getLocale()).messages.networkCredentialFailed)
+        })
+      },
     })
     const activeNetwork = network
     await network.prepare()
@@ -444,15 +480,10 @@ if (!primaryInstance) {
       packaged: app.isPackaged,
     })
     await network.startRuntime(networkRuntime)
-    const electronProxy = new ElectronProxyApplier(app, session.defaultSession)
+    electronProxy = new ElectronProxyApplier(app, session.defaultSession)
     const networkState = network.state()
-    if (networkState.effectiveMode !== 'default') await electronProxy.register(updaterNetworkSession())
-    await electronProxy.apply(networkState.effectiveMode, networkState.runtime.gateway)
-    networkRuntime.onEvent((event) => {
-      if (event.event === 'system_policy_changed' || event.event === 'network_changed') {
-        void electronProxy.closeConnections().catch(() => undefined)
-      }
-    })
+    if (networkState.effectiveMode !== 'default') await electronProxy.register(updaterNetworkSession(), 'updater')
+    await electronProxy.apply(networkState.effectiveMode, networkState.runtime.gateway, network.gatewayForUpdater())
     const hostRuntime = resolveHostRuntime({
       appPath,
       resourcesPath: process.resourcesPath,

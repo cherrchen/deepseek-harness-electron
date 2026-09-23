@@ -21,7 +21,7 @@ describe('Desktop Network controller foundation', () => {
       expect(() => fixture.controller.environmentForHarness({})).toThrow(/ready Gateway/)
       const runtime = {
         start: vi.fn().mockResolvedValue({
-          protocolVersion: 1, gateway: { host: '127.0.0.1', port: 4123 },
+          protocolVersion: 2, gateway: { host: '127.0.0.1', port: 4123 }, updaterGateway: { host: '127.0.0.1', port: 4124 },
           systemBackend: 'unsupported', capabilities: { manual: { http: true, https: true, socks5: true, socks5Auth: false }, system: { manual: false, pac: false, wpad: false, watchers: false }, auth: { basic: true, digest: false, ntlm: false, negotiate: false } },
         }),
         configure: vi.fn().mockResolvedValue(undefined),

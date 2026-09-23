@@ -10,7 +10,7 @@ import type {
 } from './domain.ts'
 
 /** Current JSON Lines protocol spoken by the Desktop Network Runtime. */
-export const NETWORK_RUNTIME_PROTOCOL_VERSION = 1 as const
+export const NETWORK_RUNTIME_PROTOCOL_VERSION = 2 as const
 
 /** Request frame sent over the runtime's stdin. */
 export interface RuntimeRequestEnvelope<T = unknown> {
@@ -48,7 +48,7 @@ export interface RuntimeProtocolError {
   message: string
 }
 
-/** Closed command set accepted by protocol version 1. */
+/** Closed command set accepted by protocol version 2. */
 export type RuntimeCommand =
   | 'hello'
   | 'configure'
@@ -61,12 +61,13 @@ export type RuntimeCommand =
   | 'clear_credential'
   | 'shutdown'
 
-/** Closed event set emitted by protocol version 1. */
+/** Closed event set emitted by protocol version 2. */
 export type RuntimeEventName =
   | 'ready'
   | 'system_policy_changed'
   | 'network_changed'
   | 'route_selected'
+  | 'route_succeeded'
   | 'proxy_failure'
   | 'credential_required'
   | 'credential_rejected'
@@ -76,6 +77,7 @@ export type RuntimeEventName =
 export interface RuntimeHelloResult {
   protocolVersion: typeof NETWORK_RUNTIME_PROTOCOL_VERSION
   gateway: { host: '127.0.0.1'; port: number }
+  updaterGateway: { host: '127.0.0.1'; port: number }
   systemBackend: SystemProxyBackend
   capabilities: DesktopNetworkRuntimeCapabilities
 }

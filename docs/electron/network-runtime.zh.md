@@ -32,9 +32,9 @@ pnpm --filter @dsh-electron/dsh-electron test:network-runtime
 
 ## 控制与路由
 
-[NetworkRuntimeClient](../../apps/electron/src/network/runtime-client.ts) 使用私有 stdio 从固定应用路径启动可执行程序，协商协议版本 1，关联请求 ID，并在传输或协议失败时终止进程。它持续读取 native stderr，但不发布其中内容。Runtime 仅向 stdout 写 JSONL 帧，向 stderr 写固定的脱敏诊断。
+[NetworkRuntimeClient](../../apps/electron/src/network/runtime-client.ts) 使用私有 stdio 从固定应用路径启动可执行程序，协商协议版本 2，关联请求 ID，并在传输或协议失败时终止进程。它持续读取 native stderr，但不发布其中内容。Runtime 仅向 stdout 写 JSONL 帧，向 stderr 写固定的脱敏诊断。
 
-支持的命令为 `hello`、`configure`、`get_system_snapshot`、`reload_system`、`get_diagnostics` 和 `shutdown`。`configure` 接受 `{ config, limits?, system? }`，配置使用 [RuntimeNetworkConfig](../../apps/electron/src/network/domain.ts) 联合类型。Direct 显式允许直连。System 声明已编译的原生后端；不支持的桌面环境拒绝配置。不支持的命令和无效 payload 返回错误响应；格式错误的 envelope 发出 `runtime_warning`。它们均不改变活动配置。
+支持的命令为 `hello`、`configure`、`get_system_snapshot`、`reload_system`、`get_diagnostics`、`submit_credential`、`clear_credential` 和 `shutdown`。`configure` 接受 `{ config, limits?, system? }`，配置使用 [RuntimeNetworkConfig](../../apps/electron/src/network/domain.ts) 联合类型。Direct 显式允许直连。System 声明已编译的原生后端；不支持的桌面环境拒绝配置。不支持的命令和无效 payload 返回错误响应；格式错误的 envelope 发出 `runtime_warning`。它们均不改变活动配置。
 
 Gateway 仅在 `127.0.0.1` 上监听操作系统分配的临时端口。配置成功前，它关闭传入连接。Manual HTTP 和 HTTPS 使用 absolute-form HTTP 请求或 CONNECT 隧道；HTTPS 加密到代理的连接。SOCKS5 使用无认证协商，并将域名目标直接交给代理，不在本地解析。转发前会移除传入的代理凭据和逐跳 header；只有活动 Manual 凭据能够认证上游代理。
 
@@ -46,7 +46,7 @@ Gateway 仅在 `127.0.0.1` 上监听操作系统分配的临时端口。配置�
 
 Provider 提供快照、目标路由解析、重新加载和监听操作。Windows 读取当前用户的 WinHTTP 设置，并通过 WinHTTP 执行 PAC/WPAD。macOS 读取 CFNetwork 字典并使用 CFNetwork 执行 PAC。Linux 通过 `proxy-watch` 读取 GNOME GSettings 或 KDE5/6 kioslaverc；拒绝环境变量和 portal 回退。无法读取的设置、不支持的桌面、畸形路由及 PAC 失败均产生明确错误。
 
-只有首个最终路由会传入 connector。剩余有序条目仅在 `alternativeRoutes` 中用于诊断。显式 bypass 和 `DIRECT` 允许直连；代理不可用绝不允许直连。CFNetwork 用于 HTTPS 目标的代理使用 HTTP CONNECT。macOS 拒绝不支持的 PAC `HTTPS` 传输指令，避免原生解析器丢弃它。System 代理凭据和集成认证不被接受。
+只有首个最终路由会传入 connector。剩余有序条目仅在 `alternativeRoutes` 中用于诊断。显式 bypass 和 `DIRECT` 允许直连；代理不可用绝不允许直连。CFNetwork 用于 HTTPS 目标的代理使用 HTTP CONNECT。macOS 拒绝不支持的 PAC `HTTPS` 传输指令，避免原生解析器丢弃它。System 仅接受用户为触发认证的 HTTP 或 HTTPS 代理端点输入的 Basic 凭据。不支持 Digest、NTLM、Negotiate，以及静默复用操作系统凭据。
 
 每次解析都在固定 Runtime 可执行程序的私有子进程中运行，并受执行时限约束。Linux PAC 在 QuickJS 中执行，提供标准 PAC helper、DNS 和本地地址查询，不提供文件系统、环境变量或模块加载 API。PAC 下载使用经过证书验证的 HTTP/HTTPS，不使用环境代理、不跟随重定向，并限制响应大小。QuickJS 还限制堆内存和执行时间。原生 PAC 引擎依赖操作系统隔离及 worker 时限；`pacMemoryBytes` 仅作用于 QuickJS。
 
@@ -66,6 +66,8 @@ Provider 提供快照、目标路由解析、重新加载和监听操作。Windo
 ## 凭据与 TLS
 
 Main 在 `configure` stdin payload 中提供可选 Manual 凭据。客户端绝不将其放入 argv 或环境变量。Runtime 仅在内存中保留凭据，并在释放时清零自己持有的凭据字符串和认证缓冲区。替换配置会取消其连接并释放该代凭据；关闭流程释放活动配置。JavaScript 字符串和 HTTP 库内部缓冲区副本不提供取证级内存擦除保证。
+
+真实 HTTP 407 会打开 Main 自有的沙箱凭据窗口。Manual 凭据可以只在当前 Runtime 配置代使用，也可以经 Electron 安全存储保存；System Basic 凭据只保留在 Runtime 内存中，且仅用于匹配的所选端点。不支持的认证方案会明确失败。已保存的 Manual 凭据被拒绝时会打开替换窗口。秘密通过私有 IPC 和 Runtime stdin 传递，不进入 incident 事件或诊断。
 
 Rustls 通过 `rustls-platform-verifier` 使用操作系统证书验证器。证书验证始终启用，包括主机名验证。无效证书报告 `PROXY_CERT_INVALID`；其他 TLS 握手失败报告 `PROXY_TLS_FAILED`。产品没有额外 CA 证书、关闭验证或客户端证书的输入选项。
 
@@ -90,14 +92,14 @@ TCP/DNS 建连和代理握手各自受连接超时限制。传入 header 和上�
 
 ## Desktop 接入
 
-Electron Main 在 Manual 和 System 模式下先启动并配置 Runtime，再启动 Harness。Harness 和 Desktop 自有插件命令的代理环境中只包含环回 Gateway URL；Direct 移除有效代理值，Default 保留现有启动环境。Direct 的 Host 启动使用空代理条目屏蔽低优先级 `$DSH_HOME/.env` 值；Agent 子进程通过 tombstone 删除这些条目。Electron app 网络服务、默认 Session 和 updater Session 使用同一显式代理模式。Updater 的 release 查询使用其 Session，元数据和下载也使用该 Session。若 Runtime 无法提供 Gateway，Managed 启动会明确报错并停止。Runtime 后续退出时，已配置的 Gateway 端点仍保留，请求因此失败，而不会改变路由。
+Electron Main 在 Manual 和 System 模式下先启动并配置 Runtime，再启动 Harness。Harness 和 Desktop 自有插件命令的代理环境中只包含环回 Gateway URL；Direct 移除有效代理值，Default 保留现有启动环境。Direct 的 Host 启动使用空代理条目屏蔽低优先级 `$DSH_HOME/.env` 值；Agent 子进程通过 tombstone 删除这些条目。Electron app 网络服务和默认 Session 使用主 Gateway；updater Session 使用独立环回 Gateway，其所选路由相同，但不产生全局故障事件。Updater 的 release 查询使用其 Session，元数据和下载也使用该 Session。若 Runtime 无法提供 Gateway，Managed 启动会明确报错并停止。Runtime 后续退出时，已配置的 Gateway 端点仍保留，请求因此失败，而不会改变路由。
 
-Desktop Host 挂载 subprocess provider，通过 Main 单独提供的代理策略派生 Agent 子进程环境。即使调用方显式提供代理值，Direct 也会清理代理变量。Manual 和 System 在 Agent 开关关闭时保留原有 Agent 代理环境，开启时改为 Gateway。此行为覆盖通过 `ctx.subprocess` 创建的子进程，包括持久化终端 session；它不强制代理 raw socket 或忽略代理环境变量的进程。System 策略与网络变化事件会关闭 Electron 连接池，使下一次请求使用 Runtime 的当前策略。
+Desktop Host 挂载 subprocess provider，通过 Main 单独提供的代理策略派生 Agent 子进程环境。即使调用方显式提供代理值，Direct 也会清理代理变量。Manual 和 System 在 Agent 开关关闭时保留原有 Agent 代理环境，开启时改为 Gateway。此行为覆盖通过 `ctx.subprocess` 创建的子进程，包括持久化终端 session；它不强制代理 raw socket 或忽略代理环境变量的进程。System 策略与网络变化事件会关闭 Electron 连接池，使下一次请求使用 Runtime 的当前策略。Main 将启动、指纹变化、用户重载和 Manual 凭据应用记录为网络 epoch。代理 incident 按 epoch、路由、错误代码和重试代去重；成功流量或新 epoch 会解决当前 incident。原生对话框提供重试、单次 Default、网络设置和暂不处理；永久 Default 需要二次确认。重试等待新的请求，Runtime 崩溃时则重启 Desktop。单次 Default 标记在下次启动前消费，不修改已保存的设置。
 
 <a id="limitations"></a>
 
 ## 局限
 
-全局 incident 和交互式凭据恢复尚未接入当前实现。Settings 和诊断测试命令尚未暴露。不支持 SOCKS5 认证、任意 HTTP Upgrade、UDP、自定义代理 CA 配置、客户端证书、Manual bypass 和集成代理认证。
+网络设置页面和诊断测试命令属于后续 UI 阶段；页面尚未实现时，“打开网络设置”会显示主窗口。不支持 SOCKS5 认证、任意 HTTP Upgrade、UDP、自定义代理 CA 配置、客户端证书、Manual bypass 和集成代理认证。
 
 [网络设置提案](../../.agents/notes/proposed/feature/2026-09-20-electron-managed-network-settings.zh.md) 负责整体架构及剩余接入工作。

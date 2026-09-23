@@ -1,6 +1,10 @@
 {
-  "protocolVersion": 1,
+  "protocolVersion": 2,
   "gateway": {
+    "host": "127.0.0.1",
+    "port": 0
+  },
+  "updaterGateway": {
     "host": "127.0.0.1",
     "port": 0
   },

@@ -21,7 +21,7 @@ pub enum Config {
     },
 }
 
-#[derive(Deserialize)]
+#[derive(Clone, Deserialize)]
 #[serde(tag = "protocol", rename_all = "lowercase", deny_unknown_fields)]
 pub enum Proxy {
     Http(AuthenticatedProxy),
@@ -29,7 +29,7 @@ pub enum Proxy {
     Socks5 { host: String, port: u16 },
 }
 
-#[derive(Deserialize)]
+#[derive(Clone, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct AuthenticatedProxy {
     pub host: String,

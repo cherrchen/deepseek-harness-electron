@@ -1,14 +1,21 @@
+import { randomUUID } from 'node:crypto'
 import type { DesktopNetworkPreferencesV1 } from '../preferences.ts'
 import { DesktopPreferencesStore } from '../preferences.ts'
 import type {
   DesktopNetworkConfigInput,
+  DesktopNetworkIncidentSummary,
   DesktopNetworkState,
+  ProxyCredentialChallenge,
+  ProxyCredentialSubmission,
   PasswordChange,
   PersistedAuthenticatedProxy,
   PersistedManualProxy,
   SanitizedManualProxy,
 } from './domain.ts'
 import { MANUAL_PROXY_PASSWORD_REF } from './domain.ts'
+import { NetworkEpochManager } from './epoch.ts'
+import { classifyNetworkFailure } from './failure.ts'
+import { NetworkIncidentManager } from './incidents.ts'
 import {
   agentProxyPolicyForHost,
   environmentForAgent,
@@ -19,8 +26,12 @@ import {
 } from './environment.ts'
 import type { DesktopSecretStore } from './secret-store.ts'
 import { consumeNetworkStartupOverride } from './startup-override.ts'
+import { writeDefaultStartupOverride } from './startup-override.ts'
 import { normalizeNetworkConfigInput } from './validation.ts'
 import { NetworkRuntimeClient } from './runtime-client.ts'
+import type { NetworkRuntimeObservation } from './runtime-client.ts'
+import { DesktopNetworkOperationError } from './errors.ts'
+import type { RuntimeSystemSnapshot } from './runtime-protocol.ts'
 
 /** Dependencies that keep the controller independent of Electron globals. */
 export interface DesktopNetworkControllerOptions {
@@ -28,13 +39,23 @@ export interface DesktopNetworkControllerOptions {
   preferences: DesktopPreferencesStore
   secrets: DesktopSecretStore
   relaunch: () => Promise<void>
+  onIncident?: (incident: DesktopNetworkIncidentSummary) => void
+  onEpochChanged?: () => void
+  onCredentialRequired?: (challenge: ProxyCredentialChallenge) => void
 }
 
-/** M1 lifecycle owner for persisted Network mode, secrets, and child environments. */
+/** Main-owned lifecycle, policy generation, credential, and incident authority. */
 export class DesktopNetworkController {
   private current: DesktopNetworkState | undefined
   private gateway: DesktopGatewayEndpoint | undefined
+  private updaterGateway: DesktopGatewayEndpoint | undefined
   private runtime: NetworkRuntimeClient | undefined
+  private readonly epochs = new NetworkEpochManager()
+  private readonly incidents = new NetworkIncidentManager()
+  private lastRoute: DesktopNetworkIncidentSummary['route']
+  private credentialPrompted = false
+  private pendingChallenge: ProxyCredentialChallenge | undefined
+  private reloadingSystem = false
 
   /** @param options - Main-owned persistence, secret, and lifecycle services. */
   constructor(private readonly options: DesktopNetworkControllerOptions) {}
@@ -73,14 +94,18 @@ export class DesktopNetworkController {
     if (state.effectiveMode === 'default' || state.effectiveMode === 'direct') return
     this.current = { ...state, runtime: { status: 'starting' } }
     this.runtime = runtime
+    runtime.onEvent((event) => { this.receiveRuntimeEvent(event) })
     try {
       const hello = await runtime.start()
       const configured = this.options.preferences.load().preferences.network
       if (state.effectiveMode === 'manual') {
         const proxy = configured.manual
         if (proxy === undefined) throw new Error('desktop network: Manual proxy is missing')
-        const password = proxy.protocol === 'socks5' || proxy.credentialRef === undefined
-          ? undefined : await this.options.secrets.get(proxy.credentialRef)
+        let password: string | undefined
+        if (proxy.protocol !== 'socks5' && proxy.credentialRef !== undefined) {
+          try { password = await this.options.secrets.get(proxy.credentialRef) }
+          catch { password = undefined }
+        }
         await runtime.configure({
           mode: 'manual', strictFallback: true,
           proxy: proxy.protocol === 'socks5' ? proxy : {
@@ -93,17 +118,19 @@ export class DesktopNetworkController {
         await runtime.configure({ mode: 'system', strictFallback: true })
       }
       this.setGateway(hello.gateway)
+      this.updaterGateway = hello.updaterGateway
       this.current = { ...this.state(), runtime: {
         status: 'ready', gateway: hello.gateway,
         protocolVersion: hello.protocolVersion,
         systemBackend: hello.systemBackend,
         capabilities: hello.capabilities,
       } }
-      runtime.onEvent((event) => {
-        if (event.event === 'runtime-exited') {
-          this.current = { ...this.state(), runtime: { ...this.state().runtime, status: 'failed' } }
-        }
-      })
+      let snapshot: RuntimeSystemSnapshot | undefined
+      if (state.effectiveMode === 'system') {
+        try { snapshot = await runtime.getSystemSnapshot() }
+        catch { /* An unreadable policy remains fail closed until real traffic or reload. */ }
+      }
+      this.beginEpoch('startup', snapshot)
     } catch (error) {
       this.current = { ...this.state(), runtime: { status: 'failed' } }
       await runtime.shutdown()
@@ -117,15 +144,121 @@ export class DesktopNetworkController {
     if (this.current !== undefined) this.current = { ...this.current, runtime: { status: 'stopped' } }
   }
 
+  /** Re-read System policy, invalidate old tunnels, and create a fresh user epoch. */
+  async reloadSystemProxy(): Promise<RuntimeSystemSnapshot> {
+    if (this.state().effectiveMode !== 'system' || this.runtime === undefined) {
+      throw new Error('desktop network: System proxy is not active')
+    }
+    this.reloadingSystem = true
+    try {
+      const snapshot = await this.runtime.reloadSystem()
+      this.beginEpoch('user-reload', snapshot)
+      return snapshot
+    } finally { this.reloadingSystem = false }
+  }
+
+  /** Record that the user will retry the same route; no business request is replayed. */
+  retryLastFailure(incidentId: string): 'started' | 'no-failure' | 'stale-incident' {
+    return this.incidents.retry(incidentId)
+  }
+
+  /** @returns whether the credential prompt still belongs to the active epoch. */
+  isPendingChallenge(challengeId: string): boolean {
+    return this.pendingChallenge?.id === challengeId && this.epochs.state() !== undefined
+  }
+
+  /** Apply a native failure-dialog choice only while its incident is current. */
+  async handleFailureAction(incidentId: string, action: 'retry' | 'default-once' | 'default-always' | 'open-settings' | 'dismiss'): Promise<void> {
+    const incident = this.incidents.last()
+    if (incident?.id !== incidentId || incident.epochId !== this.epochs.state()?.id) return
+    switch (action) {
+      case 'retry':
+        if (incident.failure.code === 'NETWORK_RUNTIME_EXITED') await this.options.relaunch()
+        else this.incidents.retry(incidentId)
+        return
+      case 'default-once':
+        await writeDefaultStartupOverride(this.options.userDataPath)
+        await this.options.relaunch()
+        return
+      case 'default-always':
+        await this.restoreDefaultAndRestart()
+        return
+      case 'open-settings':
+      case 'dismiss':
+        return
+    }
+  }
+
+  /** Supply Manual Basic credentials after a real 407. Password never enters state or events. */
+  async submitManualCredential(input: { action: 'cancel' } | { action: 'use-once' | 'save-securely'; username: string; password: string }): Promise<void> {
+    if (input.action === 'cancel') return
+    const state = this.state()
+    const manual = this.options.preferences.load().preferences.network.manual
+    if (state.effectiveMode !== 'manual' || manual === undefined || manual.protocol === 'socks5' || this.runtime === undefined) {
+      throw new Error('desktop network: Manual HTTP proxy is not active')
+    }
+    if (input.action === 'save-securely') {
+      await this.options.secrets.put(MANUAL_PROXY_PASSWORD_REF, input.password)
+      await this.options.preferences.updateNetwork({
+        manual: { ...manual, username: input.username, credentialRef: MANUAL_PROXY_PASSWORD_REF },
+      })
+    }
+    await this.runtime.configure({
+      mode: 'manual', strictFallback: true,
+      proxy: { protocol: manual.protocol, host: manual.host, port: manual.port, username: input.username, password: input.password },
+    })
+    this.beginEpoch('manual-config-applied')
+    if (input.action === 'save-securely') {
+      const saved = { ...manual, username: input.username, credentialRef: MANUAL_PROXY_PASSWORD_REF }
+      this.current = { ...this.state(), ...sanitizedManualFields(saved, true) }
+    }
+  }
+
+  /** Apply one credential response only to the still-current challenge and route. */
+  async submitCredential(challengeId: string, input: ProxyCredentialSubmission): Promise<void> {
+    const challenge = this.pendingChallenge
+    if (challenge === undefined || challenge.id !== challengeId || this.epochs.state() === undefined) return
+    this.pendingChallenge = undefined
+    if (input.action === 'cancel') {
+      this.reportFailure(classifyNetworkFailure({ code: challenge.rejected ? 'PROXY_AUTH_REJECTED' : 'PROXY_AUTH_REQUIRED' }), {
+        kind: challenge.proxy.kind, host: challenge.proxy.host, port: challenge.proxy.port,
+      })
+      return
+    }
+    try {
+      if (challenge.mode === 'manual') {
+        await this.submitManualCredential(input)
+        return
+      }
+      if (input.action === 'save-securely' || this.runtime === undefined) throw new Error('desktop network: System credentials are session-only')
+      await this.runtime.submitCredential({
+        protocol: challenge.proxy.kind, host: challenge.proxy.host, port: challenge.proxy.port,
+        username: input.username, password: input.password,
+      })
+      this.credentialPrompted = false
+    } catch (error) {
+      if (error instanceof DesktopNetworkOperationError && (error.code === 'SECURE_STORAGE_UNAVAILABLE' || error.code === 'SECURE_STORAGE_PLAINTEXT_BACKEND')) {
+        const retry = { ...challenge, id: randomUUID(), canPersist: false }
+        this.pendingChallenge = retry
+        this.options.onCredentialRequired?.(retry)
+        return
+      }
+      this.credentialPrompted = false
+      throw error
+    }
+  }
+
   /**
    * Validate and persist Network settings, then relaunch only after every write succeeds.
    * @param input - Renderer submission containing at most one new password value.
    * @returns never when the relaunch dependency obeys its lifecycle contract.
    */
-  async saveAndRestart(input: DesktopNetworkConfigInput): Promise<void> {
+  async saveAndRestart(input: DesktopNetworkConfigInput, options: { discardUnavailablePassword?: boolean } = {}): Promise<void> {
     const previous = this.options.preferences.load().preferences.network
     const normalized = normalizeNetworkConfigInput(input, previous.manual, previous.tests)
-    const manual = await this.applyPasswordChange(normalized.manual, normalized.passwordChange, previous.manual)
+    const manual = await this.applyPasswordChange(
+      normalized.manual, normalized.passwordChange, previous.manual, options.discardUnavailablePassword === true,
+    )
     const network: DesktopNetworkPreferencesV1 = {
       mode: normalized.mode,
       ...(manual === undefined ? {} : { manual }),
@@ -146,6 +279,9 @@ export class DesktopNetworkController {
   setGateway(gateway: DesktopGatewayEndpoint | undefined): void {
     this.gateway = gateway
   }
+
+  /** @returns the isolated updater endpoint, which does not emit global failure incidents. */
+  gatewayForUpdater(): DesktopGatewayEndpoint | undefined { return this.updaterGateway }
 
   /** @param base - Ambient Harness environment. @returns effective routed environment. */
   environmentForHarness(base: NodeJS.ProcessEnv): NodeJS.ProcessEnv {
@@ -176,23 +312,143 @@ export class DesktopNetworkController {
     }
   }
 
+  private beginEpoch(reason: 'startup' | 'manual-config-applied' | 'user-reload' | 'system-policy-changed' | 'network-changed', snapshot?: RuntimeSystemSnapshot): void {
+    const epoch = this.epochs.begin(reason, snapshot?.policyFingerprint, snapshot?.networkFingerprint)
+    this.incidents.beginEpoch()
+    this.lastRoute = undefined
+    this.pendingChallenge = undefined
+    this.credentialPrompted = false
+    const lastIncident = this.incidents.last()
+    this.current = { ...this.state(), epoch, ...(lastIncident === undefined ? {} : { lastIncident }) }
+    this.options.onEpochChanged?.()
+  }
+
+  private receiveRuntimeEvent(event: NetworkRuntimeObservation): void {
+    if (this.current === undefined || this.current.effectiveMode === 'default' || this.current.effectiveMode === 'direct') return
+    if (event.event === 'runtime-exited') {
+      const failure = classifyNetworkFailure({ code: 'NETWORK_RUNTIME_EXITED' })
+      this.pendingChallenge = undefined
+      this.credentialPrompted = false
+      this.current = { ...this.current, runtime: { ...this.current.runtime, status: 'failed', lastError: failure } }
+      this.reportFailure(failure, this.lastRoute)
+      return
+    }
+    if (event.event === 'system_policy_changed' || event.event === 'network_changed') {
+      if (this.reloadingSystem) return
+      const snapshot = systemSnapshot(event.payload)
+      if (snapshot === undefined) return
+      const reason = event.event === 'network_changed' ? 'network-changed' : 'system-policy-changed'
+      const next = this.epochs.observe(reason, snapshot.policyFingerprint, snapshot.networkFingerprint)
+      if (next !== undefined) {
+        this.incidents.beginEpoch()
+        this.lastRoute = undefined
+        this.pendingChallenge = undefined
+        this.credentialPrompted = false
+        const lastIncident = this.incidents.last()
+        this.current = { ...this.current, epoch: next, ...(lastIncident === undefined ? {} : { lastIncident }) }
+        this.options.onEpochChanged?.()
+      }
+      return
+    }
+    if (event.event === 'route_selected' && isRecord(event.payload)) {
+      this.lastRoute = route(event.payload.route)
+      return
+    }
+    if (event.event === 'route_succeeded') {
+      const succeededRoute = isRecord(event.payload) ? route(event.payload.route) : undefined
+      if (this.pendingChallenge !== undefined && succeededRoute?.kind === this.pendingChallenge.proxy.kind
+        && succeededRoute.host === this.pendingChallenge.proxy.host && succeededRoute.port === this.pendingChallenge.proxy.port) {
+        this.pendingChallenge = undefined
+        this.credentialPrompted = false
+      }
+      const resolved = this.incidents.resolve(this.epochs.state()?.id ?? '', succeededRoute)
+      if (resolved !== undefined) this.current = { ...this.current, lastIncident: resolved }
+      return
+    }
+    if (event.event === 'credential_required' || event.event === 'credential_rejected') {
+      const selectedRoute = isRecord(event.payload) ? route(event.payload.route) : undefined
+      if (selectedRoute !== undefined && (selectedRoute.kind === 'http' || selectedRoute.kind === 'https')
+        && selectedRoute.host !== undefined && selectedRoute.port !== undefined && !this.credentialPrompted) {
+        this.credentialPrompted = true
+        const challenge: ProxyCredentialChallenge = {
+          id: randomUUID(), mode: this.current.effectiveMode,
+          proxy: { kind: selectedRoute.kind, host: selectedRoute.host, port: selectedRoute.port },
+          scheme: 'Basic', rejected: event.event === 'credential_rejected',
+          canPersist: this.current.effectiveMode === 'manual' && this.current.secureStorage.persistent,
+        }
+        this.pendingChallenge = challenge
+        this.options.onCredentialRequired?.(challenge)
+      }
+      return
+    }
+    if (event.event === 'proxy_failure' && isRecord(event.payload)) {
+      const failure = classifyNetworkFailure(event.payload.failure)
+      if (failure.code === 'PROXY_AUTH_REQUIRED' || failure.code === 'PROXY_AUTH_REJECTED') return
+      this.reportFailure(failure, route(event.payload.route))
+    }
+  }
+
+  private reportFailure(failure: ReturnType<typeof classifyNetworkFailure>, selectedRoute?: DesktopNetworkIncidentSummary['route']): void {
+    const state = this.state()
+    const epoch = this.epochs.state()
+    if (epoch === undefined || (state.effectiveMode !== 'manual' && state.effectiveMode !== 'system')) return
+    const recorded = this.incidents.report({
+      epochId: epoch.id, mode: state.effectiveMode,
+      ...(selectedRoute === undefined ? {} : { route: selectedRoute }),
+      failure,
+    })
+    if (recorded === undefined) return
+    this.current = { ...state, lastIncident: recorded.incident }
+    if (recorded.showDialog) this.options.onIncident?.(recorded.incident)
+  }
+
   private async applyPasswordChange(
     manual: PersistedManualProxy | undefined,
     change: PasswordChange | undefined,
     previous: PersistedManualProxy | undefined,
+    discardUnavailablePassword: boolean,
   ): Promise<PersistedManualProxy | undefined> {
     if (manual === undefined || manual.protocol === 'socks5') return manual
     const previousRef = previous !== undefined && previous.protocol !== 'socks5'
       ? previous.credentialRef
       : undefined
-    if (change === undefined || change.action === 'keep') return withCredentialRef(manual, previousRef)
+    if (change === undefined || change.action === 'keep') {
+      const sameEndpoint = previous !== undefined && previous.protocol === manual.protocol
+        && previous.host === manual.host && previous.port === manual.port
+        && previous.username === manual.username
+      return withCredentialRef(manual, sameEndpoint ? previousRef : undefined)
+    }
     if (change.action === 'remove') {
       await this.options.secrets.delete(MANUAL_PROXY_PASSWORD_REF)
       return manual
     }
-    await this.options.secrets.put(MANUAL_PROXY_PASSWORD_REF, change.value)
+    try { await this.options.secrets.put(MANUAL_PROXY_PASSWORD_REF, change.value) }
+    catch (error) {
+      if (discardUnavailablePassword && error instanceof DesktopNetworkOperationError
+        && (error.code === 'SECURE_STORAGE_UNAVAILABLE' || error.code === 'SECURE_STORAGE_PLAINTEXT_BACKEND')) return manual
+      throw error
+    }
     return withCredentialRef(manual, MANUAL_PROXY_PASSWORD_REF)
   }
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value)
+}
+
+function route(value: unknown): DesktopNetworkIncidentSummary['route'] {
+  if (!isRecord(value) || !['direct', 'http', 'https', 'socks5'].includes(String(value.kind))) return undefined
+  if (value.kind === 'direct') return { kind: 'direct' }
+  if (typeof value.host !== 'string' || value.host.length > 253 || !/^[a-zA-Z0-9.:-]+$/u.test(value.host)
+    || !Number.isInteger(value.port) || Number(value.port) < 1 || Number(value.port) > 65_535) return undefined
+  const source = typeof value.source === 'string' && ['manual', 'system-manual', 'pac', 'wpad', 'system-bypass', 'system-direct'].includes(value.source)
+    ? value.source as NonNullable<DesktopNetworkIncidentSummary['route']>['source'] : undefined
+  return { kind: value.kind as 'http' | 'https' | 'socks5', host: value.host, port: Number(value.port), ...(source === undefined ? {} : { source }) }
+}
+
+function systemSnapshot(value: unknown): RuntimeSystemSnapshot | undefined {
+  if (!isRecord(value) || typeof value.policyFingerprint !== 'string' || typeof value.networkFingerprint !== 'string') return undefined
+  return value as unknown as RuntimeSystemSnapshot
 }
 
 function sanitizedManualFields(manual: PersistedManualProxy | undefined, active: boolean): {

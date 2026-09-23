@@ -1,24 +1,29 @@
 //! JSONL control channel. Invalid input is never echoed into diagnostics.
 use crate::{
-    config::{Config, Limits},
+    config::{Config, Limits, Proxy},
     gateway::{Current, Generation},
 };
 use serde::Deserialize;
 use serde_json::{Value, json};
 use std::sync::Arc;
+use std::sync::Mutex;
 use tokio::sync::{Semaphore, mpsc};
 use tokio_util::sync::CancellationToken;
 
 pub const MAX_FRAME_BYTES: usize = 1024 * 1024;
+pub const VERSION: u32 = 2;
 
 #[derive(Clone)]
-pub struct Events(pub mpsc::Sender<Value>);
+pub struct Events(pub mpsc::Sender<Value>, pub bool);
 impl Events {
     pub fn emit(&self, name: &str, payload: Value) {
+        if !self.1 {
+            return;
+        }
         // Traffic must not accumulate unbounded diagnostic data if Main stops reading.
         let _ = self
             .0
-            .try_send(json!({"v": 1, "event": name, "payload": payload}));
+            .try_send(json!({"v": VERSION, "event": name, "payload": payload}));
     }
 }
 
@@ -61,11 +66,15 @@ pub enum Command {
     GetDiagnostics {},
     GetSystemSnapshot {},
     ReloadSystem {},
+    SubmitCredential {
+        proxy: Proxy,
+    },
+    ClearCredential {},
     Shutdown {},
 }
 
-pub fn hello(port: u16) -> Value {
-    json!({"protocolVersion": 1, "gateway": {"host": "127.0.0.1", "port": port}, "systemBackend": crate::system::backend(),
+pub fn hello(port: u16, updater_port: u16) -> Value {
+    json!({"protocolVersion": VERSION, "gateway": {"host": "127.0.0.1", "port": port}, "updaterGateway": {"host": "127.0.0.1", "port": updater_port}, "systemBackend": crate::system::backend(),
         "capabilities": {"manual": {"http": true, "https": true, "socks5": true, "socks5Auth": false},
         "system": {"manual": crate::system::backend() != "unsupported", "pac": crate::system::backend() != "unsupported", "wpad": cfg!(windows), "watchers": crate::system::backend() != "unsupported"},
         "auth": {"basic": true, "digest": false, "ntlm": false, "negotiate": false}}})
@@ -107,6 +116,7 @@ pub fn configure_system(
         limits,
         system,
         system_options: options,
+        system_credential: Mutex::new(None),
         route_cancelled: std::sync::RwLock::new(CancellationToken::new()),
         cancelled: CancellationToken::new(),
         slots: Arc::new(Semaphore::new(limits.max_connections)),
@@ -120,9 +130,9 @@ pub fn configure_system(
 
 pub fn response(id: &str, result: Result<Value, &'static str>) -> Value {
     match result {
-        Ok(value) => json!({"v": 1, "id": id, "ok": true, "result": value}),
+        Ok(value) => json!({"v": VERSION, "id": id, "ok": true, "result": value}),
         Err(code) => {
-            json!({"v": 1, "id": id, "ok": false, "error": {"code": code, "message": "Network Runtime request failed."}})
+            json!({"v": VERSION, "id": id, "ok": false, "error": {"code": code, "message": "Network Runtime request failed."}})
         }
     }
 }
