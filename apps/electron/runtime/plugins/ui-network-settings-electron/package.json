@@ -19,6 +19,9 @@
         "@deepseek-ai/dsh-client-locale",
         "@deepseek-ai/dsh-api-remotes",
         "@dsh-electron/dsh-electron-desktop-capabilities"
+      ],
+      "external": [
+        "@deepseek-ai/dsh-client-ui-primitives"
       ]
     }
   },

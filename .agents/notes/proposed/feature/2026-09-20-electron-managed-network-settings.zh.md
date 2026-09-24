@@ -32,7 +32,7 @@ Main 负责 epoch 和 incident 的生命周期，不让 Gateway 持有 UI 状态
 
 System provider 使用当前用户 WinHTTP、CFNetwork 及 GNOME/KDE 设置。每次解析都在有时限的 helper 进程中运行，Linux PAC 使用限制内存且不提供文件系统或环境变量 API 的 QuickJS context。原生设置通知和网络指纹使现有连接失效。macOS 原生测试覆盖有序 PAC 输出、畸形首项、可重复快照及重新加载；Desktop CI 负责 Windows WinHTTP 和隔离 GNOME/KDE 设置的执行验证。Windows 安装包冒烟检查要求存在已打包的 Runtime 可执行文件。签名 macOS 启动、企业 WPAD 实验环境和集成认证仍由操作者检查。
 
-网络页面作为必需的 Desktop Client 插件注册到共享 Settings section。它只使用封闭的 `ctx.desktop.network` capability；Main 将其接到受信任 IPC handler 和类型化 preload bridge。Main 再次验证配置，且只返回脱敏状态。连接测试使用 updater Session 中不产生 incident 的 Gateway；测试结果不影响保存，目标站点的 HTTP 响应表示可达，而 Gateway 错误单独标识。Client 用固定占位符表示已保存密码，只提交替换或移除动作，并在安全存储不可用时先询问是否丢弃新密码。页面列出已注册的 LLM provider，并要求显式填写 health URL；它不发送模型请求。原生对话框的导航请求经脱敏 Network 状态传递，并操作现有 Settings 控件，使下游快捷入口无需修改上游包。
+网络页面作为必需的 Desktop Client 插件注册到共享 Settings section。页面控件来自 `@deepseek-ai/dsh-client-ui-primitives`。它只使用封闭的 `ctx.desktop.network` capability；Main 将其接到受信任 IPC handler 和类型化 preload bridge。Main 再次验证配置，且只返回脱敏状态。连接测试使用 updater Session 中不产生 incident 的 Gateway；测试结果不影响保存，目标站点的 HTTP 响应表示可达，而 Gateway 错误单独标识。Client 用固定占位符表示已保存密码，只提交替换或移除动作，并在安全存储不可用时先询问是否丢弃新密码。页面列出已注册的 LLM provider，并要求显式填写 health URL；它不发送模型请求。原生对话框的导航请求经脱敏 Network 状态传递，并操作现有 Settings 控件，使下游快捷入口无需修改上游包。
 
 ## Alternatives considered
 

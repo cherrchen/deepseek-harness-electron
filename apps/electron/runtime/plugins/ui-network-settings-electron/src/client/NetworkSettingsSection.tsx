@@ -1,4 +1,8 @@
 import { useEffect, useMemo, useState } from 'react'
+import {
+  Button, DisclosureRow, IconChevronDownOutline14, IconGlobeOutline14, IconQuestionOutline14,
+  Input, LinkIcon, Menu, Modal, Pill, StateDot, Switch, Toast, type StateDotState,
+} from '@deepseek-ai/dsh-client-ui-primitives'
 import type { InjectFace, PropsLocale, PropsRuntime } from '@deepseek-ai/dsh-client-ui-slots'
 import type {
   DesktopCapabilitiesContract, DesktopNetworkDiagnostics,
@@ -11,6 +15,9 @@ import css from './NetworkSettingsSection.module.css'
 const MODES = ['default', 'direct', 'system', 'manual'] as const
 const KINDS = ['proxy', 'internet', 'github', 'llm'] as const
 const HELP_URL = 'https://github.com/cherrchen/deepseek-harness-electron/blob/develop/docs/electron/network-settings.md'
+const MODE_HINT = {
+  default: 'defaultHint', direct: 'directHint', system: 'systemHint', manual: 'manualHint',
+} as const satisfies Record<typeof MODES[number], NetworkLocaleKey>
 
 /** Capabilities and current registered LLM providers injected by the plugin. */
 export interface NetworkSettingsInjected {
@@ -30,6 +37,15 @@ function routeText(route: { kind: string; host?: string; port?: number } | undef
   return `${route.kind.toUpperCase()} ${route.host ?? '?'}:${route.port ?? '?'}`
 }
 
+/** Map a diagnostic status onto the shared state dot. */
+function testDot(status: string): StateDotState {
+  if (status === 'testing') return 'ongoing'
+  if (status === 'reachable') return 'done'
+  if (status === 'unreachable') return 'error'
+  if (status === 'skipped') return 'warning'
+  return 'idle'
+}
+
 /** Network settings, explicit diagnostics, and restart-only mutations. */
 export function NetworkSettingsSection({ network, shell, providers: readProviders, t, close }: NetworkSettingsProps) {
   const [state, setState] = useState<DesktopNetworkState>()
@@ -43,6 +59,8 @@ export function NetworkSettingsSection({ network, shell, providers: readProvider
   const [saving, setSaving] = useState(false)
   const [advanced, setAdvanced] = useState(false)
   const [help, setHelp] = useState(false)
+  const [modeOpen, setModeOpen] = useState(false)
+  const [providerOpen, setProviderOpen] = useState(false)
   const [storagePrompt, setStoragePrompt] = useState(false)
   const [restorePrompt, setRestorePrompt] = useState(false)
   const [notice, setNotice] = useState<string>()
@@ -140,65 +158,85 @@ export function NetworkSettingsSection({ network, shell, providers: readProvider
   const manual = state?.manual ?? state?.lastManual
   const hasPassword = manual !== undefined && manual.protocol !== 'socks5' && manual.hasPassword
   const resultFor = (kind: typeof KINDS[number]): DesktopNetworkTestItem | undefined => testResult?.results.find(item => item.kind === kind)
+  const providerLabel = providers.find(provider => provider.id === draft.providerId)?.name ?? t('providerNone')
+  const modeSelector = (
+    <button type="button" className={css.selector} aria-haspopup="menu" aria-expanded={modeOpen}
+      onClick={() => { setModeOpen(open => !open) }}>
+      {t(draft.mode)}
+      <IconChevronDownOutline14 className={css.chevron} />
+    </button>
+  )
+  const providerSelector = (
+    <button type="button" className={css.selector} aria-haspopup="menu" aria-expanded={providerOpen}
+      onClick={() => { setProviderOpen(open => !open) }}>
+      {providerLabel}
+      <IconChevronDownOutline14 className={css.chevron} />
+    </button>
+  )
   return (
     <section className={css.section} aria-label={t('title')}>
-      <header><h2>{t('title')}</h2><p>{t('intro')}</p></header>
-      {state?.lastIncident !== undefined && state.lastIncident.resolvedAt === undefined && <div className={css.warning} role="status">
-        <strong>{t('warning')}</strong><span>{state.lastIncident.failure.code}</span>
-        <button type="button" onClick={() => { void retry() }}>{t('retry')}</button>
+      <header className={css.header}><h2>{t('title')}</h2><p>{t('intro')}</p></header>
+      {state?.lastIncident !== undefined && state.lastIncident.resolvedAt === undefined && <div className={css.statusRow} role="status">
+        <StateDot state="warning" />
+        <span><strong>{t('warning')}</strong> {state.lastIncident.failure.code}</span>
+        <Button size="sm" variant="outline" onClick={() => { void retry() }}>{t('retry')}</Button>
       </div>}
-      {state?.preferencesWarning !== undefined && <div className={css.warning} role="status">{state.preferencesWarning.message}</div>}
-      <fieldset className={css.fieldset}>
-        <legend>{t('mode')}</legend>
-        <div className={css.modeGrid}>{MODES.map(mode => (
-          <label key={mode} className={css.modeCard} data-selected={draft.mode === mode}>
-            <input type="radio" name="network-mode" value={mode} checked={draft.mode === mode}
-              onChange={() => update({ mode })} />
-            <span><strong>{t(mode)}</strong><small>{t(`${mode}Hint` as NetworkLocaleKey)}</small></span>
-          </label>
-        ))}</div>
-      </fieldset>
+      {state?.preferencesWarning !== undefined && <div className={css.statusRow} role="status">
+        <StateDot state="warning" /><span>{state.preferencesWarning.message}</span>
+      </div>}
+      <div className={css.row}>
+        <div className={css.rowText}>
+          <div className={css.rowTitle}>{t('mode')}</div>
+          <div className={css.desc}>{t(MODE_HINT[draft.mode])}</div>
+        </div>
+        <Menu open={modeOpen} onClose={() => { setModeOpen(false) }} align="end" portal anchor={modeSelector}
+          selectedId={draft.mode}
+          items={MODES.map(mode => ({ id: mode, label: t(mode) }))}
+          onSelect={(id) => { setModeOpen(false); update({ mode: id as typeof MODES[number] }) }} />
+      </div>
 
-      {draft.mode === 'manual' && <div className={css.card}>
-        <fieldset className={css.fieldset}><legend>{t('protocol')}</legend>
-          <div className={css.segment}>{(['http', 'https', 'socks5'] as const).map(protocol => (
-            <label key={protocol} data-selected={draft.protocol === protocol}>
-              <input type="radio" name="network-protocol" checked={draft.protocol === protocol} onChange={() => update({ protocol })} />
-              {protocol.toUpperCase()}
-            </label>
+      {draft.mode === 'manual' && <div className={css.panel}>
+        <div className={css.protocol} role="group" aria-label={t('protocol')}>
+          <span className={css.fieldLabel}>{t('protocol')}</span>
+          <div className={css.pills}>{(['http', 'https', 'socks5'] as const).map(protocol => (
+            <Pill key={protocol} active={draft.protocol === protocol} aria-pressed={draft.protocol === protocol}
+              onClick={() => update({ protocol })}>{protocol.toUpperCase()}</Pill>
           ))}</div>
-        </fieldset>
+        </div>
         <div className={css.fields}>
-          <label>{t('host')}<input value={draft.host} onChange={event => update({ host: event.target.value })}
+          <label className={css.field}>{t('host')}<Input value={draft.host} onChange={event => update({ host: event.target.value })}
             aria-invalid={errors.host === true} aria-describedby={errors.host ? 'network-host-error' : undefined} placeholder="127.0.0.1" /></label>
           {errors.host && <span id="network-host-error" className={css.fieldError}>{t('hostError')}</span>}
-          <label>{t('port')}<input type="text" inputMode="numeric" value={draft.port} onChange={event => update({ port: event.target.value })}
+          <label className={css.field}>{t('port')}<Input type="text" inputMode="numeric" value={draft.port} onChange={event => update({ port: event.target.value })}
             aria-invalid={errors.port === true} aria-describedby={errors.port ? 'network-port-error' : undefined} placeholder={draft.protocol === 'socks5' ? '7891' : '7890'} /></label>
           {errors.port && <span id="network-port-error" className={css.fieldError}>{t('portError')}</span>}
           {draft.protocol !== 'socks5' && <>
-            <label>{t('username')}<input value={draft.username} onChange={event => update({ username: event.target.value })} autoComplete="off" /></label>
-            <label>{t('password')}<input type="password" value={draft.password} autoComplete="new-password"
+            <label className={css.field}>{t('username')}<Input value={draft.username} onChange={event => update({ username: event.target.value })} autoComplete="off" /></label>
+            <label className={css.field}>{t('password')}<Input type="password" value={draft.password} autoComplete="new-password"
               placeholder={hasPassword && draft.passwordAction === 'keep' ? '••••••••' : ''}
               onChange={event => update({ password: event.target.value, passwordAction: event.target.value === '' ? 'keep' : 'replace' })} /></label>
             {hasPassword && <div className={css.passwordStatus}><span>{draft.passwordAction === 'remove' ? t('passwordRemoved') : t('storedPassword')}</span>
-              <button type="button" onClick={() => update({ password: '', passwordAction: 'remove' })}>{t('removePassword')}</button></div>}
+              <Button size="sm" variant="ghost" onClick={() => update({ password: '', passwordAction: 'remove' })}>{t('removePassword')}</Button></div>}
             {!state?.secureStorage.persistent && <p className={css.muted}>{t('storageUnavailable')}</p>}
           </>}
         </div>
         <p className={css.muted}>{t(draft.protocol === 'https' ? 'httpsHint' : draft.protocol === 'socks5' ? 'socksHint' : 'manualHint')}</p>
       </div>}
 
-      {(draft.mode === 'system' || draft.mode === 'manual') && <label className={css.toggle}>
-        <input type="checkbox" checked={draft.proxyAgentTraffic} onChange={event => update({ proxyAgentTraffic: event.target.checked })} />
-        <span><strong>{t('agent')}</strong><small>{t('agentHint')}</small></span>
-      </label>}
+      {(draft.mode === 'system' || draft.mode === 'manual') && <div className={css.row}>
+        <div className={css.rowText}>
+          <div className={css.rowTitle}>{t('agent')}</div>
+          <div className={css.desc}>{t('agentHint')}</div>
+        </div>
+        <Switch checked={draft.proxyAgentTraffic} label={t('agent')} onChange={checked => update({ proxyAgentTraffic: checked })} />
+      </div>}
 
-      <div className={css.card}>
+      <div className={css.panel}>
         <h3>{t('tests')}</h3><p className={css.muted}>{t('testHint')}</p>
         <ul className={css.testList}>{KINDS.map((kind) => {
           const item = resultFor(kind)
           const status = testing ? 'testing' : item?.status ?? (kind === 'llm' && providers.length === 0 ? 'notConfigured' : 'notTested')
-          return <li key={kind}><strong>{t(kind)}</strong><span role="status">{t(status === 'not-configured' ? 'notConfigured' : status)}
+          return <li key={kind}><strong>{t(kind)}</strong><span role="status"><StateDot state={testDot(status)} />{t(status === 'not-configured' ? 'notConfigured' : status)}
             {item?.httpStatus === undefined ? '' : ` · HTTP ${item.httpStatus}`}
             {item?.latencyMs === undefined ? '' : ` · ${item.latencyMs} ms`}</span></li>
         })}</ul>
@@ -206,12 +244,12 @@ export function NetworkSettingsSection({ network, shell, providers: readProvider
           {t('lastRoute')}: {routeText(resultFor('proxy')?.route)} · {t('handshakeStage')}: {resultFor('proxy')?.stage ?? '—'}
           {resultFor('proxy')?.error === undefined ? '' : ` · ${t('errorCode')}: ${resultFor('proxy')?.error?.code}`}
         </p>}
-        <button type="button" onClick={() => { void test() }} disabled={testing || !!errors.internet204Url || !!errors.githubUrl || !!errors.healthUrl}>{t('testConnection')}</button>
+        <Button size="sm" variant="outline" onClick={() => { void test() }} disabled={testing || !!errors.internet204Url || !!errors.githubUrl || !!errors.healthUrl}>{t('testConnection')}</Button>
       </div>
 
-      <details className={css.card} open={advanced} onToggle={event => setAdvanced(event.currentTarget.open)}>
-        <summary>{t('advanced')}</summary>
-        <div className={css.advancedBody}>
+      <DisclosureRow icon={<IconGlobeOutline14 aria-hidden="true" />} title={t('advanced')} open={advanced} expandable expandOnRowClick
+        onToggle={() => { setAdvanced(open => !open) }}>
+        <div className={css.disclosure}>
           <dl className={css.diagnostics}>
             <dt>{t('activeMode')}</dt><dd>{state?.effectiveMode ?? '—'}</dd>
             <dt>{t('runtime')}</dt><dd>{diagnostics?.runtime.status ?? state?.runtime.status ?? '—'}</dd>
@@ -227,39 +265,52 @@ export function NetworkSettingsSection({ network, shell, providers: readProvider
               <dt>{t('alternatives')}</dt><dd>{diagnostics?.system?.alternativeRoutes.map(routeText).join(', ') || '—'}<small>{t('alternativesHint')}</small></dd>
             </>}
           </dl>
-          {draft.mode === 'system' && <div><button type="button" onClick={() => { void reload() }} disabled={state?.effectiveMode !== 'system'}>{t('reload')}</button><p className={css.muted}>{t('reloadHint')}</p></div>}
-          <fieldset className={css.fieldset}><legend>{t('internetUrl')}</legend>
-            <input value={draft.internet204Url} onChange={event => update({ internet204Url: event.target.value })}
-              aria-invalid={errors.internet204Url === true} />
-            {errors.internet204Url && <span className={css.fieldError}>{t('urlError')}</span>}</fieldset>
-          <fieldset className={css.fieldset}><legend>{t('githubUrl')}</legend>
-            <input value={draft.githubUrl} onChange={event => update({ githubUrl: event.target.value })}
-              aria-invalid={errors.githubUrl === true} />
-            {errors.githubUrl && <span className={css.fieldError}>{t('urlError')}</span>}</fieldset>
-          <label>{t('provider')}<select value={draft.providerId} onChange={event => update({ providerId: event.target.value })}>
-            <option value="">{t('providerNone')}</option>{providers.map(provider => <option key={provider.id} value={provider.id}>{provider.name}</option>)}
-          </select></label>
-          <label>{t('healthUrl')}<input value={draft.healthUrl} onChange={event => update({ healthUrl: event.target.value })} aria-invalid={errors.healthUrl === true} /></label>
+          {draft.mode === 'system' && <div className={css.stack}><Button size="sm" variant="outline" onClick={() => { void reload() }} disabled={state?.effectiveMode !== 'system'}>{t('reload')}</Button><p className={css.muted}>{t('reloadHint')}</p></div>}
+          <label className={css.field}>{t('internetUrl')}<Input value={draft.internet204Url} onChange={event => update({ internet204Url: event.target.value })}
+            aria-invalid={errors.internet204Url === true} /></label>
+          {errors.internet204Url && <span className={css.fieldError}>{t('urlError')}</span>}
+          <label className={css.field}>{t('githubUrl')}<Input value={draft.githubUrl} onChange={event => update({ githubUrl: event.target.value })}
+            aria-invalid={errors.githubUrl === true} /></label>
+          {errors.githubUrl && <span className={css.fieldError}>{t('urlError')}</span>}
+          <div className={css.row}>
+            <div className={css.rowText}><div className={css.rowTitle}>{t('provider')}</div></div>
+            <Menu open={providerOpen} onClose={() => { setProviderOpen(false) }} align="end" portal anchor={providerSelector}
+              selectedId={draft.providerId === '' ? 'none' : draft.providerId}
+              items={[{ id: 'none', label: t('providerNone') }, ...providers.map(provider => ({ id: provider.id, label: provider.name }))]}
+              onSelect={(id) => { setProviderOpen(false); update({ providerId: id === 'none' ? '' : id }) }} />
+          </div>
+          <label className={css.field}>{t('healthUrl')}<Input value={draft.healthUrl} onChange={event => update({ healthUrl: event.target.value })} aria-invalid={errors.healthUrl === true} /></label>
           {errors.healthUrl && <span className={css.fieldError}>{t('urlError')}</span>}
         </div>
-      </details>
+      </DisclosureRow>
 
-      <details className={css.card} open={help} onToggle={event => setHelp(event.currentTarget.open)}><summary>{t('help')}</summary>
-        <div className={css.help}><p>{t('helpDefault')}</p><p>{t('helpSystem')}</p><p>{t('helpLimits')}</p><p>{t('helpTests')}</p>
-          <button type="button" className={css.link} onClick={() => { void shell.openExternal(HELP_URL) }}>{t('docs')}</button></div>
-      </details>
+      <DisclosureRow icon={<IconQuestionOutline14 aria-hidden="true" />} title={t('help')} open={help} expandable expandOnRowClick
+        onToggle={() => { setHelp(open => !open) }}>
+        <div className={css.disclosure}><p className={css.muted}>{t('helpDefault')}</p><p className={css.muted}>{t('helpSystem')}</p><p className={css.muted}>{t('helpLimits')}</p><p className={css.muted}>{t('helpTests')}</p>
+          <Button size="sm" variant="ghost" icon={<LinkIcon kind="url" />} onClick={() => { void shell.openExternal(HELP_URL) }}>{t('docs')}</Button></div>
+      </DisclosureRow>
 
-      {storagePrompt && <div className={css.warning} role="alert"><strong>{t('storageTitle')}</strong><p>{t('storageWarning')}</p>
-        <div className={css.actions}><button type="button" onClick={() => setStoragePrompt(false)}>{t('cancel')}</button>
-          <button type="button" onClick={() => { setStoragePrompt(false); void save(true) }}>{t('discardPassword')}</button></div></div>}
-      {restorePrompt && <div className={css.warning} role="alert"><p>{t('restoreConfirm')}</p><div className={css.actions}>
-        <button type="button" onClick={() => setRestorePrompt(false)}>{t('cancel')}</button>
-        <button type="button" onClick={() => { void restore() }}>{t('restore')}</button></div></div>}
-      {notice && <p role="status" className={css.muted}>{notice}</p>}
+      <Modal open={storagePrompt} onClose={() => { setStoragePrompt(false) }} title={t('storageTitle')} closeLabel={t('cancel')}
+        description={t('storageWarning')}
+        footer={(
+          <>
+            <Button variant="outline" onClick={() => { setStoragePrompt(false) }}>{t('cancel')}</Button>
+            <Button variant="primary" onClick={() => { setStoragePrompt(false); void save(true) }}>{t('discardPassword')}</Button>
+          </>
+        )} />
+      <Modal open={restorePrompt} onClose={() => { setRestorePrompt(false) }} title={t('restore')} closeLabel={t('cancel')}
+        description={t('restoreConfirm')}
+        footer={(
+          <>
+            <Button variant="outline" onClick={() => { setRestorePrompt(false) }}>{t('cancel')}</Button>
+            <Button variant="primary" onClick={() => { void restore() }}>{t('restore')}</Button>
+          </>
+        )} />
+      {notice !== undefined && <Toast text={notice} onDone={() => { setNotice(undefined) }} />}
       {error && <p role="alert" className={css.fieldError}>{error}</p>}
-      <footer className={css.footer}><button type="button" onClick={() => setRestorePrompt(true)} disabled={saving}>{t('restore')}</button>
-        <div className={css.actions}><button type="button" onClick={close}>{t('cancel')}</button>
-          <button type="button" className={css.primary} disabled={!dirty || !valid || saving} onClick={() => { void save() }}>{saving ? t('saving') : t('save')}</button></div>
+      <footer className={css.footer}><Button size="sm" variant="outline" onClick={() => { setRestorePrompt(true) }} disabled={saving}>{t('restore')}</Button>
+        <div className={css.actions}><Button size="sm" variant="ghost" onClick={close}>{t('cancel')}</Button>
+          <Button size="sm" variant="primary" disabled={!dirty || !valid || saving} onClick={() => { void save() }}>{saving ? t('saving') : t('save')}</Button></div>
       </footer>
     </section>
   )

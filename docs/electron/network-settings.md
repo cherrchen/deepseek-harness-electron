@@ -20,7 +20,7 @@ Use Settings → Network to choose Default, Direct, System Proxy, or one Manual 
 
 ## Choose a mode
 
-Open Settings → Network and select one of the four mode cards. **Default** keeps the existing application network behavior. **Direct** explicitly connects without a proxy and clears proxy environment variables for Desktop-controlled Agent children. **System Proxy** follows operating-system policy for each destination and executes only its first final route, including an explicit `DIRECT`. **Manual Proxy** uses one HTTP, HTTPS, or SOCKS5 endpoint for Desktop-managed traffic.
+Open Settings → Network and select one mode from the network mode menu. **Default** keeps the existing application network behavior. **Direct** explicitly connects without a proxy and clears proxy environment variables for Desktop-controlled Agent children. **System Proxy** follows operating-system policy for each destination and executes only its first final route, including an explicit `DIRECT`. **Manual Proxy** uses one HTTP, HTTPS, or SOCKS5 endpoint for Desktop-managed traffic.
 
 System and Manual show **Proxy agent network requests**. When enabled, supported Agent tools receive the Desktop Gateway through standard proxy environment variables. It does not force proxy use by raw sockets or tools that ignore those variables. Direct always clears controlled Agent proxy variables; Default leaves existing Agent behavior untouched.
 

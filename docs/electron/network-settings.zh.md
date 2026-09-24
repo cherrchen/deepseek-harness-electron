@@ -20,7 +20,7 @@
 
 ## 选择模式
 
-打开 Settings → Network，选择四种模式卡片之一。**Default** 保留应用现有网络行为。**Direct** 明确直连，并清理 Desktop 可控 Agent 子进程的代理环境变量。**System Proxy** 针对每个目标遵循操作系统策略，只执行第一条最终路由，其中包括明确的 `DIRECT`。**Manual Proxy** 对 Desktop 管理的流量使用一个 HTTP、HTTPS 或 SOCKS5 端点。
+打开 Settings → Network，从网络模式菜单中选择一种模式。**Default** 保留应用现有网络行为。**Direct** 明确直连，并清理 Desktop 可控 Agent 子进程的代理环境变量。**System Proxy** 针对每个目标遵循操作系统策略，只执行第一条最终路由，其中包括明确的 `DIRECT`。**Manual Proxy** 对 Desktop 管理的流量使用一个 HTTP、HTTPS 或 SOCKS5 端点。
 
 System 和 Manual 显示 **代理 Agent 网络请求**。启用后，支持标准代理环境变量的 Agent 工具会收到 Desktop Gateway。它不能强制 raw socket 或忽略这些变量的工具使用代理。Direct 始终清理可控 Agent 的代理变量；Default 保留 Agent 原有行为。
 
