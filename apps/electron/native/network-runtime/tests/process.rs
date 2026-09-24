@@ -2,7 +2,7 @@
 use serde_json::{Value, json};
 use std::{
     io::{BufRead, BufReader, Read, Write},
-    net::{TcpListener, TcpStream},
+    net::{SocketAddr, TcpListener, TcpStream},
     process::{Child, ChildStdin, Command, Stdio},
     sync::mpsc::{self, Receiver},
     thread::{self, JoinHandle},
@@ -189,6 +189,94 @@ fn negotiation_malformed_input_and_secret_free_responses() {
     assert_eq!(runtime.call("shutdown", json!({}))["ok"], true);
     assert!(!runtime.finish().contains("TOP_SECRET"));
     assert!(TcpStream::connect(("127.0.0.1", port)).is_err());
+}
+
+#[test]
+fn gateway_accepts_only_the_bound_loopback_address() {
+    let mut runtime = Runtime::new();
+    let port = runtime.hello();
+    assert!(
+        TcpStream::connect_timeout(
+            &SocketAddr::from(([127, 0, 0, 1], port)),
+            Duration::from_secs(2),
+        )
+        .is_ok()
+    );
+    assert!(
+        TcpStream::connect_timeout(
+            &SocketAddr::from(([127, 0, 0, 2], port)),
+            Duration::from_millis(500),
+        )
+        .is_err(),
+        "gateway accepted 127.0.0.2"
+    );
+    runtime.finish();
+}
+
+#[test]
+fn mixed_port_http_proxy_serves_requests_and_connect_without_a_second_route() {
+    let mut runtime = Runtime::new();
+    let gateway = runtime.hello();
+    let proxy = TcpListener::bind(("127.0.0.1", 0)).unwrap();
+    let port = proxy.local_addr().unwrap().port();
+    let seen = thread::spawn(move || {
+        let mut kinds = Vec::new();
+        for _ in 0..2 {
+            let (mut socket, _) = proxy.accept().unwrap();
+            socket
+                .set_read_timeout(Some(Duration::from_secs(5)))
+                .unwrap();
+            let mut request = String::new();
+            let mut reader = BufReader::new(socket.try_clone().unwrap());
+            loop {
+                let mut line = String::new();
+                if reader.read_line(&mut line).unwrap() == 0 || line == "\r\n" {
+                    break;
+                }
+                request.push_str(&line);
+            }
+            kinds.push(request.lines().next().unwrap().to_string());
+            socket
+                .write_all(if request.starts_with("CONNECT ") {
+                    b"HTTP/1.1 200 Connection Established\r\n\r\n"
+                } else {
+                    b"HTTP/1.1 204 No Content\r\nContent-Length: 0\r\nConnection: close\r\n\r\n"
+                })
+                .unwrap();
+        }
+        kinds
+    });
+    assert_eq!(
+        runtime.call(
+            "configure",
+            json!({"config":{"mode":"manual","strictFallback":true,"proxy":{"protocol":"http","host":"127.0.0.1","port":port}}})
+        )["ok"],
+        true
+    );
+    for request in [
+        format!(
+            "GET http://remote-only.invalid/health HTTP/1.1\r\nHost: remote-only.invalid\r\nConnection: close\r\n\r\n"
+        ),
+        "CONNECT remote-only.invalid:443 HTTP/1.1\r\nHost: remote-only.invalid:443\r\n\r\n"
+            .to_string(),
+    ] {
+        let mut client = TcpStream::connect(("127.0.0.1", gateway)).unwrap();
+        client
+            .set_read_timeout(Some(Duration::from_secs(5)))
+            .unwrap();
+        client.write_all(request.as_bytes()).unwrap();
+        let mut status = String::new();
+        BufReader::new(&client).read_line(&mut status).unwrap();
+        assert!(
+            status.starts_with("HTTP/1.1 204") || status.starts_with("HTTP/1.1 200"),
+            "{status}"
+        );
+    }
+    let kinds = seen.join().unwrap();
+    assert_eq!(kinds.len(), 2);
+    assert!(kinds[0].starts_with("GET http://remote-only.invalid/health "));
+    assert!(kinds[1].starts_with("CONNECT remote-only.invalid:443 "));
+    runtime.finish();
 }
 
 #[test]

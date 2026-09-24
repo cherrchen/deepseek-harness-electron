@@ -29,6 +29,8 @@ Clash 这类代理软件里的"系统代理"开关只写第一套。浏览器会
 
 DSH 不读取操作系统的代理设置。请导出环境变量，或使用 TUN 模式。
 
+Desktop 应用有单独的 Network 设置。Default 保持上述环境变量行为。System Proxy 和 Manual Proxy 会让该应用通过自己的环回 Gateway 路由；见 [Desktop 网络设置](../../electron/network-settings.zh.md)。
+
 ## 指定哪些目标保持直连
 
 `NO_PROXY` 列出需要直连的主机：

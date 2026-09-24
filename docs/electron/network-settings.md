@@ -12,6 +12,8 @@ Use Settings → Network to choose Default, Direct, System Proxy, or one Manual 
 - [Configure a Manual proxy](#configure-a-manual-proxy)
 - [Test and diagnose](#test-and-diagnose)
 - [Recover from a failed route](#recover-from-a-failed-route)
+- [Troubleshoot](#troubleshoot)
+- [Compatibility](#compatibility)
 - [Limits](#limits)
 
 <a id="choose-a-mode"></a>
@@ -49,6 +51,31 @@ Advanced also shows active mode, Gateway status, epoch, selected route, last fai
 When real business traffic fails at the selected proxy, the native dialog can permit another attempt, use Default once, open Settings → Network, or dismiss the incident. **Retry** permits another attempt at the same selected route; re-run the affected operation yourself. **Use Default This Time** restarts with a one-use override and keeps the saved mode. **Open Network Settings** opens the main window at the Network section and shows the unresolved failure without changing mode.
 
 The page also shows the last unresolved proxy failure and offers the same route retry. Tests do not create that failure. System policy changes and an explicit Reload start a new epoch; a failed proxy does not authorize another route or Direct.
+
+<a id="troubleshoot"></a>
+
+## Troubleshoot
+
+A failed selected proxy does not switch to another proxy or to Direct. Use the failure dialog to retry the same route, use Default once, or open Settings → Network. **Use Default This Time** restarts once and keeps the saved mode.
+
+If Save reports that secure storage is unavailable, the new password is not written. Enable Secret Service or KWallet on Linux, then save the password again. `basic_text` is not persistent storage.
+
+System mode on an unsupported Linux desktop fails closed. Use Manual or Direct. GNOME and KDE 5/6 are the supported Linux policy sources.
+
+A local proxy application that only changes operating-system proxy settings is followed in System Proxy mode. Default, and the command-line `dsh` process, still use `HTTP_PROXY` and `HTTPS_PROXY`.
+
+<a id="compatibility"></a>
+
+## Compatibility
+
+| Client or policy | Desktop mode | What Desktop executes |
+| --- | --- | --- |
+| Mihomo, Clash Verge Rev, or Sparkle mixed port | Manual HTTP to that single port | One HTTP upstream for ordinary requests and CONNECT |
+| Ordinary SOCKS5 proxy | Manual SOCKS5 | No-auth SOCKS5; the proxy resolves the target name |
+| Operating-system proxy, PAC, or WPAD | System Proxy | The first final route only, including an explicit `DIRECT` |
+| No proxy | Direct | Explicit direct, and Agent proxy variables are cleared |
+
+Windows reads current-user WinHTTP settings. macOS reads CFNetwork. Linux reads GNOME GSettings or KDE 5/6 `kioslaverc`. Integrated NTLM and Negotiate authentication, SOCKS5 passwords, and Manual bypass are unsupported. Desktop CI runs the runtime on Windows, macOS, and Linux. The Windows installer smoke requires `resources/network-runtime/dsh-electron-network-runtime.exe`. Signed macOS Keychain behavior and an enterprise WPAD laboratory remain operator checks.
 
 <a id="limits"></a>
 

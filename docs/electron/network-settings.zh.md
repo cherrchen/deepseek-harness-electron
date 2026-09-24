@@ -12,6 +12,8 @@
 - [配置 Manual 代理](#configure-a-manual-proxy)
 - [测试与诊断](#test-and-diagnose)
 - [从路由故障恢复](#recover-from-a-failed-route)
+- [排障](#troubleshoot)
+- [兼容性](#compatibility)
 - [限制](#limits)
 
 <a id="choose-a-mode"></a>
@@ -49,6 +51,31 @@ System 和 Manual 显示 **代理 Agent 网络请求**。启用后，支持标�
 真实业务流量在所选代理上失败时，原生对话框可允许再次尝试、单次使用 Default、打开 Settings → Network 或暂不处理。**重试** 允许再次连接同一所选路由；请自行重试受影响的操作。**本次使用 Default** 通过一次性 override 重启，保留已保存模式。**打开网络设置** 会显示主窗口并选中 Network section，展示尚未解决的故障，但不改变模式。
 
 页面也会显示上次未解决的代理故障，并提供同一路由的重试。测试不会创建该故障。System 策略变化和显式 Reload 会创建新 epoch；代理失败不授权尝试其他路由或 Direct。
+
+<a id="troubleshoot"></a>
+
+## 排障
+
+所选代理失败后不会切换到其他代理或 Direct。使用故障对话框重试同一路由、单次使用 Default，或打开 Settings → Network。**Use Default This Time** 只重启一次，并保留已保存的模式。
+
+如果保存时提示安全存储不可用，新密码不会写入。在 Linux 上启用 Secret Service 或 KWallet 后再次保存密码。`basic_text` 不是持久存储。
+
+不受支持的 Linux 桌面在 System 模式下会阻断该路由。改用 Manual 或 Direct。GNOME 和 KDE 5/6 是受支持的 Linux 策略来源。
+
+只修改操作系统代理设置的本地代理软件，会在 System Proxy 模式下被跟随。Default 以及命令行 `dsh` 进程仍使用 `HTTP_PROXY` 和 `HTTPS_PROXY`。
+
+<a id="compatibility"></a>
+
+## 兼容性
+
+| 客户端或策略 | Desktop 模式 | Desktop 实际执行 |
+| --- | --- | --- |
+| Mihomo、Clash Verge Rev 或 Sparkle 混合端口 | Manual HTTP，指向该单一端口 | 一个 HTTP 上游同时处理普通请求和 CONNECT |
+| 普通 SOCKS5 代理 | Manual SOCKS5 | 无认证 SOCKS5；由代理解析目标域名 |
+| 操作系统代理、PAC 或 WPAD | System Proxy | 只执行第一条最终路由，包括明确的 `DIRECT` |
+| 不使用代理 | Direct | 显式直连，并清理 Agent 代理变量 |
+
+Windows 读取当前用户的 WinHTTP 设置。macOS 读取 CFNetwork。Linux 读取 GNOME GSettings 或 KDE 5/6 的 `kioslaverc`。不支持集成 NTLM 和 Negotiate 认证、SOCKS5 密码以及 Manual bypass。Desktop CI 在 Windows、macOS 和 Linux 上运行 Runtime。Windows 安装包冒烟检查要求存在 `resources/network-runtime/dsh-electron-network-runtime.exe`。签名 macOS 的 Keychain 行为和企业 WPAD 实验环境仍由操作者检查。
 
 <a id="limits"></a>
 

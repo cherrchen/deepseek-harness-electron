@@ -26,7 +26,7 @@ With the repository Node.js, pnpm, and Rust toolchains installed, run from the r
 pnpm --filter @dsh-electron/dsh-electron test:network-runtime
 ```
 
-This command runs Rust component and executable tests, prepares the release binary, and tests the Main client against that binary. The DSH transport fixture uses the actual source HTTP proxy library and a non-resolving target name, with local HTTP, TLS, and SOCKS5 fixtures. It requires installed workspace dependencies and does not call a model or a public test endpoint. TLS fixtures use a private test trust root without changing the operating system trust store. Desktop CI runs native macOS, Windows, and Linux tests. GNOME builds need GLib development libraries and desktop schemas. Installer inclusion, enterprise WPAD environments, and signed macOS package launch remain release qualification work.
+This command runs Rust component and executable tests, prepares the release binary, and tests the Main client against that binary. The DSH transport fixture uses the actual source HTTP proxy library and a non-resolving target name, with local HTTP, TLS, and SOCKS5 fixtures. It requires installed workspace dependencies and does not call a model or a public test endpoint. TLS fixtures use a private test trust root without changing the operating system trust store. Desktop CI runs native macOS, Windows, and Linux tests. GNOME builds need GLib development libraries and desktop schemas. The Windows installer smoke requires `resources/network-runtime/dsh-electron-network-runtime.exe`. Enterprise WPAD laboratories and signed macOS launch remain operator checks.
 
 <a id="control-and-routing"></a>
 

@@ -30,7 +30,7 @@ Main-only secret store 使用 Electron `safeStorage` 加密值，拒绝 Linux `b
 
 Main 负责 epoch 和 incident 的生命周期，不让 Gateway 持有 UI 状态。指纹变化会更新 System epoch；Manual 凭据应用和用户重载会创建显式 epoch。真实流量故障按 epoch、路由、错误类别和重试代去重。除非用户选择单次 Default 或二次确认永久 Default，原生对话框保留已选路由；Runtime 崩溃后仅在用户重试时重启 Desktop。独立的环回 listener 让 updater 流量使用同一所选路由，但不发布全局 incident。Manual Basic 凭据可保存到 Desktop 加密存储；System Basic 凭据仅限单个 Runtime 配置代和匹配的所选端点。不支持的认证方案会明确失败。
 
-System provider 使用当前用户 WinHTTP、CFNetwork 及 GNOME/KDE 设置。每次解析都在有时限的 helper 进程中运行，Linux PAC 使用限制内存且不提供文件系统或环境变量 API 的 QuickJS context。原生设置通知和网络指纹使现有连接失效。macOS 原生测试覆盖有序 PAC 输出、畸形首项、可重复快照及重新加载；Desktop CI 负责 Windows WinHTTP 和隔离 GNOME/KDE 设置的执行验证。签名包、安装程序、企业 WPAD 和集成认证仍需平台验收。
+System provider 使用当前用户 WinHTTP、CFNetwork 及 GNOME/KDE 设置。每次解析都在有时限的 helper 进程中运行，Linux PAC 使用限制内存且不提供文件系统或环境变量 API 的 QuickJS context。原生设置通知和网络指纹使现有连接失效。macOS 原生测试覆盖有序 PAC 输出、畸形首项、可重复快照及重新加载；Desktop CI 负责 Windows WinHTTP 和隔离 GNOME/KDE 设置的执行验证。Windows 安装包冒烟检查要求存在已打包的 Runtime 可执行文件。签名 macOS 启动、企业 WPAD 实验环境和集成认证仍由操作者检查。
 
 网络页面作为必需的 Desktop Client 插件注册到共享 Settings section。它只使用封闭的 `ctx.desktop.network` capability；Main 将其接到受信任 IPC handler 和类型化 preload bridge。Main 再次验证配置，且只返回脱敏状态。连接测试使用 updater Session 中不产生 incident 的 Gateway；测试结果不影响保存，目标站点的 HTTP 响应表示可达，而 Gateway 错误单独标识。Client 用固定占位符表示已保存密码，只提交替换或移除动作，并在安全存储不可用时先询问是否丢弃新密码。页面列出已注册的 LLM provider，并要求显式填写 health URL；它不发送模型请求。原生对话框的导航请求经脱敏 Network 状态传递，并操作现有 Settings 控件，使下游快捷入口无需修改上游包。
 
@@ -52,10 +52,10 @@ System provider 使用当前用户 WinHTTP、CFNetwork 及 GNOME/KDE 设置。�
 
 Preferences migration、不覆盖的 partial update、validation、secret isolation、环境策略、one-shot override 和 controller lifecycle 测试通过，且 Default 不修改子进程环境或 Electron 代理状态时，M1 完成。
 
-只有在 Gateway 支持 Manual HTTP、HTTPS 和 SOCKS5，system provider 通过 native Windows、macOS、GNOME 和 KDE 测试，PAC 和认证 capability matrix 有可执行证据，每个 managed 网络平面使用相同严格所选路由，且 Settings UI 不暴露 secret 后，整个功能才验收。
+只有在 Gateway 支持 Manual HTTP、HTTPS 和 SOCKS5，system provider 通过 native Windows、macOS、GNOME 和 KDE 测试，PAC 和认证 capability matrix 有可执行证据，每个 managed 网络平面使用相同严格所选路由，Settings UI 不暴露 secret，且发布检查覆盖环回绑定、混合端口 HTTP 代理和已打包的 Windows Runtime 路径后，整个功能才验收。
 
 ## Risks
 
 PAC engine 和集成代理认证是平台专属的代码执行与凭据边界。不可用的实现必须 fail closed 并报告不支持的 capability，而不是宣称支持或选择 Direct。
 
-Release 验收需要 native runner、签名身份、安装程序和真实桌面代理环境。仓库测试可以验证路径和 artifact，但不能取代这些平台观测。
+Desktop CI 在 macOS、Windows 和 Linux 上运行 Network Runtime。仓库测试验证环回 Gateway、混合端口 HTTP 行为和已打包的 Runtime 路径。它们不能取代签名 macOS 启动、企业 WPAD 实验环境或集成认证。

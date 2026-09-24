@@ -27,6 +27,17 @@ describe('Desktop Network validation', () => {
     })
   })
 
+  it('rejects proxy credentials embedded in the host or a diagnostic URL', () => {
+    expect(() => normalizeNetworkConfigInput({
+      mode: 'manual',
+      manual: { protocol: 'http', host: 'user:secret@proxy.example', port: 8080 },
+    }, undefined, DEFAULT_NETWORK_TEST_SETTINGS)).toThrow(/only the proxy host/)
+    expect(() => normalizeNetworkConfigInput({
+      mode: 'default',
+      tests: { internet204Url: 'https://user:secret@example.test/generate_204' },
+    }, undefined, DEFAULT_NETWORK_TEST_SETTINGS)).toThrow(/must not include credentials/)
+  })
+
   it('rejects credential fields in persisted SOCKS5 data', () => {
     expect(parsePersistedManualProxy({ protocol: 'socks5', host: 'localhost', port: 1080, password: 'secret' }))
       .toBeUndefined()

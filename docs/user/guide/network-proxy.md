@@ -29,6 +29,8 @@ The "system proxy" switch in a proxy application such as Clash writes only the f
 
 DSH does not read the operating system's proxy settings. Export the variables, or use TUN mode.
 
+The Desktop application has a separate Network setting. Default keeps this environment-variable behavior. System Proxy and Manual Proxy route that application through its loopback Gateway; see [Desktop Network Settings](../../electron/network-settings.md).
+
 ## Choose what stays direct
 
 `NO_PROXY` lists hosts to reach directly:

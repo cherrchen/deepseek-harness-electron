@@ -26,7 +26,7 @@ Desktop Network Runtime 通过唯一 Manual 代理或 System 策略选择的首�
 pnpm --filter @dsh-electron/dsh-electron test:network-runtime
 ```
 
-该命令运行 Rust 组件和可执行程序测试，准备 release 二进制，并用该二进制测试 Main 客户端。DSH transport fixture（测试前置数据）使用真实的源码 HTTP 代理库、无法解析的目标域名，以及本地 HTTP、TLS 和 SOCKS5 fixture。测试需要已安装 workspace 依赖，不调用模型或公网测试端点。TLS fixture 使用独立测试信任根，不修改操作系统信任库。Desktop CI 运行 macOS、Windows 和 Linux 原生测试。GNOME 构建需要 GLib 开发库和桌面 schema。安装程序收录、企业 WPAD 环境及签名 macOS 包启动仍属于发布验收工作。
+该命令运行 Rust 组件和可执行程序测试，准备 release 二进制，并用该二进制测试 Main 客户端。DSH transport fixture（测试前置数据）使用真实的源码 HTTP 代理库、无法解析的目标域名，以及本地 HTTP、TLS 和 SOCKS5 fixture。测试需要已安装 workspace 依赖，不调用模型或公网测试端点。TLS fixture 使用独立测试信任根，不修改操作系统信任库。Desktop CI 运行 macOS、Windows 和 Linux 原生测试。GNOME 构建需要 GLib 开发库和桌面 schema。Windows 安装包冒烟检查要求存在 `resources/network-runtime/dsh-electron-network-runtime.exe`。企业 WPAD 实验环境和签名 macOS 启动仍由操作者检查。
 
 <a id="control-and-routing"></a>
 

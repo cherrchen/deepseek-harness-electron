@@ -32,6 +32,7 @@ $requiredFiles = @(
   $manifest,
   (Join-Path $installDirectory 'resources\app\node_modules\@deepseek-ai\dsh\lib\bin.js'),
   (Join-Path $installDirectory 'resources\node\node.exe'),
+  (Join-Path $installDirectory 'resources\network-runtime\dsh-electron-network-runtime.exe'),
   $uninstaller
 )
 foreach ($path in $requiredFiles) {
