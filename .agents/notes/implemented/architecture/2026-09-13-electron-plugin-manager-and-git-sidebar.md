@@ -12,7 +12,7 @@ The 0.1.5-rc.2 pin left Plugin Manager and Git uncomposed because Git occupied t
 
 `apps/electron/runtime/host.patch.yml` inserts `@dsh-electron/dsh-electron-ui-plugin-manager`.
 
-`@dsh-electron/dsh-plugin-git@0.2.1` injects `sidebarRight` / `sidebarRightTabs` and has no runtime dependency on `details`, `shellDetails`, or `@dsh-electron/dsh-client-ui-details-host`. Desktop lists the package in `dshElectron.ecosystemPlugins` and keeps its exact production npm dependency under the [npm-only ecosystem plugin rule](2026-09-14-electron-npm-only-ecosystem-plugins.md).
+`@dsh-electron/dsh-plugin-git@0.2.3` injects `sidebarRight` / `sidebarRightTabs` and has no runtime dependency on `details`, `shellDetails`, or `@dsh-electron/dsh-client-ui-details-host`. Desktop lists the package in `dshElectron.ecosystemPlugins` and keeps its exact production npm dependency under the [npm-only ecosystem plugin rule](2026-09-14-electron-npm-only-ecosystem-plugins.md).
 
 ## Alternatives considered
 

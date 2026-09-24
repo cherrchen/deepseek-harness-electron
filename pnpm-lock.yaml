@@ -868,8 +868,8 @@ importers:
         specifier: link:../../vendor/schemastery
         version: link:../../vendor/schemastery
       '@dsh-electron/dsh-plugin-git':
-        specifier: 0.2.1
-        version: 0.2.1(99fb79d6866325454342b314c81a2901)
+        specifier: 0.2.3
+        version: 0.2.3(602dde33813da4ab23428b609a63278e)
       electron-updater:
         specifier: ^6.8.9
         version: 6.8.9
@@ -12247,28 +12247,32 @@ packages:
       search-insights:
         optional: true
 
-  '@dsh-electron/dsh-plugin-git@0.2.1':
-    resolution: {integrity: sha512-jXs7S/83yrUm9JlB+Pwd+oQp1fwNfJNcCATkv1Z9aIIW7fjaIpAslLsbobVhc8uisx36NFJ8XWpxdnRRkUK4+g==}
+  '@dsh-electron/dsh-plugin-git@0.2.3':
+    resolution: {integrity: sha512-BvdlXrTPfwtn+GI9iTVE0XoK+esVOPS9JTeInqgTJ1HZOyG6VwvgEQCQ17Hymw7dxrI0yRNzS+ZZFrDxnJTmjw==}
     engines: {node: ^22.19.0 || >=24.0.0}
     peerDependencies:
       '@deepseek-ai/cordis': '>=4.0.2 <5.0.0'
-      '@deepseek-ai/dsh-agent-default-model': '>=0.1.5-rc.2 <0.2.0'
-      '@deepseek-ai/dsh-api-session-controller': '>=0.1.5-rc.2 <0.2.0'
-      '@deepseek-ai/dsh-client-connection': '>=0.1.5-rc.2 <0.2.0'
-      '@deepseek-ai/dsh-client-locale': '>=0.1.5-rc.2 <0.2.0'
-      '@deepseek-ai/dsh-client-resources': '>=0.1.5-rc.2 <0.2.0'
-      '@deepseek-ai/dsh-client-ui-conversation': '>=0.1.5-rc.2 <0.2.0'
-      '@deepseek-ai/dsh-client-ui-primitives': '>=0.1.5-rc.2 <0.2.0'
-      '@deepseek-ai/dsh-client-ui-renderer': '>=0.1.5-rc.2 <0.2.0'
-      '@deepseek-ai/dsh-client-ui-session': '>=0.1.5-rc.2 <0.2.0'
-      '@deepseek-ai/dsh-client-ui-settings': '>=0.1.5-rc.2 <0.2.0'
-      '@deepseek-ai/dsh-client-ui-settings-plugins': '>=0.1.5-rc.2 <0.2.0'
-      '@deepseek-ai/dsh-client-ui-sidebar-right': '>=0.1.5-rc.2 <0.2.0'
-      '@deepseek-ai/dsh-client-ui-slots': '>=0.1.5-rc.2 <0.2.0'
-      '@deepseek-ai/dsh-llm': '>=0.1.5-rc.2 <0.2.0'
-      '@deepseek-ai/dsh-settings': '>=0.1.5-rc.2 <0.2.0'
-      '@deepseek-ai/dsh-subprocess': '>=0.1.5-rc.2 <0.2.0'
+      '@deepseek-ai/dsh-agent-default-model': 0.1.5-rc.2 || 0.1.6-alpha.1 || 0.1.6-alpha.2 || 0.1.7-alpha.1 || 0.1.7-alpha.2 || 0.1.7-rc.1 || 0.1.7-rc.2
+      '@deepseek-ai/dsh-api-session-controller': 0.1.5-rc.2 || 0.1.6-alpha.1 || 0.1.6-alpha.2 || 0.1.7-alpha.1 || 0.1.7-alpha.2 || 0.1.7-rc.1 || 0.1.7-rc.2
+      '@deepseek-ai/dsh-client-connection': 0.1.5-rc.2 || 0.1.6-alpha.1 || 0.1.6-alpha.2 || 0.1.7-alpha.1 || 0.1.7-alpha.2 || 0.1.7-rc.1 || 0.1.7-rc.2
+      '@deepseek-ai/dsh-client-locale': 0.1.5-rc.2 || 0.1.6-alpha.1 || 0.1.6-alpha.2 || 0.1.7-alpha.1 || 0.1.7-alpha.2 || 0.1.7-rc.1 || 0.1.7-rc.2
+      '@deepseek-ai/dsh-client-resources': 0.1.5-rc.2 || 0.1.6-alpha.1 || 0.1.6-alpha.2 || 0.1.7-alpha.1 || 0.1.7-alpha.2 || 0.1.7-rc.1 || 0.1.7-rc.2
+      '@deepseek-ai/dsh-client-ui-conversation': 0.1.5-rc.2 || 0.1.6-alpha.1 || 0.1.6-alpha.2 || 0.1.7-alpha.1 || 0.1.7-alpha.2 || 0.1.7-rc.1 || 0.1.7-rc.2
+      '@deepseek-ai/dsh-client-ui-primitives': 0.1.5-rc.2 || 0.1.6-alpha.1 || 0.1.6-alpha.2 || 0.1.7-alpha.1 || 0.1.7-alpha.2 || 0.1.7-rc.1 || 0.1.7-rc.2
+      '@deepseek-ai/dsh-client-ui-renderer': 0.1.5-rc.2 || 0.1.6-alpha.1 || 0.1.6-alpha.2 || 0.1.7-alpha.1 || 0.1.7-alpha.2 || 0.1.7-rc.1 || 0.1.7-rc.2
+      '@deepseek-ai/dsh-client-ui-session': 0.1.5-rc.2 || 0.1.6-alpha.1 || 0.1.6-alpha.2 || 0.1.7-alpha.1 || 0.1.7-alpha.2 || 0.1.7-rc.1 || 0.1.7-rc.2
+      '@deepseek-ai/dsh-client-ui-settings': 0.1.5-rc.2 || 0.1.6-alpha.1 || 0.1.6-alpha.2 || 0.1.7-alpha.1 || 0.1.7-alpha.2 || 0.1.7-rc.1 || 0.1.7-rc.2
+      '@deepseek-ai/dsh-client-ui-settings-plugins': 0.1.5-rc.2 || 0.1.6-alpha.1 || 0.1.6-alpha.2 || 0.1.7-alpha.1 || 0.1.7-alpha.2 || 0.1.7-rc.1 || 0.1.7-rc.2
+      '@deepseek-ai/dsh-client-ui-sidebar-right': 0.1.5-rc.2 || 0.1.6-alpha.1 || 0.1.6-alpha.2 || 0.1.7-alpha.1 || 0.1.7-alpha.2 || 0.1.7-rc.1 || 0.1.7-rc.2
+      '@deepseek-ai/dsh-client-ui-slots': 0.1.5-rc.2 || 0.1.6-alpha.1 || 0.1.6-alpha.2 || 0.1.7-alpha.1 || 0.1.7-alpha.2 || 0.1.7-rc.1 || 0.1.7-rc.2
+      '@deepseek-ai/dsh-llm': 0.1.5-rc.2 || 0.1.6-alpha.1 || 0.1.6-alpha.2 || 0.1.7-alpha.1 || 0.1.7-alpha.2 || 0.1.7-rc.1 || 0.1.7-rc.2
+      '@deepseek-ai/dsh-settings': 0.1.5-rc.2 || 0.1.6-alpha.1 || 0.1.6-alpha.2 || 0.1.7-alpha.1 || 0.1.7-alpha.2 || 0.1.7-rc.1 || 0.1.7-rc.2
+      '@deepseek-ai/dsh-subprocess': 0.1.5-rc.2 || 0.1.6-alpha.1 || 0.1.6-alpha.2 || 0.1.7-alpha.1 || 0.1.7-alpha.2 || 0.1.7-rc.1 || 0.1.7-rc.2
+      diff: '>=9.0.0 <10.0.0'
+      immer: '>=10.1.1 <11.0.0'
       react: '>=18.2.0 <19.0.0'
+      simple-icons: '>=16.31.0 <17.0.0'
+      zustand: '>=4.4.7 <5.0.0'
     peerDependenciesMeta:
       '@deepseek-ai/dsh-agent-default-model':
         optional: true
@@ -17784,6 +17788,10 @@ packages:
   simple-get@4.0.1:
     resolution: {integrity: sha512-brv7p5WgH0jmQJr1ZDDfKDOSeWWg+OVypG99A/5vYGPqJ6pxiaHLy8nxtFjBA7oMa01ebA9gfh1uMCFqOuXxvA==}
 
+  simple-icons@16.32.0:
+    resolution: {integrity: sha512-BwqATHxAulx7X6kNdTkecy7PBjLkgtAHcgrwYLd9iA+cD2At9DzhJwdwaSELk2+aZe01IfiM/Wxtyp68Dvup2A==}
+    engines: {node: '>=0.12.18'}
+
   simple-update-notifier@2.0.0:
     resolution: {integrity: sha512-a2B9Y0KlNXl9u/vsW6sTIu9vGEpfKu2wRV6l1H3XEas/0gUIzGzBoP/IouTcUQbm9JWZLH3COxyn03TYlFax6w==}
     engines: {node: '>=10'}
@@ -19325,7 +19333,7 @@ snapshots:
     transitivePeerDependencies:
       - '@algolia/client-search'
 
-  '@dsh-electron/dsh-plugin-git@0.2.1(99fb79d6866325454342b314c81a2901)':
+  '@dsh-electron/dsh-plugin-git@0.2.3(602dde33813da4ab23428b609a63278e)':
     dependencies:
       '@deepseek-ai/cordis': link:vendor/cordis
       '@deepseek-ai/dsh-api-session-controller': link:packages/api/session-controller
@@ -19340,7 +19348,11 @@ snapshots:
       '@deepseek-ai/dsh-client-ui-slots': link:packages/client/ui-slots
       '@deepseek-ai/dsh-subprocess': link:packages/subprocess/subprocess
       '@deepseek-ai/schemastery': link:vendor/schemastery
+      diff: 9.0.0
+      immer: 10.2.0
       react: 18.3.1
+      simple-icons: 16.32.0
+      zustand: 4.4.7(@types/react@18.3.31)(immer@10.2.0)(react@18.3.1)
     optionalDependencies:
       '@deepseek-ai/dsh-agent-default-model': link:packages/core/agent-default-model
       '@deepseek-ai/dsh-client-ui-settings': link:packages/client/ui-settings
@@ -25035,6 +25047,8 @@ snapshots:
       decompress-response: 6.0.0
       once: 1.4.0
       simple-concat: 1.0.1
+
+  simple-icons@16.32.0: {}
 
   simple-update-notifier@2.0.0:
     dependencies:
