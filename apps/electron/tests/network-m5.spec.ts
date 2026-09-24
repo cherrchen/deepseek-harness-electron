@@ -138,6 +138,9 @@ describe('M5 controller recovery', () => {
     await fixture.controller.submitCredential(fixture.challenges[1]!.id, { action: 'cancel' })
     expect(fixture.incidents).toHaveLength(1)
     expect(fixture.controller.state().lastIncident?.failure.code).toBe('PROXY_AUTH_REJECTED')
+    runtime.emit({ event: 'credential_required', payload: { route } })
+    expect(fixture.challenges).toHaveLength(3)
+    expect(fixture.controller.isPendingChallenge(fixture.challenges[2]!.id)).toBe(true)
   })
 
   it('keeps System Basic credentials in runtime memory and never persists them', async () => {

@@ -1,6 +1,7 @@
 import { Context } from '@deepseek-ai/cordis'
 import { LocalSubprocessRuntime } from '@deepseek-ai/dsh-subprocess-local'
 import type { SubprocessSpawnSpec, SubprocessTerminalSpawnSpec } from '@deepseek-ai/dsh-subprocess'
+import { launchEnvironmentOf } from '@deepseek-ai/dsh-launch-environment'
 
 const KEYS = [
   'HTTP_PROXY', 'http_proxy', 'HTTPS_PROXY', 'https_proxy', 'ALL_PROXY', 'all_proxy',
@@ -18,7 +19,16 @@ export class DesktopNetworkSubprocessRuntime extends LocalSubprocessRuntime {
 
   constructor(ctx: Context) {
     super(ctx)
-    this.policy = parsePolicy(process.env.DSH_ELECTRON_AGENT_PROXY_POLICY)
+    const policy = parsePolicy(process.env.DSH_ELECTRON_AGENT_PROXY_POLICY)
+    if (policy !== undefined && !policy.force) {
+      // The Host's inherited proxy names point at the Gateway; only Main's original values
+      // and the CLI's discovered file layers can supply the Agent's opt-out environment.
+      const launch = launchEnvironmentOf(ctx)
+      for (const key of KEYS) {
+        policy.values[key] ??= launch.getFrom(key, ['project-env', 'user-env'])?.value
+      }
+    }
+    this.policy = policy
   }
 
   override resolveExecutable(command: string, env?: Readonly<Record<string, string>>, signal?: AbortSignal): Promise<string> {

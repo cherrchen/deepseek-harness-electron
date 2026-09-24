@@ -294,6 +294,7 @@ export class DesktopNetworkController {
     if (challenge === undefined || challenge.id !== challengeId || this.epochs.state() === undefined) return
     this.pendingChallenge = undefined
     if (input.action === 'cancel') {
+      this.credentialPrompted = false
       this.reportFailure(classifyNetworkFailure({ code: challenge.rejected ? 'PROXY_AUTH_REJECTED' : 'PROXY_AUTH_REQUIRED' }), {
         kind: challenge.proxy.kind, host: challenge.proxy.host, port: challenge.proxy.port,
       })

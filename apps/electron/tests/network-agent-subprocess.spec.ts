@@ -1,4 +1,5 @@
 import { Context } from '@deepseek-ai/cordis'
+import { createLaunchEnvironmentSnapshot, DSH_LAUNCH_ENVIRONMENT_KEY } from '@deepseek-ai/dsh-launch-environment'
 import { describe, expect, it } from 'vitest'
 import { DesktopNetworkSubprocessRuntime } from '../runtime/plugins/desktop-network-subprocess/src/index.ts'
 import { agentProxyPolicyForHost, PROXY_ENV_KEYS } from '../src/network/environment.ts'
@@ -12,15 +13,20 @@ describe('Desktop Agent subprocess integration', () => {
       { mode: 'default' as const, proxyAgentTraffic: false, expected: 'http://explicit.example:8080', explicit: true },
       { mode: 'direct' as const, proxyAgentTraffic: false, expected: undefined, explicit: true },
       { mode: 'manual' as const, proxyAgentTraffic: false, expected: ambient.HTTP_PROXY },
+      { mode: 'manual' as const, proxyAgentTraffic: false, expected: 'http://home.example:8080', homeOnly: true },
       { mode: 'manual' as const, proxyAgentTraffic: true, expected: 'http://127.0.0.1:4123', explicit: true },
     ]
     const previous = process.env.DSH_ELECTRON_AGENT_PROXY_POLICY
     try {
       for (const policy of cases) {
-        const serialized = agentProxyPolicyForHost(ambient, { ...policy, gateway })
+        const serialized = agentProxyPolicyForHost(policy.homeOnly ? {} : ambient, { ...policy, gateway })
         if (serialized === undefined) delete process.env.DSH_ELECTRON_AGENT_PROXY_POLICY
         else process.env.DSH_ELECTRON_AGENT_PROXY_POLICY = serialized
         const ctx = new Context()
+        ctx.provide(DSH_LAUNCH_ENVIRONMENT_KEY, createLaunchEnvironmentSnapshot([
+          { source: 'process', values: { HTTP_PROXY: 'http://127.0.0.1:4123' } },
+          { source: 'user-env', values: { HTTP_PROXY: 'http://home.example:8080' } },
+        ]))
         const fiber = await ctx.plugin(DesktopNetworkSubprocessRuntime)
         try {
           const handle = ctx.subprocess.spawn({

@@ -22,7 +22,7 @@ Use Settings → Network to choose Default, Direct, System Proxy, or one Manual 
 
 Open Settings → Network and select one mode from the network mode menu. **Default** keeps the existing application network behavior. **Direct** explicitly connects without a proxy and clears proxy environment variables for Desktop-controlled Agent children. **System Proxy** follows operating-system policy for each destination and executes only its first final route, including an explicit `DIRECT`. **Manual Proxy** uses one HTTP, HTTPS, or SOCKS5 endpoint for Desktop-managed traffic.
 
-System and Manual show **Proxy agent network requests**. When enabled, supported Agent tools receive the Desktop Gateway through standard proxy environment variables. It does not force proxy use by raw sockets or tools that ignore those variables. Direct always clears controlled Agent proxy variables; Default leaves existing Agent behavior untouched.
+System and Manual show **Proxy agent network requests**. When enabled, supported Agent tools receive the Desktop Gateway through standard proxy environment variables. When disabled, Agent subprocesses retain inherited proxy variables and those from `$DSH_HOME/.env`. It does not force proxy use by raw sockets or tools that ignore those variables. Direct always clears controlled Agent proxy variables; Default leaves existing Agent behavior untouched.
 
 Select **Save & Restart** to apply a valid mode or Manual configuration. A failed connection test does not disable Save. **Restore Default** asks for confirmation, retains the last Manual endpoint, and restarts. **Reload system proxy configuration** is available in Advanced while System is active; it refreshes OS policy and the network epoch without changing mode or restarting.
 
@@ -51,6 +51,8 @@ Advanced also shows active mode, Gateway status, epoch, selected route, last fai
 When real business traffic fails at the selected proxy, the native dialog can permit another attempt, use Default once, open Settings → Network, or dismiss the incident. **Retry** permits another attempt at the same selected route; re-run the affected operation yourself. **Use Default This Time** restarts with a one-use override and keeps the saved mode. **Open Network Settings** opens the main window at the Network section and shows the unresolved failure without changing mode.
 
 The page also shows the last unresolved proxy failure and offers the same route retry. Tests do not create that failure. System policy changes and an explicit Reload start a new epoch; a failed proxy does not authorize another route or Direct.
+
+If you cancel a Basic proxy credential prompt, the failure remains visible. A later request that needs credentials can prompt again in the same epoch.
 
 <a id="troubleshoot"></a>
 

@@ -22,7 +22,7 @@
 
 打开 Settings → Network，从网络模式菜单中选择一种模式。**Default** 保留应用现有网络行为。**Direct** 明确直连，并清理 Desktop 可控 Agent 子进程的代理环境变量。**System Proxy** 针对每个目标遵循操作系统策略，只执行第一条最终路由，其中包括明确的 `DIRECT`。**Manual Proxy** 对 Desktop 管理的流量使用一个 HTTP、HTTPS 或 SOCKS5 端点。
 
-System 和 Manual 显示 **代理 Agent 网络请求**。启用后，支持标准代理环境变量的 Agent 工具会收到 Desktop Gateway。它不能强制 raw socket 或忽略这些变量的工具使用代理。Direct 始终清理可控 Agent 的代理变量；Default 保留 Agent 原有行为。
+System 和 Manual 显示 **代理 Agent 网络请求**。启用后，支持标准代理环境变量的 Agent 工具会收到 Desktop Gateway。关闭后，Agent 子进程保留继承的代理变量和 `$DSH_HOME/.env` 中的代理变量。它不能强制 raw socket 或忽略这些变量的工具使用代理。Direct 始终清理可控 Agent 的代理变量；Default 保留 Agent 原有行为。
 
 选择 **保存并重启** 来应用有效的模式或 Manual 配置。连接测试失败不会禁用保存。**恢复 Default** 会请求确认、保留上次 Manual 端点并重启。System 生效时，高级区域提供 **重新加载系统代理配置**；此操作更新 OS 策略和网络 epoch，不改变模式，也不重启。
 
@@ -51,6 +51,8 @@ System 和 Manual 显示 **代理 Agent 网络请求**。启用后，支持标�
 真实业务流量在所选代理上失败时，原生对话框可允许再次尝试、单次使用 Default、打开 Settings → Network 或暂不处理。**重试** 允许再次连接同一所选路由；请自行重试受影响的操作。**本次使用 Default** 通过一次性 override 重启，保留已保存模式。**打开网络设置** 会显示主窗口并选中 Network section，展示尚未解决的故障，但不改变模式。
 
 页面也会显示上次未解决的代理故障，并提供同一路由的重试。测试不会创建该故障。System 策略变化和显式 Reload 会创建新 epoch；代理失败不授权尝试其他路由或 Direct。
+
+取消 Basic 代理凭据提示后，故障仍然可见。同一 epoch 中后续需要凭据的请求可以再次提示。
 
 <a id="troubleshoot"></a>
 

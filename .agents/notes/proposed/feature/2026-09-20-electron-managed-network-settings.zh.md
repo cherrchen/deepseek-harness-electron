@@ -24,7 +24,7 @@ Preferences 文档使用 schema version 1，并保留更新通道、一份 Manua
 
 Main-only secret store 使用 Electron `safeStorage` 加密值，拒绝 Linux `basic_text`，在 preferences 中只存储 branded reference，并只向 Renderer consumer 返回 `hasPassword`。One-shot override 只接受 Default，并在使用前删除。
 
-环境策略是纯 mode 决策。Default 原样复制输入；Direct 删除所有大小写代理变量和 `NODE_USE_ENV_PROXY`；System 和 Manual 通过环回 Gateway 路由 Desktop 自有子进程；除非用户选择启用，Agent 进程保留现有环境，但 Direct 始终删除代理变量。Desktop Host 用子类替换上游本地 subprocess provider，将 Main 单独提供的 Agent 策略应用于可执行文件查找、普通 spawn 和 PTY spawn。此做法保留上游 provider 的进程约束与关闭行为，同时处理 Host 的 Gateway 环境。
+环境策略是纯 mode 决策。Default 原样复制输入；Direct 删除所有大小写代理变量和 `NODE_USE_ENV_PROXY`；System 和 Manual 通过环回 Gateway 路由 Desktop 自有子进程；除非用户选择启用，Agent 进程保留现有环境，但 Direct 始终删除代理变量。Desktop Host 用子类替换上游本地 subprocess provider，将 Main 单独提供的 Agent 策略应用于可执行文件查找、普通 spawn 和 PTY spawn。关闭 Agent 代理时，策略合并 Main 原有继承的代理值与 CLI 接受的 `.env` 层，因为 Host 在 CLI 读取这些文件前已继承 Gateway 值。此做法保留上游 provider 的进程约束与关闭行为，同时处理 Host 的 Gateway 环境。
 
 [Rust Network Runtime](../../../../docs/electron/network-runtime.zh.md) 绑定临时 IPv4 环回 Gateway，支持版本化 JSONL 协商、经过验证的配置替换、HTTP/HTTPS/SOCKS5 Manual 路由和有界关闭。Main 客户端不搜索 PATH，直接启动准备好或已打包的可执行程序，通过 stdin 传递凭据，并在协议或进程失败时阻断网络。本地 fixture 通过三种 Manual 协议验证真实 DSH HTTP dispatcher。Electron Main 在 Harness 启动前配置 Runtime，将 Gateway 应用于 Electron app 与 Session，并向 Harness 和插件命令提供不含凭据的 Gateway 环境。Release 查询与 updater 元数据、下载共用 updater Session。
 
