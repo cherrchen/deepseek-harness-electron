@@ -1,6 +1,19 @@
-# Bilingual-pair consistency record (docs/i18n/README.md): the git blob hash of each
-# side as of the last confirmed-consistent state. Both languages carry equal authority;
-# after editing either side, bring the other along and re-record with:
+# Bilingual-pair consistency record for 2026-09-14-electron-npm-only-ecosystem-plugins.md (docs/i18n/README.md): per heading
+# section, a hash of its English and Chinese blocks outside code blocks and generated regions.
+# After editing either side, bring the other along and re-record with:
 #   pnpm run verify-translation-pairing --write .agents/notes/implemented/architecture/2026-09-14-electron-npm-only-ecosystem-plugins.md
-2026-09-14-electron-npm-only-ecosystem-plugins.md: 40208398487bbd8fc7b0678e9de98c77e0147f96
-2026-09-14-electron-npm-only-ecosystem-plugins.zh.md: 9c5a5515eeb28565979cc534b231e71e6d19dbe8
+/agent-note-electron-installs-ecosystem-plugins-only-from-npm:
+  en: 8a29cbf3e1dbe5bc
+  zh: 25cf2e419f7198dd
+/agent-note-electron-installs-ecosystem-plugins-only-from-npm/problem:
+  en: e9af01867770750f
+  zh: 2787044fba17d8c7
+/agent-note-electron-installs-ecosystem-plugins-only-from-npm/decision:
+  en: 61b7aae28260e252
+  zh: b63b37bc3841ed8b
+/agent-note-electron-installs-ecosystem-plugins-only-from-npm/alternatives-considered:
+  en: ac99b75b07aabfb9
+  zh: e0cf13fcda34e23a
+/agent-note-electron-installs-ecosystem-plugins-only-from-npm/consequences:
+  en: 728556c1fea1d3b7
+  zh: 2d21311911e66ec0

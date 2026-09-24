@@ -1,6 +1,19 @@
-# Bilingual-pair consistency record (docs/i18n/README.md): the git blob hash of each
-# side as of the last confirmed-consistent state. Both languages carry equal authority;
-# after editing either side, bring the other along and re-record with:
+# Bilingual-pair consistency record for 2026-08-14-electron-loopback-shell.md (docs/i18n/README.md): per heading
+# section, a hash of its English and Chinese blocks outside code blocks and generated regions.
+# After editing either side, bring the other along and re-record with:
 #   pnpm run verify-translation-pairing --write .agents/notes/implemented/architecture/2026-08-14-electron-loopback-shell.md
-2026-08-14-electron-loopback-shell.md: 66b98e66d08dba9b32471f021b2fa7ed778b976d
-2026-08-14-electron-loopback-shell.zh.md: 87f1d0341c1fe0143ae288c9b7fbf0de9fa52e6e
+/agent-note-package-the-web-composition-through-a-supervised-loopback-process:
+  en: 1e8126087b1edeef
+  zh: 3a2023fbf529c1ec
+/agent-note-package-the-web-composition-through-a-supervised-loopback-process/problem:
+  en: 9f218fc7ea149983
+  zh: c4d110c1665f5f8b
+/agent-note-package-the-web-composition-through-a-supervised-loopback-process/decision:
+  en: e5b4d932715bc54c
+  zh: ee744c27d801220b
+/agent-note-package-the-web-composition-through-a-supervised-loopback-process/alternatives-considered:
+  en: 32aa168734a0df82
+  zh: 7caf9e2b0960c3d9
+/agent-note-package-the-web-composition-through-a-supervised-loopback-process/consequences:
+  en: b3153bd14871f3d7
+  zh: 8bb7d4cb5bf5f931

@@ -1,6 +1,19 @@
-# Bilingual-pair consistency record (docs/i18n/README.md): the git blob hash of each
-# side as of the last confirmed-consistent state. Both languages carry equal authority;
-# after editing either side, bring the other along and re-record with:
+# Bilingual-pair consistency record for 2026-08-24-electron-required-portable-ui-infrastructure.md (docs/i18n/README.md): per heading
+# section, a hash of its English and Chinese blocks outside code blocks and generated regions.
+# After editing either side, bring the other along and re-record with:
 #   pnpm run verify-translation-pairing --write .agents/notes/implemented/architecture/2026-08-24-electron-required-portable-ui-infrastructure.md
-2026-08-24-electron-required-portable-ui-infrastructure.md: b1317ebf10b2ad916e9856898da3f6742eca6863
-2026-08-24-electron-required-portable-ui-infrastructure.zh.md: 3021a5dd4d26660143314359c9047faebe149b43
+/agent-note-electron-required-portable-ui-infrastructure:
+  en: 9c563ab3a672ded4
+  zh: 2a2953a0763cd895
+/agent-note-electron-required-portable-ui-infrastructure/problem:
+  en: ea13ebecd5db10b6
+  zh: 36e13cc0756338c4
+/agent-note-electron-required-portable-ui-infrastructure/decision:
+  en: 686b89aea7451f26
+  zh: 437db3031217cb99
+/agent-note-electron-required-portable-ui-infrastructure/alternatives-considered:
+  en: 43cf8f71ab60d1ed
+  zh: 7571befb156a40b5
+/agent-note-electron-required-portable-ui-infrastructure/consequences:
+  en: a2124c6d78739706
+  zh: 772962c5bf46bc69

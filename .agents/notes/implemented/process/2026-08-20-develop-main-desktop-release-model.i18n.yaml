@@ -1,6 +1,19 @@
-# Bilingual-pair consistency record (docs/i18n/README.md): the git blob hash of each
-# side as of the last confirmed-consistent state. Both languages carry equal authority;
-# after editing either side, bring the other along and re-record with:
+# Bilingual-pair consistency record for 2026-08-20-develop-main-desktop-release-model.md (docs/i18n/README.md): per heading
+# section, a hash of its English and Chinese blocks outside code blocks and generated regions.
+# After editing either side, bring the other along and re-record with:
 #   pnpm run verify-translation-pairing --write .agents/notes/implemented/process/2026-08-20-develop-main-desktop-release-model.md
-2026-08-20-develop-main-desktop-release-model.md: 213cb675384dc9c33288224b5bc20af4a432ffc1
-2026-08-20-develop-main-desktop-release-model.zh.md: 1daf6c94e9fc4e071cc11d4b01f85f40a22e150e
+/agent-note-develop-main-branch-model-and-beta-rc-stable-desktop-releases:
+  en: 309e231d9702290d
+  zh: 13a7f5a8e4110f73
+/agent-note-develop-main-branch-model-and-beta-rc-stable-desktop-releases/problem:
+  en: 40cbbfd05895958a
+  zh: 4e4c9b20f326703a
+/agent-note-develop-main-branch-model-and-beta-rc-stable-desktop-releases/decision:
+  en: 0d62d23d0727a6ac
+  zh: 388ed589bf54fb30
+/agent-note-develop-main-branch-model-and-beta-rc-stable-desktop-releases/alternatives-considered:
+  en: 8acd4be460d23603
+  zh: b0c5a185921d7fdd
+/agent-note-develop-main-branch-model-and-beta-rc-stable-desktop-releases/consequences:
+  en: 7d67f7fce6963c63
+  zh: 9c091c7aa381deb5

@@ -1,6 +1,19 @@
-# Bilingual-pair consistency record (docs/i18n/README.md): the git blob hash of each
-# side as of the last confirmed-consistent state. Both languages carry equal authority;
-# after editing either side, bring the other along and re-record with:
+# Bilingual-pair consistency record for 2026-08-24-electron-runtime-plugin-hot-plug.md (docs/i18n/README.md): per heading
+# section, a hash of its English and Chinese blocks outside code blocks and generated regions.
+# After editing either side, bring the other along and re-record with:
 #   pnpm run verify-translation-pairing --write .agents/notes/implemented/architecture/2026-08-24-electron-runtime-plugin-hot-plug.md
-2026-08-24-electron-runtime-plugin-hot-plug.md: 8bb8966ff96a79cfc9f13508ade7d7a415b5c087
-2026-08-24-electron-runtime-plugin-hot-plug.zh.md: 1e6ae18f86dabb25aa01b6dd45cc28d6b8a29d0f
+/agent-note-electron-owned-runtime-plugin-hot-plug:
+  en: 80118e386c72cc9a
+  zh: 09f9fc50c812dd03
+/agent-note-electron-owned-runtime-plugin-hot-plug/problem:
+  en: fea612a661be4443
+  zh: 0ae098b60b4205c8
+/agent-note-electron-owned-runtime-plugin-hot-plug/decision:
+  en: b8f2dd27a5848e90
+  zh: 3cb3b895890e2236
+/agent-note-electron-owned-runtime-plugin-hot-plug/alternatives-considered:
+  en: d2865ea0743beaf1
+  zh: c631900ecc04b618
+/agent-note-electron-owned-runtime-plugin-hot-plug/consequences:
+  en: 261c602f9dec2fb2
+  zh: 08b551fec7bc4d9f

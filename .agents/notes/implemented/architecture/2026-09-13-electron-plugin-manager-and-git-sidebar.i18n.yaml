@@ -1,6 +1,19 @@
-# Bilingual-pair consistency record (docs/i18n/README.md): the git blob hash of each
-# side as of the last confirmed-consistent state. Both languages carry equal authority;
-# after editing either side, bring the other along and re-record with:
+# Bilingual-pair consistency record for 2026-09-13-electron-plugin-manager-and-git-sidebar.md (docs/i18n/README.md): per heading
+# section, a hash of its English and Chinese blocks outside code blocks and generated regions.
+# After editing either side, bring the other along and re-record with:
 #   pnpm run verify-translation-pairing --write .agents/notes/implemented/architecture/2026-09-13-electron-plugin-manager-and-git-sidebar.md
-2026-09-13-electron-plugin-manager-and-git-sidebar.md: 39d5d4b59650ab2796f91f784872700fea0e3253
-2026-09-13-electron-plugin-manager-and-git-sidebar.zh.md: 8fbe046bcf5dd8affee1e3bb05c90ff605ddb2ef
+/agent-note-electron-remounts-plugin-manager-and-composes-git-through-sidebarright:
+  en: a5757d095ee9b2fe
+  zh: e843294adcc46f17
+/agent-note-electron-remounts-plugin-manager-and-composes-git-through-sidebarright/problem:
+  en: 1f2965e254bb2f84
+  zh: 1389b304b310a1bc
+/agent-note-electron-remounts-plugin-manager-and-composes-git-through-sidebarright/decision:
+  en: 494c8f344d919eb4
+  zh: fd2672438a907534
+/agent-note-electron-remounts-plugin-manager-and-composes-git-through-sidebarright/alternatives-considered:
+  en: 81da3660402ea681
+  zh: 70102ebc909eb50d
+/agent-note-electron-remounts-plugin-manager-and-composes-git-through-sidebarright/consequences:
+  en: 694984b3258cc96b
+  zh: 777a176d0a9b7df2

@@ -1,6 +1,19 @@
-# Bilingual-pair consistency record (docs/i18n/README.md): the git blob hash of each
-# side as of the last confirmed-consistent state. Both languages carry equal authority;
-# after editing either side, bring the other along and re-record with:
+# Bilingual-pair consistency record for 2026-09-13-electron-remove-details-host.md (docs/i18n/README.md): per heading
+# section, a hash of its English and Chinese blocks outside code blocks and generated regions.
+# After editing either side, bring the other along and re-record with:
 #   pnpm run verify-translation-pairing --write .agents/notes/implemented/architecture/2026-09-13-electron-remove-details-host.md
-2026-09-13-electron-remove-details-host.md: 9b83a05f223b8620cda2138732682cd056837577
-2026-09-13-electron-remove-details-host.zh.md: 038e1c42d2d6d2468bc5c75169c5bd64a6d708a5
+/agent-note-electron-deletes-the-details-host-mirror:
+  en: 149ce01800e33c10
+  zh: b9bfa923b6dd42b3
+/agent-note-electron-deletes-the-details-host-mirror/problem:
+  en: 1bcc65723291469c
+  zh: 68e0502af4ea29f5
+/agent-note-electron-deletes-the-details-host-mirror/decision:
+  en: dae327a3398d4457
+  zh: 4344e21347d36c45
+/agent-note-electron-deletes-the-details-host-mirror/alternatives-considered:
+  en: 785e37a5bd822b77
+  zh: 486eddb389fa19d3
+/agent-note-electron-deletes-the-details-host-mirror/consequences:
+  en: 4d4b0f11683ce0c4
+  zh: 0d8f47299815854b

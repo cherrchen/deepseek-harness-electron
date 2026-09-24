@@ -1,6 +1,19 @@
-# Bilingual-pair consistency record (docs/i18n/README.md): the git blob hash of each
-# side as of the last confirmed-consistent state. Both languages carry equal authority;
-# after editing either side, bring the other along and re-record with:
+# Bilingual-pair consistency record for 2026-08-21-electron-standalone-renderer.md (docs/i18n/README.md): per heading
+# section, a hash of its English and Chinese blocks outside code blocks and generated regions.
+# After editing either side, bring the other along and re-record with:
 #   pnpm run verify-translation-pairing --write .agents/notes/implemented/architecture/2026-08-21-electron-standalone-renderer.md
-2026-08-21-electron-standalone-renderer.md: d0f34b6338033cbbaf77f40e8555c606dab6f774
-2026-08-21-electron-standalone-renderer.zh.md: cd7ce679bf073bf9d2221c3b7d8f712fece84b3c
+/agent-note-electron-owned-renderer-with-main-harness-compatibility-proxy:
+  en: 30394a7198c0ce5b
+  zh: 7a4113f36ed6f41d
+/agent-note-electron-owned-renderer-with-main-harness-compatibility-proxy/problem:
+  en: 02589340af2440c3
+  zh: 30d6cd8f4db0602e
+/agent-note-electron-owned-renderer-with-main-harness-compatibility-proxy/decision:
+  en: 13ab3fda57b71ce5
+  zh: fa5477851cd32316
+/agent-note-electron-owned-renderer-with-main-harness-compatibility-proxy/alternatives-considered:
+  en: 2ecd1c511ba6eb6b
+  zh: e47875be00b808b0
+/agent-note-electron-owned-renderer-with-main-harness-compatibility-proxy/consequences:
+  en: ea7d404585d76f9b
+  zh: 64412ed624d5d468

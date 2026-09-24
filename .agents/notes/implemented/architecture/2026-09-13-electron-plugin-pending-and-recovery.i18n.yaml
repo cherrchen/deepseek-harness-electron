@@ -1,6 +1,19 @@
-# Bilingual-pair consistency record (docs/i18n/README.md): the git blob hash of each
-# side as of the last confirmed-consistent state. Both languages carry equal authority;
-# after editing either side, bring the other along and re-record with:
+# Bilingual-pair consistency record for 2026-09-13-electron-plugin-pending-and-recovery.md (docs/i18n/README.md): per heading
+# section, a hash of its English and Chinese blocks outside code blocks and generated regions.
+# After editing either side, bring the other along and re-record with:
 #   pnpm run verify-translation-pairing --write .agents/notes/implemented/architecture/2026-09-13-electron-plugin-pending-and-recovery.md
-2026-09-13-electron-plugin-pending-and-recovery.md: aed3af7b72d83cf313976e47db15d966813c974f
-2026-09-13-electron-plugin-pending-and-recovery.zh.md: 0fa125a66a0b943b46a26c7e0f48e535ba7e9108
+/agent-note-electron-plugin-pending-markers-profile-lock-and-startup-recovery:
+  en: dc5ba5aac017ec7e
+  zh: 197d1eaa4441a080
+/agent-note-electron-plugin-pending-markers-profile-lock-and-startup-recovery/problem:
+  en: aefb3112eff2703c
+  zh: def4028b81560625
+/agent-note-electron-plugin-pending-markers-profile-lock-and-startup-recovery/decision:
+  en: 1b74def9989b49d3
+  zh: 1f924472f9348cc6
+/agent-note-electron-plugin-pending-markers-profile-lock-and-startup-recovery/alternatives-considered:
+  en: a340e7ffcdc9acde
+  zh: c897eb5145a75030
+/agent-note-electron-plugin-pending-markers-profile-lock-and-startup-recovery/consequences:
+  en: 70702a3ac2eeb8a4
+  zh: 41c64e9a48d31474

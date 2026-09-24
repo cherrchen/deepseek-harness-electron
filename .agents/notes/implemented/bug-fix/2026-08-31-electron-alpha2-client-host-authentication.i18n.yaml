@@ -1,6 +1,22 @@
-# Bilingual-pair consistency record (docs/i18n/README.md): the git blob hash of each
-# side as of the last confirmed-consistent state. Both languages carry equal authority;
-# after editing either side, bring the other along and re-record with:
+# Bilingual-pair consistency record for 2026-08-31-electron-alpha2-client-host-authentication.md (docs/i18n/README.md): per heading
+# section, a hash of its English and Chinese blocks outside code blocks and generated regions.
+# After editing either side, bring the other along and re-record with:
 #   pnpm run verify-translation-pairing --write .agents/notes/implemented/bug-fix/2026-08-31-electron-alpha2-client-host-authentication.md
-2026-08-31-electron-alpha2-client-host-authentication.md: 412610b2ad1de3e3708ef853ff94df6ebbb4d08e
-2026-08-31-electron-alpha2-client-host-authentication.zh.md: 41a0519bf7329607ae7e961d2fbbfe70e595ef47
+/agent-note-electron-follows-the-alpha-4-client-and-host-authentication-apis:
+  en: 63f122cb4dc5112d
+  zh: 1a108e84b0bc896a
+/agent-note-electron-follows-the-alpha-4-client-and-host-authentication-apis/problem:
+  en: 5b44554f6c1228f2
+  zh: f27f9b769bd7ba1c
+/agent-note-electron-follows-the-alpha-4-client-and-host-authentication-apis/decision:
+  en: 9d8f892fbeb0c0d2
+  zh: 04b45dfc34344efc
+/agent-note-electron-follows-the-alpha-4-client-and-host-authentication-apis/verification:
+  en: f2f9897c2cfd7860
+  zh: d096c4ce0e57fe8f
+/agent-note-electron-follows-the-alpha-4-client-and-host-authentication-apis/alternatives-considered:
+  en: 9c288b85674fe995
+  zh: e7da226d169d989e
+/agent-note-electron-follows-the-alpha-4-client-and-host-authentication-apis/consequences:
+  en: fd974e7d98206698
+  zh: 42965ae93314420e
