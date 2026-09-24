@@ -8,6 +8,7 @@ interface ElectronManifest {
   dshElectron?: { ecosystemPlugins?: string[] }
   build: {
     extraMetadata: { name: string }
+    extraResources: Array<{ from: string; to: string }>
     nsis: { useZip: boolean; differentialPackage: boolean }
     win: { extraResources: Array<{ from: string; to: string }> }
   }
@@ -30,6 +31,16 @@ describe('Electron packaging', () => {
     expect(manifest.build.win.extraResources).toContainEqual({
       from: '.electron-build/node/current',
       to: 'node',
+    })
+  })
+
+  it('ships the prepared Network Runtime from an application-owned resource path', async () => {
+    const manifestPath = join(import.meta.dirname, '..', 'package.json')
+    const manifest = JSON.parse(await readFile(manifestPath, 'utf8')) as ElectronManifest
+
+    expect(manifest.build.extraResources).toContainEqual({
+      from: '.electron-build/network-runtime/current',
+      to: 'network-runtime',
     })
   })
 

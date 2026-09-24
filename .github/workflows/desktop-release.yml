@@ -172,6 +172,10 @@ jobs:
           node-version: 24
           cache: pnpm
 
+      - name: Install GNOME development libraries
+        if: runner.os == 'Linux'
+        run: sudo apt-get update && sudo apt-get install -y libglib2.0-dev
+
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
@@ -188,6 +192,9 @@ jobs:
         env:
           DSH_ELECTRON_TARGET_ARCH: ${{ matrix.arch }}
         run: pnpm --filter @dsh-electron/dsh-electron prepare:node
+
+      - name: Prepare Network Runtime
+        run: pnpm --filter @dsh-electron/dsh-electron prepare:network-runtime
 
       - name: Build installer
         run: pnpm --filter @dsh-electron/dsh-electron exec electron-builder ${{ matrix.args }} --publish never

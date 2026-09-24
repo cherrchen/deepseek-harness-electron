@@ -36,12 +36,13 @@ const { build } = require(resolveEsbuild())
 mkdirSync(join(root, 'lib', 'preload'), { recursive: true })
 
 await build({
-  entryPoints: [join(root, 'src', 'preload', 'index.ts')],
+  entryPoints: [join(root, 'src', 'preload', 'index.ts'), join(root, 'src', 'preload', 'network-credential.ts')],
   bundle: true,
   platform: 'node',
   format: 'cjs',
   target: 'node22',
-  outfile: join(root, 'lib', 'preload', 'index.cjs'),
+  outdir: join(root, 'lib', 'preload'),
+  outExtension: { '.js': '.cjs' },
   external: ['electron'],
   logLevel: 'info',
 })

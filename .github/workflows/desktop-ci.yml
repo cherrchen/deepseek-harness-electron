@@ -74,6 +74,12 @@ jobs:
       - name: Test Electron runtime
         run: pnpm --filter @dsh-electron/dsh-electron test
 
+      - name: Install GNOME development libraries
+        run: sudo apt-get update && sudo apt-get install -y libglib2.0-dev libglib2.0-bin gsettings-desktop-schemas
+
+      - name: Test Network Runtime
+        run: pnpm --filter @dsh-electron/dsh-electron test:network-runtime
+
   validate:
     name: Test and compile
     if: github.event_name != 'pull_request' || github.event.pull_request.user.login != 'dependabot[bot]' || github.base_ref == 'main'
@@ -127,6 +133,12 @@ jobs:
       - name: Test Electron runtime
         run: pnpm --filter @dsh-electron/dsh-electron test
 
+      - name: Install GNOME development libraries
+        run: sudo apt-get update && sudo apt-get install -y libglib2.0-dev libglib2.0-bin gsettings-desktop-schemas
+
+      - name: Test Network Runtime
+        run: pnpm --filter @dsh-electron/dsh-electron test:network-runtime
+
   windows-host-startup:
     name: Windows Host startup
     if: github.event_name != 'pull_request' || github.event.pull_request.user.login != 'dependabot[bot]' || github.base_ref == 'main'
@@ -148,3 +160,28 @@ jobs:
       # never opens the null device or observes console ownership.
       - name: Test supervised Host startup
         run: pnpm exec vitest run apps/electron/tests/runtime.spec.ts
+
+      - name: Test Windows Network Runtime
+        run: pnpm --filter @dsh-electron/dsh-electron test:network-runtime
+
+  network-runtime:
+    name: ${{ matrix.os }} Network Runtime
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-15]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v6
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 24
+          cache: pnpm
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+      - name: Install GNOME development libraries
+        if: runner.os == 'Linux'
+        run: sudo apt-get update && sudo apt-get install -y libglib2.0-dev libglib2.0-bin gsettings-desktop-schemas
+      - name: Test native Network Runtime
+        run: pnpm --filter @dsh-electron/dsh-electron test:network-runtime

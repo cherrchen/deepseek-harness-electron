@@ -15,6 +15,7 @@ import {
   Menu,
   nativeImage,
   nativeTheme,
+  safeStorage,
   screen,
   session,
   Tray,
@@ -33,7 +34,13 @@ import { HttpHarnessTransport } from './harness/transport.ts'
 import { installDesktopIpc } from './ipc.ts'
 import { readDesktopManifest, resolveUpdateRepository } from './manifest.ts'
 import { RENDERER_ENTRY_URL, RENDERER_ORIGIN } from './bridge-types.ts'
-import { loadUpdateChannel, saveUpdateChannel, type UpdateChannel } from './preferences.ts'
+import { DesktopPreferencesStore, loadUpdateChannel, saveUpdateChannel, type UpdateChannel } from './preferences.ts'
+import { DesktopNetworkController } from './network/controller.ts'
+import { ElectronProxyApplier } from './network/electron-proxy.ts'
+import { presentNetworkFailure } from './network/failure-dialog.ts'
+import { presentCredentialChallenge } from './network/credential-window.ts'
+import { NetworkRuntimeClient } from './network/runtime-client.ts'
+import { SafeStorageSecretStore } from './network/secret-store.ts'
 import {
   installRendererProtocol,
   registerRendererScheme,
@@ -86,7 +93,7 @@ import {
   trayIconRasterScale,
   trayIconSize,
 } from './tray.ts'
-import { createUpdater, type UpdaterController } from './updater.ts'
+import { createUpdater, updaterNetworkSession, type UpdaterController } from './updater.ts'
 import * as process from 'node:process'
 
 type HarnessProcess = ChildProcessByStdio<null, Readable, Readable>
@@ -98,12 +105,17 @@ let updater: UpdaterController | undefined
 let pluginLifecycle: PluginLifecycleController | undefined
 let pluginPackages: PluginPackageService | undefined
 let inventoryProbe: RemotePluginInventoryProbe | undefined
+let network: DesktopNetworkController | undefined
+let electronProxy: ElectronProxyApplier | undefined
+let networkDialogQueue: Promise<void> = Promise.resolve()
+let credentialPromptQueue: Promise<void> = Promise.resolve()
 let quitting = false
 let stopping = false
 const transport = new HttpHarnessTransport()
 const desktop = new DesktopServices({
   getWindow: () => mainWindow,
   getUpdater: () => updater,
+  getNetwork: () => network,
   showMainWindow,
   relaunch: relaunchDesktop,
 })
@@ -117,13 +129,17 @@ async function startHarness(
   harnessHome: string,
   hostPatch: string,
 ): Promise<{ child: HarnessProcess; url: string }> {
+  const activeNetwork = network
+  if (activeNetwork === undefined) throw new Error('desktop network: controller is unavailable')
+  const agentPolicy = activeNetwork.agentProxyPolicyForHost(process.env)
   const child = spawnHarnessChild(runtime.executable, harnessArguments(dshBin, hostPatch), {
     cwd: app.getPath('home'),
-    env: {
+    env: activeNetwork.environmentForHarness({
       ...process.env,
       DSH_HOME: harnessHome,
       ...runtime.env,
-    },
+      DSH_ELECTRON_AGENT_PROXY_POLICY: agentPolicy,
+    }),
   })
 
   return await new Promise((resolve, reject) => {
@@ -247,6 +263,7 @@ async function prepareToInstall(): Promise<void> {
   const child = harness
   harness = undefined
   if (child !== undefined) await stopHarness(child)
+  await network?.shutdown().catch(() => undefined)
 }
 
 /** Stop Host cleanly, then relaunch this Desktop process. */
@@ -418,6 +435,66 @@ if (!primaryInstance) {
   void app.whenReady().then(async () => {
     installRendererProtocol(resolveRendererRoot(app.getAppPath()), transport.harnessProxy)
     const appPath = app.getAppPath()
+    const userDataPath = app.getPath('userData')
+    network = new DesktopNetworkController({
+      userDataPath,
+      preferences: new DesktopPreferencesStore(userDataPath),
+      secrets: new SafeStorageSecretStore(join(userDataPath, 'network-secrets'), safeStorage),
+      relaunch: relaunchDesktop,
+      diagnosticFetch: async (url, signal) => {
+        const response = await updaterNetworkSession().fetch(url, { method: 'GET', redirect: 'manual', signal })
+        await response.body?.cancel()
+        // HTTPS responses are inside CONNECT and can carry origin headers unchanged.
+        const networkErrorCode = url.startsWith('http:') ? response.headers.get('x-dsh-network-error') : null
+        return { status: response.status, ...(networkErrorCode === null ? {} : { networkErrorCode }) }
+      },
+      onEpochChanged: () => { void electronProxy?.closeConnections().catch(() => undefined) },
+      onIncident: (incident) => {
+        const activeNetwork = network
+        if (activeNetwork === undefined) return
+        const messages = resolveDesktopMainLocale(app.getLocale()).messages
+        networkDialogQueue = networkDialogQueue.then(async () => {
+          if (activeNetwork.state().lastIncident?.id !== incident.id) return
+          const action = await presentNetworkFailure({
+            incident, messages, ...(mainWindow === undefined ? {} : { window: mainWindow }),
+            dialog: { showMessageBox: async (window, options) => window === undefined
+              ? dialog.showMessageBox(options) : dialog.showMessageBox(window, options) },
+          })
+          if (action === 'open-settings') {
+            showMainWindow()
+            activeNetwork.requestOpenSettings()
+          }
+          await activeNetwork.handleFailureAction(incident.id, action)
+        }).catch(() => undefined)
+      },
+      onCredentialRequired: (challenge) => {
+        const activeNetwork = network
+        if (activeNetwork === undefined) return
+        credentialPromptQueue = credentialPromptQueue.then(async () => {
+          if (!activeNetwork.isPendingChallenge(challenge.id)) return
+          const input = await presentCredentialChallenge({
+            challenge, locale: resolveDesktopMainLocale(app.getLocale()), appPath,
+            ...(mainWindow === undefined ? {} : { parent: mainWindow }),
+          })
+          await activeNetwork.submitCredential(challenge.id, input)
+        }).catch(() => {
+          dialog.showErrorBox(resolveDesktopMainLocale(app.getLocale()).messages.networkCredentialTitle,
+            resolveDesktopMainLocale(app.getLocale()).messages.networkCredentialFailed)
+        })
+      },
+    })
+    const activeNetwork = network
+    await network.prepare()
+    const networkRuntime = new NetworkRuntimeClient({
+      appPath,
+      resourcesPath: process.resourcesPath,
+      packaged: app.isPackaged,
+    })
+    await network.startRuntime(networkRuntime)
+    electronProxy = new ElectronProxyApplier(app, session.defaultSession)
+    const networkState = network.state()
+    if (networkState.effectiveMode !== 'default') await electronProxy.register(updaterNetworkSession(), 'updater')
+    await electronProxy.apply(networkState.effectiveMode, networkState.runtime.gateway, network.gatewayForUpdater())
     const hostRuntime = resolveHostRuntime({
       appPath,
       resourcesPath: process.resourcesPath,
@@ -426,7 +503,7 @@ if (!primaryInstance) {
     })
     const harnessHome = resolveHarnessHome(app.getPath('home'))
     ensureRuntimePluginsLinked(appPath, harnessHome)
-    const overlay = await prepareHostRuntimeOverlay(appPath, app.getPath('userData'), harnessHome)
+    const overlay = await prepareHostRuntimeOverlay(appPath, userDataPath, harnessHome)
     const loadedState = loadPluginState(overlay.pluginStatePath)
     for (const warning of loadedState.warnings) console.warn(warning)
     if (!existsSync(overlay.pluginStatePath) || loadedState.dirty) {
@@ -556,6 +633,7 @@ if (!primaryInstance) {
         harnessHome,
         profile: 'web',
         envPath: packageManager.envPath,
+        environmentForOwnedChild: base => activeNetwork.environmentForOwnedChild(base),
       }),
       pluginLifecycle,
       mutations,
@@ -575,24 +653,24 @@ if (!primaryInstance) {
     const repository = resolveUpdateRepository(readDesktopManifest(app.getAppPath()))
     if (repository === undefined) throw new Error('The packaged GitHub update repository is missing.')
     updater = createUpdater({
-      channel: loadUpdateChannel(app.getPath('userData')),
+      channel: loadUpdateChannel(userDataPath),
       getWindow: () => mainWindow,
       onChannelChanged: (channel) => {
-        try {
-          saveUpdateChannel(app.getPath('userData'), channel)
-        } catch (error: unknown) {
+        void saveUpdateChannel(userDataPath, channel).catch((error: unknown) => {
           console.error('Unable to save desktop preferences', error)
-        }
+        })
       },
       onStateChanged: installDesktopMenus,
       prepareToInstall,
       repository,
+      useManagedSession: networkState.effectiveMode !== 'default',
     })
     installDesktopMenus()
     void updater.check(false)
-  }).catch((error: unknown) => {
+  }).catch(async (error: unknown) => {
     const message = error instanceof Error ? error.message : String(error)
     dialog.showErrorBox(`${app.name} failed to start`, message)
+    await prepareToInstall().catch(() => undefined)
     requestQuit()
   })
 }

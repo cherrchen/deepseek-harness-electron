@@ -53,6 +53,9 @@ pnpm --filter @dsh-electron/dsh-electron test
 
 仓库的 Python 集成测试要求 PATH 中的 `python3` 指向 CPython 3.10+。若 mise 提示 shim 未激活，可为命令激活已安装版本，例如 `mise exec python@3.13.12 -- pnpm test packages/experimental/code-runtime-python/tests/runtime.spec.ts packages/experimental/code-runtime-python/tests/boot-write-failure.spec.ts`。请使用本机已安装的版本；运行测试前，`python3 --version` 必须成功。
 
+独立的 [Network Runtime](../../docs/electron/network-runtime.zh.md) 为 Manual HTTP、HTTPS、SOCKS5 和严格 System 策略路由提供环回 Gateway。验证命令及接入限制见该文档。
+[网络设置指南](../../docs/electron/network-settings.zh.md) 介绍设置页面、连接测试、安全存储提示及诊断信息。
+
 ## 桌面集成
 
 主窗口使用隐藏标题栏，不绘制独立 Heading。侧栏背景延伸至窗口顶部：macOS 在侧栏顶部保留可拖拽的“交通信号灯”区域，Windows 和 Linux 则把侧栏右侧的各列下移到原生控件行之下，使该区域留空并可拖拽；全屏右侧面板会在自身盒内保留同样的留白行。活动会话 Header 的非交互部分可拖拽，空白会话背景与留空区域由透明命中面覆盖。Header 控件被明确排除拖拽；模态对话框打开期间，页面的所有拖拽区域均会暂停，使对话框遮罩和控件能够保持指针输入。关闭主窗口会隐藏窗口，Harness 进程继续运行。通过托盘菜单可以重新打开窗口，也可以退出应用并停止受监管的子进程。
@@ -82,6 +85,10 @@ pnpm --filter @dsh-electron/dsh-electron test
 桌面 release 在 `develop` 上使用 `v{a.b.c}-beta.{x}`，在 `main` 上使用 `v{a.b.c}-rc.{x}`，稳定版使用 `v{a.b.c}`。[`sync-upstream.yml`](../../.github/workflows/sync-upstream.yml) 将上游合并到 `develop`，准备并推送下一个 Beta commit，仅在 Desktop CI 针对该提交成功后发布其 tag。开发者在创建 `develop` 到 `main` 的发布 PR（Pull Request）前，先运行 `pnpm electron:set-version <apps/cli version>`，再运行 `pnpm install --no-frozen-lockfile`，然后提交 Electron manifest 和 lockfile。Desktop CI 会拒绝来自其他分支、使用 Beta 版本或版本与 [`apps/cli/package.json`](../cli/package.json) 不一致的发布 PR。PR 合并后，[`desktop-promote.yml`](../../.github/workflows/desktop-promote.yml) 在已准备好的 `main` 提交上创建 RC 或 Stable tag，不修改任何分支。[`desktop-release.yml`](../../.github/workflows/desktop-release.yml) 在发布安装包前校验 tag 所在分支与 package 版本。
 
 ## 运行时与安全
+
+Electron Main 在 Host 启动前加载版本化 Desktop preferences。Network 基础在 partial write 期间保留更新通道，对无效 Network section 使用默认值且不丢弃有效通道，通过 `safeStorage` 加密 Manual 代理密码，拒绝 Linux `basic_text` 持久化，消费一次性 Default override，并集中派生 Default、Direct、Managed child 和选择启用的 Agent 环境。Default 不修改继承的子进程环境或 Electron 代理配置。
+
+Release 资源在固定的应用自有路径中包含 Rust Network Runtime。Manual 和 System 在 Harness 启动前启动并配置其 Gateway；Direct 显式设置 Electron 路由并清理受控子进程的代理变量。Default 不修改 Electron 代理设置和继承的子进程环境。关闭 Agent 代理后，Agent subprocess provider 保留继承的代理变量和 Harness home `.env` 中的代理值。Updater、插件命令及 Agent subprocess provider 各自遵循 Desktop 网络策略；支持的协议和当前限制见 [Network Runtime](../../docs/electron/network-runtime.zh.md)。
 
 受监督的 Harness 进程仅绑定 `127.0.0.1` 上的随机端口，且永远不是 BrowserWindow 的页面源。Renderer 无 Node.js 集成，启用上下文隔离与 Chromium 沙箱，仅接收类型化的 `window.deepseekDesktop` 桥接，且不能离开 `dsh-electron://localhost`。以新窗口请求的 HTTP/HTTPS 链接在系统浏览器中打开。
 

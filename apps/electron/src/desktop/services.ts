@@ -31,6 +31,8 @@ import {
   windowState,
 } from './index.ts'
 import type { UpdaterController } from '../updater.ts'
+import type { DesktopNetworkController } from '../network/controller.ts'
+import type { DesktopNetworkConfigInput, DesktopNetworkTestRequest } from '../network/domain.ts'
 
 /** Dependencies injected once the main window and updater exist. */
 export interface DesktopServicesOptions {
@@ -38,6 +40,8 @@ export interface DesktopServicesOptions {
   getWindow: () => BrowserWindowType | undefined
   /** Resolve the updater controller after it is created. */
   getUpdater: () => UpdaterController | undefined
+  /** Resolve the Main-owned network controller after startup. */
+  getNetwork: () => DesktopNetworkController | undefined
   /** Focus and restore the main window (notification click, tray). */
   showMainWindow: () => void
   /** Drain Host and relaunch the packaged Desktop process. */
@@ -53,6 +57,41 @@ export class DesktopServices {
   private readonly themeListeners = new Set<ThemeListener>()
   private readonly updaterListeners = new Set<UpdaterListener>()
   private themeHookInstalled = false
+
+  private network(): DesktopNetworkController {
+    const controller = this.options.getNetwork()
+    if (controller === undefined) throw new Error('desktop network: controller is unavailable')
+    return controller
+  }
+
+  /** @returns password-free network settings. */
+  getNetworkState() { return this.network().state() }
+
+  /** @returns password-free policy and runtime diagnostics. */
+  getNetworkDiagnostics() { return this.network().diagnostics() }
+
+  /** Save only a Main-validated configuration before restarting. */
+  saveNetworkAndRestart(input: DesktopNetworkConfigInput, discardUnavailablePassword: boolean): Promise<void> {
+    return this.network().saveAndRestart(input, { discardUnavailablePassword })
+  }
+
+  /** Restore Default and relaunch. */
+  restoreNetworkDefaultAndRestart(): Promise<void> { return this.network().restoreDefaultAndRestart() }
+
+  /** Refresh System policy in the current process. */
+  reloadSystemProxy() { return this.network().reloadSystemProxy() }
+
+  /** Run incident-free connection probes. */
+  testNetwork(request: DesktopNetworkTestRequest) { return this.network().test(request) }
+
+  /** Permit another attempt on the selected route. */
+  retryNetworkFailure() { return this.network().retryLastVisibleFailure() }
+
+  /** Delete the retained Manual password. */
+  removeManualPassword() { return this.network().removeManualPassword() }
+
+  /** Subscribe to sanitized network state. */
+  subscribeNetwork(listener: Parameters<DesktopNetworkController['subscribe']>[0]) { return this.network().subscribe(listener) }
 
   /**
    * @param options - Window / updater accessors owned by main.ts.
