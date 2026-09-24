@@ -6,6 +6,12 @@ import { DesktopCapabilitiesService } from './service.ts'
 
 export type { DesktopCapabilitiesContract } from './contract.ts'
 export type {
+  DesktopNetworkConfigInput, DesktopNetworkDiagnostics, DesktopNetworkMode,
+  DesktopNetworkReloadResult, DesktopNetworkRetryResult, DesktopNetworkState,
+  DesktopNetworkTestRequest, DesktopNetworkTestResult, DesktopNetworkTestItem, ManualProxyInput,
+  SanitizedManualProxy,
+} from './contract.ts'
+export type {
   PluginLifecycleEntry,
   PluginLifecycleSnapshot,
   PluginRuntimeState,

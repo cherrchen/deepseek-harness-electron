@@ -17,8 +17,10 @@ import {
   type PluginInstallRequest,
   type PluginInstallWireResult,
   type PluginPackageWireResult,
+  type NetworkSaveWireResult,
   type ThemeState,
 } from '../bridge-types.ts'
+import type { DesktopNetworkConfigInput, DesktopNetworkState, DesktopNetworkTestRequest } from '../network/domain.ts'
 
 function subscribeChannel<T>(
   channel: string,
@@ -190,6 +192,26 @@ const bridge: DeepseekDesktopBridge = {
     enable: (name: string) => ipcRenderer.invoke(DesktopIpcChannel.pluginsEnable, name),
     disable: (name: string) => ipcRenderer.invoke(DesktopIpcChannel.pluginsDisable, name),
     reload: (name: string) => ipcRenderer.invoke(DesktopIpcChannel.pluginsReload, name),
+  },
+  network: {
+    getState: () => ipcRenderer.invoke(DesktopIpcChannel.networkGetState),
+    saveAndRestart: async (input: DesktopNetworkConfigInput, discardUnavailablePassword = false) => {
+      const response = await ipcRenderer.invoke(
+        DesktopIpcChannel.networkSaveAndRestart, input, discardUnavailablePassword,
+      ) as NetworkSaveWireResult
+      if (response.ok) return
+      const error = new Error(response.error.message) as Error & { code: string }
+      error.code = response.error.code
+      throw error
+    },
+    restoreDefaultAndRestart: () => ipcRenderer.invoke(DesktopIpcChannel.networkRestoreDefaultAndRestart),
+    reloadSystemProxy: () => ipcRenderer.invoke(DesktopIpcChannel.networkReloadSystemProxy),
+    test: (request: DesktopNetworkTestRequest) => ipcRenderer.invoke(DesktopIpcChannel.networkTest, request),
+    getDiagnostics: () => ipcRenderer.invoke(DesktopIpcChannel.networkGetDiagnostics),
+    retryLastFailure: () => ipcRenderer.invoke(DesktopIpcChannel.networkRetryLastFailure),
+    removeManualPassword: () => ipcRenderer.invoke(DesktopIpcChannel.networkRemoveManualPassword),
+    subscribe: (callback: (state: DesktopNetworkState) => void) =>
+      subscribeChannel(DesktopIpcChannel.networkSubscribe, callback, value => value as DesktopNetworkState),
   },
 }
 

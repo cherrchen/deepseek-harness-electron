@@ -50,6 +50,15 @@ describe('desktop bridge constants', () => {
       'deepseek-desktop:plugins:enable',
       'deepseek-desktop:plugins:disable',
       'deepseek-desktop:plugins:reload',
+      'deepseek-desktop:network:getState',
+      'deepseek-desktop:network:saveAndRestart',
+      'deepseek-desktop:network:restoreDefaultAndRestart',
+      'deepseek-desktop:network:reloadSystemProxy',
+      'deepseek-desktop:network:test',
+      'deepseek-desktop:network:getDiagnostics',
+      'deepseek-desktop:network:retryLastFailure',
+      'deepseek-desktop:network:removeManualPassword',
+      'deepseek-desktop:network:subscribe',
     ])
   })
 

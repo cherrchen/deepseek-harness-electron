@@ -115,6 +115,7 @@ const transport = new HttpHarnessTransport()
 const desktop = new DesktopServices({
   getWindow: () => mainWindow,
   getUpdater: () => updater,
+  getNetwork: () => network,
   showMainWindow,
   relaunch: relaunchDesktop,
 })
@@ -440,6 +441,13 @@ if (!primaryInstance) {
       preferences: new DesktopPreferencesStore(userDataPath),
       secrets: new SafeStorageSecretStore(join(userDataPath, 'network-secrets'), safeStorage),
       relaunch: relaunchDesktop,
+      diagnosticFetch: async (url, signal) => {
+        const response = await updaterNetworkSession().fetch(url, { method: 'GET', redirect: 'manual', signal })
+        await response.body?.cancel()
+        // HTTPS responses are inside CONNECT and can carry origin headers unchanged.
+        const networkErrorCode = url.startsWith('http:') ? response.headers.get('x-dsh-network-error') : null
+        return { status: response.status, ...(networkErrorCode === null ? {} : { networkErrorCode }) }
+      },
       onEpochChanged: () => { void electronProxy?.closeConnections().catch(() => undefined) },
       onIncident: (incident) => {
         const activeNetwork = network
@@ -452,7 +460,10 @@ if (!primaryInstance) {
             dialog: { showMessageBox: async (window, options) => window === undefined
               ? dialog.showMessageBox(options) : dialog.showMessageBox(window, options) },
           })
-          if (action === 'open-settings') showMainWindow()
+          if (action === 'open-settings') {
+            showMainWindow()
+            activeNetwork.requestOpenSettings()
+          }
           await activeNetwork.handleFailureAction(incident.id, action)
         }).catch(() => undefined)
       },

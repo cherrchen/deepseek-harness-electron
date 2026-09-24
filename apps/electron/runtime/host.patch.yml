@@ -36,6 +36,8 @@
       name: '@dsh-electron/dsh-electron-ui-brand'
     - id: desktop-ui-plugin-manager
       name: '@dsh-electron/dsh-electron-ui-plugin-manager'
+    - id: desktop-ui-network-settings
+      name: '@dsh-electron/dsh-electron-ui-network-settings'
     - id: dsh-electron-ecosystem-plugins
       name: 'cordis:include'
       config:

@@ -54,6 +54,7 @@ pnpm --filter @dsh-electron/dsh-electron test
 Repository Python integration tests require CPython 3.10+ selected by `python3` on PATH. If mise reports an inactive shim, activate an installed version for the command, for example `mise exec python@3.13.12 -- pnpm test packages/experimental/code-runtime-python/tests/runtime.spec.ts packages/experimental/code-runtime-python/tests/boot-write-failure.spec.ts`. Use a version installed on your machine; `python3 --version` must succeed before running the tests.
 
 The independent [Network Runtime](../../docs/electron/network-runtime.md) provides a loopback Gateway for Manual HTTP, HTTPS, SOCKS5, and strict System policy routing. Its verification command and integration limits are documented there.
+The [Network Settings guide](../../docs/electron/network-settings.md) covers the Settings page, connection tests, secure storage prompts, and diagnostics.
 
 ## Desktop integration
 

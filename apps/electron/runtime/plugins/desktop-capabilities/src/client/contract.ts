@@ -73,6 +73,18 @@ export interface DesktopUpdaterSnapshot {
 /** Unsubscribe handle returned by desktop capability subscriptions. */
 export type DesktopUnsubscribe = () => void
 
+export type {
+  DesktopNetworkConfigInput, DesktopNetworkDiagnostics, DesktopNetworkMode,
+  DesktopNetworkReloadResult, DesktopNetworkRetryResult, DesktopNetworkState,
+  DesktopNetworkTestRequest, DesktopNetworkTestResult, DesktopNetworkTestItem, ManualProxyInput,
+  SanitizedManualProxy,
+} from '../../../../../src/network/domain.ts'
+import type {
+  DesktopNetworkConfigInput, DesktopNetworkDiagnostics, DesktopNetworkReloadResult,
+  DesktopNetworkRetryResult, DesktopNetworkState, DesktopNetworkTestRequest,
+  DesktopNetworkTestResult,
+} from '../../../../../src/network/domain.ts'
+
 /** Renderer-facing desktop capabilities for feature plugins (`ctx.desktop`). */
 export interface DesktopCapabilitiesContract {
   app: {
@@ -155,6 +167,17 @@ export interface DesktopCapabilitiesContract {
     /** Read the current window snapshot. */
     getState(): Promise<WindowState>
   }
+  network: {
+    getState(): Promise<DesktopNetworkState>
+    saveAndRestart(input: DesktopNetworkConfigInput, discardUnavailablePassword?: boolean): Promise<void>
+    restoreDefaultAndRestart(): Promise<void>
+    reloadSystemProxy(): Promise<DesktopNetworkReloadResult>
+    test(request: DesktopNetworkTestRequest): Promise<DesktopNetworkTestResult>
+    getDiagnostics(): Promise<DesktopNetworkDiagnostics>
+    retryLastFailure(): Promise<DesktopNetworkRetryResult>
+    removeManualPassword(): Promise<void>
+    subscribe(callback: (state: DesktopNetworkState) => void): DesktopUnsubscribe
+  }
 }
 
 /** Typed preload bridge subset used by the desktop capability provider. */
@@ -168,6 +191,7 @@ interface DesktopBridge {
   updater: DesktopCapabilitiesContract['updater']
   theme: DesktopCapabilitiesContract['theme']
   window: DesktopCapabilitiesContract['window']
+  network: DesktopCapabilitiesContract['network']
 }
 
 declare global {
@@ -243,6 +267,17 @@ export function createDesktopCapabilities(bridge: DesktopBridge): DesktopCapabil
       maximize: () => bridge.window.maximize(),
       close: () => bridge.window.close(),
       getState: () => bridge.window.getState(),
+    },
+    network: {
+      getState: () => bridge.network.getState(),
+      saveAndRestart: (input, discard) => bridge.network.saveAndRestart(input, discard),
+      restoreDefaultAndRestart: () => bridge.network.restoreDefaultAndRestart(),
+      reloadSystemProxy: () => bridge.network.reloadSystemProxy(),
+      test: request => bridge.network.test(request),
+      getDiagnostics: () => bridge.network.getDiagnostics(),
+      retryLastFailure: () => bridge.network.retryLastFailure(),
+      removeManualPassword: () => bridge.network.removeManualPassword(),
+      subscribe: callback => bridge.network.subscribe(callback),
     },
   }
 }

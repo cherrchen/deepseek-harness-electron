@@ -72,6 +72,7 @@ describe('runtime plugin discovery', () => {
     expect(names).toContain('@dsh-electron/dsh-electron-ui-directory-picker')
     expect(names).toContain('@dsh-electron/dsh-electron-ui-brand')
     expect(names).toContain('@dsh-electron/dsh-electron-ui-plugin-manager')
+    expect(names).toContain('@dsh-electron/dsh-electron-ui-network-settings')
     expect(names).toContain('@dsh-electron/dsh-theme-studio')
     expect(plugins.every(plugin => plugin.version.length > 0)).toBe(true)
     expect(plugins.find(plugin => plugin.name === '@dsh-electron/dsh-electron-desktop-capabilities')?.description)

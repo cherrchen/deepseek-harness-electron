@@ -9,6 +9,27 @@ import type { NetworkRuntimeClient } from '../src/network/runtime-client.ts'
 import { MANUAL_PROXY_PASSWORD_REF } from '../src/network/domain.ts'
 
 describe('Desktop Network controller foundation', () => {
+  it('broadcasts a dialog navigation request to independent subscribers without changing mode', async () => {
+    const fixture = await createFixture()
+    try {
+      await fixture.controller.prepare()
+      const first = vi.fn()
+      const second = vi.fn()
+      const unsubscribeFirst = fixture.controller.subscribe(first)
+      const unsubscribeSecond = fixture.controller.subscribe(second)
+      fixture.controller.requestOpenSettings()
+      expect(first).toHaveBeenCalledTimes(2)
+      expect(second).toHaveBeenCalledTimes(2)
+      expect(fixture.controller.state()).toMatchObject({ configuredMode: 'default', effectiveMode: 'default' })
+      expect(typeof fixture.controller.state().openSettingsRequestId).toBe('string')
+      unsubscribeFirst()
+      fixture.controller.requestOpenSettings()
+      expect(first).toHaveBeenCalledTimes(2)
+      expect(second).toHaveBeenCalledTimes(3)
+      unsubscribeSecond()
+    } finally { await rm(fixture.root, { recursive: true, force: true }) }
+  })
+
   it('configures the sole Manual endpoint before publishing the Gateway to Harness children', async () => {
     const fixture = await createFixture()
     try {

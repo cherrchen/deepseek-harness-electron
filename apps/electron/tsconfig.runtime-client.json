@@ -7,6 +7,9 @@
     "paths": {
       "@dsh-electron/dsh-electron-desktop-capabilities/client": [
         "./runtime/plugins/desktop-capabilities/src/client/index.ts"
+      ],
+      "@deepseek-ai/dsh-api-remotes/client": [
+        "../../packages/api/remotes/src/client/index.ts"
       ]
     }
   },

@@ -66,6 +66,17 @@ function createLazyDesktopCapabilities(): DesktopCapabilitiesContract {
       close: async () => resolve().window.close(),
       getState: async () => resolve().window.getState(),
     },
+    network: {
+      getState: async () => resolve().network.getState(),
+      saveAndRestart: async (input, discard) => resolve().network.saveAndRestart(input, discard),
+      restoreDefaultAndRestart: async () => resolve().network.restoreDefaultAndRestart(),
+      reloadSystemProxy: async () => resolve().network.reloadSystemProxy(),
+      test: async request => resolve().network.test(request),
+      getDiagnostics: async () => resolve().network.getDiagnostics(),
+      retryLastFailure: async () => resolve().network.retryLastFailure(),
+      removeManualPassword: async () => resolve().network.removeManualPassword(),
+      subscribe: callback => resolve().network.subscribe(callback),
+    },
   }
 }
 
@@ -80,6 +91,7 @@ export class DesktopCapabilitiesService extends Service implements DesktopCapabi
   readonly updater: DesktopCapabilitiesContract['updater']
   readonly theme: DesktopCapabilitiesContract['theme']
   readonly window: DesktopCapabilitiesContract['window']
+  readonly network: DesktopCapabilitiesContract['network']
 
   /**
    * @param ctx - Client root context.
@@ -96,5 +108,6 @@ export class DesktopCapabilitiesService extends Service implements DesktopCapabi
     this.updater = capabilities.updater
     this.theme = capabilities.theme
     this.window = capabilities.window
+    this.network = capabilities.network
   }
 }

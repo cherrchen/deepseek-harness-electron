@@ -24,6 +24,12 @@ import type {
   PluginRecoveryState,
   PluginUpdateInfo,
 } from './plugin-package-contract.ts'
+import type {
+  DesktopNetworkConfigInput, DesktopNetworkDiagnostics, DesktopNetworkReloadResult,
+  DesktopNetworkRetryResult, DesktopNetworkState, DesktopNetworkTestRequest,
+  DesktopNetworkTestResult,
+} from './network/domain.ts'
+import type { DesktopNetworkErrorCode } from './network/errors.ts'
 
 /** Privileged custom scheme that owns the packaged renderer origin. */
 export const RENDERER_SCHEME = 'dsh-electron'
@@ -69,6 +75,15 @@ export const DesktopIpcChannel = {
   pluginsEnable: 'deepseek-desktop:plugins:enable',
   pluginsDisable: 'deepseek-desktop:plugins:disable',
   pluginsReload: 'deepseek-desktop:plugins:reload',
+  networkGetState: 'deepseek-desktop:network:getState',
+  networkSaveAndRestart: 'deepseek-desktop:network:saveAndRestart',
+  networkRestoreDefaultAndRestart: 'deepseek-desktop:network:restoreDefaultAndRestart',
+  networkReloadSystemProxy: 'deepseek-desktop:network:reloadSystemProxy',
+  networkTest: 'deepseek-desktop:network:test',
+  networkGetDiagnostics: 'deepseek-desktop:network:getDiagnostics',
+  networkRetryLastFailure: 'deepseek-desktop:network:retryLastFailure',
+  networkRemoveManualPassword: 'deepseek-desktop:network:removeManualPassword',
+  networkSubscribe: 'deepseek-desktop:network:subscribe',
 } as const
 
 /** Host boot payload extracted from the supervised dsh web index HTML. */
@@ -233,7 +248,30 @@ export interface DeepseekDesktopBridge {
     /** Reload one enabled manageable bundled ecosystem plugin. */
     reload(name: string): Promise<void>
   }
+  network: {
+    /** Read sanitized Desktop network settings and runtime state. */
+    getState(): Promise<DesktopNetworkState>
+    /** Persist a validated configuration and relaunch. */
+    saveAndRestart(input: DesktopNetworkConfigInput, discardUnavailablePassword?: boolean): Promise<void>
+    /** Persist Default and relaunch while retaining the last Manual endpoint. */
+    restoreDefaultAndRestart(): Promise<void>
+    /** Refresh the active System policy without changing Desktop mode. */
+    reloadSystemProxy(): Promise<DesktopNetworkReloadResult>
+    /** Run explicit diagnostic probes without creating a failure incident. */
+    test(request: DesktopNetworkTestRequest): Promise<DesktopNetworkTestResult>
+    /** Read sanitized policy and failure details. */
+    getDiagnostics(): Promise<DesktopNetworkDiagnostics>
+    /** Permit another attempt on the current selected route. */
+    retryLastFailure(): Promise<DesktopNetworkRetryResult>
+    /** Delete the saved Manual password without changing the active route. */
+    removeManualPassword(): Promise<void>
+    /** Observe sanitized state changes. */
+    subscribe(callback: (state: DesktopNetworkState) => void): DesktopUnsubscribe
+  }
 }
+
+/** Structured save result preserves secure-storage failure codes through Electron IPC. */
+export type NetworkSaveWireResult = { ok: true } | { ok: false; error: { code: DesktopNetworkErrorCode; message: string } }
 
 export type {
   DesktopNotificationOptions,

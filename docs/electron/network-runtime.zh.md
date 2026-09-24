@@ -100,6 +100,6 @@ Desktop Host 挂载 subprocess provider，通过 Main 单独提供的代理策�
 
 ## 局限
 
-网络设置页面和诊断测试命令属于后续 UI 阶段；页面尚未实现时，“打开网络设置”会显示主窗口。不支持 SOCKS5 认证、任意 HTTP Upgrade、UDP、自定义代理 CA 配置、客户端证书、Manual bypass 和集成代理认证。
+[网络设置页面](network-settings.zh.md) 通过 updater Session 及其不产生 incident 的 Gateway 提供用户诊断。Gateway 自行生成的 HTTP 错误携带符号化的 `x-dsh-network-error` header，使连接测试能区分代理故障与目标站点的 HTTP 响应；Gateway 会从上游响应中移除此 header。原生对话框中的“打开网络设置”会显示主窗口并选中 Network section，不改变网络策略。不支持 SOCKS5 认证、任意 HTTP Upgrade、UDP、自定义代理 CA 配置、客户端证书、Manual bypass 和集成代理认证。
 
 [网络设置提案](../../.agents/notes/proposed/feature/2026-09-20-electron-managed-network-settings.zh.md) 负责整体架构及剩余接入工作。

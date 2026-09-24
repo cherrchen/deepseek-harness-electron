@@ -404,6 +404,7 @@ async fn failure_never_connects_to_origin_and_auth_events_are_sanitized() {
         let mut gateway = Gateway::new(cfg, default_tls()).await;
         let response = gateway.request(&format!("CONNECT 127.0.0.1:{target_port} HTTP/1.1\r\nHost: localhost\r\nConnection: close\r\n\r\n")).await;
         assert!(response.starts_with("HTTP/1.1 502"));
+        assert!(response.contains(&format!("x-dsh-network-error: {expected}")));
         task.await.unwrap();
         let mut events = Vec::new();
         while let Ok(event) = gateway.events.try_recv() {

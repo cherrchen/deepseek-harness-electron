@@ -73,18 +73,30 @@ describe('desktop capability provider contract', () => {
         close: async () => { calls.push('window.close') },
         getState: async () => { calls.push('window.getState'); return { isMaximized: false, isFullScreen: false } },
       },
+      network: {
+        getState: async () => { calls.push('network.getState'); return { configuredMode: 'default' as const } },
+        saveAndRestart: async () => { calls.push('network.saveAndRestart') },
+        restoreDefaultAndRestart: async () => { calls.push('network.restoreDefaultAndRestart') },
+        reloadSystemProxy: async () => { calls.push('network.reloadSystemProxy'); return {} },
+        test: async () => { calls.push('network.test'); return { startedAt: '', finishedAt: '', results: [] } },
+        getDiagnostics: async () => { calls.push('network.getDiagnostics'); return { mode: 'default' as const, runtime: { status: 'inactive' as const } } },
+        retryLastFailure: async () => { calls.push('network.retryLastFailure'); return { status: 'no-failure' as const } },
+        removeManualPassword: async () => { calls.push('network.removeManualPassword') },
+        subscribe: () => { calls.push('network.subscribe'); return () => undefined },
+      },
     }
     globalThis.window = { deepseekDesktop: bridge } as Window & typeof globalThis
 
     const desktop: DesktopCapabilitiesContract = createDesktopCapabilities(requireDesktopBridge())
     expect(Object.keys(desktop).sort()).toEqual([
-      'app', 'clipboard', 'dialog', 'notification', 'plugins', 'shell', 'theme', 'updater', 'window',
+      'app', 'clipboard', 'dialog', 'network', 'notification', 'plugins', 'shell', 'theme', 'updater', 'window',
     ])
     expect(await desktop.dialog.pickDirectory()).toEqual({ path: '/tmp' })
     expect(await desktop.updater.getState()).toEqual({ state: 'idle' })
     await desktop.clipboard.writeText('hello')
     desktop.updater.subscribe(() => {})
     expect(await desktop.plugins.list()).toEqual({ entries: [], pendingRestart: [] })
+    expect((await desktop.network.getState()).configuredMode).toBe('default')
     await desktop.app.relaunch()
     await desktop.plugins.install({ source: 'registry', packageName: '@example/plugin' })
     await desktop.plugins.enable('@example/plugin')

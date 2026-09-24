@@ -121,7 +121,7 @@ async fn handle(
 ) -> Result<Response<Body>, Infallible> {
     let target = target(&request);
     let Ok((host, port)) = target else {
-        return Ok(error_response(StatusCode::BAD_REQUEST));
+        return Ok(error_response(StatusCode::BAD_REQUEST, "INVALID_CONFIG"));
     };
     let tunnel = request.method() == Method::CONNECT;
     let budget = Duration::from_millis(generation.limits.connect_timeout_ms);
@@ -136,7 +136,7 @@ async fn handle(
             Ok(snapshot) => Some(snapshot),
             Err(failure) => {
                 events.emit("proxy_failure", serde_json::json!({"failure": {"code": failure.0, "retryable": true}, "stage": "system-resolution"}));
-                return Ok(error_response(StatusCode::BAD_GATEWAY));
+                return Ok(error_response(StatusCode::BAD_GATEWAY, failure.0));
             }
         }
     } else {
@@ -183,7 +183,7 @@ async fn handle(
         Ok(socket) => socket,
         Err(failure) => {
             report(&events, &route, failure);
-            return Ok(error_response(StatusCode::BAD_GATEWAY));
+            return Ok(error_response(StatusCode::BAD_GATEWAY, failure.0));
         }
     };
     if tunnel {
@@ -260,13 +260,19 @@ async fn handle(
                         .headers()
                         .get(PROXY_AUTHENTICATE)
                         .and_then(|value| value.to_str().ok());
-                    report(&events, &route, connector::auth_failure(proxy, challenge));
+                    let failure = connector::auth_failure(proxy, challenge);
+                    report(&events, &route, failure);
+                    return Ok(error_response(StatusCode::BAD_GATEWAY, failure.0));
                 }
-                return Ok(error_response(StatusCode::BAD_GATEWAY));
+                return Ok(error_response(
+                    StatusCode::BAD_GATEWAY,
+                    "PROXY_AUTH_REQUIRED",
+                ));
             }
             events.emit("route_succeeded", serde_json::json!({"route": route}));
             strip_hop_headers(response.headers_mut());
             response.headers_mut().remove(PROXY_AUTHENTICATE);
+            response.headers_mut().remove("x-dsh-network-error");
             Ok(response.map(|body| body.boxed()))
         }
         other => {
@@ -281,7 +287,7 @@ async fn handle(
                 })
                 .unwrap_or(Failure("TARGET_CONNECT_FAILED"));
             report(&events, &route, failure);
-            Ok(error_response(StatusCode::BAD_GATEWAY))
+            Ok(error_response(StatusCode::BAD_GATEWAY, failure.0))
         }
     }
 }
@@ -348,9 +354,12 @@ fn empty() -> Body {
         .map_err(|never| match never {})
         .boxed()
 }
-fn error_response(status: StatusCode) -> Response<Body> {
+fn error_response(status: StatusCode, code: &'static str) -> Response<Body> {
     let mut response = Response::new(empty());
     *response.status_mut() = status;
+    response
+        .headers_mut()
+        .insert("x-dsh-network-error", HeaderValue::from_static(code));
     response
 }
 fn report(events: &Events, route: &serde_json::Value, failure: Failure) {

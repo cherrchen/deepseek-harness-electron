@@ -100,6 +100,6 @@ The Desktop Host mounts a subprocess provider that derives Agent child environme
 
 ## Limitations
 
-The Network Settings page and diagnostic test commands belong to the later UI milestone; until that page exists, Open Network Settings raises the main window. SOCKS5 authentication, arbitrary HTTP Upgrade, UDP, custom proxy CA configuration, client certificates, Manual bypass, and integrated proxy authentication are unsupported.
+The [Network Settings page](network-settings.md) exposes user diagnostics through the updater Session and its incident-free Gateway. Gateway-generated HTTP errors carry a symbolic `x-dsh-network-error` header so connection tests distinguish proxy failure from an origin HTTP response; the Gateway removes that header from upstream responses. The native dialog's Open Network Settings action raises the main window and selects the Network section without changing policy. SOCKS5 authentication, arbitrary HTTP Upgrade, UDP, custom proxy CA configuration, client certificates, Manual bypass, and integrated proxy authentication are unsupported.
 
 The [network settings proposal](../../.agents/notes/proposed/feature/2026-09-20-electron-managed-network-settings.md) owns the overall architecture and remaining integration work.

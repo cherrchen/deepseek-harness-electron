@@ -3,8 +3,13 @@ import type { DesktopNetworkPreferencesV1 } from '../preferences.ts'
 import { DesktopPreferencesStore } from '../preferences.ts'
 import type {
   DesktopNetworkConfigInput,
+  DesktopNetworkDiagnostics,
   DesktopNetworkIncidentSummary,
+  DesktopNetworkReloadResult,
+  DesktopNetworkRetryResult,
   DesktopNetworkState,
+  DesktopNetworkTestRequest,
+  DesktopNetworkTestResult,
   ProxyCredentialChallenge,
   ProxyCredentialSubmission,
   PasswordChange,
@@ -32,6 +37,7 @@ import { NetworkRuntimeClient } from './runtime-client.ts'
 import type { NetworkRuntimeObservation } from './runtime-client.ts'
 import { DesktopNetworkOperationError } from './errors.ts'
 import type { RuntimeSystemSnapshot } from './runtime-protocol.ts'
+import { runNetworkTests, type NetworkDiagnosticFetch } from './test-service.ts'
 
 /** Dependencies that keep the controller independent of Electron globals. */
 export interface DesktopNetworkControllerOptions {
@@ -42,6 +48,7 @@ export interface DesktopNetworkControllerOptions {
   onIncident?: (incident: DesktopNetworkIncidentSummary) => void
   onEpochChanged?: () => void
   onCredentialRequired?: (challenge: ProxyCredentialChallenge) => void
+  diagnosticFetch?: NetworkDiagnosticFetch
 }
 
 /** Main-owned lifecycle, policy generation, credential, and incident authority. */
@@ -56,6 +63,7 @@ export class DesktopNetworkController {
   private credentialPrompted = false
   private pendingChallenge: ProxyCredentialChallenge | undefined
   private reloadingSystem = false
+  private readonly listeners = new Set<(state: DesktopNetworkState) => void>()
 
   /** @param options - Main-owned persistence, secret, and lifecycle services. */
   constructor(private readonly options: DesktopNetworkControllerOptions) {}
@@ -67,7 +75,7 @@ export class DesktopNetworkController {
     const secureStorage = await this.options.secrets.status()
     const configuredMode = loaded.preferences.network.mode
     const effectiveMode = oneShot.override?.mode ?? configuredMode
-    this.current = {
+    this.setCurrent({
       configuredMode,
       effectiveMode,
       ...(oneShot.override === undefined ? {} : { startupOverride: oneShot.override.mode }),
@@ -78,7 +86,7 @@ export class DesktopNetworkController {
       runtime: { status: 'inactive' },
       secureStorage,
       testSettings: loaded.preferences.network.tests,
-    }
+    })
     if (oneShot.warning !== undefined) console.warn(oneShot.warning)
   }
 
@@ -88,11 +96,66 @@ export class DesktopNetworkController {
     return structuredClone(this.current)
   }
 
+  /** Receive sanitized state changes, including epoch and incident changes. */
+  subscribe(listener: (state: DesktopNetworkState) => void): () => void {
+    this.listeners.add(listener)
+    if (this.current !== undefined) listener(this.state())
+    return () => { this.listeners.delete(listener) }
+  }
+
+  /** Ask the mounted Desktop settings page to show Network for the current incident. */
+  requestOpenSettings(): void {
+    this.setCurrent({ ...this.state(), openSettingsRequestId: randomUUID() })
+  }
+
+  private setCurrent(state: DesktopNetworkState): void {
+    this.current = state
+    for (const listener of this.listeners) listener(this.state())
+  }
+
+  /** @returns sanitized runtime policy and failure diagnostics. */
+  async diagnostics(): Promise<DesktopNetworkDiagnostics> {
+    const state = this.state()
+    let system: RuntimeSystemSnapshot | undefined
+    if (state.effectiveMode === 'system' && this.runtime !== undefined && state.runtime.status === 'ready') {
+      try { system = (await this.runtime.diagnostics()).system }
+      catch { /* Runtime status and last failure remain visible after a diagnostic read fails. */ }
+    }
+    return {
+      mode: state.effectiveMode,
+      ...(state.epoch === undefined ? {} : { epoch: state.epoch }),
+      runtime: { status: state.runtime.status,
+        ...(state.runtime.gateway === undefined ? {} : { gateway: `http://${state.runtime.gateway.host}:${state.runtime.gateway.port}` }) },
+      ...(system === undefined ? {} : { system: {
+        backend: system.backend, policySource: system.policySource,
+        ...(system.selectedRoute === undefined ? {} : { selectedRoute: system.selectedRoute }),
+        alternativeRoutes: system.alternativeRoutes, pac: system.pac,
+        policyFingerprint: system.policyFingerprint,
+        ...(system.error === undefined ? {} : { error: system.error }),
+      } }),
+      ...(state.lastIncident === undefined ? {} : { lastFailure: state.lastIncident }),
+    }
+  }
+
+  /** Run user-requested probes without creating proxy incidents or changing the epoch. */
+  async test(request: DesktopNetworkTestRequest): Promise<DesktopNetworkTestResult> {
+    const fetchOne = this.options.diagnosticFetch
+    if (fetchOne === undefined) throw new Error('desktop network: diagnostic transport is unavailable')
+    const state = this.state()
+    const manualRoute = state.effectiveMode === 'manual' && state.manual !== undefined
+      ? { kind: state.manual.protocol, host: state.manual.host, port: state.manual.port, source: 'manual' as const }
+      : undefined
+    const routeForTest = state.effectiveMode === 'manual' ? () => Promise.resolve(manualRoute)
+      : state.effectiveMode === 'system' ? async () => (await this.diagnostics()).system?.selectedRoute
+        : undefined
+    return await runNetworkTests(request, state.testSettings, fetchOne, routeForTest)
+  }
+
   /** Start the native Gateway before any managed Desktop or Harness request can run. */
   async startRuntime(runtime: NetworkRuntimeClient): Promise<void> {
     const state = this.state()
     if (state.effectiveMode === 'default' || state.effectiveMode === 'direct') return
-    this.current = { ...state, runtime: { status: 'starting' } }
+    this.setCurrent({ ...state, runtime: { status: 'starting' } })
     this.runtime = runtime
     runtime.onEvent((event) => { this.receiveRuntimeEvent(event) })
     try {
@@ -119,12 +182,12 @@ export class DesktopNetworkController {
       }
       this.setGateway(hello.gateway)
       this.updaterGateway = hello.updaterGateway
-      this.current = { ...this.state(), runtime: {
+      this.setCurrent({ ...this.state(), runtime: {
         status: 'ready', gateway: hello.gateway,
         protocolVersion: hello.protocolVersion,
         systemBackend: hello.systemBackend,
         capabilities: hello.capabilities,
-      } }
+      } })
       let snapshot: RuntimeSystemSnapshot | undefined
       if (state.effectiveMode === 'system') {
         try { snapshot = await runtime.getSystemSnapshot() }
@@ -132,7 +195,7 @@ export class DesktopNetworkController {
       }
       this.beginEpoch('startup', snapshot)
     } catch (error) {
-      this.current = { ...this.state(), runtime: { status: 'failed' } }
+      this.setCurrent({ ...this.state(), runtime: { status: 'failed' } })
       await runtime.shutdown()
       throw error
     }
@@ -141,25 +204,36 @@ export class DesktopNetworkController {
   /** Stop the Gateway after its consumers have drained. */
   async shutdown(): Promise<void> {
     await this.runtime?.shutdown()
-    if (this.current !== undefined) this.current = { ...this.current, runtime: { status: 'stopped' } }
+    if (this.current !== undefined) this.setCurrent({ ...this.current, runtime: { status: 'stopped' } })
   }
 
   /** Re-read System policy, invalidate old tunnels, and create a fresh user epoch. */
-  async reloadSystemProxy(): Promise<RuntimeSystemSnapshot> {
+  async reloadSystemProxy(): Promise<DesktopNetworkReloadResult> {
     if (this.state().effectiveMode !== 'system' || this.runtime === undefined) {
-      throw new Error('desktop network: System proxy is not active')
+      throw new DesktopNetworkOperationError('NOT_IN_SYSTEM_MODE', 'System proxy is not active.')
     }
     this.reloadingSystem = true
     try {
+      const previousEpochId = this.state().epoch?.id
       const snapshot = await this.runtime.reloadSystem()
       this.beginEpoch('user-reload', snapshot)
-      return snapshot
+      const epoch = this.state().epoch
+      if (epoch === undefined) throw new Error('desktop network: reload did not create an epoch')
+      return { ...(previousEpochId === undefined ? {} : { previousEpochId }), epoch,
+        system: (await this.diagnostics()).system }
     } finally { this.reloadingSystem = false }
   }
 
   /** Record that the user will retry the same route; no business request is replayed. */
   retryLastFailure(incidentId: string): 'started' | 'no-failure' | 'stale-incident' {
     return this.incidents.retry(incidentId)
+  }
+
+  /** Retry the last visible incident without replaying its business request. */
+  retryLastVisibleFailure(): DesktopNetworkRetryResult {
+    const incidentId = this.state().lastIncident?.id
+    return incidentId === undefined ? { status: 'no-failure' }
+      : { status: this.retryLastFailure(incidentId), incidentId }
   }
 
   /** @returns whether the credential prompt still belongs to the active epoch. */
@@ -210,7 +284,7 @@ export class DesktopNetworkController {
     this.beginEpoch('manual-config-applied')
     if (input.action === 'save-securely') {
       const saved = { ...manual, username: input.username, credentialRef: MANUAL_PROXY_PASSWORD_REF }
-      this.current = { ...this.state(), ...sanitizedManualFields(saved, true) }
+      this.setCurrent({ ...this.state(), ...sanitizedManualFields(saved, true) })
     }
   }
 
@@ -275,6 +349,17 @@ export class DesktopNetworkController {
     await this.options.relaunch()
   }
 
+  /** Delete the retained Manual password while preserving its endpoint and username. */
+  async removeManualPassword(): Promise<void> {
+    const manual = this.options.preferences.load().preferences.network.manual
+    if (manual === undefined || manual.protocol === 'socks5' || manual.credentialRef === undefined) return
+    await this.options.secrets.delete(manual.credentialRef)
+    const next = { protocol: manual.protocol, host: manual.host, port: manual.port,
+      ...(manual.username === undefined ? {} : { username: manual.username }) } as PersistedAuthenticatedProxy
+    await this.options.preferences.updateNetwork({ manual: next })
+    this.setCurrent({ ...this.state(), ...sanitizedManualFields(next, this.state().configuredMode === 'manual') })
+  }
+
   /** Set the ephemeral Gateway returned by a later runtime implementation. */
   setGateway(gateway: DesktopGatewayEndpoint | undefined): void {
     this.gateway = gateway
@@ -319,7 +404,7 @@ export class DesktopNetworkController {
     this.pendingChallenge = undefined
     this.credentialPrompted = false
     const lastIncident = this.incidents.last()
-    this.current = { ...this.state(), epoch, ...(lastIncident === undefined ? {} : { lastIncident }) }
+    this.setCurrent({ ...this.state(), epoch, ...(lastIncident === undefined ? {} : { lastIncident }) })
     this.options.onEpochChanged?.()
   }
 
@@ -329,7 +414,7 @@ export class DesktopNetworkController {
       const failure = classifyNetworkFailure({ code: 'NETWORK_RUNTIME_EXITED' })
       this.pendingChallenge = undefined
       this.credentialPrompted = false
-      this.current = { ...this.current, runtime: { ...this.current.runtime, status: 'failed', lastError: failure } }
+      this.setCurrent({ ...this.current, runtime: { ...this.current.runtime, status: 'failed', lastError: failure } })
       this.reportFailure(failure, this.lastRoute)
       return
     }
@@ -345,7 +430,7 @@ export class DesktopNetworkController {
         this.pendingChallenge = undefined
         this.credentialPrompted = false
         const lastIncident = this.incidents.last()
-        this.current = { ...this.current, epoch: next, ...(lastIncident === undefined ? {} : { lastIncident }) }
+        this.setCurrent({ ...this.current, epoch: next, ...(lastIncident === undefined ? {} : { lastIncident }) })
         this.options.onEpochChanged?.()
       }
       return
@@ -362,7 +447,7 @@ export class DesktopNetworkController {
         this.credentialPrompted = false
       }
       const resolved = this.incidents.resolve(this.epochs.state()?.id ?? '', succeededRoute)
-      if (resolved !== undefined) this.current = { ...this.current, lastIncident: resolved }
+      if (resolved !== undefined) this.setCurrent({ ...this.current, lastIncident: resolved })
       return
     }
     if (event.event === 'credential_required' || event.event === 'credential_rejected') {
@@ -398,7 +483,7 @@ export class DesktopNetworkController {
       failure,
     })
     if (recorded === undefined) return
-    this.current = { ...state, lastIncident: recorded.incident }
+    this.setCurrent({ ...state, lastIncident: recorded.incident })
     if (recorded.showDialog) this.options.onIncident?.(recorded.incident)
   }
 

@@ -8,7 +8,11 @@ import {
   type HostHttpRequest,
   type ThemeState,
   type DesktopUpdaterSnapshot,
+  type NetworkSaveWireResult,
 } from './bridge-types.ts'
+import type { DesktopNetworkConfigInput, DesktopNetworkState } from './network/domain.ts'
+import { DesktopNetworkConfigError, DesktopNetworkOperationError } from './network/errors.ts'
+import { parseNetworkTestRequest } from './network/test-service.ts'
 import { DesktopServices, parsePickDirectoryOptions } from './desktop/services.ts'
 import type { HarnessTransport } from './harness/transport.ts'
 import type { PluginLifecycleController } from './plugin-lifecycle.ts'
@@ -18,6 +22,7 @@ import { PluginPackageError } from './plugin-package-contract.ts'
 
 const updaterSubscriptions = new WeakMap<WebContents, () => void>()
 const themeSubscriptions = new WeakMap<WebContents, () => void>()
+const networkSubscriptions = new WeakMap<WebContents, Set<() => void>>()
 
 /**
  * Register desktop IPC handlers once after the Harness transport exists.
@@ -144,6 +149,51 @@ export function installDesktopIpc(
   ipcMain.handle(DesktopIpcChannel.windowGetState, (event) => {
     guard(event)
     return desktop.getWindowState()
+  })
+
+  ipcMain.handle(DesktopIpcChannel.networkGetState, (event) => {
+    guard(event)
+    return desktop.getNetworkState()
+  })
+
+  ipcMain.handle(DesktopIpcChannel.networkSaveAndRestart, async (
+    event, input: unknown, discard: unknown,
+  ): Promise<NetworkSaveWireResult> => {
+    guard(event)
+    if (discard !== undefined && typeof discard !== 'boolean') throw new Error('desktop network: invalid save option')
+    try {
+      await desktop.saveNetworkAndRestart(input as DesktopNetworkConfigInput, discard === true)
+      return { ok: true }
+    } catch (error) {
+      const known = error instanceof DesktopNetworkConfigError || error instanceof DesktopNetworkOperationError
+      return { ok: false, error: { code: known ? error.code : 'UNKNOWN',
+        message: known ? error.message : 'Network settings could not be saved.' } }
+    }
+  })
+
+  ipcMain.handle(DesktopIpcChannel.networkRestoreDefaultAndRestart, async (event) => {
+    guard(event)
+    await desktop.restoreNetworkDefaultAndRestart()
+  })
+  ipcMain.handle(DesktopIpcChannel.networkReloadSystemProxy, async (event) => {
+    guard(event)
+    return await desktop.reloadSystemProxy()
+  })
+  ipcMain.handle(DesktopIpcChannel.networkTest, async (event, request: unknown) => {
+    guard(event)
+    return await desktop.testNetwork(parseNetworkTestRequest(request))
+  })
+  ipcMain.handle(DesktopIpcChannel.networkGetDiagnostics, async (event) => {
+    guard(event)
+    return await desktop.getNetworkDiagnostics()
+  })
+  ipcMain.handle(DesktopIpcChannel.networkRetryLastFailure, (event) => {
+    guard(event)
+    return desktop.retryNetworkFailure()
+  })
+  ipcMain.handle(DesktopIpcChannel.networkRemoveManualPassword, async (event) => {
+    guard(event)
+    await desktop.removeManualPassword()
   })
 
   ipcMain.handle(DesktopIpcChannel.pluginsList, async (event) => {
@@ -278,6 +328,23 @@ export function installDesktopIpc(
     port.on('close', () => {
       unsubscribe()
       themeSubscriptions.delete(event.sender)
+    })
+  })
+
+  ipcMain.on(DesktopIpcChannel.networkSubscribe, (event) => {
+    if (!guardEvent(event)) return
+    const port = event.ports[0]
+    if (port === undefined) return
+    const unsubscribe = desktop.subscribeNetwork((state: DesktopNetworkState) => {
+      try { port.postMessage(state) } catch { /* Renderer disposed the subscription. */ }
+    })
+    const subscriptions = networkSubscriptions.get(event.sender) ?? new Set<() => void>()
+    subscriptions.add(unsubscribe)
+    networkSubscriptions.set(event.sender, subscriptions)
+    port.on('close', () => {
+      unsubscribe()
+      subscriptions.delete(unsubscribe)
+      if (subscriptions.size === 0) networkSubscriptions.delete(event.sender)
     })
   })
 }

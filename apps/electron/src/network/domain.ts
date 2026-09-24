@@ -228,6 +228,8 @@ export interface DesktopNetworkState {
   secureStorage: DesktopSecureStorageState
   epoch?: NetworkEpochSummary
   lastIncident?: DesktopNetworkIncidentSummary
+  /** Navigation request from a failure dialog; never changes network policy. */
+  openSettingsRequestId?: string
   testSettings: DesktopNetworkTestSettings
 }
 
@@ -260,6 +262,36 @@ export interface DesktopNetworkTestResult {
   startedAt: string
   finishedAt: string
   results: DesktopNetworkTestItem[]
+}
+
+/** Sanitized runtime and policy details shown only in Advanced settings. */
+export interface DesktopNetworkDiagnostics {
+  mode: DesktopNetworkMode
+  epoch?: NetworkEpochSummary
+  runtime: { status: DesktopNetworkRuntimeState['status']; gateway?: string }
+  system?: {
+    backend: SystemProxyBackend
+    policySource: SystemProxyPolicySource
+    selectedRoute?: SanitizedResolvedRoute
+    alternativeRoutes: SanitizedResolvedRoute[]
+    pac: { configured: boolean; state: 'none' | 'loading' | 'loaded' | 'failed' }
+    policyFingerprint: string
+    error?: DesktopNetworkErrorSummary
+  }
+  lastFailure?: DesktopNetworkIncidentSummary
+}
+
+/** Result of explicitly refreshing the active System policy. */
+export interface DesktopNetworkReloadResult {
+  previousEpochId?: string
+  epoch: NetworkEpochSummary
+  system: DesktopNetworkDiagnostics['system']
+}
+
+/** User action that permits the same selected route to be tried again. */
+export interface DesktopNetworkRetryResult {
+  status: 'started' | 'no-failure' | 'stale-incident'
+  incidentId?: string
 }
 
 /** Runtime-effective Manual route; password exists only in Main/runtime memory. */

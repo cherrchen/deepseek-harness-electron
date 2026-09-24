@@ -22,7 +22,7 @@ System 解析可以为诊断返回有序路由，但执行只接受第一条最�
 
 Preferences 文档使用 schema version 1，并保留更新通道、一份 Manual draft、Agent 选择和诊断 URL。Writer 在 Desktop 单实例 writer queue 中重新读取并合并，flush 随机独占 sibling，再原子 rename，并在平台支持时 flush 父目录。无效 Network 数据回退到 Default，但不丢弃有效更新通道。
 
-Main-only secret store 使用 Electron `safeStorage` 加密值，拒绝 Linux `basic_text`，在 preferences 中只存储 branded reference，并只向未来 Renderer consumer 返回 `hasPassword`。One-shot override 只接受 Default，并在使用前删除。
+Main-only secret store 使用 Electron `safeStorage` 加密值，拒绝 Linux `basic_text`，在 preferences 中只存储 branded reference，并只向 Renderer consumer 返回 `hasPassword`。One-shot override 只接受 Default，并在使用前删除。
 
 环境策略是纯 mode 决策。Default 原样复制输入；Direct 删除所有大小写代理变量和 `NODE_USE_ENV_PROXY`；System 和 Manual 通过环回 Gateway 路由 Desktop 自有子进程；除非用户选择启用，Agent 进程保留现有环境，但 Direct 始终删除代理变量。Desktop Host 用子类替换上游本地 subprocess provider，将 Main 单独提供的 Agent 策略应用于可执行文件查找、普通 spawn 和 PTY spawn。此做法保留上游 provider 的进程约束与关闭行为，同时处理 Host 的 Gateway 环境。
 
@@ -31,6 +31,8 @@ Main-only secret store 使用 Electron `safeStorage` 加密值，拒绝 Linux `b
 Main 负责 epoch 和 incident 的生命周期，不让 Gateway 持有 UI 状态。指纹变化会更新 System epoch；Manual 凭据应用和用户重载会创建显式 epoch。真实流量故障按 epoch、路由、错误类别和重试代去重。除非用户选择单次 Default 或二次确认永久 Default，原生对话框保留已选路由；Runtime 崩溃后仅在用户重试时重启 Desktop。独立的环回 listener 让 updater 流量使用同一所选路由，但不发布全局 incident。Manual Basic 凭据可保存到 Desktop 加密存储；System Basic 凭据仅限单个 Runtime 配置代和匹配的所选端点。不支持的认证方案会明确失败。
 
 System provider 使用当前用户 WinHTTP、CFNetwork 及 GNOME/KDE 设置。每次解析都在有时限的 helper 进程中运行，Linux PAC 使用限制内存且不提供文件系统或环境变量 API 的 QuickJS context。原生设置通知和网络指纹使现有连接失效。macOS 原生测试覆盖有序 PAC 输出、畸形首项、可重复快照及重新加载；Desktop CI 负责 Windows WinHTTP 和隔离 GNOME/KDE 设置的执行验证。签名包、安装程序、企业 WPAD 和集成认证仍需平台验收。
+
+网络页面作为必需的 Desktop Client 插件注册到共享 Settings section。它只使用封闭的 `ctx.desktop.network` capability；Main 将其接到受信任 IPC handler 和类型化 preload bridge。Main 再次验证配置，且只返回脱敏状态。连接测试使用 updater Session 中不产生 incident 的 Gateway；测试结果不影响保存，目标站点的 HTTP 响应表示可达，而 Gateway 错误单独标识。Client 用固定占位符表示已保存密码，只提交替换或移除动作，并在安全存储不可用时先询问是否丢弃新密码。页面列出已注册的 LLM provider，并要求显式填写 health URL；它不发送模型请求。原生对话框的导航请求经脱敏 Network 状态传递，并操作现有 Settings 控件，使下游快捷入口无需修改上游包。
 
 ## Alternatives considered
 
