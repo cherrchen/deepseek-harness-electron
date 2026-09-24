@@ -1,6 +1,34 @@
-# Bilingual-pair consistency record (docs/i18n/README.md): the git blob hash of each
-# side as of the last confirmed-consistent state. Both languages carry equal authority;
-# after editing either side, bring the other along and re-record with:
+# Bilingual-pair consistency record for README.md (docs/i18n/README.md): per heading
+# section, a hash of its English and Chinese blocks outside code blocks and generated regions.
+# After editing either side, bring the other along and re-record with:
 #   pnpm run verify-translation-pairing --write README.md
-README.md: de169af4aa747e19fcc2c1c043a8ae39547e802c
-README.zh.md: 917e74a4444110a59521a09e913e503f66c95ed2
+/deepseek-harness-desktop:
+  en: ecbfe9e67042ee37
+  zh: 68464c846ae3edc7
+/deepseek-harness-desktop/status:
+  en: 5c1da8593a34d32b
+  zh: c92dedeb861312f2
+/deepseek-harness-desktop/status/maintenance-outlook:
+  en: 00a2d71022e2d523
+  zh: a19e31054ac6f9b2
+/deepseek-harness-desktop/install:
+  en: 92a328a78378eb0d
+  zh: 81f39cf5e9e23ee3
+/deepseek-harness-desktop/run-from-source:
+  en: 36319ec559979e4d
+  zh: 146b2eef3bfefa3c
+/deepseek-harness-desktop/runtime-and-data:
+  en: 3e8192a493376d80
+  zh: e1765305f735967f
+/deepseek-harness-desktop/bundled-plugins:
+  en: b1aa73d8adc171e5
+  zh: a22da753fadd412d
+/deepseek-harness-desktop/development:
+  en: e54f1a8d723e43ec
+  zh: 4fa98c201d97fcee
+/deepseek-harness-desktop/contributing:
+  en: 991821508d78b07f
+  zh: 4755c30ef9a9729d
+/deepseek-harness-desktop/license:
+  en: 7a781d13b901c0e0
+  zh: 459e990a06693799

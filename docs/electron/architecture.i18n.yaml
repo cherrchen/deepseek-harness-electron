@@ -1,6 +1,184 @@
-# Bilingual-pair consistency record (docs/i18n/README.md): the git blob hash of each
-# side as of the last confirmed-consistent state. Both languages carry equal authority;
-# after editing either side, bring the other along and re-record with:
+# Bilingual-pair consistency record for architecture.md (docs/i18n/README.md): per heading
+# section, a hash of its English and Chinese blocks outside code blocks and generated regions.
+# After editing either side, bring the other along and re-record with:
 #   pnpm run verify-translation-pairing --write docs/electron/architecture.md
-architecture.md: c55ca3315afa3667f4fa1da169d919c9614d7176
-architecture.zh.md: 4b50c6218e334c864a58faf11b82801438e19adf
+/deepseek-harness-desktop-architecture-and-development-guide:
+  en: dc214dbce7722a8b
+  zh: c7db3738e4fad0d2
+/deepseek-harness-desktop-architecture-and-development-guide/1-purpose:
+  en: d473b100db109360
+  zh: 41946883aa9f4c43
+/deepseek-harness-desktop-architecture-and-development-guide/2-normative-language:
+  en: dee1fcd5596e74ff
+  zh: 70db1d54e33ae397
+/deepseek-harness-desktop-architecture-and-development-guide/3-repository-ownership-boundary:
+  en: 1235d925487c976c
+  zh: 1fa1d090bae201fc
+/part-i-current-architecture:
+  en: dd7c99fc1699c116
+  zh: 35987f12cd560a0b
+/part-i-current-architecture/4-current-architecture-summary:
+  en: 9672852053f0ad2d
+  zh: bedf516c6cf6c3c5
+/part-i-current-architecture/5-current-process-topology:
+  en: e0e1a19f36a3bf14
+  zh: 3cef5d9f9643e4e4
+/part-i-current-architecture/5-current-process-topology/5-1-electron-main:
+  en: 5ea743812357a6d9
+  zh: 2498b8a6efb09792
+/part-i-current-architecture/5-current-process-topology/5-2-supervised-deepseek-harness-process:
+  en: 6feb1e90901ae219
+  zh: 2204bedc8385193c
+/part-i-current-architecture/5-current-process-topology/5-3-electron-owned-renderer:
+  en: f0059305b03428f8
+  zh: 8917223ca81c9d24
+/part-i-current-architecture/6-current-renderer-bootstrap:
+  en: 7809bb745c4aaaab
+  zh: 3ce312dec03d5671
+/part-i-current-architecture/7-current-host-transport:
+  en: 892864557961aa47
+  zh: 23396c64a9037ead
+/part-i-current-architecture/8-current-desktop-capability-bridge:
+  en: a1dce4d3588bbca5
+  zh: d8b368ce79db2a9a
+/part-i-current-architecture/9-current-security-boundary:
+  en: c77a4edf8d67be6e
+  zh: 3177218b1b645050
+/part-i-current-architecture/10-current-runtime-plugin-infrastructure:
+  en: 895662b7a87ddce9
+  zh: 668e3de9a5a8b4ec
+/part-ii-architecture-principles:
+  en: b38007fbc1f7ded6
+  zh: 1077832f84d3a4fb
+/part-ii-architecture-principles/11-keep-electron-core-stable:
+  en: 243933d3a0d5a025
+  zh: 3bf086522c4a239e
+/part-ii-architecture-principles/12-keep-renderer-bootstrap-thin:
+  en: afd4e1a4db94940d
+  zh: 4e79ff3c7c4da998
+/part-ii-architecture-principles/13-independent-product-features-are-plugins:
+  en: a41342f4302807d8
+  zh: 233dd85dc8777444
+/part-ii-architecture-principles/14-plugins-request-capabilities-they-do-not-own-electron:
+  en: c5389be045150dc9
+  zh: 548e7456cb75b778
+/part-ii-architecture-principles/15-follow-upstream-capability-seams-first:
+  en: 78ffd7a04efae869
+  zh: e80b4acba65894de
+/part-ii-architecture-principles/16-minimize-upstream-fork-surface:
+  en: a91c7e420940a7f1
+  zh: e0769697d7920845
+/part-iii-target-architecture:
+  en: de8cee8b4bfcc3e2
+  zh: b52e64bbac53dbfc
+/part-iii-target-architecture/17-target-architecture:
+  en: bd9f2e7b160da7ae
+  zh: 101046df2d15d70a
+/part-iii-target-architecture/18-desktop-capability-contract:
+  en: 31a4ce92dd04637b
+  zh: 1a9cc357e06a3d35
+/part-iii-target-architecture/19-feature-plugin-model:
+  en: 355e0670171ce02e
+  zh: 78ecc19441bd891d
+/part-iii-target-architecture/19-feature-plugin-model/portable-dsh-plugin:
+  en: 1b5a7aeb80afe74e
+  zh: cfb91f9f52cdf5f5
+/part-iii-target-architecture/19-feature-plugin-model/desktop-aware-dsh-plugin:
+  en: cd97736d5b969a1e
+  zh: 2e5c4eac7e783dc5
+/part-iii-target-architecture/19-feature-plugin-model/desktop-required-adapter:
+  en: 2f36f4eb802bdda8
+  zh: ff11c09939001784
+/part-iii-target-architecture/19-feature-plugin-model/electron-required-portable-dsh-ui-infrastructure:
+  en: 6304ea2a26ac0931
+  zh: f60c376b7ab6f05a
+/part-iii-target-architecture/20-native-implementation-versus-feature-ownership:
+  en: b894d6a67599582a
+  zh: ebf6b9480c5621f1
+/part-iv-milestones:
+  en: 4a6ee97c849d3d20
+  zh: 4a8aab12d992401d
+/part-iv-milestones/21-milestone-1-standalone-electron-renderer:
+  en: f576b43f0b8fecb5
+  zh: 5cd34d56eb7c8b06
+/part-iv-milestones/22-milestone-2-native-desktop-capability-layer:
+  en: 44c6b4e036e90b04
+  zh: d641352271b6abf4
+/part-iv-milestones/23-milestone-3-pluginized-feature-layer:
+  en: cd8c6d31691a9a31
+  zh: e8bb9979a3e59ccb
+/part-iv-milestones/24-optional-milestone-4-transport-optimization:
+  en: b5771ef4f847eab6
+  zh: 3c4514830ed96c77
+/part-v-feature-placement:
+  en: d865c33abd513901
+  zh: 6a73477a6ceb9937
+/part-v-feature-placement/25-decision-rule:
+  en: e0ed2aa891c0a1ef
+  zh: 755607adba9136fe
+/part-v-feature-placement/26-ownership-examples:
+  en: 54006eb5c5df52f1
+  zh: aff213c4d3616470
+/part-vi-anti-patterns:
+  en: 4af9ddc63d0635f8
+  zh: b88f0f4ec9f0398e
+/part-vi-anti-patterns/27-designs-to-avoid:
+  en: a6435eb6336b1005
+  zh: a2a29696f380e03e
+/part-vii-security:
+  en: 3029b6f73b6007da
+  zh: bb4e1eb76e6c7719
+/part-vii-security/28-security-invariants:
+  en: f1eec7782959756d
+  zh: 96c409445f8b8f25
+/part-viii-state-ownership:
+  en: b9522a7d9abe0f93
+  zh: 43053717d8faee09
+/part-viii-state-ownership/29-harness-state:
+  en: e87fe6edb2256db6
+  zh: 5881f34e671ea4be
+/part-viii-state-ownership/30-electron-state:
+  en: a62b11d530422a4a
+  zh: f6e37576045fc927
+/part-ix-documentation-and-agent-rules:
+  en: 2eb7593e50bedad0
+  zh: 9821eccc73b4c503
+/part-ix-documentation-and-agent-rules/31-documentation-responsibilities:
+  en: 631e4ef147780269
+  zh: fd8b644dca3341dc
+/part-ix-documentation-and-agent-rules/32-agent-workflow:
+  en: 687991e2e7bd4fda
+  zh: 96dd9bbf29326592
+/part-x-architecture-review:
+  en: 0f3e9591e7981dab
+  zh: 91ba83ac61e3ae0d
+/part-x-architecture-review/33-review-checklist:
+  en: f1790790b7335c63
+  zh: ad1e89f7373ed9f0
+/part-xi-architecture-decisions:
+  en: bf65abb231f6ccc1
+  zh: f14c8f062fbd8e7c
+/part-xi-architecture-decisions/adr-desktop-001-electron-remains-the-application-runtime:
+  en: 4432384d7d8b2c0c
+  zh: 49fbd99cb68c03a2
+/part-xi-architecture-decisions/adr-desktop-002-reuse-dsh-client-packages-not-apps-web:
+  en: 64561dd6f3f4d05f
+  zh: edbd1e9eff59b63b
+/part-xi-architecture-decisions/adr-desktop-003-native-behavior-uses-a-narrow-typed-capability-contract:
+  en: f42ed4aa302589b6
+  zh: 3d11b6630d7178cd
+/part-xi-architecture-decisions/adr-desktop-004-independent-downstream-features-are-plugins:
+  en: 8c7f941493fd4c1b
+  zh: 2e0ccf0e0a46840c
+/part-xi-architecture-decisions/adr-desktop-005-keep-the-supervised-dsh-web-sidecar:
+  en: 12aedb77f0d30135
+  zh: ba9e76ae7576a3c6
+/part-xi-architecture-decisions/adr-desktop-006-pluginization-ends-at-feature-boundaries:
+  en: c93f9fb4ba37fed4
+  zh: 559890a492cd4932
+/part-xii-final-direction:
+  en: 6b49011a47d82fef
+  zh: 7b1601f1dbce959e
+/part-xii-final-direction/35-long-term-direction:
+  en: 77becb66620f95f5
+  zh: b069d84d49dfe6e1

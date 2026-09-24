@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import {
   desktopElectronBuilderArguments,
+  desktopElectronBuilderEnvironment,
   parseDesktopPackageInvocation,
   resolveDesktopPackageTarget,
   withoutDesktopUploadCredentials,
@@ -37,8 +38,24 @@ describe('desktop package target', () => {
     expect(parseDesktopPackageInvocation(['mac-arm64', '--dir'], 'darwin', 'arm64').directory).toBe(true)
     expect(parseDesktopPackageInvocation([], 'darwin', 'arm64').target.name).toBe('mac-arm64')
     expect(parseDesktopPackageInvocation(['--prepare-only'], 'darwin', 'arm64').prepareOnly).toBe(true)
+    expect(parseDesktopPackageInvocation(['--check'], 'darwin', 'arm64').check).toBe(true)
+    expect(parseDesktopPackageInvocation(['win-x64', '--check', '--unsigned'], 'win32', 'x64')).toMatchObject({ check: true, unsigned: true })
     expect(() => parseDesktopPackageInvocation(['mac-arm64', 'mac-x64'], 'darwin', 'arm64'))
       .toThrow(/at most one target/u)
+  })
+
+  it('parses a build version, including the separator a pnpm run script forwards', () => {
+    expect(parseDesktopPackageInvocation(['mac-arm64'], 'darwin', 'arm64').requestedBuildVersion).toBeUndefined()
+    expect(parseDesktopPackageInvocation(['mac-arm64', '--build-version', '0.1.6-alpha.2.20260921.1'], 'darwin', 'arm64')
+      .requestedBuildVersion).toBe('0.1.6-alpha.2.20260921.1')
+    expect(parseDesktopPackageInvocation(['mac-arm64', '--build-version', 'auto'], 'darwin', 'arm64')
+      .requestedBuildVersion).toBe('auto')
+    // A run script's preset arguments come first, so pnpm forwards the separator after the target.
+    expect(parseDesktopPackageInvocation(['mac-arm64', '--', '--build-version', 'auto'], 'darwin', 'arm64'))
+      .toMatchObject({ requestedBuildVersion: 'auto', target: { name: 'mac-arm64' } })
+    expect(parseDesktopPackageInvocation(['--', '--check'], 'darwin', 'arm64').check).toBe(true)
+    expect(() => parseDesktopPackageInvocation(['mac-arm64', '--build-version', '  '], 'darwin', 'arm64'))
+      .toThrow(/--build-version requires a value/u)
   })
 
   it('keeps electron-builder publishing disabled for the separate validated upload', () => {
@@ -56,7 +73,46 @@ describe('desktop package target', () => {
     expect(desktopElectronBuilderArguments(target, true)).toContain('--dir')
   })
 
-  it('keeps Windows signing fields out of build and seed preparation subprocesses', () => {
+  it('accepts unsigned Windows artifacts and rejects other targets or preparation-only use', () => {
+    expect(parseDesktopPackageInvocation(['win-x64', '--unsigned'], 'win32', 'x64').unsigned).toBe(true)
+    expect(parseDesktopPackageInvocation(['win-x64'], 'win32', 'x64').unsigned).toBe(false)
+    expect(parseDesktopPackageInvocation(['--unsigned', '--dir'], 'win32', 'x64')).toMatchObject({
+      unsigned: true, directory: true,
+    })
+    expect(() => parseDesktopPackageInvocation(['mac-arm64', '--unsigned'], 'darwin', 'arm64'))
+      .toThrow(/requires win-x64/u)
+    expect(() => parseDesktopPackageInvocation(['--unsigned', '--prepare-only'], 'win32', 'x64'))
+      .toThrow(/cannot use --prepare-only/u)
+  })
+
+  it('removes ambient certificate inputs for unsigned builds and overrides an inherited signing mode', () => {
+    const environment = {
+      DSH_DESKTOP_APP_ID: 'com.example.desktop',
+      DSH_DESKTOP_WINDOWS_TOKEN_PIN: 'token-secret',
+      CSC_LINK: 'private.pfx',
+      CSC_KEY_PASSWORD: 'secret',
+      WIN_CSC_LINK: 'windows.pfx',
+      CSC_IDENTITY_AUTO_DISCOVERY: 'true',
+      DSH_DESKTOP_UNSIGNED: '1',
+    }
+    expect(desktopElectronBuilderEnvironment(environment, true)).toEqual({
+      DSH_DESKTOP_APP_ID: 'com.example.desktop',
+      CSC_IDENTITY_AUTO_DISCOVERY: 'false',
+      DSH_DESKTOP_UNSIGNED: '1',
+    })
+    expect(desktopElectronBuilderEnvironment(environment, false)).toEqual({ ...environment, DSH_DESKTOP_UNSIGNED: '0' })
+  })
+
+  it.each([false, true])('pins the Windows archive filter for the NSIS decoder (unsigned: %s)', (unsigned) => {
+    expect(desktopElectronBuilderEnvironment({
+      DSH_DESKTOP_TARGET_PLATFORM: 'win32', ELECTRON_BUILDER_7Z_FILTER: 'ARM64',
+    }, unsigned).ELECTRON_BUILDER_7Z_FILTER).toBe('BCJ')
+    expect(desktopElectronBuilderEnvironment({
+      DSH_DESKTOP_TARGET_PLATFORM: 'darwin', ELECTRON_BUILDER_7Z_FILTER: 'ARM',
+    }, unsigned).ELECTRON_BUILDER_7Z_FILTER).toBe('ARM')
+  })
+
+  it('keeps Windows signing fields out of build and runtime preparation subprocesses', () => {
     expect(withoutWindowsSigningEnvironment({
       DSH_DESKTOP_WINDOWS_CER_FILE: 'C:\\release\\server.cer',
       DSH_DESKTOP_WINDOWS_TOKEN_PIN: 'token-secret',

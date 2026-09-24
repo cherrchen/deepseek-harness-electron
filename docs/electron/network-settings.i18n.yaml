@@ -1,6 +1,37 @@
-# Bilingual-pair consistency record (docs/i18n/README.md): the git blob hash of each
-# side as of the last confirmed-consistent state. Both languages carry equal authority;
-# after editing either side, bring the other along and re-record with:
+# Bilingual-pair consistency record for network-settings.md (docs/i18n/README.md): per heading
+# section, a hash of its English and Chinese blocks outside code blocks and generated regions.
+# After editing either side, bring the other along and re-record with:
 #   pnpm run verify-translation-pairing --write docs/electron/network-settings.md
-network-settings.md: 0cbc09de235427b53e55bc0d6d05ce6a4e97486e
-network-settings.zh.md: 958006d5f3893c9bbd80fc7f1ebb8b7eac61b470
+/desktop-network-settings:
+  en: f23da2902e3f05cd
+  zh: 0bac90f002708bb7
+/desktop-network-settings/summary:
+  en: 48a84e09f307018c
+  zh: 7cdc8441d839edc6
+/desktop-network-settings/contents:
+  en: ae4e5bb726a0e798
+  zh: 866308918dba87de
+/desktop-network-settings/choose-a-mode:
+  en: e3586cdb73bb5921
+  zh: be9b0aea37187a88
+/desktop-network-settings/configure-a-manual-proxy:
+  en: 12a356ed7ad47968
+  zh: 460eef01cf5beb29
+/desktop-network-settings/test-and-diagnose:
+  en: 24cd52aafcd8b63f
+  zh: 637f865f0a0749c1
+/desktop-network-settings/recover-from-a-failed-route:
+  en: 26576bd4f4925a7d
+  zh: 2c9b68ef7715faab
+/desktop-network-settings/troubleshoot:
+  en: b716aad536253301
+  zh: 0f7e130b010e78dd
+/desktop-network-settings/compatibility:
+  en: f82324a7d0f47bf4
+  zh: 9bf7c2c399a118c9
+/desktop-network-settings/limits:
+  en: 7a7fc3327c78bc36
+  zh: 755419d219e5fa97
+/desktop-network-settings/dev-note:
+  en: b75c8458928b72b9
+  zh: 02cbcc6baa338b07

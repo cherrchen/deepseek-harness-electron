@@ -1,6 +1,37 @@
-# Bilingual-pair consistency record: the git blob hash of each
-# side as of the last confirmed-consistent state. Both languages carry equal authority;
-# after editing either side, bring the other along and re-record with:
-#   git hash-object README.md README.zh.md
-README.md: 4b089d83c85783457878a6e3ed38a70b387e7685
-README.zh.md: 94a1d5d446cb441f12c696ea41671e98a90009b2
+# Bilingual-pair consistency record for README.md (docs/i18n/README.md): per heading
+# section, a hash of its English and Chinese blocks outside code blocks and generated regions.
+# After editing either side, bring the other along and re-record with:
+#   pnpm run verify-translation-pairing --write apps/electron/runtime/plugins/dsh-theme-studio/README.md
+/dsh-theme-studio:
+  en: 7f58a1033b2968dd
+  zh: 279a8f3e78a69ee1
+/dsh-theme-studio/dsh-compatibility:
+  en: cf67a30b9563ca2f
+  zh: d7fb57788cdd7000
+/dsh-theme-studio/installation:
+  en: 6bc37cbd404f3761
+  zh: d60da6b89b675c60
+/dsh-theme-studio/user-experience:
+  en: 3aa0844cab02bc00
+  zh: 3f4cc46831e0b2e1
+/dsh-theme-studio/runtime-model:
+  en: 19ee301e26f335d2
+  zh: e3fd8c89c179c0cc
+/dsh-theme-studio/composition:
+  en: 8a0564fc8c48ed33
+  zh: 5fb8491fcf6cc382
+/dsh-theme-studio/npm-publication:
+  en: f3a9a402a0417f5c
+  zh: 47564f20d315c92b
+/dsh-theme-studio/development:
+  en: 825e9ae94ed832a4
+  zh: ea1521f527088abc
+/dsh-theme-studio/model-experience:
+  en: af338afb06a18c12
+  zh: 350f17fdcfe84340
+/dsh-theme-studio/model-experience/kv-cache-effect:
+  en: 9556158947220e26
+  zh: 51395698aaa5eb8a
+/dsh-theme-studio/known-limitations-and-deferred-work:
+  en: b125c631b48ef39e
+  zh: a7e26fa540bdefa8

@@ -16,7 +16,6 @@ export const DESKTOP_HOST_PACKAGE = '@deepseek-ai/dsh-desktop-host'
 /** Package-relative Desktop Host files required before a profile can boot. */
 export const DESKTOP_HOST_RUNTIME_FILES = [
   'lib/index.js',
-  'config/desktop.cordis.patch.yml',
 ] as const
 
 /** One immutable npm tarball in the Desktop core package set. */
@@ -124,7 +123,7 @@ export function desktopDshPackageSpec(packageSet: DesktopCorePackageSet): string
 
 /**
  * Verify every local tarball and reject extra package files before pnpm executes them.
- * @param projectDir - Seed or profile directory containing the package set.
+ * @param projectDir - Build directory containing the package set.
  * @param expectedReleaseVersion - Exact dsh and Desktop Host version bound to Electron.
  * @returns The verified package set.
  */
