@@ -2,9 +2,9 @@ import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import {
   Button,
   DisclosureRow,
-  IconCordisPluginOutline14,
-  IconEllipsisOutline16,
-  IconSearchOutline16,
+  IconCordisPluginOutlineMedium,
+  IconEllipsisOutlineMedium,
+  IconSearchOutlineMedium,
   Input,
   Menu,
   StateDot,
@@ -211,7 +211,7 @@ function PluginRow({ plugin, state, mutate, t, readOnly = false, onRemove, updat
                 portal
                 anchor={(
                   <button type="button" className={css.moreButton} aria-label={t('packageActions', { plugin: title })} disabled={globallyLocked} onClick={() => { setMenuOpen(value => !value) }}>
-                    <IconEllipsisOutline16 aria-hidden="true" />
+                    <IconEllipsisOutlineMedium aria-hidden="true" />
                   </button>
                 )}
               />
@@ -298,7 +298,7 @@ export function PluginManagerTab({ plugins, dialog, app, t }: PluginManagerTabPr
             className={css.search!}
             type="search"
             value={query}
-            icon={<IconSearchOutline16 aria-hidden="true" />}
+            icon={<IconSearchOutlineMedium aria-hidden="true" />}
             placeholder={t('search')}
             aria-label={t('search')}
             onChange={(event) => { setQuery(event.currentTarget.value) }}
@@ -369,7 +369,7 @@ export function PluginManagerTab({ plugins, dialog, app, t }: PluginManagerTabPr
           )}
           <div className={css.systemSection}>
             <DisclosureRow
-              icon={<IconCordisPluginOutline14 aria-hidden="true" />}
+              icon={<IconCordisPluginOutlineMedium aria-hidden="true" />}
               title={t('systemComponents')}
               open={systemOpen}
               expandable

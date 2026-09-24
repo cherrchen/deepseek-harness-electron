@@ -6,7 +6,7 @@ import type { HostBootstrap } from './bridge-types.ts'
 
 /** Marker rendered by Host `renderIndexInjections` for `kind: 'global'` rows. */
 const BOOT_MARKER = 'globalThis["__DSH_BOOT__"] = '
-const PRELOAD_SCRIPT = /<script\s+src="(\/plugins\/[^"]+)"\s*>\s*<\/script>/g
+const PRELOAD_SCRIPT = /<script\s+src="([^"]+)"\s*>\s*<\/script>/g
 
 /**
  * Extract `__DSH_BOOT__` and classic preload script URLs from Host index HTML.
@@ -24,13 +24,27 @@ export function extractHostBootstrap(html: string): HostBootstrap {
   const preloadUrls: string[] = []
   for (const match of html.matchAll(PRELOAD_SCRIPT)) {
     const url = match[1]
-    if (url !== undefined) preloadUrls.push(decodeHtmlAttribute(url))
+    if (url === undefined) continue
+    const pluginUrl = pluginPreloadUrl(decodeHtmlAttribute(url))
+    if (pluginUrl !== undefined) preloadUrls.push(pluginUrl)
   }
   if (preloadUrls.length === 0) {
     throw new Error('desktop bootstrap: Host index HTML contains no /plugins/ preload scripts')
   }
 
   return { boot, preloadUrls }
+}
+
+/**
+ * Normalize a Host plugin script URL to an absolute `/plugins/` path.
+ * Served boot rows are document-relative (`plugins/...`); older HTML used `/plugins/...`.
+ * @param src - Decoded `script src` attribute.
+ * @returns Absolute plugin path, or undefined when the script is not a plugin preload.
+ */
+function pluginPreloadUrl(src: string): string | undefined {
+  if (src.startsWith('/plugins/')) return src
+  if (src.startsWith('plugins/')) return `/${src}`
+  return undefined
 }
 
 /** Decode the fixed entity set used by the Host's quoted attribute renderer. */

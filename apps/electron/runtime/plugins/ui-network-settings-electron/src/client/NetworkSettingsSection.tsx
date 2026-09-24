@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import {
-  Button, DisclosureRow, IconChevronDownOutline14, IconGlobeOutline14, IconQuestionOutline14,
-  Input, LinkIcon, Menu, Modal, Pill, StateDot, Switch, Toast, type StateDotState,
+  Button, DisclosureRow, IconChevronDownOutlineMedium, IconGlobeOutlineMedium, IconQuestionOutlineMedium,
+  Input, LinkIconMedium, Menu, Modal, Pill, StateDot, Switch, Toast, type StateDotState,
 } from '@deepseek-ai/dsh-client-ui-primitives'
 import type { InjectFace, PropsLocale, PropsRuntime } from '@deepseek-ai/dsh-client-ui-slots'
 import type {
@@ -163,14 +163,14 @@ export function NetworkSettingsSection({ network, shell, providers: readProvider
     <button type="button" className={css.selector} aria-haspopup="menu" aria-expanded={modeOpen}
       onClick={() => { setModeOpen(open => !open) }}>
       {t(draft.mode)}
-      <IconChevronDownOutline14 className={css.chevron} />
+      <IconChevronDownOutlineMedium className={css.chevron} />
     </button>
   )
   const providerSelector = (
     <button type="button" className={css.selector} aria-haspopup="menu" aria-expanded={providerOpen}
       onClick={() => { setProviderOpen(open => !open) }}>
       {providerLabel}
-      <IconChevronDownOutline14 className={css.chevron} />
+      <IconChevronDownOutlineMedium className={css.chevron} />
     </button>
   )
   return (
@@ -247,7 +247,7 @@ export function NetworkSettingsSection({ network, shell, providers: readProvider
         <Button size="sm" variant="outline" onClick={() => { void test() }} disabled={testing || !!errors.internet204Url || !!errors.githubUrl || !!errors.healthUrl}>{t('testConnection')}</Button>
       </div>
 
-      <DisclosureRow icon={<IconGlobeOutline14 aria-hidden="true" />} title={t('advanced')} open={advanced} expandable expandOnRowClick
+      <DisclosureRow icon={<IconGlobeOutlineMedium aria-hidden="true" />} title={t('advanced')} open={advanced} expandable expandOnRowClick
         onToggle={() => { setAdvanced(open => !open) }}>
         <div className={css.disclosure}>
           <dl className={css.diagnostics}>
@@ -284,10 +284,10 @@ export function NetworkSettingsSection({ network, shell, providers: readProvider
         </div>
       </DisclosureRow>
 
-      <DisclosureRow icon={<IconQuestionOutline14 aria-hidden="true" />} title={t('help')} open={help} expandable expandOnRowClick
+      <DisclosureRow icon={<IconQuestionOutlineMedium aria-hidden="true" />} title={t('help')} open={help} expandable expandOnRowClick
         onToggle={() => { setHelp(open => !open) }}>
         <div className={css.disclosure}><p className={css.muted}>{t('helpDefault')}</p><p className={css.muted}>{t('helpSystem')}</p><p className={css.muted}>{t('helpLimits')}</p><p className={css.muted}>{t('helpTests')}</p>
-          <Button size="sm" variant="ghost" icon={<LinkIcon kind="url" />} onClick={() => { void shell.openExternal(HELP_URL) }}>{t('docs')}</Button></div>
+          <Button size="sm" variant="ghost" icon={<LinkIconMedium kind="url" />} onClick={() => { void shell.openExternal(HELP_URL) }}>{t('docs')}</Button></div>
       </DisclosureRow>
 
       <Modal open={storagePrompt} onClose={() => { setStoragePrompt(false) }} title={t('storageTitle')} closeLabel={t('cancel')}
