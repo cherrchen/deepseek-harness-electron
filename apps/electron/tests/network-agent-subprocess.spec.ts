@@ -1,7 +1,7 @@
 import { Context } from '@deepseek-ai/cordis'
 import { createLaunchEnvironmentSnapshot, DSH_LAUNCH_ENVIRONMENT_KEY } from '@deepseek-ai/dsh-launch-environment'
 import { describe, expect, it } from 'vitest'
-import { DesktopNetworkSubprocessRuntime } from '../runtime/plugins/desktop-network-subprocess/src/index.ts'
+import { DesktopNetworkSubprocessRuntime, fillAgentProxyValues } from '../runtime/plugins/desktop-network-subprocess/src/index.ts'
 import { agentProxyPolicyForHost, PROXY_ENV_KEYS } from '../src/network/environment.ts'
 
 const gateway = { host: '127.0.0.1' as const, port: 4123 }
@@ -51,5 +51,36 @@ describe('Desktop Agent subprocess integration', () => {
       if (previous === undefined) delete process.env.DSH_ELECTRON_AGENT_PROXY_POLICY
       else process.env.DSH_ELECTRON_AGENT_PROXY_POLICY = previous
     }
+  })
+})
+
+describe('Desktop Agent proxy policy fill', () => {
+  /** The policy's per-name overrides, as the Host provider reads them off the serialized policy. */
+  const policyValues = (ambient: NodeJS.ProcessEnv): NodeJS.ProcessEnv => {
+    const serialized = agentProxyPolicyForHost(ambient, { mode: 'manual', proxyAgentTraffic: false, gateway })
+    const parsed: unknown = JSON.parse(serialized ?? '{}')
+    if (typeof parsed !== 'object' || parsed === null || !('values' in parsed)
+      || typeof parsed.values !== 'object' || parsed.values === null) {
+      throw new Error('manual mode must serialize an Agent proxy policy carrying values')
+    }
+    return Object.fromEntries(Object.entries(parsed.values))
+  }
+
+  it('gives both Windows spellings of one variable the value the policy set', () => {
+    const values = policyValues({ HTTP_PROXY: 'http://original.example:8080' })
+    fillAgentProxyValues(values, createLaunchEnvironmentSnapshot([
+      { source: 'user-env', values: { HTTP_PROXY: 'http://home.example:8080' } },
+    ]), 'win32')
+    expect(values.HTTP_PROXY).toBe('http://original.example:8080')
+    expect(values.http_proxy).toBe('http://original.example:8080')
+  })
+
+  it('resolves the two spellings separately elsewhere', () => {
+    const values = policyValues({ HTTP_PROXY: 'http://original.example:8080' })
+    fillAgentProxyValues(values, createLaunchEnvironmentSnapshot([
+      { source: 'user-env', values: { HTTP_PROXY: 'http://home.example:8080', http_proxy: 'http://lower.example:8080' } },
+    ]), 'darwin')
+    expect(values.HTTP_PROXY).toBe('http://original.example:8080')
+    expect(values.http_proxy).toBe('http://lower.example:8080')
   })
 })
