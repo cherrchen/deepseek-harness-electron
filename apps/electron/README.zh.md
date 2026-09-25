@@ -88,6 +88,8 @@ pnpm --filter @dsh-electron/dsh-electron test
 
 Electron Main 在 Host 启动前加载版本化 Desktop preferences。Network 基础在 partial write 期间保留更新通道，对无效 Network section 使用默认值且不丢弃有效通道，通过 `safeStorage` 加密 Manual 代理密码，拒绝 Linux `basic_text` 持久化，消费一次性 Default override，并集中派生 Default、Direct、Managed child 和选择启用的 Agent 环境。Default 不修改继承的子进程环境或 Electron 代理配置。
 
+在 macOS 上，启动时将钥匙串存储报告为受支持，但不访问钥匙串。保存 Manual 代理密码，或为当前 Manual 路由读取已配置的密码时，应用会检查存储可用性，此时可能请求钥匙串访问权限。密码文件不存在时不访问钥匙串。
+
 Release 资源在固定的应用自有路径中包含 Rust Network Runtime。Manual 和 System 在 Harness 启动前启动并配置其 Gateway；Direct 显式设置 Electron 路由并清理受控子进程的代理变量。Default 不修改 Electron 代理设置和继承的子进程环境。关闭 Agent 代理后，Agent subprocess provider 保留继承的代理变量和 Harness home `.env` 中的代理值。Updater、插件命令及 Agent subprocess provider 各自遵循 Desktop 网络策略；支持的协议和当前限制见 [Network Runtime](../../docs/electron/network-runtime.zh.md)。
 
 受监督的 Harness 进程仅绑定 `127.0.0.1` 上的随机端口，且永远不是 BrowserWindow 的页面源。Renderer 无 Node.js 集成，启用上下文隔离与 Chromium 沙箱，仅接收类型化的 `window.deepseekDesktop` 桥接，且不能离开 `dsh-electron://localhost`。以新窗口请求的 HTTP/HTTPS 链接在系统浏览器中打开。
