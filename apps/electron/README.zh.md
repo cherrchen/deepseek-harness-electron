@@ -30,7 +30,7 @@ Electron Main
 
 - Desktop 专属改动留在 `apps/electron/**`；不要通过改 `apps/web` 做 Desktop-only UI。
 - 保持 `src/renderer` 为薄 bootstrap/carrier；不要在此长出第二套产品前端。
-- Portable 与 Desktop-aware 产品功能归属独立发布的 DSH/Cordis package；`runtime/plugins/` 容纳 Desktop-required adapter、Electron carrier，以及 Electron 必需的 portable DSH UI 基础设施。Desktop-required Host 组合留在 `runtime/host.patch.yml`；bundled 生态插件成员资格由生成的 `$DSH_HOME/electron/plugins.cordis.yml` roster 决定（[插件生命周期](../../docs/electron/plugin-lifecycle.zh.md)）。
+- Portable 与 Desktop-aware 产品功能归属独立发布的 DSH/Cordis package；`runtime/plugins/` 容纳 Desktop-required adapter、Electron carrier，以及 Electron 必需的 portable DSH UI 基础设施。Desktop 必需的 Host 组合和随包 Git 插件列在 `runtime/host.patch.yml` 中（[插件生命周期](../../docs/electron/plugin-lifecycle.zh.md)）。
 - Desktop-aware feature 保持 core fiber portable，并通过 optional `ctx.inject(['desktop'], ...)` child fiber 安装原生增强。它通过 `ctx.desktop` 能力服务消费原生能力，不得直接访问 `window.deepseekDesktop`。
 - 环回 Host 传输是内部兼容机制，无证据时不要为架构纯粹性替换它。
 
@@ -60,9 +60,7 @@ pnpm --filter @dsh-electron/dsh-electron test
 
 主窗口使用隐藏标题栏，不绘制独立 Heading。侧栏背景延伸至窗口顶部：macOS 在侧栏顶部保留可拖拽的“交通信号灯”区域，Windows 和 Linux 则把侧栏右侧的各列下移到原生控件行之下，使该区域留空并可拖拽；全屏右侧面板会在自身盒内保留同样的留白行。活动会话 Header 的非交互部分可拖拽，空白会话背景与留空区域由透明命中面覆盖。Header 控件被明确排除拖拽；模态对话框打开期间，页面的所有拖拽区域均会暂停，使对话框遮罩和控件能够保持指针输入。关闭主窗口会隐藏窗口，Harness 进程继续运行。通过托盘菜单可以重新打开窗口，也可以退出应用并停止受监管的子进程。
 
-操作系统桌面能力由 Electron Main 拥有，并通过类型化的 `window.deepseekDesktop` preload 桥暴露。Desktop Capability Provider 插件（`runtime/plugins/desktop-capabilities`）将该桥适配为 feature 插件可用的 `ctx.desktop`。Main 通过 `ctx.desktop.plugins` 拥有插件生命周期；**已安装** settings tab 及其读取、mutation、polling、rollback 与 Renderer refresh 行为记录在[插件生命周期参考](../../docs/electron/plugin-lifecycle.zh.md)中，且不是本次 pin 的 bootstrap 挂载项。受监督 Host 接收 `apps/electron/runtime` 下的 cordis overlay：禁用 Host `directory-picker-auto`，保留 browse Host 后端以便 `directoryPicker` 仍能注入 apiproxy，挂载 capability provider、Theme Studio、Electron 本地 directory-flow client 插件（不挂载 browse client），以及始终填充已交付品牌 slot 的 Electron 本地品牌插件，并安装一个 `cordis:include` seat，其生成的 `$DSH_HOME/electron/plugins.cordis.yml` roster 在声明生态插件之前为空。`scripts/build-runtime-plugins.mjs` 从源码重新构建 `runtime/plugins/` 下的每个目录；标准生态插件保留独立构建的 Host 与 Client artifact。两类插件均在启动时链接到 `$DSH_HOME/profiles/node_modules` 与 `$DSH_HOME/electron/node_modules`。上游 UI 的剪贴板写入在存在上游注入 seam 之前，经 Renderer 侧窄 shim 转到 Main。以新窗口打开的外部 URL 必须使用 `https:`、`http:` 或 `mailto:`。
-
-插件包命令在子进程关闭前保留事务。启动错误使命令失败；锁归属交接失败会终止子进程，并在子进程关闭后报告失败。
+操作系统桌面能力由 Electron Main 拥有，并通过类型化的 `window.deepseekDesktop` preload 桥暴露。Desktop Capability Provider 插件（`runtime/plugins/desktop-capabilities`）将该桥适配为 feature 插件可用的 `ctx.desktop`。受监督 Host 接收 `runtime/host.patch.yml`，其中挂载必需的 Desktop adapter 和随包 Git 插件。启动时 Main 校验构建产物，并将它们链接至 `$DSH_HOME/profiles/node_modules`。上游 Web profile 负责插件管理及其 UI；Main 将随包 pnpm 加入 Host 的 `PATH`。`scripts/build-runtime-plugins.mjs` 从源码构建本地 Desktop 插件，Git 则使用已发布的 Host 和 Client 产物。上游 UI 的剪贴板写入通过 Renderer shim 到达 Main。以新窗口打开的外部 URL 使用 `https:`、`http:` 或 `mailto:`。
 
 原生页面右键菜单根据 Chromium 当前的编辑能力提供剪切、复制、粘贴、全选和刷新；开发构建还提供 DevTools。应用菜单和托盘菜单提供桌面端自有的“关于”窗口、更新通道选择和手动更新检查入口。
 
@@ -98,4 +96,4 @@ Windows 上受监督进程是随包发布的 Node.js 运行时（`resources/node
 
 受监督进程将 `$DSH_HOME` 设为操作系统用户主目录下的 `.dsh`，因此 Harness profile、设置、会话等状态在 macOS/Linux 使用 `~/.dsh`，在 Windows 使用 `%USERPROFILE%\.dsh`。Electron 将 Chromium 数据、缓存与桌面更新偏好保留在其平台专属 `userData` 目录。Agent shell 命令以当前用户主目录为初始工作区；用户可通过 Harness UI 选择其他工作区。
 
-启动恢复与 workspace 策略写入在修改文件前取得 web-profile 锁。Host 超时仅在成功关闭后允许恢复；关闭失败会终止启动。恢复会从 profile stack 排除 catalog 中无法加载的 Bundle，但不删除其 dependency entry。Reserved-name 回滚子进程在 close 前持有锁。修复后，组合配置与生命周期操作共享重新加载的插件偏好。workspace 策略接受块式和行内 YAML 映射，保留用户的构建覆盖值和无关配置值。
+Host 启动超时后，Desktop 会先停止受监督的子进程，再报告故障。上游 profile manager 拥有 package 事务和 profile 文件。

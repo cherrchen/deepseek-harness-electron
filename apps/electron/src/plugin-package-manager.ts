@@ -21,13 +21,13 @@ export function resolveBundledPnpmBin(appPath: string): string {
 }
 
 /**
- * Create a platform shim named `pnpm` for the upstream CLI and prepend it to PATH.
+ * Create a platform shim named `pnpm` for the upstream profile manager and prepend it to PATH.
  * @param harnessHome - Active DSH home.
  * @param runtime - Resolved Host runtime the shim launches.
  * @param pnpmBin - Bundled pnpm entrypoint.
  * @param currentPath - Ambient PATH retained after the controlled shim directory.
  * @param platform - Target process platform.
- * @returns shim directory and PATH value for the dsh subprocess.
+ * @returns Shim directory and PATH value for the supervised Host.
  */
 export function preparePluginPackageManager(
   harnessHome: string,

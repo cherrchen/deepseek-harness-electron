@@ -2,45 +2,15 @@
 # section, a hash of its English and Chinese blocks outside code blocks and generated regions.
 # After editing either side, bring the other along and re-record with:
 #   pnpm run verify-translation-pairing --write docs/electron/plugin-lifecycle.md
-/electron-plugin-lifecycle:
-  en: b40ace0521a5900b
-  zh: b71e03446fd5a107
-/electron-plugin-lifecycle/purpose:
-  en: d3e3a6dfbbf3d082
-  zh: c24fd688dac24db4
-/electron-plugin-lifecycle/managed-plugin-classes:
-  en: 7c6131ff1e57d60a
-  zh: 8a2e38f0b006468b
-/electron-plugin-lifecycle/plugin-kinds-and-activation:
-  en: 86e487aaad32b708
-  zh: 18dace69ff0e91e0
-/electron-plugin-lifecycle/runtime-owned-files:
-  en: 88d3b207c65d3859
-  zh: aa1258ede9b03fe9
-/electron-plugin-lifecycle/startup-sequence:
-  en: 24999f522f788a17
-  zh: 79d1731c05a768a0
-/electron-plugin-lifecycle/runtime-operations:
-  en: 844b4a5bad5143f3
-  zh: 2b0ba668fc29629e
-/electron-plugin-lifecycle/desktop-management-view:
-  en: 7db090d6cd667b54
-  zh: 8f88108851c12b04
-/electron-plugin-lifecycle/profile-package-installation:
-  en: 565f65e0fd5ef2e7
-  zh: 59548272f366620f
-/electron-plugin-lifecycle/profile-package-update-repair-and-removal:
-  en: 851cd832cb43c6b9
-  zh: 01c87837968a91a6
-/electron-plugin-lifecycle/renderer-refresh-boundary:
-  en: a9db9a56afd9d051
-  zh: 31e5cbea0526b590
-/electron-plugin-lifecycle/state-file-behavior:
-  en: e5aff3b460d6ae01
-  zh: b25eb891dcdceafc
-/electron-plugin-lifecycle/nested-include-limitation:
-  en: 461184b68158c44a
-  zh: c33fb104d4701a85
-/electron-plugin-lifecycle/verification:
-  en: e6321d4d528c37eb
-  zh: 260444409939d4c7
+/electron-plugin-composition:
+  en: a8897369435882b5
+  zh: 95d255d8a89f91cb
+/electron-plugin-composition/purpose:
+  en: 8fa83e12e054084a
+  zh: bda3e12c7877a421
+/electron-plugin-composition/startup-composition:
+  en: 3bb2c028872bc43d
+  zh: 15404548ee6bdadc
+/electron-plugin-composition/boundaries:
+  en: 182a4505055deccf
+  zh: 76959c0cce12becb

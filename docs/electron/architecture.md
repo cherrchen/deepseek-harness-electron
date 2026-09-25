@@ -329,17 +329,17 @@ A plugin MUST NOT receive raw Electron or Node access simply because it runs in 
 
 **CURRENT**
 
-Milestone 3 established bundled runtime plugin infrastructure under `apps/electron/runtime/plugins/`. Standard public DSH ecosystem plugins are exact production npm dependencies and retain their published Host and Client artifacts.
+Desktop bundles its required runtime plugins under `apps/electron/runtime/plugins/`. Standard public DSH ecosystem plugins are exact production npm dependencies and retain their published Host and Client artifacts.
 
 ```text
 runtime/plugins/*          Desktop adapters, Electron carriers, and Electron-required portable UI infrastructure (build + link)
 node_modules/*             standard public DSH packages installed from npm (prebuilt + link)
-runtime/host.patch.yml     bootstrap overlay: required runtime plugins, include seat, config-only HMR
+runtime/host.patch.yml     Host overlay: required Desktop plugins and bundled Git
 scripts/build-runtime-plugins.mjs
-src/runtime-plugins.ts     discovery, validation, profile and nested-include linking
+src/runtime-plugins.ts     discovery, validation, and profile linking
 ```
 
-Startup links every bundled plugin into `$DSH_HOME/profiles/node_modules/<package-name>` and `$DSH_HOME/electron/node_modules/<package-name>` before the supervised Host starts. Discovery determines what Desktop ships. `host.patch.yml` mounts required runtime plugins plus a `cordis:include` seat; Electron generates `$DSH_HOME/electron/plugins.cordis.yml` as the runtime ecosystem roster. Runtime enable, disable, and reload are documented in [plugin-lifecycle.md](plugin-lifecycle.md).
+Startup validates and links every bundled plugin into `$DSH_HOME/profiles/node_modules/<package-name>` before the supervised Host starts. `host.patch.yml` mounts required Desktop plugins and bundled Git directly. The upstream Web profile manages subsequently installed plugins ([plugin lifecycle](plugin-lifecycle.md)).
 
 The Desktop Capability Provider (`@dsh-electron/dsh-electron-desktop-capabilities`) adapts `window.deepseekDesktop` into `ctx.desktop` for feature plugins. Only renderer infrastructure and the provider read the global bridge directly.
 
@@ -347,11 +347,11 @@ The directory picker (`@dsh-electron/dsh-electron-ui-directory-picker`) is the f
 
 The brand plugin (`@dsh-electron/dsh-electron-ui-brand`) always fills `sidebar.brand.mark`, `sidebar.brand.name`, and `conversation.hero.brand.mark` with DeepSeek Harness artwork, so Desktop does not depend on the upstream `DSH_CLIENT_BUILD_PROFILE=official` client build for product branding.
 
-The Plugin Manager (`@dsh-electron/dsh-electron-ui-plugin-manager`) consumes `ctx.desktop.plugins` and contributes the `installed` view through the upstream-owned `settings.plugins.tab` slot. `host.patch.yml` mounts it. Main still owns lifecycle reads, mutations, polling, rollback, and Renderer refresh as documented in [plugin-lifecycle.md](plugin-lifecycle.md).
+The upstream Web bundle provides plugin management in its Plugins UI and agent tool. Electron Main supplies bundled pnpm on the supervised Host `PATH`; package operations remain with the upstream profile manager.
 
 The [Network Settings page](network-settings.md) is a required Desktop client plugin. It contributes a top-level `settings.section` entry and uses `ctx.desktop.network` for configuration, sanitized diagnostics, and connection tests; Main owns the policy, secrets, and restart. The native failure dialog can open this section without changing the selected route.
 
-Git (`@dsh-electron/dsh-plugin-git@0.2.3`) is a bundled ecosystem plugin installed only from npm. Its client occupies `ctx.sidebarRight` / `sidebarRightTabs` and is listed in `dshElectron.ecosystemPlugins` ([composition note](../../.agents/notes/implemented/architecture/2026-09-13-electron-plugin-manager-and-git-sidebar.md)).
+Git (`@dsh-electron/dsh-plugin-git@0.2.3`) is a bundled ecosystem plugin installed only from npm. Its client occupies `ctx.sidebarRight` / `sidebarRightTabs` and is listed in `dshElectron.ecosystemPlugins`.
 
 Theme Studio (`@dsh-electron/dsh-theme-studio`) is required portable UI for builtin color overlays. Canonical source is `cherrchen/dsh-theme-studio`; `apps/electron/runtime/plugins/dsh-theme-studio` is the git subtree mirror. Electron rebuilds Host and Client artifacts from that source. The package registers **Settings → General → Themes** and calls `ctx.theme.overrideTokens()`; it does not replace official Appearance or present CSS itself.
 
@@ -619,7 +619,6 @@ apps/electron/runtime/plugins/
 ├─ desktop-capabilities/          infrastructure
 ├─ ui-directory-picker-electron/  Desktop-required adapter
 ├─ ui-brand-electron/             Electron carrier plugin
-├─ ui-plugin-manager-electron/    Electron carrier plugin
 └─ dsh-theme-studio/              portable theme overlay (subtree)
 
 npm registry

@@ -82,23 +82,6 @@ describe('theme studio portable runtime plugin regression', () => {
   })
 })
 
-describe('desktop plugin manager feature plugin regression', () => {
-  it('depends on canonical Settings contracts and keeps primitives external', () => {
-    const manifest = JSON.parse(
-      readFileSync(join(electronRoot, 'runtime', 'plugins', 'ui-plugin-manager-electron', 'package.json'), 'utf8'),
-    ) as { name?: string; dsh?: { client?: { inject?: string[]; external?: string[] } } }
-    expect(manifest.name).toBe('@dsh-electron/dsh-electron-ui-plugin-manager')
-    expect(manifest.dsh?.client?.inject).toEqual([
-      '@deepseek-ai/dsh-client-ui-renderer',
-      '@deepseek-ai/dsh-client-ui-settings',
-      '@deepseek-ai/dsh-client-locale',
-      '@dsh-electron/dsh-electron-desktop-capabilities',
-    ])
-    expect(manifest.dsh?.client?.inject).not.toContain('@deepseek-ai/dsh-client-ui-settings-plugins')
-    expect(manifest.dsh?.client?.external).toEqual(['@deepseek-ai/dsh-client-ui-primitives'])
-  })
-})
-
 describe('production runtime plugin packaging inventory', () => {
   it('includes built artifacts for every bundled production plugin and excludes test fixtures', () => {
     const pluginsRoot = join(electronRoot, 'runtime', 'plugins')

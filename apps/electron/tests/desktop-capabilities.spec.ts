@@ -37,17 +37,6 @@ describe('desktop capability provider contract', () => {
       notification: {
         show: async () => { calls.push('notification.show'); return { shown: true } },
       },
-      plugins: {
-        list: async () => { calls.push('plugins.list'); return { entries: [], pendingRestart: [] } },
-        install: async () => { calls.push('plugins.install'); return { name: '@example/plugin', version: '1.0.0', kind: 'runtime-plugin' as const, activation: 'activated' as const, source: 'registry' as const } },
-        checkUpdates: async () => { calls.push('plugins.checkUpdates'); return [] },
-        update: async (name: string) => { calls.push(`plugins.update:${name}`); return { name, operation: 'update' as const, restartRequired: false } },
-        reinstall: async (name: string) => { calls.push(`plugins.reinstall:${name}`); return { name, operation: 'reinstall' as const, restartRequired: false } },
-        remove: async (name: string) => { calls.push(`plugins.remove:${name}`); return { name, operation: 'remove' as const, restartRequired: false } },
-        enable: async (name: string) => { calls.push(`plugins.enable:${name}`) },
-        disable: async (name: string) => { calls.push(`plugins.disable:${name}`) },
-        reload: async (name: string) => { calls.push(`plugins.reload:${name}`) },
-      },
       updater: {
         check: async () => { calls.push('updater.check') },
         download: async () => { calls.push('updater.download') },
@@ -89,28 +78,18 @@ describe('desktop capability provider contract', () => {
 
     const desktop: DesktopCapabilitiesContract = createDesktopCapabilities(requireDesktopBridge())
     expect(Object.keys(desktop).sort()).toEqual([
-      'app', 'clipboard', 'dialog', 'network', 'notification', 'plugins', 'shell', 'theme', 'updater', 'window',
+      'app', 'clipboard', 'dialog', 'network', 'notification', 'shell', 'theme', 'updater', 'window',
     ])
     expect(await desktop.dialog.pickDirectory()).toEqual({ path: '/tmp' })
     expect(await desktop.updater.getState()).toEqual({ state: 'idle' })
     await desktop.clipboard.writeText('hello')
     desktop.updater.subscribe(() => {})
-    expect(await desktop.plugins.list()).toEqual({ entries: [], pendingRestart: [] })
     expect((await desktop.network.getState()).configuredMode).toBe('default')
     await desktop.app.relaunch()
-    await desktop.plugins.install({ source: 'registry', packageName: '@example/plugin' })
-    await desktop.plugins.enable('@example/plugin')
-    await desktop.plugins.disable('@example/plugin')
-    await desktop.plugins.reload('@example/plugin')
     expect(calls).toContain('dialog.pickDirectory')
     expect(calls).toContain('clipboard.writeText:hello')
     expect(calls).toContain('updater.subscribe')
-    expect(calls).toContain('plugins.list')
     expect(calls).toContain('app.relaunch')
-    expect(calls).toContain('plugins.install')
-    expect(calls).toContain('plugins.enable:@example/plugin')
-    expect(calls).toContain('plugins.disable:@example/plugin')
-    expect(calls).toContain('plugins.reload:@example/plugin')
     expect(JSON.stringify(desktop)).not.toContain('ipcRenderer')
     expect(JSON.stringify(desktop)).not.toContain('invoke')
   })
@@ -123,7 +102,6 @@ describe('desktop capability provider contract', () => {
     const desktop = ctx.get('desktop')
     if (desktop === undefined) throw new Error('desktop capability service was not registered')
     await expect(desktop.dialog.pickDirectory()).rejects.toThrow(/window\.deepseekDesktop is unavailable/)
-    await expect(desktop.plugins.list()).rejects.toThrow(/window\.deepseekDesktop is unavailable/)
     await expect(desktop.app.relaunch()).rejects.toThrow(/window\.deepseekDesktop is unavailable/)
   })
 })
