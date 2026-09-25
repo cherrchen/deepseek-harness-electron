@@ -13,6 +13,9 @@
   "main": "lib/main.js",
   "license": "MIT",
   "dshElectron": {
+    "runtimePlugins": [
+      "@dsh-electron/dsh-theme-studio"
+    ],
     "ecosystemPlugins": [
       "@dsh-electron/dsh-plugin-git"
     ]
@@ -150,6 +153,7 @@
     "@deepseek-ai/dsh-workspace": "workspace:^",
     "@deepseek-ai/schemastery": "workspace:^",
     "@dsh-electron/dsh-plugin-git": "0.2.3",
+    "@dsh-electron/dsh-theme-studio": "0.1.0",
     "electron-updater": "^6.8.9",
     "js-yaml": "^4.2.0",
     "pnpm": "11.7.0",

@@ -1,5 +1,10 @@
 # Electron Host composition: OS directory picking belongs to Main. Keep the
 # browse Host backend for apiproxy; Desktop supplies the client directory flow.
+# Theme Studio is a required runtime plugin installed from npm
+# (`dshElectron.runtimePlugins`); it overlays builtin palettes through
+# `ctx.theme.overrideTokens` and registers Settings → General → Themes. Its row
+# stays disabled because the published 0.1.0 declares dsh peers only through
+# 0.1.7-alpha.2, so the Host compatibility preflight denies it.
 - id: directory-picker
   disabled: true
 

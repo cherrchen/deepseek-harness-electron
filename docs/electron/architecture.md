@@ -329,17 +329,17 @@ A plugin MUST NOT receive raw Electron or Node access simply because it runs in 
 
 **CURRENT**
 
-Desktop bundles its required runtime plugins under `apps/electron/runtime/plugins/`. Standard public DSH ecosystem plugins are exact production npm dependencies and retain their published Host and Client artifacts.
+Desktop assembles its required runtime plugins from two sources: directories under `apps/electron/runtime/plugins/` that Electron builds, and published npm packages listed in `dshElectron.runtimePlugins`. Public ecosystem plugins are exact production npm dependencies listed in `dshElectron.ecosystemPlugins`; every npm source keeps its published Host and Client artifacts.
 
 ```text
-runtime/plugins/*          Desktop adapters, Electron carriers, and Electron-required portable UI infrastructure (build + link)
-node_modules/*             standard public DSH packages installed from npm (prebuilt + link)
+runtime/plugins/*          Desktop adapters, Electron carriers, and Desktop-only integration (build + link)
+node_modules/@dsh-electron/*  runtime plugins (dshElectron.runtimePlugins) and ecosystem plugins (dshElectron.ecosystemPlugins), prebuilt + link
 runtime/host.patch.yml     Host overlay: required Desktop plugins and bundled Git
 scripts/build-runtime-plugins.mjs
 src/runtime-plugins.ts     discovery, validation, and profile linking
 ```
 
-Startup validates and links every bundled plugin into `$DSH_HOME/profiles/node_modules/<package-name>` before the supervised Host starts. `host.patch.yml` mounts required Desktop plugins and bundled Git directly. The upstream Web profile manages subsequently installed plugins ([plugin lifecycle](plugin-lifecycle.md)).
+Startup validates and links every discovered plugin from those three sources into `$DSH_HOME/profiles/node_modules/<package-name>` before the supervised Host starts. `host.patch.yml` mounts required Desktop plugins and bundled Git directly. The upstream Web profile manages subsequently installed plugins ([plugin lifecycle](plugin-lifecycle.md)).
 
 The Desktop Capability Provider (`@dsh-electron/dsh-electron-desktop-capabilities`) adapts `window.deepseekDesktop` into `ctx.desktop` for feature plugins. Only renderer infrastructure and the provider read the global bridge directly.
 
@@ -353,7 +353,7 @@ The [Network Settings page](network-settings.md) is a required Desktop client pl
 
 Git (`@dsh-electron/dsh-plugin-git@0.2.3`) is a bundled ecosystem plugin installed only from npm. Its client occupies `ctx.sidebarRight` / `sidebarRightTabs` and is listed in `dshElectron.ecosystemPlugins`.
 
-Theme Studio (`@dsh-electron/dsh-theme-studio`) is required portable UI for builtin color overlays. Canonical source is `cherrchen/dsh-theme-studio`; `apps/electron/runtime/plugins/dsh-theme-studio` is the git subtree mirror. Electron rebuilds Host and Client artifacts from that source. The package registers **Settings → General → Themes** and calls `ctx.theme.overrideTokens()`; it does not replace official Appearance or present CSS itself.
+Theme Studio (`@dsh-electron/dsh-theme-studio@0.1.0`) is a required runtime plugin installed only from npm and listed in `dshElectron.runtimePlugins`. Its canonical source is `cherrchen/dsh-theme-studio`; this repository keeps no copy of it. The package registers **Settings → General → Themes** and calls `ctx.theme.overrideTokens()`; it does not replace official Appearance or present CSS itself. Its `host.patch.yml` row stays disabled because the published 0.1.0 declares dsh peers only through `0.1.7-alpha.2`, so the Host compatibility preflight denies the row; Desktop re-enables it after the canonical repository republishes with the current dsh version in its peer union.
 
 ```text
 Feature Plugin
@@ -372,7 +372,7 @@ Electron Main
 Native OS APIs
 ```
 
-Every directory under `runtime/plugins/<name>/` is rebuilt from source. Portable product features use independently published `@dsh-electron/dsh-plugin-*` packages; Electron installs, packages, and links their published artifacts without rebuilding or converting them.
+Every directory under `runtime/plugins/<name>/` is rebuilt from source. Portable runtime plugins declared in `dshElectron.runtimePlugins` likewise install, package, and link their published artifacts without rebuilding. Portable product features use independently published `@dsh-electron/dsh-plugin-*` packages; Electron installs, packages, and links their published artifacts without rebuilding or converting them.
 
 # Part II — Architecture Principles
 
@@ -618,11 +618,11 @@ Downstream plugin ownership is split by runtime requirement:
 apps/electron/runtime/plugins/
 ├─ desktop-capabilities/          infrastructure
 ├─ ui-directory-picker-electron/  Desktop-required adapter
-├─ ui-brand-electron/             Electron carrier plugin
-└─ dsh-theme-studio/              portable theme overlay (subtree)
+└─ ui-brand-electron/             Electron carrier plugin
 
 npm registry
-└─ @dsh-electron/dsh-plugin-*     portable or Desktop-aware public DSH plugin
+├─ @dsh-electron/dsh-theme-studio  runtime plugin (dshElectron.runtimePlugins)
+└─ @dsh-electron/dsh-plugin-*      ecosystem plugin (dshElectron.ecosystemPlugins)
 ```
 
 The architectural rules:
@@ -670,7 +670,7 @@ A Desktop-required adapter declares `desktop` as a required service and belongs 
 
 ### Electron-required portable DSH UI infrastructure
 
-A portable `platform: web` public package that Desktop mounts as required Host composition when the upstream Client still provides its occupancy slot. It uses only upstream DSH services, has no Electron dependency, and lives in a standalone canonical repository. `apps/electron/runtime/plugins/<name>/` is a git subtree mirror; Electron rebuilds artifacts from that source. Loading the package MUST NOT occupy product UI until a consumer calls the published service. Theme Studio is the only member. Product features that consumers may disable are installed as npm dependencies, not kept in this source tree.
+A portable `platform: web` public package that Desktop mounts as required Host composition when the upstream Client still provides its occupancy slot. It uses only upstream DSH services, has no Electron dependency, and lives in a standalone canonical repository whose published npm artifact Desktop installs, packages, and links without rebuilding. `dshElectron.runtimePlugins` declares it, so it holds the same status as a `runtime/plugins/` member instead of an external ecosystem plugin. Loading the package MUST NOT occupy product UI until a consumer calls the published service. Theme Studio is the only member. Product features that consumers may disable are ecosystem plugins declared in `dshElectron.ecosystemPlugins`.
 
 ## 20. Native implementation versus feature ownership
 
@@ -765,7 +765,7 @@ architecture and regression tests
 
 Acceptance criterion (met):
 
-A developer can add a new independent Desktop feature without editing `apps/web`, upstream core packages, `renderer/main.ts`, generic IPC, or generic infrastructure — only by adding a plugin under `runtime/plugins/` and mounting it in `host.patch.yml`.
+A developer can add a new independent Desktop feature without editing `apps/web`, upstream core packages, `renderer/main.ts`, generic IPC, or generic infrastructure — only by adding a plugin under `runtime/plugins/` or declaring a published runtime plugin in `dshElectron.runtimePlugins`, and mounting it in `host.patch.yml`.
 
 ## 24. Optional Milestone 4 — Transport Optimization
 

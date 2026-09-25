@@ -14,7 +14,7 @@ Bundled ecosystem 插件是 `@dsh-electron/dsh-electron` 的精确版本 product
 
 `synchronizeDependencies()` 只重新生成上游 CLI graph 与明确要求的 Desktop workspace import。它保留现有的非 workspace registry 依赖，包括 ecosystem plugin pin。运行时发现只从 `apps/electron/node_modules` 解析每个 roster 条目，并在安装包缺失时失败。Electron 链接已发布的 Host 与 Client artifacts，不重新构建它们。
 
-仓库只在 `apps/electron/runtime/plugins/` 下保留必需的 Desktop runtime 源码：Desktop Capabilities、Theme Studio、UI Brand、UI Directory Picker 与 UI Plugin Manager。标准 workspace、TypeScript、lint、文档、翻译、hook 与上游同步规则直接生效，不保留 `packages/dsh-electron/` 例外。
+仓库在 `apps/electron/runtime/plugins/` 下保留必需的 Desktop runtime 源码；portable runtime UI 基础设施是声明在 `dshElectron.runtimePlugins` 中的已发布 npm package。标准 workspace、TypeScript、lint、文档、翻译、hook 与上游同步规则直接生效，不保留 `packages/dsh-electron/` 例外。
 
 ## Alternatives considered
 

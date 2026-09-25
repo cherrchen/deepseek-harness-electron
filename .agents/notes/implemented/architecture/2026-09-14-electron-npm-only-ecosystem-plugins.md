@@ -14,7 +14,7 @@ Bundled ecosystem plugins are exact production npm dependencies of `@dsh-electro
 
 `synchronizeDependencies()` regenerates only the upstream CLI graph and explicitly required Desktop workspace imports. It retains existing non-workspace registry dependencies, including ecosystem-plugin pins. Runtime discovery resolves every roster entry only from `apps/electron/node_modules` and fails when the installed package is absent. Electron links the published Host and Client artifacts without rebuilding them.
 
-The repository keeps only required Desktop runtime sources under `apps/electron/runtime/plugins/`: Desktop Capabilities, Theme Studio, UI Brand, UI Directory Picker, and UI Plugin Manager. Standard workspace, TypeScript, lint, documentation, translation, hook, and upstream-sync rules apply without a `packages/dsh-electron/` exception.
+The repository keeps required Desktop runtime sources under `apps/electron/runtime/plugins/`; portable runtime UI infrastructure is a published npm package declared in `dshElectron.runtimePlugins`. Standard workspace, TypeScript, lint, documentation, translation, hook, and upstream-sync rules apply without a `packages/dsh-electron/` exception.
 
 ## Alternatives considered
 

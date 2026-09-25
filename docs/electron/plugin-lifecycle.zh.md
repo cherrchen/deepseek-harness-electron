@@ -14,7 +14,7 @@ Desktop 挂载必需的 adapter 和随包 Git 插件，用户安装的插件由�
 
 ## 启动组合
 
-`runtime/host.patch.yml` 挂载 Desktop Capability Provider、目录选择 client、品牌、网络设置和随包 Git 插件。Theme Studio 保留在组合中但处于禁用状态，因为此 Host 不提供其所需的 `settingsScope` 服务。Main 在启动 `dsh web` 前校验每个随包插件的 Host 和 Client 产物，并将 package 链接到 `$DSH_HOME/profiles/node_modules`。缺失产物会使启动报错。
+`runtime/host.patch.yml` 挂载 Desktop Capability Provider、目录选择 client、品牌、网络设置和随包 Git 插件。Theme Studio 从 npm 安装并声明在 `dshElectron.runtimePlugins` 中，但其挂载行保持禁用：已发布的 `@dsh-electron/dsh-theme-studio@0.1.0` 的 dsh peer 版本只到 `0.1.7-alpha.2`，Host 兼容性预检因此拒绝该行。待 canonical 仓库把当前 dsh 版本补入 peer 并集并重新发布后再启用。Main 在启动 `dsh web` 前校验每个随包插件的 Host 和 Client 产物，并将 package 链接到 `$DSH_HOME/profiles/node_modules`。缺失产物会使启动报错。
 
 上游 Web bundle 挂载自己的插件管理 UI 和 agent tool。Main 将随包 pnpm 加入受监督 Host 的 `PATH`，使上游 profile manager 无需全局安装 pnpm 即可执行 package 命令。插件安装、移除、profile 状态和 bundle 热激活遵循上游 Web profile 的实现。Electron 不维护独立的插件状态文件或动态 Cordis include。
 
