@@ -159,6 +159,9 @@ async function buildHostHalf(pluginRoot) {
     bundle: true,
     platform: 'node',
     packages: 'external',
+    // tsconfig paths resolve workspace imports before packages:external. Keep the
+    // provider and its error class shared with the upstream terminal controller.
+    external: ['@deepseek-ai/dsh-subprocess', '@deepseek-ai/dsh-subprocess-local'],
     format: 'esm',
     target: 'node22',
     logLevel: 'silent',
