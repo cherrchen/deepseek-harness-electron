@@ -1,3 +1,4 @@
+import { execFileSync } from 'node:child_process'
 import { mkdtempSync, readFileSync, readlinkSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
@@ -14,6 +15,28 @@ import {
 const appPath = fileURLToPath(new URL('..', import.meta.url))
 
 describe('bundled Desktop plugin startup', () => {
+  it('shares executable-miss errors with the Host subprocess package', () => {
+    // Node loads the built plugin without Vitest's source-package aliases.
+    const output = execFileSync(process.execPath, ['--input-type=module', '-e', `
+      import assert from 'node:assert/strict'
+      import { Context } from '@deepseek-ai/cordis'
+      import { SubprocessExecutableNotFoundError } from '@deepseek-ai/dsh-subprocess'
+      import { DesktopNetworkSubprocessRuntime } from './runtime/plugins/desktop-network-subprocess/lib/index.js'
+      const ctx = new Context()
+      const provider = new DesktopNetworkSubprocessRuntime(ctx)
+      try {
+        await assert.rejects(
+          provider.resolveExecutable('fish', { PATH: './missing-shell-directory' }),
+          SubprocessExecutableNotFoundError,
+        )
+      } finally {
+        await ctx.fiber.dispose()
+      }
+      console.log('missing shell recognized')
+    `], { cwd: appPath, encoding: 'utf8', timeout: 10_000 })
+    expect(output.trim()).toBe('missing shell recognized')
+  })
+
   it('links required adapters and the declared npm plugins into profile resolution', () => {
     const harnessHome = mkdtempSync(join(tmpdir(), 'dsh-electron-plugins-'))
     try {
