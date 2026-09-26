@@ -1,6 +1,7 @@
 # Agent Note: Electron plugin pending markers, profile lock, and startup recovery
 
 Status: implemented
+Archived: 2026-09-26
 
 English | [中文](2026-09-13-electron-plugin-pending-and-recovery.zh.md)
 

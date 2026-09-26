@@ -1,6 +1,7 @@
 # Agent Note: Electron 卸载插件时以重启替代 soft-refresh 崩溃
 
 Status: implemented
+Archived: 2026-09-26
 
 [English](2026-08-26-electron-plugin-remove-restart.md) | 中文
 

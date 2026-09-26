@@ -1,6 +1,7 @@
 # Agent Note: Electron plugin remove restart without soft-refresh crash
 
 Status: implemented
+Archived: 2026-09-26
 
 English | [中文](2026-08-26-electron-plugin-remove-restart.zh.md)
 

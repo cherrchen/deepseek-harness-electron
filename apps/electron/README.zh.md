@@ -60,7 +60,7 @@ pnpm --filter @dsh-electron/dsh-electron test
 
 主窗口使用隐藏标题栏，不绘制独立 Heading。侧栏背景延伸至窗口顶部：macOS 在侧栏顶部保留可拖拽的“交通信号灯”区域，Windows 和 Linux 则把侧栏右侧的各列下移到原生控件行之下，使该区域留空并可拖拽；全屏右侧面板会在自身盒内保留同样的留白行。活动会话 Header 的非交互部分可拖拽，空白会话背景与留空区域由透明命中面覆盖。Header 控件被明确排除拖拽；模态对话框打开期间，页面的所有拖拽区域均会暂停，使对话框遮罩和控件能够保持指针输入。关闭主窗口会隐藏窗口，Harness 进程继续运行。通过托盘菜单可以重新打开窗口，也可以退出应用并停止受监管的子进程。
 
-操作系统桌面能力由 Electron Main 拥有，并通过类型化的 `window.deepseekDesktop` preload 桥暴露。Desktop Capability Provider 插件（`runtime/plugins/desktop-capabilities`）将该桥适配为 feature 插件可用的 `ctx.desktop`。受监督 Host 接收 `runtime/host.patch.yml`，其中挂载必需的 Desktop adapter、Theme Studio 和随包 Git 插件。启动时 Main 校验构建产物，并将它们链接至 `$DSH_HOME/profiles/node_modules`。上游 Web profile 负责插件管理及其 UI；Main 将随包 pnpm 加入 Host 的 `PATH`。`scripts/build-runtime-plugins.mjs` 从源码构建本地 Desktop 插件，Theme Studio 与 Git 则使用已发布的 Host 和 Client 产物。上游 UI 的剪贴板写入通过 Renderer shim 到达 Main。以新窗口打开的外部 URL 使用 `https:`、`http:` 或 `mailto:`。
+操作系统桌面能力由 Electron Main 拥有，并通过类型化的 `window.deepseekDesktop` preload 桥暴露。Desktop Capability Provider 插件（`runtime/plugins/desktop-capabilities`）将该桥适配为 feature 插件可用的 `ctx.desktop`。受监督 Host 接收 `runtime/host.patch.yml`，其中挂载必需的 Desktop adapter 和随包 Git 插件。Theme Studio 已随包安装并链接，但在其已发布的 dsh peer 范围支持此版本前保持禁用。启动时 Main 校验随包构建产物，并将它们链接至 `$DSH_HOME/profiles/node_modules`。Main 会将旧版由 Desktop 管理的运行时插件一次性迁入 Web profile patch，并保留其启用或禁用状态。此后由上游 Web profile 管理插件及其 UI；Main 将随包 pnpm 加入 Host 的 `PATH`。`scripts/build-runtime-plugins.mjs` 从源码构建本地 Desktop 插件，Theme Studio 与 Git 则使用已发布的 Host 和 Client 产物。上游 UI 的剪贴板写入通过 Renderer shim 到达 Main。以新窗口打开的外部 URL 使用 `https:`、`http:` 或 `mailto:`。
 
 原生页面右键菜单根据 Chromium 当前的编辑能力提供剪切、复制、粘贴、全选和刷新；开发构建还提供 DevTools。应用菜单和托盘菜单提供桌面端自有的“关于”窗口、更新通道选择和手动更新检查入口。
 

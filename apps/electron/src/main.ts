@@ -60,6 +60,7 @@ import {
   type HostRuntime,
 } from './runtime.ts'
 import { preparePluginPackageManager, resolveBundledPnpmBin } from './plugin-package-manager.ts'
+import { migrateLegacyPluginState } from './legacy-plugin-migration.ts'
 import { resolveDesktopMainLocale } from './locale.ts'
 import {
   trayIconNeedsLogicalLoad,
@@ -463,6 +464,7 @@ if (!primaryInstance) {
       override: process.env.DSH_ELECTRON_NODE_BINARY,
     })
     const harnessHome = resolveHarnessHome(app.getPath('home'))
+    await migrateLegacyPluginState(harnessHome)
     ensureRuntimePluginsLinked(appPath, harnessHome)
     const overlay = await prepareHostRuntimeOverlay(appPath, userDataPath)
     const packageManager = preparePluginPackageManager(

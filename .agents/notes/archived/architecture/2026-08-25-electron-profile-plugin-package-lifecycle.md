@@ -1,6 +1,7 @@
 # Agent Note: Electron profile plugin package lifecycle
 
 Status: implemented
+Archived: 2026-09-26
 
 English | [中文](2026-08-25-electron-profile-plugin-package-lifecycle.zh.md)
 

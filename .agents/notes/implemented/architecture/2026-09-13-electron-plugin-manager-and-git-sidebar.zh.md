@@ -1,4 +1,4 @@
-# Agent Note: Electron 重挂 Plugin Manager，并通过 sidebarRight 组合 Git
+# Agent Note: Desktop 使用 Web Plugin Manager，并通过 sidebarRight 组合 Git
 
 Status: implemented
 
@@ -10,7 +10,7 @@ Status: implemented
 
 ## Decision
 
-`apps/electron/runtime/host.patch.yml` 插入 `@dsh-electron/dsh-electron-ui-plugin-manager`。
+Web profile 挂载上游 Plugin Manager。Desktop Host patch 不再插入独立的 Electron manager。
 
 `@dsh-electron/dsh-plugin-git@0.2.3` 注入 `sidebarRight` / `sidebarRightTabs`，运行时不依赖 `details`、`shellDetails` 或 `@dsh-electron/dsh-client-ui-details-host`。Desktop 把该 package 列入 `dshElectron.ecosystemPlugins`，并按照 [npm-only ecosystem plugin 规则](2026-09-14-electron-npm-only-ecosystem-plugins.zh.md)保留其精确版本 production npm 依赖。
 
@@ -24,4 +24,4 @@ Status: implemented
 
 ## Consequences
 
-Desktop 设置会显示 Installed tab。Git UI 位于右侧边栏。Overlay 测试要求 bootstrap patch 包含 Plugin Manager。Git 不出现在 `host.patch.yml` 中，因为生态组合走生成的 include 文件。
+上游 Plugin Manager 提供 Installed 视图。Git UI 位于右侧边栏，`host.patch.yml` 直接插入随包 Git 插件。

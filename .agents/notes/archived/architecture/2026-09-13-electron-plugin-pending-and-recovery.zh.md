@@ -1,6 +1,7 @@
 # Agent Note: Electron 插件 pending 标记、profile 锁与启动恢复
 
 Status: implemented
+Archived: 2026-09-26
 
 [English](2026-09-13-electron-plugin-pending-and-recovery.md) | 中文
 

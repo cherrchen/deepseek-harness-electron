@@ -1,6 +1,7 @@
 # Agent Note: Electron 仅在 Desktop 记录执行意图后热加载 profile package
 
 Status: implemented
+Archived: 2026-09-26
 
 [English](2026-09-13-electron-plugin-manageable-kinds.md) | 中文
 

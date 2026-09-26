@@ -1,6 +1,7 @@
 # Agent Note: Electron 拥有的运行时插件热插拔
 
 Status: implemented
+Archived: 2026-09-26
 
 [English](2026-08-24-electron-runtime-plugin-hot-plug.md) | 中文
 
