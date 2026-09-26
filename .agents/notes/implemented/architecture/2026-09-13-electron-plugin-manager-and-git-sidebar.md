@@ -1,4 +1,4 @@
-# Agent Note: Electron remounts Plugin Manager and composes Git through sidebarRight
+# Agent Note: Desktop uses Web Plugin Manager and composes Git through sidebarRight
 
 Status: implemented
 
@@ -10,9 +10,9 @@ The 0.1.5-rc.2 pin left Plugin Manager and Git uncomposed because Git occupied t
 
 ## Decision
 
-`apps/electron/runtime/host.patch.yml` inserts `@dsh-electron/dsh-electron-ui-plugin-manager`.
+The Web profile mounts the upstream Plugin Manager. Desktop's Host patch does not insert a separate Electron manager.
 
-`@dsh-electron/dsh-plugin-git@0.2.1` injects `sidebarRight` / `sidebarRightTabs` and has no runtime dependency on `details`, `shellDetails`, or `@dsh-electron/dsh-client-ui-details-host`. Desktop lists the package in `dshElectron.ecosystemPlugins` and keeps its exact production npm dependency under the [npm-only ecosystem plugin rule](2026-09-14-electron-npm-only-ecosystem-plugins.md).
+`@dsh-electron/dsh-plugin-git@0.2.3` injects `sidebarRight` / `sidebarRightTabs` and has no runtime dependency on `details`, `shellDetails`, or `@dsh-electron/dsh-client-ui-details-host`. Desktop lists the package in `dshElectron.ecosystemPlugins` and keeps its exact production npm dependency under the [npm-only ecosystem plugin rule](2026-09-14-electron-npm-only-ecosystem-plugins.md).
 
 ## Alternatives considered
 
@@ -24,4 +24,4 @@ The 0.1.5-rc.2 pin left Plugin Manager and Git uncomposed because Git occupied t
 
 ## Consequences
 
-Desktop Settings shows the Installed tab. Git UI lives in the right sidebar. Overlay tests require Plugin Manager in the bootstrap patch. Git remains absent from `host.patch.yml` because ecosystem composition uses the generated include file.
+The upstream Plugin Manager provides the Installed view. Git UI lives in the right sidebar, and `host.patch.yml` inserts the bundled Git package directly.

@@ -28,6 +28,20 @@ describe('extractHostBootstrap', () => {
     })
   })
 
+  it('accepts document-relative plugin script URLs from the Host boot table', () => {
+    const html = [
+      '<html><head>',
+      '<link rel="preload" as="script" href="plugins/??@deepseek-ai/dsh-client-ui-renderer/client.js&amp;rev=def">',
+      '<script src="plugins/??@deepseek-ai/dsh-client-modules/client.js&amp;rev=abc"></script>',
+      '<script>globalThis["__DSH_BOOT__"] = {"rev":"g1","entries":[]}</script>',
+      '</head><body></body></html>',
+    ].join('')
+
+    expect(extractHostBootstrap(html).preloadUrls).toEqual([
+      '/plugins/??@deepseek-ai/dsh-client-modules/client.js&rev=abc',
+    ])
+  })
+
   it('rejects Host HTML without a boot assignment', () => {
     expect(() => extractHostBootstrap('<html></html>')).toThrow(/__DSH_BOOT__/)
   })

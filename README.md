@@ -48,14 +48,14 @@ Harness profiles and state live in the platform-specific application-data direct
 
 ## Bundled plugins
 
-DeepSeek Harness Desktop mirrors two portable DSH plugins from standalone canonical repositories.
+DeepSeek Harness Desktop bundles two portable DSH plugins published from standalone canonical repositories.
 
 | Plugin | Desktop role | Summary |
 |---|---|---|
-| [dsh-theme-studio](https://github.com/cherrchen/dsh-theme-studio) | Required built-in | Builtin color themes under **Settings → General → Themes**, overlaid on official Light / Dark / System Appearance. |
+| [dsh-theme-studio](https://github.com/cherrchen/dsh-theme-studio) | Required built-in | Builtin color themes under **Settings → General → Themes**, overlaid on official Light / Dark / System Appearance. Listed in `dshElectron.runtimePlugins`. |
 | [dsh-plugin-git](https://github.com/cherrchen/dsh-plugin-git) | Ecosystem plugin | Local Git status, diffs, staging, commits, and branch controls in the right sidebar. Listed in `dshElectron.ecosystemPlugins`. |
 
-Canonical development happens in those repositories; this monorepo mirrors them with git subtree.
+Canonical development happens in those repositories; this monorepo installs their published npm packages and keeps no copy of their source.
 
 ## Development
 

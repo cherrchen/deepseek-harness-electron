@@ -1,6 +1,25 @@
-# Bilingual-pair consistency record (docs/i18n/README.md): the git blob hash of each
-# side as of the last confirmed-consistent state. Both languages carry equal authority;
-# after editing either side, bring the other along and re-record with:
+# Bilingual-pair consistency record for 2026-09-20-electron-managed-network-settings.md (docs/i18n/README.md): per heading
+# section, a hash of its English and Chinese blocks outside code blocks and generated regions.
+# After editing either side, bring the other along and re-record with:
 #   pnpm run verify-translation-pairing --write .agents/notes/proposed/feature/2026-09-20-electron-managed-network-settings.md
-2026-09-20-electron-managed-network-settings.md: 39e70b3bd6ebaf3ebbc922a4f09777fcffbf4fc4
-2026-09-20-electron-managed-network-settings.zh.md: 016490b5e37ddf8df706e2a79c44850659fa7f7c
+/agent-note-electron-managed-network-settings:
+  en: b434ff06e9d8c9f9
+  zh: c3fb045bc9ebd02c
+/agent-note-electron-managed-network-settings/problem:
+  en: 7ca88f05356ffb53
+  zh: 9da75a3c015b5e7c
+/agent-note-electron-managed-network-settings/proposal:
+  en: 9853e62be3e7c413
+  zh: ce3a9b134a78f066
+/agent-note-electron-managed-network-settings/foundation:
+  en: 012a15a20b9dff81
+  zh: 9b8370150b572154
+/agent-note-electron-managed-network-settings/alternatives-considered:
+  en: 29530c10c56577b5
+  zh: 88dfbfd7f3f5314e
+/agent-note-electron-managed-network-settings/acceptance-criteria:
+  en: 353bbcb2051d769a
+  zh: f19e2780b7d56565
+/agent-note-electron-managed-network-settings/risks:
+  en: f181c04c3fb34640
+  zh: 1d361890e5500de9

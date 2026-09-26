@@ -1,6 +1,19 @@
-# Bilingual-pair consistency record (docs/i18n/README.md): the git blob hash of each
-# side as of the last confirmed-consistent state. Both languages carry equal authority;
-# after editing either side, bring the other along and re-record with:
+# Bilingual-pair consistency record for 2026-08-14-electron-only-dependabot.md (docs/i18n/README.md): per heading
+# section, a hash of its English and Chinese blocks outside code blocks and generated regions.
+# After editing either side, bring the other along and re-record with:
 #   pnpm run verify-translation-pairing --write .agents/notes/implemented/process/2026-08-14-electron-only-dependabot.md
-2026-08-14-electron-only-dependabot.md: d6a98017517a4967b395168f914ec68a20f2f59a
-2026-08-14-electron-only-dependabot.zh.md: 516e594b3fdf32e369427310da3e84a5d7ac96e0
+/agent-note-electron-only-dependabot-updates:
+  en: fd2d4c622ae2ce8e
+  zh: a4057d9ca06bdbab
+/agent-note-electron-only-dependabot-updates/problem:
+  en: dd6390da22f2af26
+  zh: 3dcb275c97eb456c
+/agent-note-electron-only-dependabot-updates/decision:
+  en: ab84a28c8a6a4c8d
+  zh: 6c65a928c6905a3c
+/agent-note-electron-only-dependabot-updates/alternatives-considered:
+  en: 7ae9fb704df2669c
+  zh: a915b610b8189efc
+/agent-note-electron-only-dependabot-updates/consequences:
+  en: 4e7fa656828e5376
+  zh: cee1ad22417f2531

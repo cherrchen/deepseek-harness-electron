@@ -10,11 +10,11 @@ Desktop 需要每个 bundled ecosystem 插件都存在于 production `node_modul
 
 ## Decision
 
-Bundled ecosystem 插件是 `@dsh-electron/dsh-electron` 的精确版本 production npm 依赖。当前 Git 插件依赖是 `@dsh-electron/dsh-plugin-git@0.2.1`；本仓库不保存其源码副本。`dshElectron.ecosystemPlugins` 仍然拥有发行清单与运行时生命周期分类，但不代表 workspace 成员资格。
+Bundled ecosystem 插件是 `@dsh-electron/dsh-electron` 的精确版本 production npm 依赖。当前 Git 插件依赖是 `@dsh-electron/dsh-plugin-git@0.2.3`；本仓库不保存其源码副本。`dshElectron.ecosystemPlugins` 仍然拥有发行清单与运行时生命周期分类，但不代表 workspace 成员资格。
 
 `synchronizeDependencies()` 只重新生成上游 CLI graph 与明确要求的 Desktop workspace import。它保留现有的非 workspace registry 依赖，包括 ecosystem plugin pin。运行时发现只从 `apps/electron/node_modules` 解析每个 roster 条目，并在安装包缺失时失败。Electron 链接已发布的 Host 与 Client artifacts，不重新构建它们。
 
-仓库只在 `apps/electron/runtime/plugins/` 下保留必需的 Desktop runtime 源码：Desktop Capabilities、Theme Studio、UI Brand、UI Directory Picker 与 UI Plugin Manager。标准 workspace、TypeScript、lint、文档、翻译、hook 与上游同步规则直接生效，不保留 `packages/dsh-electron/` 例外。
+仓库在 `apps/electron/runtime/plugins/` 下保留必需的 Desktop runtime 源码；portable runtime UI 基础设施是声明在 `dshElectron.runtimePlugins` 中的已发布 npm package。标准 workspace、TypeScript、lint、文档、翻译、hook 与上游同步规则直接生效，不保留 `packages/dsh-electron/` 例外。
 
 ## Alternatives considered
 

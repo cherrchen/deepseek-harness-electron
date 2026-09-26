@@ -37,8 +37,15 @@ export class SafeStorageSecretStore implements DesktopSecretStore {
     private readonly platform: NodeJS.Platform = process.platform,
   ) {}
 
-  /** @returns interpreted platform storage state. */
+  /** @returns storage state; macOS defers Keychain access until a secret is used. */
   async status(): Promise<DesktopSecureStorageState> {
+    return this.storageState(false)
+  }
+
+  private async storageState(probeKeychain: boolean): Promise<DesktopSecureStorageState> {
+    if (this.platform === 'darwin' && !probeKeychain) {
+      return { available: true, persistent: true, backend: 'keychain' }
+    }
     const available = await this.safeStorage.isAsyncEncryptionAvailable().catch(() => false)
     if (this.platform === 'linux') {
       const backend = this.safeStorage.getSelectedStorageBackend()
@@ -63,7 +70,6 @@ export class SafeStorageSecretStore implements DesktopSecretStore {
 
   /** Decrypt a stored secret and rotate its ciphertext when Electron requests it. */
   async get(ref: SecretRef): Promise<string | undefined> {
-    await this.requirePersistentStorage()
     let encoded: string
     try {
       encoded = await readFile(this.pathFor(ref), 'utf8')
@@ -71,6 +77,7 @@ export class SafeStorageSecretStore implements DesktopSecretStore {
       if (isMissingFileError(error)) return undefined
       throw error
     }
+    await this.requirePersistentStorage()
     const encrypted = Buffer.from(encoded.trim(), 'base64')
     const decrypted = await this.safeStorage.decryptStringAsync(encrypted)
     if (decrypted.shouldReEncrypt) await this.put(ref, decrypted.result)
@@ -83,7 +90,7 @@ export class SafeStorageSecretStore implements DesktopSecretStore {
   }
 
   private async requirePersistentStorage(): Promise<void> {
-    const state = await this.status()
+    const state = await this.storageState(true)
     if (state.persistent) return
     throw new DesktopNetworkOperationError(
       state.warning === 'plaintext-backend' ? 'SECURE_STORAGE_PLAINTEXT_BACKEND' : 'SECURE_STORAGE_UNAVAILABLE',

@@ -1,7 +1,7 @@
-import { mkdtemp, readFile } from 'node:fs/promises'
+import { mkdtemp, readFile, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import { MANUAL_PROXY_PASSWORD_REF } from '../src/network/domain.ts'
 import { SafeStorageSecretStore, type SafeStorageApi } from '../src/network/secret-store.ts'
 
@@ -24,6 +24,25 @@ describe('Desktop Network secret storage', () => {
     await expect(store.put(MANUAL_PROXY_PASSWORD_REF, 'secret')).rejects.toMatchObject({
       code: 'SECURE_STORAGE_PLAINTEXT_BACKEND',
     })
+  })
+
+  it('does not contact the macOS Keychain until a stored password is used', async () => {
+    const root = await mkdtemp(join(tmpdir(), 'dsh-electron-secrets-'))
+    try {
+      const safeStorage = fakeSafeStorage()
+      const availability = vi.spyOn(safeStorage, 'isAsyncEncryptionAvailable')
+      const store = new SafeStorageSecretStore(root, safeStorage, 'darwin')
+      await expect(store.status()).resolves.toMatchObject({ persistent: true, backend: 'keychain' })
+      await expect(store.get(MANUAL_PROXY_PASSWORD_REF)).resolves.toBeUndefined()
+      expect(availability).not.toHaveBeenCalled()
+
+      await store.put(MANUAL_PROXY_PASSWORD_REF, 'secret')
+      expect(availability).toHaveBeenCalledOnce()
+      await expect(store.get(MANUAL_PROXY_PASSWORD_REF)).resolves.toBe('secret')
+      expect(availability).toHaveBeenCalledTimes(2)
+    } finally {
+      await rm(root, { recursive: true, force: true })
+    }
   })
 })
 

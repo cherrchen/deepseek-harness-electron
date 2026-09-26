@@ -329,17 +329,17 @@ Unprivileged Renderer / Client Plugins
 
 **CURRENT**
 
-里程碑 3 在 `apps/electron/runtime/plugins/` 下建立了 bundled runtime 插件基础设施。标准公共 DSH 生态插件是精确版本的 production npm 依赖，并保留其发布的 Host 与 Client artifacts。
+Desktop 从两处汇集其所需的 runtime 插件：`apps/electron/runtime/plugins/` 下由 Electron 构建的目录，以及 `dshElectron.runtimePlugins` 中列出的已发布 npm package。公共生态插件是 `dshElectron.ecosystemPlugins` 中列出的精确版本 production npm 依赖；每个 npm 来源都保留其已发布的 Host 与 Client artifacts。
 
 ```text
-runtime/plugins/*          Desktop adapters, Electron carriers, and Electron-required portable UI infrastructure (build + link)
-node_modules/*             standard public DSH packages installed from npm (prebuilt + link)
-runtime/host.patch.yml     bootstrap overlay: required runtime plugins, include seat, config-only HMR
+runtime/plugins/*          Desktop adapters, Electron carriers, and Desktop-only integration (build + link)
+node_modules/@dsh-electron/*  runtime plugins (dshElectron.runtimePlugins) and ecosystem plugins (dshElectron.ecosystemPlugins), prebuilt + link
+runtime/host.patch.yml     Host overlay: required Desktop plugins and bundled Git
 scripts/build-runtime-plugins.mjs
-src/runtime-plugins.ts     discovery, validation, profile and nested-include linking
+src/runtime-plugins.ts     discovery, validation, and profile linking
 ```
 
-启动前会把每个 bundled 插件链接到 `$DSH_HOME/profiles/node_modules/<package-name>` 与 `$DSH_HOME/electron/node_modules/<package-name>`，再启动受监督 Host。发现决定 Desktop 随包分发什么。`host.patch.yml` 挂载必需的 runtime 插件以及一个 `cordis:include` seat；Electron 生成 `$DSH_HOME/electron/plugins.cordis.yml` 作为运行时生态 roster。运行时 enable、disable 与 reload 见 [plugin-lifecycle.zh.md](plugin-lifecycle.zh.md)。
+启动时先校验这三个来源发现的每个插件，再将其链接到 `$DSH_HOME/profiles/node_modules/<package-name>`，然后启动受监督 Host。`host.patch.yml` 直接挂载必需的 Desktop 插件和随包 Git 插件。之后安装的插件由上游 Web profile 管理（[插件生命周期](plugin-lifecycle.zh.md)）。
 
 Desktop Capability Provider（`@dsh-electron/dsh-electron-desktop-capabilities`）把 `window.deepseekDesktop` 适配为 feature 插件可用的 `ctx.desktop`。只有 Renderer 基础设施与该 provider 可直接读取全局 bridge。
 
@@ -347,13 +347,13 @@ Desktop Capability Provider（`@dsh-electron/dsh-electron-desktop-capabilities`�
 
 品牌插件（`@dsh-electron/dsh-electron-ui-brand`）始终用 DeepSeek Harness 视觉填充 `sidebar.brand.mark`、`sidebar.brand.name` 与 `conversation.hero.brand.mark`，因此 Desktop 产品品牌不依赖上游 `DSH_CLIENT_BUILD_PROFILE=official` client 构建。
 
-Plugin Manager（`@dsh-electron/dsh-electron-ui-plugin-manager`）消费 `ctx.desktop.plugins`，并通过 upstream 拥有的 `settings.plugins.tab` slot 贡献 `installed` view。`host.patch.yml` 挂载它。Main 仍拥有 lifecycle 读取、mutation、polling、rollback 与 Renderer refresh，记录在 [plugin-lifecycle.zh.md](plugin-lifecycle.zh.md)。
+上游 Web bundle 在 Plugins UI 和 agent tool 中提供插件管理。Electron Main 将随包 pnpm 加入受监督 Host 的 `PATH`；package 操作由上游 profile manager 执行。
 
 [网络设置页面](network-settings.zh.md) 是必需的 Desktop Client 插件。它贡献顶层 `settings.section` 条目，并通过 `ctx.desktop.network` 配置网络、读取脱敏诊断及运行连接测试；Main 持有策略、密码和重启操作。原生故障对话框可以打开此分区，而不改变已选择的路由。
 
-Git（`@dsh-electron/dsh-plugin-git@0.2.1`）是仅从 npm 安装的 bundled ecosystem 插件。其 Client 占用 `ctx.sidebarRight` / `sidebarRightTabs`，并列入 `dshElectron.ecosystemPlugins`（[组合说明](../../.agents/notes/implemented/architecture/2026-09-13-electron-plugin-manager-and-git-sidebar.zh.md)）。
+Git（`@dsh-electron/dsh-plugin-git@0.2.3`）是仅从 npm 安装的 bundled ecosystem 插件。其 Client 占用 `ctx.sidebarRight` / `sidebarRightTabs`，并列入 `dshElectron.ecosystemPlugins`。
 
-Theme Studio（`@dsh-electron/dsh-theme-studio`）是必需的 portable UI，用于内置配色覆盖层。源码真源是 `cherrchen/dsh-theme-studio`；`apps/electron/runtime/plugins/dsh-theme-studio` 是 git subtree 镜像。Electron 从该源码重新构建 Host 与 Client artifacts。该包注册**设置 → 通用 → 主题**，并调用 `ctx.theme.overrideTokens()`；它不替换官方外观，也不自己呈现 CSS。
+Theme Studio（`@dsh-electron/dsh-theme-studio@0.1.0`）是仅从 npm 安装的必需 runtime 插件，列入 `dshElectron.runtimePlugins`。其源码真源是 `cherrchen/dsh-theme-studio`；本仓库不保留其任何副本。该包注册**设置 → 通用 → 主题**，并调用 `ctx.theme.overrideTokens()`；它不替换官方外观，也不自己呈现 CSS。其 `host.patch.yml` 行保持禁用：已发布的 0.1.0 的 dsh peer 只到 `0.1.7-alpha.2`，Host 兼容性预检因此拒绝该行；待 canonical 仓库把当前 dsh 版本补入 peer 并集并重新发布后，Desktop 再启用它。
 
 ```text
 Feature Plugin
@@ -372,7 +372,7 @@ Electron Main
 Native OS APIs
 ```
 
-`runtime/plugins/<name>/` 下的每个目录都从源码重新构建。Portable 产品功能使用独立发布的 `@dsh-electron/dsh-plugin-*` package；Electron 安装、打包并链接其已发布 artifacts，不重新构建或转换。
+`runtime/plugins/<name>/` 下的每个目录都从源码重新构建。`dshElectron.runtimePlugins` 中声明的 portable runtime 插件同样安装、打包并链接其已发布 artifacts，无需重新构建。Portable 产品功能使用独立发布的 `@dsh-electron/dsh-plugin-*` package；Electron 安装、打包并链接其已发布 artifacts，不重新构建或转换。
 
 # 第二部分 — 架构原则
 
@@ -618,12 +618,11 @@ desktop.rawIpc
 apps/electron/runtime/plugins/
 ├─ desktop-capabilities/          infrastructure
 ├─ ui-directory-picker-electron/  Desktop-required adapter
-├─ ui-brand-electron/             Electron carrier plugin
-├─ ui-plugin-manager-electron/    Electron carrier plugin
-└─ dsh-theme-studio/              portable theme overlay (subtree)
+└─ ui-brand-electron/             Electron carrier plugin
 
 npm registry
-└─ @dsh-electron/dsh-plugin-*     portable or Desktop-aware public DSH plugin
+├─ @dsh-electron/dsh-theme-studio  runtime plugin (dshElectron.runtimePlugins)
+└─ @dsh-electron/dsh-plugin-*      ecosystem plugin (dshElectron.ecosystemPlugins)
 ```
 
 架构规则：
@@ -671,7 +670,7 @@ Desktop-required adapter 把 `desktop` 声明为 required service，归属 `apps
 
 ### Electron 必需的 portable DSH UI 基础设施
 
-这是 Desktop 在上游 Client 仍提供占用插槽时作为必需 Host 组合挂载的 portable `platform: web` 公共包。它只使用上游 DSH 服务，不依赖 Electron，源码真源是独立仓库。`apps/electron/runtime/plugins/<name>/` 是 git subtree 镜像；Electron 从该源码重新构建 artifacts。加载该包 MUST NOT 占用产品 UI，直到消费者调用已发布的服务。当前唯一成员是 Theme Studio。用户可禁用的产品功能以 npm 依赖安装，不在此源码树中保存。
+这是 Desktop 在上游 Client 仍提供占用插槽时作为必需 Host 组合挂载的 portable `platform: web` 公共包。它只使用上游 DSH 服务，不依赖 Electron，源码真源是独立仓库，Desktop 安装、打包并链接其已发布 npm artifact，不重新构建。`dshElectron.runtimePlugins` 声明它，因此它与 `runtime/plugins/` 成员地位相同，而不是外部生态插件。加载该包 MUST NOT 占用产品 UI，直到消费者调用已发布的服务。当前唯一成员是 Theme Studio。用户可禁用的产品功能是声明在 `dshElectron.ecosystemPlugins` 中的生态插件。
 
 ## 20. 原生实现与功能所有权
 
@@ -766,7 +765,7 @@ architecture and regression tests
 
 验收标准（已满足）：
 
-开发者可在不修改 `apps/web`、上游核心包、`renderer/main.ts`、通用 IPC 或通用基础设施的情况下添加新的独立 Desktop 功能——只需在 `runtime/plugins/` 添加插件并在 `host.patch.yml` 挂载。
+开发者可在不修改 `apps/web`、上游核心包、`renderer/main.ts`、通用 IPC 或通用基础设施的情况下添加新的独立 Desktop 功能——只需在 `runtime/plugins/` 添加插件，或在 `dshElectron.runtimePlugins` 中声明一个已发布的 runtime 插件，并在 `host.patch.yml` 挂载。
 
 ## 24. 可选里程碑 4 — 传输优化
 

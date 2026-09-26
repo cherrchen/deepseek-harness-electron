@@ -9,13 +9,6 @@ import {
   unlinkSync,
 } from 'node:fs'
 import { basename, dirname, join } from 'node:path'
-import type {
-  PluginActivationMode,
-  PluginPackageActions,
-  PluginInstallSource,
-  PluginOwnership,
-  PluginPackageKind,
-} from './plugin-lifecycle-contract.ts'
 
 /** Relative path from the Electron application root to bundled runtime plugins. */
 export const RUNTIME_PLUGINS_RELATIVE = join('runtime', 'plugins')
@@ -28,7 +21,7 @@ export interface RuntimePluginManifest {
   version: string
   /** User-facing package description from package.json. */
   description?: string
-  /** Direct child directory name under runtime/plugins. */
+  /** Naming segment for the plugin: a `runtime/plugins` child directory, or an npm package's final name segment. */
   directoryName: string
   /** Absolute path to the plugin root (contains package.json and lib/). */
   rootPath: string
@@ -36,34 +29,22 @@ export interface RuntimePluginManifest {
   hasClient: boolean
 }
 
-/** Runtime plugin plus lifecycle-management policy owned by Electron Main. */
-export interface ManagedPlugin extends RuntimePluginManifest {
-  /** Optional cache-busting Host module request for an in-process package refresh. */
-  runtimeRequest?: string
-  /** Authority that owns the package's catalog membership. */
-  ownership: PluginOwnership
-  /** Installed package behavior. */
-  kind: PluginPackageKind
-  /** Package acquisition origin. */
-  installSource: PluginInstallSource
-  /** Direct dependency spec written to the profile manifest. */
-  requestedSpec?: string
-  /** Whether users may enable, disable, or reload this plugin at runtime. */
-  manageable: boolean
-  /** Whether the desktop shell requires the plugin in static bootstrap composition. */
-  required: boolean
-  /** Runtime activation mechanism. */
-  activationMode: PluginActivationMode
-  /** Whether declared package entries can currently load. */
-  health: 'healthy' | 'reconcile-required'
-  /** Main-owned profile package policy. */
-  packageActions: PluginPackageActions
-  /** Whether Desktop recorded this profile dependency as its own install. */
-  desktopInstalled?: boolean
-}
+/** Inventory field naming one npm plugin group the Electron distribution declares. */
+type NpmPluginInventory = 'runtimePlugins' | 'ecosystemPlugins'
 
 interface ElectronPluginInventoryManifest {
-  dshElectron?: { ecosystemPlugins?: string[] }
+  dshElectron?: {
+    /** Npm packages holding the same status as `runtime/plugins/` members: Electron application capabilities. */
+    runtimePlugins?: string[]
+    /** Npm packages naming external public DSH plugins. */
+    ecosystemPlugins?: string[]
+  }
+}
+
+/** Error-message prefix for each npm inventory field. */
+const NPM_INVENTORY_LABELS: Record<NpmPluginInventory, string> = {
+  runtimePlugins: 'runtime plugins',
+  ecosystemPlugins: 'ecosystem plugins',
 }
 
 /**
@@ -80,7 +61,7 @@ export function runtimePluginsRoot(appPath: string): string {
  * @param appPath - Electron application root.
  * @returns One manifest per direct child directory containing package.json.
  */
-export function discoverRuntimePlugins(appPath: string): RuntimePluginManifest[] {
+export function discoverRuntimePluginDirectories(appPath: string): RuntimePluginManifest[] {
   const root = runtimePluginsRoot(appPath)
   if (!existsSync(root)) {
     throw new Error(`runtime plugins: inventory missing at ${root}`)
@@ -116,29 +97,29 @@ export function discoverRuntimePlugins(appPath: string): RuntimePluginManifest[]
 }
 
 /**
- * Resolve prebuilt standard DSH packages declared by the Electron distribution.
- * Packaged apps require each name as a production dependency so electron-builder copies it into `node_modules`.
+ * Resolve npm plugin packages declared by one `dshElectron` inventory field.
  * @param appPath - Electron application root.
+ * @param inventory - Inventory field naming the declared package names.
  * @returns Manifests backed by installed npm package artifacts.
  */
-export function discoverEcosystemPlugins(appPath: string): RuntimePluginManifest[] {
+function discoverDeclaredPlugins(appPath: string, inventory: NpmPluginInventory): RuntimePluginManifest[] {
+  const label = NPM_INVENTORY_LABELS[inventory]
   const appManifestPath = join(appPath, 'package.json')
   if (!existsSync(appManifestPath)) return []
   const appManifest = JSON.parse(readFileSync(appManifestPath, 'utf8')) as ElectronPluginInventoryManifest
-  const names = appManifest.dshElectron?.ecosystemPlugins ?? []
+  const names = appManifest.dshElectron?.[inventory] ?? []
   return names.map((name) => {
-    const installed = join(appPath, 'node_modules', ...name.split('/'))
-    const rootPath = installed
+    const rootPath = join(appPath, 'node_modules', ...name.split('/'))
     const manifestPath = join(rootPath, 'package.json')
     if (!existsSync(manifestPath)) {
-      throw new Error(`ecosystem plugins: ${name} is declared but not installed at ${installed}`)
+      throw new Error(`${label}: ${name} is declared but not installed at ${rootPath}`)
     }
     const manifest = JSON.parse(readFileSync(manifestPath, 'utf8')) as PackageManifest
     if (manifest.name !== name) {
-      throw new Error(`ecosystem plugins: expected ${name} at ${manifestPath}, found ${String(manifest.name)}`)
+      throw new Error(`${label}: expected ${name} at ${manifestPath}, found ${String(manifest.name)}`)
     }
     if (typeof manifest.version !== 'string' || manifest.version.length === 0) {
-      throw new Error(`ecosystem plugins: package version missing in ${manifestPath}`)
+      throw new Error(`${label}: package version missing in ${manifestPath}`)
     }
     return {
       name,
@@ -149,6 +130,25 @@ export function discoverEcosystemPlugins(appPath: string): RuntimePluginManifest
       hasClient: manifest.dsh?.client !== undefined,
     }
   })
+}
+
+/**
+ * Resolve npm runtime plugins declared by `dshElectron.runtimePlugins`.
+ * A runtime plugin holds the same status as a `runtime/plugins/` member.
+ * @param appPath - Electron application root.
+ * @returns Manifests backed by installed npm package artifacts.
+ */
+export function discoverRuntimePluginPackages(appPath: string): RuntimePluginManifest[] {
+  return discoverDeclaredPlugins(appPath, 'runtimePlugins')
+}
+
+/**
+ * Resolve npm ecosystem plugins declared by `dshElectron.ecosystemPlugins`.
+ * @param appPath - Electron application root.
+ * @returns Manifests backed by installed npm package artifacts.
+ */
+export function discoverEcosystemPluginPackages(appPath: string): RuntimePluginManifest[] {
+  return discoverDeclaredPlugins(appPath, 'ecosystemPlugins')
 }
 
 interface PackageManifest {
@@ -167,50 +167,6 @@ function clientBundleFile(rootPath: string): string {
   } catch {
     return 'client.js'
   }
-}
-
-/**
- * Discover every Electron-bundled plugin artifact with lifecycle policy metadata.
- * @param appPath - Electron application root.
- * @returns Runtime adapters first, then ecosystem plugins in distribution order.
- */
-export function discoverManagedPlugins(appPath: string): ManagedPlugin[] {
-  const runtime = discoverRuntimePlugins(appPath).map<ManagedPlugin>(plugin => ({
-    ...plugin,
-    ownership: 'system',
-    kind: 'runtime-plugin',
-    installSource: 'bundled',
-    manageable: false,
-    required: true,
-    activationMode: 'hot',
-    health: 'healthy',
-    packageActions: noPackageActions(),
-  }))
-  const ecosystem = discoverEcosystemPlugins(appPath).map<ManagedPlugin>(plugin => ({
-    ...plugin,
-    ownership: 'bundled',
-    kind: 'runtime-plugin',
-    installSource: 'bundled',
-    manageable: true,
-    required: false,
-    activationMode: 'hot',
-    health: 'healthy',
-    packageActions: noPackageActions(),
-  }))
-  return [...runtime, ...ecosystem]
-}
-
-function noPackageActions(): PluginPackageActions {
-  return { checkUpdates: false, update: false, reinstall: false, remove: false }
-}
-
-/**
- * Discover only ecosystem plugins that Electron may manage at runtime.
- * @param appPath - Electron application root.
- * @returns Bundled ecosystem plugins in distribution order.
- */
-export function discoverManageablePlugins(appPath: string): ManagedPlugin[] {
-  return discoverManagedPlugins(appPath).filter(plugin => plugin.manageable)
 }
 
 /**
@@ -244,41 +200,20 @@ export function profileModuleLinkPath(harnessHome: string, packageName: string):
 }
 
 /**
- * Resolve the dynamic-include module fallback path for one npm package name.
- * @param harnessHome - `$DSH_HOME` root used by the supervised Host.
- * @param packageName - Scoped or unscoped npm package name.
- * @returns Absolute symlink path under `electron/node_modules`.
- */
-export function pluginRuntimeModuleLinkPath(harnessHome: string, packageName: string): string {
-  return join(harnessHome, 'electron', 'node_modules', ...packageName.split('/'))
-}
-
-/**
- * Symlink every bundled runtime plugin into the profile module fallback.
+ * Validate and link bundled Desktop plugins for profile resolution before Host boot.
  * @param appPath - Electron application root.
- * @param harnessHome - `$DSH_HOME` root used by the supervised Host.
+ * @param harnessHome - Active Harness home.
  */
 export function ensureRuntimePluginsLinked(appPath: string, harnessHome: string): void {
-  const plugins = discoverManagedPlugins(appPath)
-  if (plugins.length === 0) {
-    throw new Error(`runtime plugins: no bundled plugins under ${runtimePluginsRoot(appPath)}`)
-  }
+  const plugins = [
+    ...discoverRuntimePluginDirectories(appPath),
+    ...discoverRuntimePluginPackages(appPath),
+    ...discoverEcosystemPluginPackages(appPath),
+  ]
+  if (plugins.length === 0) throw new Error(`runtime plugins: no bundled plugins under ${runtimePluginsRoot(appPath)}`)
   for (const plugin of plugins) {
     validateRuntimePlugin(plugin)
-  }
-  ensureCatalogPluginLinks(harnessHome, plugins)
-}
-
-/**
- * Repair profile and electron `node_modules` links for every hot-activated package.
- * @param harnessHome - `$DSH_HOME` root used by the supervised Host.
- * @param plugins - Catalog entries to link when their artifacts exist.
- */
-export function ensureCatalogPluginLinks(harnessHome: string, plugins: readonly ManagedPlugin[]): void {
-  for (const plugin of plugins) {
-    if (plugin.activationMode !== 'hot' || !existsSync(plugin.rootPath)) continue
     ensureSymlink(profileModuleLinkPath(harnessHome, plugin.name), plugin.rootPath)
-    ensureSymlink(pluginRuntimeModuleLinkPath(harnessHome, plugin.name), plugin.rootPath)
   }
 }
 

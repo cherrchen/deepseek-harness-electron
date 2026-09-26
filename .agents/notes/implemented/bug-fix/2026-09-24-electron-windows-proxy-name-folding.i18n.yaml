@@ -1,6 +1,22 @@
-# Bilingual-pair consistency record (docs/i18n/README.md): the git blob hash of each
-# side as of the last confirmed-consistent state. Both languages carry equal authority;
-# after editing either side, bring the other along and re-record with:
+# Bilingual-pair consistency record for 2026-09-24-electron-windows-proxy-name-folding.md (docs/i18n/README.md): per heading
+# section, a hash of its English and Chinese blocks outside code blocks and generated regions.
+# After editing either side, bring the other along and re-record with:
 #   pnpm run verify-translation-pairing --write .agents/notes/implemented/bug-fix/2026-09-24-electron-windows-proxy-name-folding.md
-2026-09-24-electron-windows-proxy-name-folding.md: 09641586ab6019ff532d374628533345bd110317
-2026-09-24-electron-windows-proxy-name-folding.zh.md: 1dfd7ffc7ee42dd76fc150320134acfd2fa477c6
+/agent-note-electron-windows-proxy-name-folding:
+  en: ce60460552cbe47a
+  zh: 5fc729aa0953ecc3
+/agent-note-electron-windows-proxy-name-folding/problem:
+  en: 55fcfcd2fe74c4fb
+  zh: 23b3145d766e9da5
+/agent-note-electron-windows-proxy-name-folding/decision:
+  en: 54b73c8c258203c6
+  zh: 8782fbe25a4cad2e
+/agent-note-electron-windows-proxy-name-folding/alternatives-considered:
+  en: 0e914574374ee855
+  zh: cef4b0147f38e748
+/agent-note-electron-windows-proxy-name-folding/consequences:
+  en: 462c45ba154a026a
+  zh: ad2059c809c9f1ca
+/agent-note-electron-windows-proxy-name-folding/testing:
+  en: cb65a8c799876278
+  zh: b80555161234d243

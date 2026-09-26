@@ -1,6 +1,19 @@
-# Bilingual-pair consistency record (docs/i18n/README.md): the git blob hash of each
-# side as of the last confirmed-consistent state. Both languages carry equal authority;
-# after editing either side, bring the other along and re-record with:
+# Bilingual-pair consistency record for 2026-08-21-electron-desktop-capability-ownership.md (docs/i18n/README.md): per heading
+# section, a hash of its English and Chinese blocks outside code blocks and generated regions.
+# After editing either side, bring the other along and re-record with:
 #   pnpm run verify-translation-pairing --write .agents/notes/implemented/architecture/2026-08-21-electron-desktop-capability-ownership.md
-2026-08-21-electron-desktop-capability-ownership.md: 50617e4c4c512e4b4b09f0b8186f2920644ac350
-2026-08-21-electron-desktop-capability-ownership.zh.md: f7ea049d8fd500c03e3156c099da91a0b9bf73a9
+/agent-note-electron-owned-desktop-capabilities-via-typed-main-bridge:
+  en: 4fce70fc946ef5b0
+  zh: 62292f0f87e6cd89
+/agent-note-electron-owned-desktop-capabilities-via-typed-main-bridge/problem:
+  en: fcbd0de28e29b43e
+  zh: 817d55400b0d320f
+/agent-note-electron-owned-desktop-capabilities-via-typed-main-bridge/decision:
+  en: 72ce3722ab428d24
+  zh: 57f0354caf4fbd47
+/agent-note-electron-owned-desktop-capabilities-via-typed-main-bridge/alternatives-considered:
+  en: ea89e9a4b12a98da
+  zh: 0ed8fba6f5d2ce30
+/agent-note-electron-owned-desktop-capabilities-via-typed-main-bridge/consequences:
+  en: c42a6d45d349e704
+  zh: 1bdcb5821457993d

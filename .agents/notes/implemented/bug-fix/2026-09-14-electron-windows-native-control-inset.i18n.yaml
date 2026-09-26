@@ -1,6 +1,19 @@
-# Bilingual-pair consistency record (docs/i18n/README.md): the git blob hash of each
-# side as of the last confirmed-consistent state. Both languages carry equal authority;
-# after editing either side, bring the other along and re-record with:
+# Bilingual-pair consistency record for 2026-09-14-electron-windows-native-control-inset.md (docs/i18n/README.md): per heading
+# section, a hash of its English and Chinese blocks outside code blocks and generated regions.
+# After editing either side, bring the other along and re-record with:
 #   pnpm run verify-translation-pairing --write .agents/notes/implemented/bug-fix/2026-09-14-electron-windows-native-control-inset.md
-2026-09-14-electron-windows-native-control-inset.md: 133a4a8bfe0dabaa101829eb9cef717a1ee0bfc7
-2026-09-14-electron-windows-native-control-inset.zh.md: 169d438b33012857a246c1368104c865170908cf
+/agent-note-windows-native-control-inset-for-the-tabbed-client-ui:
+  en: 036c0e3ccd86fd63
+  zh: 335c42ac7ae87785
+/agent-note-windows-native-control-inset-for-the-tabbed-client-ui/problem:
+  en: 8437710f6eb428b1
+  zh: 248b90324168d4e8
+/agent-note-windows-native-control-inset-for-the-tabbed-client-ui/decision:
+  en: d575b6eb07e39c76
+  zh: c7ff1b620db3fbde
+/agent-note-windows-native-control-inset-for-the-tabbed-client-ui/alternatives-considered:
+  en: c65f2e90796dc92c
+  zh: 81c03d1792296e8c
+/agent-note-windows-native-control-inset-for-the-tabbed-client-ui/consequences:
+  en: 5571e52e349f9fc4
+  zh: 6209cc92022ec848

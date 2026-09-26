@@ -92,7 +92,7 @@ export interface DesktopCapabilitiesContract {
     getVersion(): Promise<string>
     /** Electron process.platform. */
     getPlatform(): Promise<string>
-    /** Relaunch Desktop after draining Host so pending plugin composition applies. */
+    /** Relaunch Desktop after draining the Host. */
     relaunch(): Promise<void>
   }
   dialog: {
@@ -116,28 +116,6 @@ export interface DesktopCapabilitiesContract {
   notification: {
     /** Show an OS notification; click handling stays in Main. */
     show(options: DesktopNotificationOptions): Promise<DesktopNotificationResult>
-  }
-  plugins: {
-    /** Read the current profile-aware plugin catalog and runtime state. */
-    list(): Promise<import('../../../../../src/plugin-lifecycle-contract.ts').PluginLifecycleSnapshot>
-    /** Install one package into the active Desktop profile. */
-    install(
-      request: import('../../../../../src/plugin-install-contract.ts').PluginInstallRequest,
-    ): Promise<import('../../../../../src/plugin-install-contract.ts').PluginInstallResult>
-    /** Check Registry profile dependencies for updates allowed by their current ranges. */
-    checkUpdates(): Promise<import('../../../../../src/plugin-package-contract.ts').PluginUpdateInfo[]>
-    /** Update or refresh one profile dependency. */
-    update(name: string): Promise<import('../../../../../src/plugin-package-contract.ts').PluginPackageMutationResult>
-    /** Re-resolve one profile dependency from its requested spec. */
-    reinstall(name: string): Promise<import('../../../../../src/plugin-package-contract.ts').PluginPackageMutationResult>
-    /** Remove one direct profile dependency. */
-    remove(name: string): Promise<import('../../../../../src/plugin-package-contract.ts').PluginPackageMutationResult>
-    /** Enable one manageable bundled ecosystem plugin. */
-    enable(name: string): Promise<void>
-    /** Disable one manageable bundled ecosystem plugin. */
-    disable(name: string): Promise<void>
-    /** Reload one enabled manageable bundled ecosystem plugin. */
-    reload(name: string): Promise<void>
   }
   updater: {
     /** Request an update check. */
@@ -187,7 +165,6 @@ interface DesktopBridge {
   clipboard: DesktopCapabilitiesContract['clipboard']
   shell: DesktopCapabilitiesContract['shell']
   notification: DesktopCapabilitiesContract['notification']
-  plugins: DesktopCapabilitiesContract['plugins']
   updater: DesktopCapabilitiesContract['updater']
   theme: DesktopCapabilitiesContract['theme']
   window: DesktopCapabilitiesContract['window']
@@ -239,17 +216,6 @@ export function createDesktopCapabilities(bridge: DesktopBridge): DesktopCapabil
     },
     notification: {
       show: options => bridge.notification.show(options),
-    },
-    plugins: {
-      list: () => bridge.plugins.list(),
-      install: request => bridge.plugins.install(request),
-      checkUpdates: () => bridge.plugins.checkUpdates(),
-      update: name => bridge.plugins.update(name),
-      reinstall: name => bridge.plugins.reinstall(name),
-      remove: name => bridge.plugins.remove(name),
-      enable: name => bridge.plugins.enable(name),
-      disable: name => bridge.plugins.disable(name),
-      reload: name => bridge.plugins.reload(name),
     },
     updater: {
       check: () => bridge.updater.check(),

@@ -1,6 +1,19 @@
-# Bilingual-pair consistency record (docs/i18n/README.md): the git blob hash of each
-# side as of the last confirmed-consistent state. Both languages carry equal authority;
-# after editing either side, bring the other along and re-record with:
+# Bilingual-pair consistency record for 2026-08-15-electron-desktop-integration.md (docs/i18n/README.md): per heading
+# section, a hash of its English and Chinese blocks outside code blocks and generated regions.
+# After editing either side, bring the other along and re-record with:
 #   pnpm run verify-translation-pairing --write .agents/notes/implemented/feature/2026-08-15-electron-desktop-integration.md
-2026-08-15-electron-desktop-integration.md: 12dac9f87e43a6061121a1bf2e8f06e2fa874795
-2026-08-15-electron-desktop-integration.zh.md: 14d2c8a645c4cc2132f8ea3432b920b4f3f5c661
+/agent-note-electron-owns-desktop-integration:
+  en: 99604e45e9d2b3c7
+  zh: 14550969f11bf7a7
+/agent-note-electron-owns-desktop-integration/problem:
+  en: 16b744ad0fd9b230
+  zh: dd551921acfb526d
+/agent-note-electron-owns-desktop-integration/decision:
+  en: ed0fa075185da20b
+  zh: a0f1acc8a034002e
+/agent-note-electron-owns-desktop-integration/alternatives-considered:
+  en: 0f5a052639a7b2ee
+  zh: 27bd3eb6fee5ca6e
+/agent-note-electron-owns-desktop-integration/consequences:
+  en: 8a4f1676d91c97e4
+  zh: 4f6f27a88d9a3296

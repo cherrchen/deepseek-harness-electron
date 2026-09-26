@@ -24,4 +24,4 @@ Desktop 不组合基于 Details 的 Git Client。进入组合的是 Sidebar 移�
 
 ## Consequences
 
-依赖 Details Host 的 Git UI 不可用。仓库控件走 `ctx.sidebarRight`。Overlay 测试仍禁止 `@dsh-electron/dsh-plugin-git` 出现在 `host.patch.yml` 中，因为生态组合走生成的 include 文件。
+依赖 Details Host 的 Git UI 不可用。仓库控件通过 `ctx.sidebarRight` 提供，`host.patch.yml` 插入已发布的 Git package。

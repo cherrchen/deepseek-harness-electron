@@ -1,9 +1,13 @@
 import { existsSync, readdirSync, readFileSync } from 'node:fs'
+import { createRequire } from 'node:module'
 import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
+import { runInNewContext } from 'node:vm'
 import { describe, expect, it } from 'vitest'
 
 const electronRoot = fileURLToPath(new URL('..', import.meta.url))
+
+const npmThemeStudioRoot = join(electronRoot, 'node_modules', '@dsh-electron', 'dsh-theme-studio')
 
 describe('directory picker feature plugin regression', () => {
   it('injects the desktop capability service instead of reading window.deepseekDesktop directly', () => {
@@ -60,42 +64,59 @@ describe('desktop brand feature plugin regression', () => {
   })
 })
 
-describe('theme studio portable runtime plugin regression', () => {
-  it('declares a public web client and does not import Electron or desktop', () => {
-    const manifest = JSON.parse(
-      readFileSync(join(electronRoot, 'runtime', 'plugins', 'dsh-theme-studio', 'package.json'), 'utf8'),
-    ) as {
+describe('theme studio published runtime plugin regression', () => {
+  it('ships a web client that declares no Desktop capability edge', () => {
+    const manifest = JSON.parse(readFileSync(join(npmThemeStudioRoot, 'package.json'), 'utf8')) as {
       name?: string
-      dsh?: { client?: { platform?: string } }
+      version?: string
+      dependencies?: Record<string, string>
+      dsh?: { client?: { platform?: string; inject?: string[] } }
     }
     expect(manifest.name).toBe('@dsh-electron/dsh-theme-studio')
+    expect(manifest.version).toBe('0.1.0')
     expect(manifest.dsh?.client?.platform).toBe('web')
-    const clientRoot = join(electronRoot, 'runtime', 'plugins', 'dsh-theme-studio', 'src', 'client')
-    for (const file of readdirSync(clientRoot)) {
-      if (!file.endsWith('.ts') && !file.endsWith('.tsx')) continue
-      const source = readFileSync(join(clientRoot, file), 'utf8')
-      expect(source).not.toContain('window.deepseekDesktop')
-      expect(source).not.toContain('ipcRenderer')
-      expect(source).not.toContain("from 'electron'")
-      expect(source).not.toContain('ctx.desktop')
-    }
+    expect(manifest.dsh?.client?.inject ?? []).not.toContain('@dsh-electron/dsh-electron-desktop-capabilities')
+    expect(Object.keys(manifest.dependencies ?? {})).not.toContain('electron')
   })
-})
 
-describe('desktop plugin manager feature plugin regression', () => {
-  it('depends on canonical Settings contracts and keeps primitives external', () => {
-    const manifest = JSON.parse(
-      readFileSync(join(electronRoot, 'runtime', 'plugins', 'ui-plugin-manager-electron', 'package.json'), 'utf8'),
-    ) as { name?: string; dsh?: { client?: { inject?: string[]; external?: string[] } } }
-    expect(manifest.name).toBe('@dsh-electron/dsh-electron-ui-plugin-manager')
-    expect(manifest.dsh?.client?.inject).toEqual([
-      '@deepseek-ai/dsh-client-ui-renderer',
-      '@deepseek-ai/dsh-client-ui-settings',
-      '@deepseek-ai/dsh-client-locale',
-      '@dsh-electron/dsh-electron-desktop-capabilities',
-    ])
-    expect(manifest.dsh?.client?.inject).not.toContain('@deepseek-ai/dsh-client-ui-settings-plugins')
-    expect(manifest.dsh?.client?.external).toEqual(['@deepseek-ai/dsh-client-ui-primitives'])
+  it('registers its client bundle under the package id with only the seeded external', () => {
+    const bundle = readFileSync(join(npmThemeStudioRoot, 'lib', 'client.js'), 'utf8')
+    const reactRuntime: unknown = createRequire(import.meta.url)('react/jsx-runtime')
+    const loaded: Array<{ id: string; exported: { apply?: unknown; inject?: string[] } }> = []
+    const host = globalThis as typeof globalThis & {
+      window?: {
+        __ModuleLoader__: {
+          load: (entry: {
+            id: string
+            factory: (require: (specifier: string) => unknown) => { apply?: unknown; inject?: string[] }
+          }) => void
+        }
+      }
+    }
+    const previousWindow = host.window
+    host.window = {
+      __ModuleLoader__: {
+        load: (entry) => {
+          loaded.push({
+            id: entry.id,
+            exported: entry.factory((specifier) => {
+              if (specifier === 'react/jsx-runtime') return reactRuntime
+              throw new Error(`unexpected client bundle external: ${specifier}`)
+            }),
+          })
+        },
+      },
+    }
+    try {
+      runInNewContext(bundle, { window: host.window })
+    } finally {
+      if (previousWindow === undefined) delete host.window
+      else host.window = previousWindow
+    }
+    const plugin = loaded.find(entry => entry.id === '@dsh-electron/dsh-theme-studio')
+    expect(plugin?.exported.inject).toContain('theme')
+    expect(plugin?.exported.inject).not.toContain('settingsScope')
+    expect(typeof plugin?.exported.apply).toBe('function')
   })
 })
 

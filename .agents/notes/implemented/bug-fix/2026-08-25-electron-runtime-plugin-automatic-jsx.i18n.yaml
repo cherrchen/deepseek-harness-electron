@@ -1,6 +1,19 @@
-# Bilingual-pair consistency record (docs/i18n/README.md): the git blob hash of each
-# side as of the last confirmed-consistent state. Both languages carry equal authority;
-# after editing either side, bring the other along and re-record with:
+# Bilingual-pair consistency record for 2026-08-25-electron-runtime-plugin-automatic-jsx.md (docs/i18n/README.md): per heading
+# section, a hash of its English and Chinese blocks outside code blocks and generated regions.
+# After editing either side, bring the other along and re-record with:
 #   pnpm run verify-translation-pairing --write .agents/notes/implemented/bug-fix/2026-08-25-electron-runtime-plugin-automatic-jsx.md
-2026-08-25-electron-runtime-plugin-automatic-jsx.md: 314b7d3adee151fd3db1f5c6430a4fd969d5c8b9
-2026-08-25-electron-runtime-plugin-automatic-jsx.zh.md: a480495d80be752c0c2c9c9281791d6a32c98f53
+/agent-note-electron-runtime-plugin-client-bundles-emit-automatic-jsx:
+  en: b2bd228aa068ca71
+  zh: 51d33a6d9915c441
+/agent-note-electron-runtime-plugin-client-bundles-emit-automatic-jsx/problem:
+  en: 3dfbd6f03e8e68df
+  zh: 34a71f6eba0bc9f6
+/agent-note-electron-runtime-plugin-client-bundles-emit-automatic-jsx/decision:
+  en: 3833a2b89298a178
+  zh: 1672dfd9cf44ae37
+/agent-note-electron-runtime-plugin-client-bundles-emit-automatic-jsx/alternatives-considered:
+  en: d1510277b524db28
+  zh: 3fc19412fee90e6f
+/agent-note-electron-runtime-plugin-client-bundles-emit-automatic-jsx/consequences:
+  en: 959e730facb52831
+  zh: 2a8ee282a27b566f

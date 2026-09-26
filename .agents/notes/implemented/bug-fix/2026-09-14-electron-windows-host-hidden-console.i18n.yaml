@@ -1,6 +1,22 @@
-# Bilingual-pair consistency record (docs/i18n/README.md): the git blob hash of each
-# side as of the last confirmed-consistent state. Both languages carry equal authority;
-# after editing either side, bring the other along and re-record with:
+# Bilingual-pair consistency record for 2026-09-14-electron-windows-host-hidden-console.md (docs/i18n/README.md): per heading
+# section, a hash of its English and Chinese blocks outside code blocks and generated regions.
+# After editing either side, bring the other along and re-record with:
 #   pnpm run verify-translation-pairing --write .agents/notes/implemented/bug-fix/2026-09-14-electron-windows-host-hidden-console.md
-2026-09-14-electron-windows-host-hidden-console.md: 3f9f15905972c625bba35ea85ff2b284ca69f3c2
-2026-09-14-electron-windows-host-hidden-console.zh.md: 4e28a84ba71bc39d0663cb1f5256f25374d34600
+/agent-note-electron-windows-host-hidden-console:
+  en: ea1afa41d9aa4bc5
+  zh: 30f87b123cc95eb1
+/agent-note-electron-windows-host-hidden-console/problem:
+  en: fb236bc1534aca98
+  zh: 51addeab4b816fe4
+/agent-note-electron-windows-host-hidden-console/decision:
+  en: bb1ad2a164113c4f
+  zh: a227461d409f1acb
+/agent-note-electron-windows-host-hidden-console/alternatives-considered:
+  en: 6d3d0c7d9692239f
+  zh: a1ed58dd577843ae
+/agent-note-electron-windows-host-hidden-console/consequences:
+  en: c1fed1e91363c1c7
+  zh: 49d8f3d78f9aac31
+/agent-note-electron-windows-host-hidden-console/testing:
+  en: ebce0881b62ec5c9
+  zh: 32ee80e71f3b3016

@@ -1,6 +1,25 @@
-# Bilingual-pair consistency record (docs/i18n/README.md): the git blob hash of each
-# side as of the last confirmed-consistent state. Both languages carry equal authority;
-# after editing either side, bring the other along and re-record with:
+# Bilingual-pair consistency record for README.md (docs/i18n/README.md): per heading
+# section, a hash of its English and Chinese blocks outside code blocks and generated regions.
+# After editing either side, bring the other along and re-record with:
 #   pnpm run verify-translation-pairing --write apps/electron/README.md
-README.md: d5b122917c3037623dabf0d53cdd202a07e59e05
-README.zh.md: 6e468b3c1cab29df9d63cab2e24118318cdbfecd
+/deepseek-harness-desktop:
+  en: 3cb1ea6afb988cff
+  zh: ffed5add155b98db
+/deepseek-harness-desktop/architecture-current:
+  en: 30405ec10a6f95bb
+  zh: 6598588ed6802acc
+/deepseek-harness-desktop/development:
+  en: afcfc99ae968192e
+  zh: 8fca45a5c68ee903
+/deepseek-harness-desktop/desktop-integration:
+  en: 166de367e96c21d1
+  zh: 48b6daa68b0ca59c
+/deepseek-harness-desktop/updates:
+  en: 4bbcade8bdeda66c
+  zh: 16c227e674da4b2d
+/deepseek-harness-desktop/packaging:
+  en: ab3e86b43abf720c
+  zh: ad4a96bbcd7657c3
+/deepseek-harness-desktop/runtime-and-security:
+  en: 7d590ad1d764b337
+  zh: f9cd28a7cf45176c

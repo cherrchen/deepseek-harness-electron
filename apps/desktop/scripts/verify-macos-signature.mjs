@@ -1,8 +1,9 @@
-/** Sign seed code and verify that packaged macOS artifacts carry the company release identity. */
+/** Sign runtime code and verify that packaged macOS artifacts carry the company release identity. */
 
 import { spawn, spawnSync } from 'node:child_process'
 import { resolve } from 'node:path'
 import { resolveMacOSSigningEnvironment } from './desktop-release-environment.mjs'
+import { loadDesktopPackageEnvironment } from './desktop-package-environment.mjs'
 
 /**
  * Reject signature metadata that does not name the company release authority and team.
@@ -21,19 +22,19 @@ export function assertMacOSSignatureDetails(details, expected) {
 }
 
 /**
- * Require the signature properties Apple validates for executable seed content.
+ * Require the signature properties Apple validates for executable runtime content.
  * @param {string} details - Output from `codesign --display --verbose=4`.
  * @param {{ signingIdentity: string, teamId: string }} expected - Public release identity.
  * @returns {void}
  */
-export function assertMacOSSeedSignatureDetails(details, expected) {
+export function assertMacOSRuntimeSignatureDetails(details, expected) {
   assertMacOSSignatureDetails(details, expected)
   const fields = details.split(/\r?\n/u).map(line => line.trim())
   if (!fields.some(line => /^Timestamp=.+/u.test(line))) {
-    throw new Error('desktop macOS signing: seed signature has no secure timestamp')
+    throw new Error('desktop macOS signing: runtime signature has no secure timestamp')
   }
   if (!fields.some(line => /\bflags=0x[0-9a-f]+\(runtime\)(?:\s|$)/iu.test(line))) {
-    throw new Error('desktop macOS signing: seed signature does not enable hardened runtime')
+    throw new Error('desktop macOS signing: runtime signature does not enable hardened runtime')
   }
 }
 
@@ -60,7 +61,7 @@ function runAppleCommand(command, args, label) {
 }
 
 /**
- * Execute one Apple release tool without blocking other independent seed signers.
+ * Execute one Apple release tool without blocking other independent runtime signers.
  * @param {string} command - Absolute executable path.
  * @param {readonly string[]} args - Tool arguments.
  * @param {string} label - Stable diagnostic name.
@@ -106,33 +107,38 @@ function runCodeSign(args) {
 }
 
 /**
- * Sign one Mach-O file embedded in the seed store.
+ * Sign one Mach-O file using the packaging-owned CSC_KEYCHAIN; missing setup rejects before signing.
  * @param {string} path - Writable standalone Mach-O file.
  * @param {string} identifier - Stable code-signing identifier derived from the release app ID and CAS digest.
  * @param {{ signingIdentity: string, teamId: string }} expected - Public release identity.
+ * @param {string | undefined} entitlements - Optional entitlement plist for this executable.
  * @returns {Promise<void>} Resolves after codesign exits successfully.
  */
-export async function signMacOSSeedCode(path, identifier, expected) {
+export async function signMacOSRuntimeCode(path, identifier, expected, entitlements) {
+  const keychain = process.env.CSC_KEYCHAIN
+  if (!keychain) throw new Error('desktop macOS signing: run through the package command to prepare the signing keychain')
   await runAppleCommandAsync('/usr/bin/codesign', [
     '--force',
     '--sign', expected.signingIdentity,
+    '--keychain', keychain,
     '--identifier', identifier,
     '--timestamp',
     '--options', 'runtime',
+    ...(entitlements === undefined ? [] : ['--entitlements', entitlements]),
     path,
   ], 'codesign')
 }
 
 /**
- * Verify one Mach-O file embedded in the seed store.
+ * Verify one Mach-O file embedded in the runtime tree.
  * @param {string} path - Mach-O file to inspect.
  * @param {{ signingIdentity: string, teamId: string }} expected - Public release identity.
  * @returns {void}
  */
-export function verifyMacOSSeedCode(path, expected) {
+export function verifyMacOSRuntimeCode(path, expected) {
   runCodeSign(['--verify', '--strict', '--verbose=2', path])
   const details = runCodeSign(['--display', '--verbose=4', path])
-  assertMacOSSeedSignatureDetails(details, expected)
+  assertMacOSRuntimeSignatureDetails(details, expected)
 }
 
 /**
@@ -145,6 +151,18 @@ export function verifyMacOSSignature(appPath, expected) {
   runCodeSign(['--verify', '--deep', '--strict', '--verbose=2', appPath])
   const details = runCodeSign(['--display', '--verbose=4', appPath])
   assertMacOSSignatureDetails(details, expected)
+}
+
+/**
+ * Verify an independently distributed application's signature, ticket, and Gatekeeper acceptance.
+ * @param {string} appPath - Path to the stapled `.app` directory.
+ * @param {{ signingIdentity: string, teamId: string }} expected - Public release identity.
+ * @returns {void}
+ */
+export function verifyMacOSNotarizedApplication(appPath, expected) {
+  verifyMacOSSignature(appPath, expected)
+  runAppleCommand('/usr/bin/xcrun', ['stapler', 'validate', appPath], 'stapler validate')
+  runAppleCommand('/usr/sbin/spctl', ['--assess', '--type', 'execute', '--verbose=4', appPath], 'spctl')
 }
 
 /**
@@ -180,7 +198,7 @@ if (process.argv[1] !== undefined && import.meta.filename === resolve(process.ar
   if (appPath === undefined || cliArgs.length !== 1) {
     throw new Error('usage: node scripts/verify-macos-signature.mjs <path-to-app>')
   }
-  const expected = resolveMacOSSigningEnvironment(process.env)
+  const expected = resolveMacOSSigningEnvironment(loadDesktopPackageEnvironment('darwin'))
   verifyMacOSSignature(resolve(appPath), expected)
   process.stdout.write(`desktop macOS signing: verified Developer ID Application: ${expected.signingIdentity} (${expected.teamId})\n`)
 }

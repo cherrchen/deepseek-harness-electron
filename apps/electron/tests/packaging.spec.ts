@@ -5,7 +5,7 @@ import { describe, expect, it } from 'vitest'
 
 interface ElectronManifest {
   dependencies?: Record<string, string>
-  dshElectron?: { ecosystemPlugins?: string[] }
+  dshElectron?: { runtimePlugins?: string[]; ecosystemPlugins?: string[] }
   build: {
     extraMetadata: { name: string }
     extraResources: Array<{ from: string; to: string }>
@@ -44,15 +44,19 @@ describe('Electron packaging', () => {
     })
   })
 
-  it('installs every declared ecosystem plugin as a production registry dependency', async () => {
+  it('installs every declared bundled plugin as an exact production registry dependency', async () => {
     const electronRoot = join(import.meta.dirname, '..')
     const manifest = JSON.parse(await readFile(join(electronRoot, 'package.json'), 'utf8')) as ElectronManifest
-    const names = manifest.dshElectron?.ecosystemPlugins ?? []
+    const names = [
+      ...(manifest.dshElectron?.runtimePlugins ?? []),
+      ...(manifest.dshElectron?.ecosystemPlugins ?? []),
+    ]
     for (const name of names) {
       expect(manifest.dependencies?.[name]).toBeDefined()
       expect(manifest.dependencies?.[name]).not.toMatch(/^workspace:/)
       expect(existsSync(join(electronRoot, 'node_modules', ...name.split('/'), 'package.json'))).toBe(true)
     }
-    expect(manifest.dependencies?.['@dsh-electron/dsh-plugin-git']).toBe('0.2.1')
+    expect(manifest.dependencies?.['@dsh-electron/dsh-plugin-git']).toBe('0.2.3')
+    expect(manifest.dependencies?.['@dsh-electron/dsh-theme-studio']).toBe('0.1.0')
   })
 })

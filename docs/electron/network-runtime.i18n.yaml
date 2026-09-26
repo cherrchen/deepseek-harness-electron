@@ -1,6 +1,34 @@
-# Bilingual-pair consistency record (docs/i18n/README.md): the git blob hash of each
-# side as of the last confirmed-consistent state. Both languages carry equal authority;
-# after editing either side, bring the other along and re-record with:
+# Bilingual-pair consistency record for network-runtime.md (docs/i18n/README.md): per heading
+# section, a hash of its English and Chinese blocks outside code blocks and generated regions.
+# After editing either side, bring the other along and re-record with:
 #   pnpm run verify-translation-pairing --write docs/electron/network-runtime.md
-network-runtime.md: 627992c8ac8eac73c7719e629656cd616693b9f8
-network-runtime.zh.md: 431ef2ecf5fab49377f6e8939c24774eceda2f9d
+/desktop-network-runtime:
+  en: 4d70b984c7c4e11c
+  zh: 7d3c01394add8819
+/desktop-network-runtime/summary:
+  en: 270ad6e902605c47
+  zh: 6ab8932b3f3c4caa
+/desktop-network-runtime/contents:
+  en: 8057779a0cf16e20
+  zh: c9db8b4972b8a4fc
+/desktop-network-runtime/verification:
+  en: 83a20ee8289317bb
+  zh: d31adaf7a704815b
+/desktop-network-runtime/control-and-routing:
+  en: 3d540617543e83fc
+  zh: 63e5abfa1a7b8fa1
+/desktop-network-runtime/system-policy:
+  en: 137d0aa4a3031fea
+  zh: 4785328f4bae8327
+/desktop-network-runtime/credentials-and-tls:
+  en: d810633da20f245b
+  zh: f83cac1986c950af
+/desktop-network-runtime/lifecycle-and-limits:
+  en: 65572282a0dc9194
+  zh: 0f4e6ffcfb4a07f2
+/desktop-network-runtime/desktop-integration:
+  en: d4d0f5646c454578
+  zh: 743bb820620dc50d
+/desktop-network-runtime/limitations:
+  en: 0836dd814d463635
+  zh: 05c84f381ab1b735

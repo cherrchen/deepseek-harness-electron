@@ -48,14 +48,14 @@ Harness profile 和状态存储在对应平台的应用数据目录。智能体 
 
 ## 内置插件
 
-DeepSeek Harness Desktop 镜像两个来自独立 canonical repository 的可移植 DSH 插件。
+DeepSeek Harness Desktop 打包两个由独立 canonical repository 发布的 portable DSH 插件。
 
 | 插件 | 桌面角色 | 简介 |
 |---|---|---|
-| [dsh-theme-studio](https://github.com/cherrchen/dsh-theme-studio) | 必需内置 | 在**设置 → 通用 → 主题**提供内置配色主题，叠加在官方浅色 / 深色 / 跟随系统外观之上。 |
+| [dsh-theme-studio](https://github.com/cherrchen/dsh-theme-studio) | 必需内置 | 在**设置 → 通用 → 主题**提供内置配色主题，叠加在官方浅色 / 深色 / 跟随系统外观之上。列入 `dshElectron.runtimePlugins`。 |
 | [dsh-plugin-git](https://github.com/cherrchen/dsh-plugin-git) | 生态插件 | 在右侧边栏提供本地 Git 状态、diff、stage、commit 与 branch 操作。列入 `dshElectron.ecosystemPlugins`。 |
 
-Canonical 开发在各自仓库进行；本 monorepo 通过 git subtree 镜像它们。
+Canonical 开发在各自仓库进行；本 monorepo 安装它们发布的 npm package，不保留其源码副本。
 
 ## 开发
 

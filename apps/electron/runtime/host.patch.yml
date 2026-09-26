@@ -1,45 +1,31 @@
-# Electron Host composition overlay: OS directory picking belongs to Electron Main.
-# Disable auto (native/Koffi). Keep the browse Host backend so `directoryPicker`
-# still exists for apiproxy inject; the Electron client fills directory-flow
-# holes and calls Main's dialog (browse client is not mounted).
-# Desktop brand occupants replace the upstream `DSH Local Build` shell fallbacks.
-# Theme Studio is required portable UI: it overlays builtin palettes through
-# `ctx.theme.overrideTokens` and registers Settings → General → Themes.
-# The Electron Plugin Manager occupies
-# `settings.plugins.tab`. Bundled ecosystem plugins are linked into
-# `$DSH_HOME/profiles/node_modules` before Host start (see ensureRuntimePluginsLinked).
-# Ecosystem plugin lifecycle uses the generated include file below, not this
-# bootstrap overlay, except the Plugin Manager which is a required settings occupant.
+# Electron Host composition: OS directory picking belongs to Main. Keep the
+# browse Host backend for apiproxy; Desktop supplies the client directory flow.
+# Theme Studio is a required runtime plugin installed from npm
+# (`dshElectron.runtimePlugins`); it overlays builtin palettes through
+# `ctx.theme.overrideTokens` and registers Settings → General → Themes. Its row
+# stays disabled because the published 0.1.0 declares dsh peers only through
+# 0.1.7-alpha.2, so the Host compatibility preflight denies it.
 - id: directory-picker
   disabled: true
 
 - id: subprocess
-  name: '@dsh-electron/dsh-electron-network-subprocess'
-
-- id: hmr
-  disabled: false
-  config:
-    base: '__DSH_ELECTRON_PLUGIN_RUNTIME_BASE_URL__'
-    root:
-      - plugins.cordis.yml
+  disabled: true
 
 - insert:
+    - id: desktop-network-subprocess
+      name: '@dsh-electron/dsh-electron-network-subprocess'
     - id: directory-picker-browse
       name: '@deepseek-ai/dsh-host-directory-picker-browse'
     - id: desktop-capabilities
       name: '@dsh-electron/dsh-electron-desktop-capabilities'
     - id: theme-studio
       name: '@dsh-electron/dsh-theme-studio'
+      disabled: true
     - id: desktop-directory-picker
       name: '@dsh-electron/dsh-electron-ui-directory-picker'
     - id: desktop-ui-brand
       name: '@dsh-electron/dsh-electron-ui-brand'
-    - id: desktop-ui-plugin-manager
-      name: '@dsh-electron/dsh-electron-ui-plugin-manager'
     - id: desktop-ui-network-settings
       name: '@dsh-electron/dsh-electron-ui-network-settings'
-    - id: dsh-electron-ecosystem-plugins
-      name: 'cordis:include'
-      config:
-        path: '__DSH_ELECTRON_PLUGIN_CONFIG_URL__'
-        enableLogs: true
+    - id: desktop-git
+      name: '@dsh-electron/dsh-plugin-git'

@@ -24,4 +24,4 @@ Forking a private `details` slot, or keeping Details-based sources in the host/c
 
 ## Consequences
 
-Git UI that depends on Details Host is unavailable. Repository controls go through `ctx.sidebarRight`. Overlay tests still forbid `@dsh-electron/dsh-plugin-git` in `host.patch.yml` because ecosystem composition uses the generated include file.
+Git UI that depends on Details Host is unavailable. Repository controls go through `ctx.sidebarRight`, and `host.patch.yml` inserts the published Git package.
