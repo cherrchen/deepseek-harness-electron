@@ -1,6 +1,6 @@
 /** Simplified Chinese copy for the Desktop Network page. */
 export const zh = {
-  nav: '网络', title: '网络连接', intro: '选择 Desktop 与 Harness 的网络连接方式。模式和代理配置在重启后生效。',
+  nav: '网络与运行环境', title: '网络连接', intro: '选择 Desktop 与 Harness 的网络连接方式。模式和代理配置在重启后生效。',
   mode: '网络模式', default: 'Default', defaultHint: '使用应用现有网络行为。Desktop 不接管代理路由。',
   direct: 'Direct', directHint: '强制直连，并清理 Desktop 可控 Agent 子进程的代理环境变量。',
   system: 'System Proxy', systemHint: '跟随操作系统代理策略。只执行第一条路由，不会静默回退。',
@@ -10,7 +10,7 @@ export const zh = {
   passwordRemoved: '保存后将移除已保存的密码', httpsHint: '到代理的连接使用 TLS；代理证书必须受操作系统信任。',
   socksHint: '此版本不支持 SOCKS5 认证。请使用无需认证的本地 SOCKS5 或 mixed port。',
   agent: '代理 Agent 网络请求', agentHint: '通过标准代理环境变量传递 Desktop 代理。此功能不是透明网络强制代理。',
-  tests: '连接测试', testHint: '测试当前生效的模式，仅用于诊断；失败不影响保存。',
+  tests: '连接测试',
   proxy: '代理', internet: 'Internet', github: 'GitHub', llm: 'LLM API',
   notTested: '未测试', testing: '测试中', reachable: '可连接', unreachable: '无法连接',
   skipped: '已跳过', notConfigured: '未配置', testConnection: '测试连接',
@@ -38,7 +38,7 @@ export const zh = {
 
 /** English copy follows the same typed keys. */
 export const en = {
-  nav: 'Network', title: 'Network connection', intro: 'Choose how Desktop and Harness connect. Mode and proxy changes take effect after restart.',
+  nav: 'Network & Runtimes', title: 'Network connection', intro: 'Choose how Desktop and Harness connect. Mode and proxy changes take effect after restart.',
   mode: 'Network mode', default: 'Default', defaultHint: 'Use the existing application network behavior. Desktop does not manage proxy routing.',
   direct: 'Direct', directHint: 'Connect directly and clear proxy variables for Desktop-managed Agent processes.',
   system: 'System Proxy', systemHint: 'Follow operating system proxy policy. Only the first route is used; there is no silent fallback.',
@@ -48,7 +48,7 @@ export const en = {
   passwordRemoved: 'The saved password will be removed when you save', httpsHint: 'The connection to the proxy uses TLS. Its certificate must be trusted by the operating system.',
   socksHint: 'SOCKS5 authentication is not supported in this version. Use an unauthenticated local SOCKS5 or mixed port.',
   agent: 'Proxy agent network requests', agentHint: 'Pass the Desktop proxy through standard proxy environment variables. This is not transparent network enforcement.',
-  tests: 'Connection test', testHint: 'Tests the currently active mode for diagnostics only; failure never blocks saving.',
+  tests: 'Connection test',
   proxy: 'Proxy', internet: 'Internet', github: 'GitHub', llm: 'LLM API',
   notTested: 'Not tested', testing: 'Testing', reachable: 'Reachable', unreachable: 'Unreachable',
   skipped: 'Skipped', notConfigured: 'Not configured', testConnection: 'Test connection',
